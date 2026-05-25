@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: Sevra API
-  description: API Documentation for Sevra Beauty Salon Management System
+  description: API Documentation for Sevra Beauty GamingCenter Management System
   version: 1.0.0
   contact:
     name: Sevra Support
@@ -131,11 +131,11 @@ components:
           type: string
         role:
           type: string
-          enum: [MANAGER, RECEPTIONIST, STAFF]
+          enum: [MANAGER, SUPERVISOR, STAFF]
         isActive:
           type: boolean
 
-    Salon:
+    GamingCenter:
       type: object
       properties:
         id:
@@ -152,12 +152,12 @@ components:
           type: string
           format: date-time
 
-    Service:
+    GameStation:
       type: object
       properties:
         id:
           type: string
-        salonId:
+        gamingCenterId:
           type: string
         name:
           type: string
@@ -170,36 +170,36 @@ components:
         isActive:
           type: boolean
 
-    Booking:
+    Reservation:
       type: object
       properties:
         id:
           type: string
-        salonId:
+        gamingCenterId:
           type: string
-        serviceId:
+        stationId:
           type: string
         staffId:
           type: string
         customerAccountId:
           type: string
-        startAt:
+        startTime:
           type: string
           format: date-time
-        endAt:
+        endTime:
           type: string
           format: date-time
         status:
           type: string
-          enum: [PENDING, CONFIRMED, DONE, CANCELED, NO_SHOW]
+          enum: [PENDING, CONFIRMED, COMPLETED, CANCELED, NO_SHOW]
         paymentState:
           type: string
           enum: [UNPAID, PENDING, PARTIALLY_PAID, PAID, REFUNDED, OVERPAID, FAILED, CANCELED]
-        serviceNameSnapshot:
+        (stationSnapshot as any):
           type: string
-        servicePriceSnapshot:
+        (stationSnapshot as any):
           type: integer
-        currencySnapshot:
+        (stationSnapshot as any):
           type: string
 
     Staff:
@@ -270,7 +270,7 @@ components:
       properties:
         id:
           type: string
-        salonId:
+        gamingCenterId:
           type: string
         timeZone:
           type: string
@@ -288,9 +288,9 @@ components:
       properties:
         id:
           type: string
-        bookingId:
+        reservationId:
           type: string
-        salonId:
+        gamingCenterId:
           type: string
         status:
           type: string
@@ -300,14 +300,14 @@ components:
         currency:
           type: string
 
-    Review:
+    Rating:
       type: object
       properties:
         id:
           type: string
-        salonId:
+        gamingCenterId:
           type: string
-        bookingId:
+        reservationId:
           type: string
         rating:
           type: integer
@@ -331,7 +331,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
 
-  /salons/{salonId}/analytics/summary:
+  /gamingCenters/{gamingCenterId}/analytics/summary:
     get:
       summary: Get analytics summary
       tags:
@@ -339,7 +339,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
@@ -364,7 +364,7 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
-  /salons/{salonId}/analytics/staff:
+  /gamingCenters/{gamingCenterId}/analytics/staff:
     get:
       summary: Get staff performance analytics
       tags:
@@ -372,7 +372,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
@@ -395,15 +395,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
 
-  /salons/{salonId}/analytics/services:
+  /gamingCenters/{gamingCenterId}/analytics/stations:
     get:
-      summary: Get service performance analytics
+      summary: Get station performance analytics
       tags:
         - Analytics
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
@@ -420,13 +420,13 @@ paths:
             format: date-time
       responses:
         '200':
-          description: Service performance data
+          description: GameStation performance data
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
 
-  /salons/{salonId}/analytics/revenue-chart:
+  /gamingCenters/{gamingCenterId}/analytics/revenue-chart:
     get:
       summary: Get revenue chart data
       tags:
@@ -434,7 +434,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
@@ -457,34 +457,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
 
-  /salons/{salonId}/settings:
+  /gamingCenters/{gamingCenterId}/settings:
     get:
-      summary: Get salon settings
+      summary: Get gamingCenter settings
       tags:
         - Settings
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
             type: string
       responses:
         '200':
-          description: Salon settings
+          description: GamingCenter settings
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
     put:
-      summary: Update salon settings
+      summary: Update gamingCenter settings
       tags:
         - Settings
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
@@ -515,15 +515,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
 
-  /salons/{salonId}/commissions:
+  /gamingCenters/{gamingCenterId}/commissions:
     get:
-      summary: List booking commissions
+      summary: List reservation commissions
       tags:
         - Commissions
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
@@ -549,7 +549,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Pagination'
 
-  /salons/{salonId}/commissions/{commissionId}/pay:
+  /gamingCenters/{gamingCenterId}/commissions/{earningId}/pay:
     post:
       summary: Pay a commission (record payment)
       tags:
@@ -557,12 +557,12 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
             type: string
-        - name: commissionId
+        - name: earningId
           in: path
           required: true
           schema:
@@ -601,7 +601,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
 
-  /public/salons/{salonSlug}/pages/{pageSlug}:
+  /public/gamingCenters/{salonSlug}/pages/{pageSlug}:
     get:
       summary: Get a public page by slug
       tags:
@@ -625,7 +625,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
 
-  /salons/{salonId}/media/upload:
+  /gamingCenters/{gamingCenterId}/media/upload:
     post:
       summary: Upload an image
       tags:
@@ -633,7 +633,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
@@ -663,15 +663,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
 
-  /salons/{salonId}/customers:
+  /gamingCenters/{gamingCenterId}/customers:
     get:
-      summary: List customers for a salon
+      summary: List customers for a gamingCenter
       tags:
         - Customers
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
@@ -702,7 +702,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
@@ -732,9 +732,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
 
-  /public/salons/{salonSlug}/bookings:
+  /public/gamingCenters/{salonSlug}/reservations:
     post:
-      summary: Create an online booking
+      summary: Create an online reservation
       tags:
         - Bookings
       parameters:
@@ -755,16 +755,16 @@ paths:
             schema:
               type: object
               required:
-                - serviceId
+                - stationId
                 - staffId
-                - startAt
+                - startTime
                 - customer
               properties:
-                serviceId:
+                stationId:
                   type: string
                 staffId:
                   type: string
-                startAt:
+                startTime:
                   type: string
                   format: date-time
                 customer:
@@ -783,19 +783,19 @@ paths:
                   type: string
       responses:
         '201':
-          description: Booking created
+          description: Reservation created
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
         '400':
-          description: Bad Request (e.g. Booking in the past)
+          description: Bad Request (e.g. Reservation in the past)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Forbidden (e.g. Online booking disabled)
+          description: Forbidden (e.g. Online reservation disabled)
           content:
             application/json:
               schema:
@@ -809,15 +809,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /salons/{salonId}/bookings:
+  /gamingCenters/{gamingCenterId}/reservations:
     get:
-      summary: List bookings for a salon
+      summary: List reservations for a gamingCenter
       tags:
         - Bookings
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
@@ -834,10 +834,10 @@ paths:
           in: query
           schema:
             type: string
-            enum: [PENDING, CONFIRMED, DONE, CANCELED, NO_SHOW]
+            enum: [PENDING, CONFIRMED, COMPLETED, CANCELED, NO_SHOW]
       responses:
         '200':
-          description: List of bookings
+          description: List of reservations
           content:
             application/json:
               schema:
@@ -845,13 +845,13 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
     post:
-      summary: Create a booking (Panel)
+      summary: Create a reservation (Panel)
       tags:
         - Bookings
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
@@ -863,16 +863,16 @@ paths:
             schema:
               type: object
               required:
-                - serviceId
+                - stationId
                 - staffId
-                - startAt
+                - startTime
                 - customer
               properties:
-                serviceId:
+                stationId:
                   type: string
                 staffId:
                   type: string
-                startAt:
+                startTime:
                   type: string
                   format: date-time
                 customer:
@@ -889,7 +889,7 @@ paths:
                   type: string
       responses:
         '201':
-          description: Booking created
+          description: Reservation created
           content:
             application/json:
               schema:
@@ -907,44 +907,44 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /salons/{salonId}/bookings/{bookingId}:
+  /gamingCenters/{gamingCenterId}/reservations/{reservationId}:
     get:
-      summary: Get booking by ID
+      summary: Get reservation by ID
       tags:
         - Bookings
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
             type: string
-        - name: bookingId
+        - name: reservationId
           in: path
           required: true
           schema:
             type: string
       responses:
         '200':
-          description: Booking details
+          description: Reservation details
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
     patch:
-      summary: Update booking details
+      summary: Update reservation details
       tags:
         - Bookings
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
             type: string
-        - name: bookingId
+        - name: reservationId
           in: path
           required: true
           schema:
@@ -955,44 +955,44 @@ paths:
             schema:
               type: object
               properties:
-                serviceId:
+                stationId:
                   type: string
                 staffId:
                   type: string
-                startAt:
+                startTime:
                   type: string
                   format: date-time
                 note:
                   type: string
       responses:
         '200':
-          description: Booking updated
+          description: Reservation updated
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
 
-  /salons/{salonId}/bookings/{bookingId}/confirm:
+  /gamingCenters/{gamingCenterId}/reservations/{reservationId}/confirm:
     post:
-      summary: Confirm a booking
+      summary: Confirm a reservation
       tags:
         - Bookings
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
             type: string
-        - name: bookingId
+        - name: reservationId
           in: path
           required: true
           schema:
             type: string
       responses:
         '200':
-          description: Booking confirmed
+          description: Reservation confirmed
           content:
             application/json:
               schema:
@@ -1008,20 +1008,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /salons/{salonId}/bookings/{bookingId}/cancel:
+  /gamingCenters/{gamingCenterId}/reservations/{reservationId}/cancel:
     post:
-      summary: Cancel a booking
+      summary: Cancel a reservation
       tags:
         - Bookings
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
             type: string
-        - name: bookingId
+        - name: reservationId
           in: path
           required: true
           schema:
@@ -1036,7 +1036,7 @@ paths:
                   type: string
       responses:
         '200':
-          description: Booking canceled
+          description: Reservation canceled
           content:
             application/json:
               schema:
@@ -1052,46 +1052,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /salons/{salonId}/bookings/{bookingId}/complete:
+  /gamingCenters/{gamingCenterId}/reservations/{reservationId}/complete:
     post:
-      summary: Complete a booking
+      summary: Complete a reservation
       tags:
         - Bookings
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
             type: string
-        - name: bookingId
+        - name: reservationId
           in: path
           required: true
           schema:
             type: string
       responses:
         '200':
-          description: Booking completed
+          description: Reservation completed
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
 
-  /salons/{salonId}/bookings/{bookingId}/no-show:
+  /gamingCenters/{gamingCenterId}/reservations/{reservationId}/no-show:
     post:
-      summary: Mark booking as no-show
+      summary: Mark reservation as no-show
       tags:
         - Bookings
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
             type: string
-        - name: bookingId
+        - name: reservationId
           in: path
           required: true
           schema:
@@ -1104,13 +1104,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
 
-  /salons/{salonId}/staff:
+  /gamingCenters/{gamingCenterId}/staff:
     get:
-      summary: List staff for a salon
+      summary: List staff for a gamingCenter
       tags:
         - Staff
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
@@ -1129,7 +1129,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
@@ -1151,7 +1151,7 @@ paths:
                   type: string
                 role:
                   type: string
-                  enum: [MANAGER, RECEPTIONIST, STAFF]
+                  enum: [MANAGER, SUPERVISOR, STAFF]
                 isPublic:
                   type: boolean
                 publicName:
@@ -1168,13 +1168,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
 
-  /salons/{salonId}/staff/{userId}/shifts:
+  /gamingCenters/{gamingCenterId}/staff/{userId}/staffShifts:
     get:
-      summary: List shifts for a staff member
+      summary: List staffShifts for a staff member
       tags:
         - Shifts
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
@@ -1186,19 +1186,19 @@ paths:
             type: string
       responses:
         '200':
-          description: List of shifts
+          description: List of staffShifts
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
     post:
-      summary: Upsert shifts for a staff member
+      summary: Upsert staffShifts for a staff member
       tags:
         - Shifts
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
@@ -1238,32 +1238,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
 
-  /salons/{salonId}/services:
+  /gamingCenters/{gamingCenterId}/stations:
     get:
-      summary: List services for a salon
+      summary: List stations for a gamingCenter
       tags:
         - Services
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
             type: string
       responses:
         '200':
-          description: List of services
+          description: List of stations
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
     post:
-      summary: Create a new service
+      summary: Create a new station
       tags:
         - Services
       security:
         - bearerAuth: []
       parameters:
-        - name: salonId
+        - name: gamingCenterId
           in: path
           required: true
           schema:
@@ -1292,15 +1292,15 @@ paths:
                   type: boolean
       responses:
         '201':
-          description: Service created
+          description: GameStation created
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
 
-  /public/salons/{salonSlug}/services:
+  /public/gamingCenters/{salonSlug}/stations:
     get:
-      summary: List public services for a salon
+      summary: List public stations for a gamingCenter
       tags:
         - Services
       parameters:
@@ -1311,26 +1311,26 @@ paths:
             type: string
       responses:
         '200':
-          description: List of public services
+          description: List of public stations
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
 
-  /salons:
+  /gamingCenters:
     get:
-      summary: List all salons
+      summary: List all gamingCenters
       tags:
         - Salons
       responses:
         '200':
-          description: List of salons
+          description: List of gamingCenters
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Pagination'
     post:
-      summary: Create a new salon
+      summary: Create a new gamingCenter
       tags:
         - Salons
       security:
@@ -1354,15 +1354,15 @@ paths:
                   type: string
       responses:
         '201':
-          description: Salon created
+          description: GamingCenter created
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
 
-  /salons/{id}:
+  /gamingCenters/{id}:
     get:
-      summary: Get salon by ID
+      summary: Get gamingCenter by ID
       tags:
         - Salons
       parameters:
@@ -1373,13 +1373,13 @@ paths:
             type: string
       responses:
         '200':
-          description: Salon details
+          description: GamingCenter details
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
     patch:
-      summary: Update salon
+      summary: Update gamingCenter
       tags:
         - Salons
       security:
@@ -1404,13 +1404,13 @@ paths:
                   type: boolean
       responses:
         '200':
-          description: Salon updated
+          description: GamingCenter updated
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
     delete:
-      summary: Delete salon
+      summary: Delete gamingCenter
       tags:
         - Salons
       security:
@@ -1423,7 +1423,7 @@ paths:
             type: string
       responses:
         '200':
-          description: Salon deleted
+          description: GamingCenter deleted
           content:
             application/json:
               schema:
@@ -1511,7 +1511,7 @@ paths:
                 actorType:
                   type: string
                   enum: [USER, SYSTEM_ADMIN]
-                salonId:
+                gamingCenterId:
                   type: string
       responses:
         '200':
@@ -1534,12 +1534,12 @@ paths:
               type: object
               required:
                 - phone
-                - salonId
+                - gamingCenterId
               properties:
                 phone:
                   type: string
                   example: "09123456789"
-                salonId:
+                gamingCenterId:
                   type: string
       responses:
         '200':

@@ -4,27 +4,27 @@ import app from '../../app';
 
 const prisma = new PrismaClient();
 
-describe('GET /api/v1/public/salons/:salonSlug/pages/:pageSlug', () => {
-  let salon: { id: string; slug: string };
+describe('GET /api/v1/public/gamingCenters/:salonSlug/pages/:pageSlug', () => {
+  let gamingCenter: { id: string; slug: string };
   let page: { id: string; slug: string };
   let draftPage: { id: string; slug: string };
 
   beforeAll(async () => {
     await prisma.salonPageSlugHistory.deleteMany();
     await prisma.salonPageSection.deleteMany();
-    await prisma.salonPage.deleteMany();
-    await prisma.salon.deleteMany();
+    await prisma.page.deleteMany();
+    await prisma.gamingCenter.deleteMany();
 
-    salon = await prisma.salon.create({
+    gamingCenter = await prisma.gamingCenter.create({
       data: {
-        name: 'Public Pages Salon',
+        name: 'Public Pages GamingCenter',
         slug: `public-pages-${Date.now()}`,
       },
     });
 
-    page = await prisma.salonPage.create({
+    page = await prisma.page.create({
       data: {
-        salonId: salon.id,
+        gamingCenterId: gamingCenter.id,
         slug: 'about',
         title: 'About',
         status: PageStatus.PUBLISHED,
@@ -76,9 +76,9 @@ describe('GET /api/v1/public/salons/:salonSlug/pages/:pageSlug', () => {
       },
     });
 
-    draftPage = await prisma.salonPage.create({
+    draftPage = await prisma.page.create({
       data: {
-        salonId: salon.id,
+        gamingCenterId: gamingCenter.id,
         slug: 'draft',
         title: 'Draft',
         status: PageStatus.DRAFT,
@@ -120,14 +120,14 @@ describe('GET /api/v1/public/salons/:salonSlug/pages/:pageSlug', () => {
   afterAll(async () => {
     await prisma.salonPageSlugHistory.deleteMany();
     await prisma.salonPageSection.deleteMany();
-    await prisma.salonPage.deleteMany();
-    await prisma.salon.deleteMany();
+    await prisma.page.deleteMany();
+    await prisma.gamingCenter.deleteMany();
     await prisma.$disconnect();
   });
 
   it('returns the page HTML for the current slug', async () => {
     const response = await request(app)
-      .get(`/api/v1/public/salons/${salon.slug}/pages/${page.slug}`)
+      .get(`/api/v1/public/gamingCenters/${gamingCenter.slug}/pages/${page.slug}`)
       .expect(200);
 
     expect(response.text).toContain('<!doctype html>');
@@ -136,7 +136,7 @@ describe('GET /api/v1/public/salons/:salonSlug/pages/:pageSlug', () => {
 
   it('includes caching headers and supports conditional requests', async () => {
     const response = await request(app)
-      .get(`/api/v1/public/salons/${salon.slug}/pages/${page.slug}`)
+      .get(`/api/v1/public/gamingCenters/${gamingCenter.slug}/pages/${page.slug}`)
       .expect(200);
 
     const etag = response.headers.etag;
@@ -146,30 +146,30 @@ describe('GET /api/v1/public/salons/:salonSlug/pages/:pageSlug', () => {
     expect(lastModified).toBeDefined();
 
     await request(app)
-      .get(`/api/v1/public/salons/${salon.slug}/pages/${page.slug}`)
+      .get(`/api/v1/public/gamingCenters/${gamingCenter.slug}/pages/${page.slug}`)
       .set('If-None-Match', etag)
       .expect(304);
 
     await request(app)
-      .get(`/api/v1/public/salons/${salon.slug}/pages/${page.slug}`)
+      .get(`/api/v1/public/gamingCenters/${gamingCenter.slug}/pages/${page.slug}`)
       .set('If-Modified-Since', lastModified)
       .expect(304);
   });
 
   it('busts cache when the page is updated', async () => {
     const initialResponse = await request(app)
-      .get(`/api/v1/public/salons/${salon.slug}/pages/${page.slug}`)
+      .get(`/api/v1/public/gamingCenters/${gamingCenter.slug}/pages/${page.slug}`)
       .expect(200);
 
     const initialEtag = initialResponse.headers.etag;
 
-    await prisma.salonPage.update({
+    await prisma.page.update({
       where: { id: page.id },
       data: { title: 'About Updated' },
     });
 
     const updatedResponse = await request(app)
-      .get(`/api/v1/public/salons/${salon.slug}/pages/${page.slug}`)
+      .get(`/api/v1/public/gamingCenters/${gamingCenter.slug}/pages/${page.slug}`)
       .set('If-None-Match', initialEtag)
       .expect(200);
 
@@ -178,7 +178,7 @@ describe('GET /api/v1/public/salons/:salonSlug/pages/:pageSlug', () => {
 
   it('renders enabled sections in sort order', async () => {
     const response = await request(app)
-      .get(`/api/v1/public/salons/${salon.slug}/pages/${page.slug}`)
+      .get(`/api/v1/public/gamingCenters/${gamingCenter.slug}/pages/${page.slug}`)
       .expect(200);
 
     const html = response.text;
@@ -196,21 +196,21 @@ describe('GET /api/v1/public/salons/:salonSlug/pages/:pageSlug', () => {
 
   it('redirects to the current slug when slug history matches', async () => {
     const response = await request(app)
-      .get(`/api/v1/public/salons/${salon.slug}/pages/about-old`)
+      .get(`/api/v1/public/gamingCenters/${gamingCenter.slug}/pages/about-old`)
       .expect(301);
 
     expect(response.headers.location).toBe(
-      `/api/v1/public/salons/${salon.slug}/pages/${page.slug}`
+      `/api/v1/public/gamingCenters/${gamingCenter.slug}/pages/${page.slug}`
     );
   });
 
   it('returns 404 for draft pages and their slug history', async () => {
     await request(app)
-      .get(`/api/v1/public/salons/${salon.slug}/pages/${draftPage.slug}`)
+      .get(`/api/v1/public/gamingCenters/${gamingCenter.slug}/pages/${draftPage.slug}`)
       .expect(404);
 
     await request(app)
-      .get(`/api/v1/public/salons/${salon.slug}/pages/draft-old`)
+      .get(`/api/v1/public/gamingCenters/${gamingCenter.slug}/pages/draft-old`)
       .expect(404);
   });
 });

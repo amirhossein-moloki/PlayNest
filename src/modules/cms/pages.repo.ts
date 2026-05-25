@@ -20,16 +20,16 @@ const mapSections = (sections: PageSectionInput[]) =>
     isEnabled: section.isEnabled ?? true,
   }));
 
-export async function createPage(salonId: string, data: CreatePageData) {
+export async function createPage(gamingCenterId: string, data: CreatePageData) {
   const { sections, ...pageData } = data;
   const createInput: Prisma.SalonPageUncheckedCreateInput = {
     ...(pageData as any), // eslint-disable-line @typescript-eslint/no-explicit-any
-    salonId,
+    gamingCenterId,
     sections: {
       create: mapSections(sections),
     },
   };
-  return prisma.salonPage.create({
+  return prisma.page.create({
     data: createInput as any, // eslint-disable-line @typescript-eslint/no-explicit-any
     include: {
       sections: { orderBy: { sortOrder: 'asc' } },
@@ -37,27 +37,27 @@ export async function createPage(salonId: string, data: CreatePageData) {
   });
 }
 
-export async function findPageById(salonId: string, pageId: string) {
-  return prisma.salonPage.findFirst({
-    where: { id: pageId, salonId },
+export async function findPageById(gamingCenterId: string, pageId: string) {
+  return prisma.page.findFirst({
+    where: { id: pageId, gamingCenterId },
     include: {
       sections: { orderBy: { sortOrder: 'asc' } },
     },
   });
 }
 
-export async function listPagesBySalon(salonId: string, filters: PageFilters) {
+export async function listPagesBySalon(gamingCenterId: string, filters: PageFilters) {
   const { status, type, limit, offset } = filters;
 
   const whereClause = {
-    salonId,
+    gamingCenterId,
     ...(status ? { status } : {}),
     ...(type ? { type } : {}),
   };
 
   const [total, pages] = await prisma.$transaction([
-    prisma.salonPage.count({ where: whereClause }),
-    prisma.salonPage.findMany({
+    prisma.page.count({ where: whereClause }),
+    prisma.page.findMany({
       where: whereClause,
       orderBy: { createdAt: 'desc' },
       skip: offset,
@@ -75,7 +75,7 @@ export async function updatePage(
   slugHistory?: string
 ) {
   const { sections: _, ...pageData } = data; // eslint-disable-line @typescript-eslint/no-unused-vars
-  return prisma.salonPage.update({
+  return prisma.page.update({
     where: { id: pageId },
     data: {
       ...pageData,

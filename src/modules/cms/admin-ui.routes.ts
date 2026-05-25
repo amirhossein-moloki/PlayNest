@@ -19,22 +19,22 @@ const typeOptions = buildOptions(Object.values(PageType));
 const robotsIndexOptions = buildOptions(Object.values(RobotsIndex));
 const robotsFollowOptions = buildOptions(Object.values(RobotsFollow));
 
-cmsAdminUiRouter.get('/salons/:salonId/pages', (req, res) => {
-  const { salonId } = req.params;
-  const html = pagesListTemplate(salonId, statusOptions, typeOptions);
+cmsAdminUiRouter.get('/gamingCenters/:gamingCenterId/pages', (req, res) => {
+  const { gamingCenterId } = req.params;
+  const html = pagesListTemplate(gamingCenterId, statusOptions, typeOptions);
   res.type('html').send(html);
 });
 
-cmsAdminUiRouter.post('/salons/:salonId/pages/preview', (req, res) => {
+cmsAdminUiRouter.post('/gamingCenters/:gamingCenterId/pages/preview', (req, res) => {
   const { title, sections, pageId } = req.body ?? {};
   const html = renderPageDocument({ title, sections, pageId });
   res.type('html').send(html);
 });
 
-cmsAdminUiRouter.get('/salons/:salonId/pages/:pageId', (req, res) => {
-  const { salonId, pageId } = req.params;
+cmsAdminUiRouter.get('/gamingCenters/:gamingCenterId/pages/:pageId', (req, res) => {
+  const { gamingCenterId, pageId } = req.params;
   const html = pageEditorTemplate(
-    salonId,
+    gamingCenterId,
     pageId,
     statusOptions,
     typeOptions,

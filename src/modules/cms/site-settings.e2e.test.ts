@@ -17,25 +17,25 @@ describe('CMS Site Settings API E2E Tests', () => {
   let staffToken: string;
 
   beforeAll(async () => {
-    await prisma.salonSiteSettings.deleteMany();
+    await prisma.siteSettings.deleteMany();
     await prisma.user.deleteMany();
-    await prisma.salon.deleteMany();
+    await prisma.gamingCenter.deleteMany();
 
-    const salon = await prisma.salon.create({
+    const gamingCenter = await prisma.gamingCenter.create({
       data: {
-        name: 'CMS Site Settings Salon',
-        slug: `cms-site-settings-salon-${Date.now()}`,
+        name: 'CMS Site Settings GamingCenter',
+        slug: `cms-site-settings-gamingCenter-${Date.now()}`,
       },
     });
 
-    testSalonId = salon.id;
+    testSalonId = gamingCenter.id;
 
     const manager = await prisma.user.create({
       data: {
         fullName: 'CMS Settings Manager',
         phone: `+98912133333${Date.now()}`.slice(0, 14),
         role: UserRole.MANAGER,
-        salonId: testSalonId,
+        gamingCenterId: testSalonId,
       },
     });
 
@@ -44,34 +44,34 @@ describe('CMS Site Settings API E2E Tests', () => {
         fullName: 'CMS Settings Staff',
         phone: `+98912133334${Date.now()}`.slice(0, 14),
         role: UserRole.STAFF,
-        salonId: testSalonId,
+        gamingCenterId: testSalonId,
       },
     });
 
     managerToken = jwt.sign(
-      { actorId: manager.id, actorType: 'USER', salonId: testSalonId, role: manager.role },
+      { actorId: manager.id, actorType: 'USER', gamingCenterId: testSalonId, role: manager.role },
       env.JWT_ACCESS_SECRET,
       { expiresIn: '1h' }
     );
 
     staffToken = jwt.sign(
-      { actorId: staff.id, actorType: 'USER', salonId: testSalonId, role: staff.role },
+      { actorId: staff.id, actorType: 'USER', gamingCenterId: testSalonId, role: staff.role },
       env.JWT_ACCESS_SECRET,
       { expiresIn: '1h' }
     );
   });
 
   afterAll(async () => {
-    await prisma.salonSiteSettings.deleteMany();
+    await prisma.siteSettings.deleteMany();
     await prisma.user.deleteMany();
-    await prisma.salon.deleteMany();
+    await prisma.gamingCenter.deleteMany();
     await prisma.$disconnect();
   });
 
   describe('Authorization', () => {
     it('should reject requests without a token', async () => {
       const response = await request(app)
-        .get(`/api/v1/salons/${testSalonId}/site-settings`)
+        .get(`/api/v1/gamingCenters/${testSalonId}/site-settings`)
         .expect(401);
 
       expect(response.body).toMatchObject({
@@ -85,7 +85,7 @@ describe('CMS Site Settings API E2E Tests', () => {
 
     it('should reject non-manager roles', async () => {
       const response = await request(app)
-        .get(`/api/v1/salons/${testSalonId}/site-settings`)
+        .get(`/api/v1/gamingCenters/${testSalonId}/site-settings`)
         .set('Authorization', `Bearer ${staffToken}`)
         .expect(403);
 
@@ -99,10 +99,10 @@ describe('CMS Site Settings API E2E Tests', () => {
     });
   });
 
-  describe('GET /api/v1/salons/:salonId/site-settings', () => {
+  describe('GET /api/v1/gamingCenters/:gamingCenterId/site-settings', () => {
     it('should return null when no settings exist', async () => {
       const response = await request(app)
-        .get(`/api/v1/salons/${testSalonId}/site-settings`)
+        .get(`/api/v1/gamingCenters/${testSalonId}/site-settings`)
         .set('Authorization', `Bearer ${managerToken}`)
         .expect(200);
 
@@ -111,15 +111,15 @@ describe('CMS Site Settings API E2E Tests', () => {
     });
   });
 
-  describe('PUT /api/v1/salons/:salonId/site-settings', () => {
-    it('should create settings for the salon', async () => {
+  describe('PUT /api/v1/gamingCenters/:gamingCenterId/site-settings', () => {
+    it('should create settings for the gamingCenter', async () => {
       const response = await request(app)
-        .put(`/api/v1/salons/${testSalonId}/site-settings`)
+        .put(`/api/v1/gamingCenters/${testSalonId}/site-settings`)
         .set('Authorization', `Bearer ${managerToken}`)
         .send({
           logoUrl: 'https://example.com/logo.png',
-          defaultSeoTitle: 'Salon Title',
-          defaultSeoDescription: 'Salon description',
+          defaultSeoTitle: 'GamingCenter Title',
+          defaultSeoDescription: 'GamingCenter description',
           robotsIndex: RobotsIndex.NOINDEX,
           robotsFollow: RobotsFollow.NOFOLLOW,
         })
@@ -133,7 +133,7 @@ describe('CMS Site Settings API E2E Tests', () => {
 
     it('should update settings without creating duplicates', async () => {
       const response = await request(app)
-        .put(`/api/v1/salons/${testSalonId}/site-settings`)
+        .put(`/api/v1/gamingCenters/${testSalonId}/site-settings`)
         .set('Authorization', `Bearer ${managerToken}`)
         .send({
           logoUrl: 'https://example.com/logo-updated.png',
@@ -151,8 +151,8 @@ describe('CMS Site Settings API E2E Tests', () => {
       );
       expect(response.body.data.robotsIndex).toBe(RobotsIndex.INDEX);
 
-      const count = await prisma.salonSiteSettings.count({
-        where: { salonId: testSalonId },
+      const count = await prisma.siteSettings.count({
+        where: { gamingCenterId: testSalonId },
       });
       expect(count).toBe(1);
     });

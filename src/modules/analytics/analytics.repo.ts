@@ -3,10 +3,10 @@ import { prisma } from '../../config/prisma';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 
 export const AnalyticsRepo = {
-  async getSummaryStats(salonId: string, startDate: Date, endDate: Date) {
-    const stats = await prisma.salonAnalytics.aggregate({
+  async getSummaryStats(gamingCenterId: string, startDate: Date, endDate: Date) {
+    const stats = await prisma.gamingCenterAnalytics.aggregate({
       where: {
-        salonId,
+        gamingCenterId,
         date: { gte: startDate, lte: endDate },
       },
       _sum: {
@@ -20,11 +20,11 @@ export const AnalyticsRepo = {
     return stats._sum;
   },
 
-  async getStaffPerformanceStats(salonId: string, startDate: Date, endDate: Date) {
+  async getStaffPerformanceStats(gamingCenterId: string, startDate: Date, endDate: Date) {
     return prisma.staffAnalytics.groupBy({
       by: ['staffId'],
       where: {
-        salonId,
+        gamingCenterId,
         date: { gte: startDate, lte: endDate },
       },
       _sum: {
@@ -36,11 +36,11 @@ export const AnalyticsRepo = {
     });
   },
 
-  async getServicePerformanceStats(salonId: string, startDate: Date, endDate: Date) {
-    return prisma.serviceAnalytics.groupBy({
-      by: ['serviceId'],
+  async getServicePerformanceStats(gamingCenterId: string, startDate: Date, endDate: Date) {
+    return prisma.gameStationAnalytics.groupBy({
+      by: ['stationId'],
       where: {
-        salonId,
+        gamingCenterId,
         date: { gte: startDate, lte: endDate },
       },
       _sum: {
@@ -50,10 +50,10 @@ export const AnalyticsRepo = {
     });
   },
 
-  async getDailyRevenue(salonId: string, startDate: Date, endDate: Date) {
-    return prisma.salonAnalytics.findMany({
+  async getDailyRevenue(gamingCenterId: string, startDate: Date, endDate: Date) {
+    return prisma.gamingCenterAnalytics.findMany({
       where: {
-        salonId,
+        gamingCenterId,
         date: { gte: startDate, lte: endDate },
       },
       select: {
@@ -64,115 +64,115 @@ export const AnalyticsRepo = {
     });
   },
 
-  async getNewCustomersCount(salonId: string, startDate: Date, endDate: Date) {
-    return prisma.salonCustomerProfile.count({
+  async getNewCustomersCount(gamingCenterId: string, startDate: Date, endDate: Date) {
+    return prisma.customerProfile.count({
       where: {
-        salonId,
+        gamingCenterId,
         createdAt: { gte: startDate, lte: endDate },
       },
     });
   },
 
-  async getStaffDetails(salonId: string) {
+  async getStaffDetails(gamingCenterId: string) {
     return prisma.user.findMany({
-      where: { salonId, role: 'STAFF' },
+      where: { gamingCenterId, role: 'STAFF' },
       select: { id: true, fullName: true },
     });
   },
 
-  async getServiceDetails(salonId: string) {
-    return prisma.service.findMany({
-      where: { salonId },
+  async getServiceDetails(gamingCenterId: string) {
+    return prisma.gameStation.findMany({
+      where: { gamingCenterId },
       select: { id: true, name: true },
     });
   },
 
-  async getBookingsWithReviews(salonId: string, startDate: Date, endDate: Date) {
-    return prisma.booking.findMany({
+  async getBookingsWithReviews(gamingCenterId: string, startDate: Date, endDate: Date) {
+    return prisma.reservation.findMany({
       where: {
-        salonId,
-        startAt: { gte: startDate, lte: endDate },
-        reviews: { some: {} },
+        gamingCenterId,
+        startTime: { gte: startDate, lte: endDate },
+        ratings: { some: {} },
       },
       select: {
         staffId: true,
-        reviews: {
+        ratings: {
           select: { rating: true },
         },
       },
     });
   },
 
-  async syncSalonStats(salonId: string, date: Date) {
-    const settings = await prisma.settings.findUnique({ where: { salonId } });
+  async syncSalonStats(gamingCenterId: string, date: Date) {
+    const settings = await prisma.settings.findUnique({ where: { gamingCenterId } });
     const timeZone = settings?.timeZone || 'UTC';
     const dateStr = formatInTimeZone(date, timeZone, 'yyyy-MM-dd');
     const dayStart = fromZonedTime(`${dateStr} 00:00:00`, timeZone);
     const dayEnd = fromZonedTime(`${dateStr} 23:59:59.999`, timeZone);
 
     const [bookingStats, realizedCashStats] = await Promise.all([
-      prisma.booking.groupBy({
+      prisma.reservation.groupBy({
         by: ['status'],
-        where: { salonId, startAt: { gte: dayStart, lte: dayEnd } },
+        where: { gamingCenterId, startTime: { gte: dayStart, lte: dayEnd } },
         _count: { _all: true },
-        _sum: { amountDueSnapshot: true },
+        _sum: { totalPrice: true },
       }),
       prisma.payment.aggregate({
-        where: { salonId, status: 'PAID', paidAt: { gte: dayStart, lte: dayEnd } },
+        where: { gamingCenterId, status: 'PAID', paidAt: { gte: dayStart, lte: dayEnd } },
         _sum: { amount: true },
       }),
     ]);
 
     const totalBookings = bookingStats.reduce((sum, s) => sum + s._count._all, 0);
-    const completedStats = bookingStats.find((s) => s.status === 'DONE');
+    const completedStats = bookingStats.find((s) => s.status === 'COMPLETED');
     const canceledStats = bookingStats.find((s) => s.status === 'CANCELED');
 
-    await prisma.salonAnalytics.upsert({
-      where: { salonId_date: { salonId, date: new Date(dateStr) } },
+    await prisma.gamingCenterAnalytics.upsert({
+      where: { gamingCenterId_date: { gamingCenterId, date: new Date(dateStr) } },
       create: {
-        salonId,
+        gamingCenterId,
         date: new Date(dateStr),
         totalBookings,
         completedBookings: completedStats?._count._all || 0,
         canceledBookings: canceledStats?._count._all || 0,
-        revenue: completedStats?._sum.amountDueSnapshot || 0,
+        revenue: completedStats?._sum.totalPrice || 0,
         realizedCash: realizedCashStats._sum.amount || 0,
       },
       update: {
         totalBookings,
         completedBookings: completedStats?._count._all || 0,
         canceledBookings: canceledStats?._count._all || 0,
-        revenue: completedStats?._sum.amountDueSnapshot || 0,
+        revenue: completedStats?._sum.totalPrice || 0,
         realizedCash: realizedCashStats._sum.amount || 0,
         updatedAt: new Date(),
       },
     });
   },
 
-  async syncStaffStats(salonId: string, staffId: string, date: Date) {
-    const settings = await prisma.settings.findUnique({ where: { salonId } });
+  async syncStaffStats(gamingCenterId: string, staffId: string, date: Date) {
+    const settings = await prisma.settings.findUnique({ where: { gamingCenterId } });
     const timeZone = settings?.timeZone || 'UTC';
     const dateStr = formatInTimeZone(date, timeZone, 'yyyy-MM-dd');
     const dayStart = fromZonedTime(`${dateStr} 00:00:00`, timeZone);
     const dayEnd = fromZonedTime(`${dateStr} 23:59:59.999`, timeZone);
 
     const [bookingStats, reviewStats] = await Promise.all([
-      prisma.booking.aggregate({
+      prisma.reservation.aggregate({
         where: {
-          salonId,
+          gamingCenterId,
           staffId,
-          status: 'DONE',
-          startAt: { gte: dayStart, lte: dayEnd },
+          status: 'COMPLETED',
+          startTime: { gte: dayStart, lte: dayEnd },
         },
         _count: { _all: true },
-        _sum: { amountDueSnapshot: true },
+        _sum: { totalPrice: true },
       }),
-      prisma.review.aggregate({
+      prisma.rating.aggregate({
         where: {
-          salonId,
-          booking: {
+          gamingCenterId,
+          reservation: {
             staffId,
-            startAt: { gte: dayStart, lte: dayEnd },
+            startTime: { gte: dayStart, lte: dayEnd },
           },
           status: 'PUBLISHED',
         },
@@ -183,24 +183,24 @@ export const AnalyticsRepo = {
 
     await prisma.staffAnalytics.upsert({
       where: {
-        salonId_staffId_date: {
-          salonId,
+        gamingCenterId_staffId_date: {
+          gamingCenterId,
           staffId,
           date: new Date(dateStr),
         },
       },
       create: {
-        salonId,
+        gamingCenterId,
         staffId,
         date: new Date(dateStr),
         completedBookings: bookingStats._count._all || 0,
-        revenue: bookingStats._sum.amountDueSnapshot || 0,
+        revenue: bookingStats._sum.totalPrice || 0,
         totalRating: reviewStats._sum.rating || 0,
         ratingCount: reviewStats._count._all || 0,
       },
       update: {
         completedBookings: bookingStats._count._all || 0,
-        revenue: bookingStats._sum.amountDueSnapshot || 0,
+        revenue: bookingStats._sum.totalPrice || 0,
         totalRating: reviewStats._sum.rating || 0,
         ratingCount: reviewStats._count._all || 0,
         updatedAt: new Date(),
@@ -208,87 +208,87 @@ export const AnalyticsRepo = {
     });
   },
 
-  async syncServiceStats(salonId: string, serviceId: string, date: Date) {
-    const settings = await prisma.settings.findUnique({ where: { salonId } });
+  async syncServiceStats(gamingCenterId: string, stationId: string, date: Date) {
+    const settings = await prisma.settings.findUnique({ where: { gamingCenterId } });
     const timeZone = settings?.timeZone || 'UTC';
     const dateStr = formatInTimeZone(date, timeZone, 'yyyy-MM-dd');
     const dayStart = fromZonedTime(`${dateStr} 00:00:00`, timeZone);
     const dayEnd = fromZonedTime(`${dateStr} 23:59:59.999`, timeZone);
 
-    const stats = await prisma.booking.aggregate({
+    const stats = await prisma.reservation.aggregate({
       where: {
-        salonId,
-        serviceId,
-        status: 'DONE',
-        startAt: { gte: dayStart, lte: dayEnd },
+        gamingCenterId,
+        stationId,
+        status: 'COMPLETED',
+        startTime: { gte: dayStart, lte: dayEnd },
       },
       _count: { _all: true },
-      _sum: { amountDueSnapshot: true },
+      _sum: { totalPrice: true },
     });
 
-    await prisma.serviceAnalytics.upsert({
+    await prisma.gameStationAnalytics.upsert({
       where: {
-        salonId_serviceId_date: {
-          salonId,
-          serviceId,
+        gamingCenterId_stationId_date: {
+          gamingCenterId,
+          stationId,
           date: new Date(dateStr),
         },
       },
       create: {
-        salonId,
-        serviceId,
+        gamingCenterId,
+        stationId,
         date: new Date(dateStr),
         completedBookings: stats._count._all || 0,
-        revenue: stats._sum.amountDueSnapshot || 0,
+        revenue: stats._sum.totalPrice || 0,
       },
       update: {
         completedBookings: stats._count._all || 0,
-        revenue: stats._sum.amountDueSnapshot || 0,
+        revenue: stats._sum.totalPrice || 0,
         updatedAt: new Date(),
       },
     });
   },
 
-  async syncAllStatsForBooking(bookingId: string) {
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
+  async syncAllStatsForBooking(reservationId: string) {
+    const reservation = await prisma.reservation.findUnique({
+      where: { id: reservationId },
     });
-    if (!booking) return;
+    if (!reservation) return;
 
-    await this.syncSpecificStats(booking.salonId, booking.startAt, booking.staffId, booking.serviceId);
+    await this.syncSpecificStats(reservation.gamingCenterId, reservation.startTime, reservation.staffId, reservation.stationId);
   },
 
-  async syncSpecificStats(salonId: string, date: Date, staffId: string, serviceId: string) {
+  async syncSpecificStats(gamingCenterId: string, date: Date, staffId: string, stationId: string) {
     await Promise.all([
-      this.syncSalonStats(salonId, date),
-      this.syncStaffStats(salonId, staffId, date),
-      this.syncServiceStats(salonId, serviceId, date),
+      this.syncSalonStats(gamingCenterId, date),
+      this.syncStaffStats(gamingCenterId, staffId, date),
+      this.syncServiceStats(gamingCenterId, stationId, date),
     ]);
   },
 
   async syncAllStatsForPayment(paymentId: string) {
     const payment = await prisma.payment.findUnique({
       where: { id: paymentId },
-      include: { booking: true },
+      include: { reservation: true },
     });
     if (!payment) return;
 
     // Payment realizedCash is based on paidAt
     if (payment.status === 'PAID' && payment.paidAt) {
-      await this.syncSalonStats(payment.salonId, payment.paidAt);
+      await this.syncSalonStats(payment.gamingCenterId, payment.paidAt);
     }
 
-    // Also sync the booking's date stats just in case
-    await this.syncAllStatsForBooking(payment.bookingId);
+    // Also sync the reservation's date stats just in case
+    await this.syncAllStatsForBooking(payment.reservationId);
   },
 
   async syncAllStatsForReview(reviewId: string) {
-    const review = await prisma.review.findUnique({
+    const rating = await prisma.rating.findUnique({
       where: { id: reviewId },
-      include: { booking: true },
+      include: { reservation: true },
     });
-    if (!review) return;
+    if (!rating) return;
 
-    await this.syncStaffStats(review.salonId, review.booking.staffId, review.booking.startAt);
+    await this.syncStaffStats(rating.gamingCenterId, rating.reservation.staffId, rating.reservation.startTime);
   },
 };

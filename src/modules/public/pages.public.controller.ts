@@ -5,38 +5,38 @@ import { PageStatus, PageType } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { renderPageDocument } from './page-renderer';
 
-type PublicPageRequest = Request<{ salonSlug: string; pageSlug?: string }> & {
-  tenant?: { salonId: string; salonSlug: string };
+type PublicPageRequest = Request<{ gamingCenterSlug: string; pageSlug?: string }> & {
+  tenant?: { gamingCenterId: string; gamingCenterSlug: string };
 };
 
 export async function getPublicSalonHome(req: PublicPageRequest, res: Response) {
-  const { salonSlug } = req.params;
+  const { gamingCenterSlug } = req.params;
   let tenant = req.tenant;
 
-  if (!tenant?.salonId) {
-    if (!salonSlug) {
-      throw new AppError('Salon slug is missing from the request params.', httpStatus.BAD_REQUEST);
+  if (!tenant?.gamingCenterId) {
+    if (!gamingCenterSlug) {
+      throw new AppError('GamingCenter slug is missing from the request params.', httpStatus.BAD_REQUEST);
     }
 
-    const salon = await prisma.salon.findUnique({
-      where: { slug: salonSlug, isActive: true },
+    const gamingCenter = await prisma.gamingCenter.findUnique({
+      where: { slug: gamingCenterSlug, isActive: true },
     });
-    if (!salon) {
-      throw new AppError('Salon not found', httpStatus.NOT_FOUND);
+    if (!gamingCenter) {
+      throw new AppError('GamingCenter not found', httpStatus.NOT_FOUND);
     }
 
-    tenant = { salonId: salon.id, salonSlug: salon.slug };
+    tenant = { gamingCenterId: gamingCenter.id, gamingCenterSlug: gamingCenter.slug };
   }
 
-  const page = await prisma.salonPage.findFirst({
+  const page = await prisma.page.findFirst({
     where: {
-      salonId: tenant.salonId,
+      gamingCenterId: tenant.gamingCenterId,
       type: PageType.HOME,
       status: PageStatus.PUBLISHED,
     },
     include: {
       sections: { orderBy: { sortOrder: 'asc' }, where: { isEnabled: true } },
-      salon: { select: { siteSettings: true } },
+      gamingCenter: { select: { siteSettings: true } },
     },
   });
 
@@ -44,10 +44,10 @@ export async function getPublicSalonHome(req: PublicPageRequest, res: Response) 
     throw new AppError('Home page not found', httpStatus.NOT_FOUND);
   }
 
-  const { sections, salon, ...pageData } = page;
+  const { sections, gamingCenter, ...pageData } = page;
   const html = renderPageDocument({
     page: pageData,
-    siteSettings: salon?.siteSettings ?? null,
+    siteSettings: gamingCenter?.siteSettings ?? null,
     sections,
     pageId: page.id,
   });
@@ -55,31 +55,31 @@ export async function getPublicSalonHome(req: PublicPageRequest, res: Response) 
 }
 
 export async function getPublicPage(req: PublicPageRequest, res: Response) {
-  const { pageSlug, salonSlug } = req.params;
+  const { pageSlug, gamingCenterSlug } = req.params;
   let tenant = req.tenant;
 
-  if (!tenant?.salonId) {
-    if (!salonSlug) {
-      throw new AppError('Salon slug is missing from the request params.', httpStatus.BAD_REQUEST);
+  if (!tenant?.gamingCenterId) {
+    if (!gamingCenterSlug) {
+      throw new AppError('GamingCenter slug is missing from the request params.', httpStatus.BAD_REQUEST);
     }
 
-    const salon = await prisma.salon.findUnique({ where: { slug: salonSlug } });
-    if (!salon) {
-      throw new AppError('Salon not found', httpStatus.NOT_FOUND);
+    const gamingCenter = await prisma.gamingCenter.findUnique({ where: { slug: gamingCenterSlug } });
+    if (!gamingCenter) {
+      throw new AppError('GamingCenter not found', httpStatus.NOT_FOUND);
     }
 
-    tenant = { salonId: salon.id, salonSlug: salon.slug };
+    tenant = { gamingCenterId: gamingCenter.id, gamingCenterSlug: gamingCenter.slug };
   }
 
-  const page = await prisma.salonPage.findFirst({
+  const page = await prisma.page.findFirst({
     where: {
-      salonId: tenant.salonId,
+      gamingCenterId: tenant.gamingCenterId,
       slug: pageSlug,
       status: PageStatus.PUBLISHED,
     },
     include: {
       sections: { orderBy: { sortOrder: 'asc' }, where: { isEnabled: true } },
-      salon: { select: { siteSettings: true } },
+      gamingCenter: { select: { siteSettings: true } },
     },
   });
 
@@ -106,10 +106,10 @@ export async function getPublicPage(req: PublicPageRequest, res: Response) {
       }
     }
 
-    const { sections, salon, ...pageData } = page;
+    const { sections, gamingCenter, ...pageData } = page;
     const html = renderPageDocument({
       page: pageData,
-      siteSettings: salon?.siteSettings ?? null,
+      siteSettings: gamingCenter?.siteSettings ?? null,
       sections,
       pageId: page.id,
     });
@@ -117,11 +117,11 @@ export async function getPublicPage(req: PublicPageRequest, res: Response) {
     return;
   }
 
-  const slugHistory = await prisma.salonPageSlugHistory.findFirst({
+  const slugHistory = await prisma.gamingCenterPageSlugHistory.findFirst({
     where: {
       oldSlug: pageSlug,
       page: {
-        salonId: tenant.salonId,
+        gamingCenterId: tenant.gamingCenterId,
         status: PageStatus.PUBLISHED,
       },
     },
@@ -136,6 +136,6 @@ export async function getPublicPage(req: PublicPageRequest, res: Response) {
 
   res.redirect(
     301,
-    `/api/v1/public/salons/${tenant.salonSlug}/pages/${slugHistory.page.slug}`
+    `/api/v1/public/gamingCenters/${tenant.gamingCenterSlug}/pages/${slugHistory.page.slug}`
   );
 }

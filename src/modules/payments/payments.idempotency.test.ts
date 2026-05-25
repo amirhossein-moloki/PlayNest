@@ -7,36 +7,36 @@ import { createTestSalon, createTestUser, createTestService, createTestBooking, 
 import { IdempotencyRepo } from '../../common/repositories/idempotency.repo';
 
 describe('Payments Idempotency E2E', () => {
-  let salonId: string;
-  let bookingId: string;
+  let gamingCenterId: string;
+  let reservationId: string;
   let token: string;
   let userId: string;
 
   beforeEach(async () => {
     // Clean up the database before each test
     await prisma.payment.deleteMany();
-    await prisma.booking.deleteMany();
-    await prisma.service.deleteMany();
+    await prisma.reservation.deleteMany();
+    await prisma.gameStation.deleteMany();
     await prisma.user.deleteMany();
-    await prisma.salon.deleteMany();
+    await prisma.gamingCenter.deleteMany();
     await IdempotencyRepo.clearAll();
 
-    const salon = await createTestSalon();
-    salonId = salon.id;
+    const gamingCenter = await createTestSalon();
+    gamingCenterId = gamingCenter.id;
 
-    const user = await createTestUser({ salonId, role: UserRole.MANAGER });
+    const user = await createTestUser({ gamingCenterId, role: UserRole.MANAGER });
     userId = user.id;
-    token = generateToken({ userId: user.id, salonId: salon.id, role: user.role });
+    token = generateToken({ userId: user.id, gamingCenterId: gamingCenter.id, role: user.role });
 
-    const service = await createTestService({ salonId });
-    const booking = await createTestBooking({ salonId, serviceId: service.id, staffId: userId });
-    bookingId = booking.id;
+    const station = await createTestService({ gamingCenterId });
+    const reservation = await createTestBooking({ gamingCenterId, stationId: station.id, staffId: userId });
+    reservationId = reservation.id;
   });
 
-  describe('POST /api/v1/salons/:salonId/bookings/:bookingId/payments/init', () => {
+  describe('POST /api/v1/gamingCenters/:gamingCenterId/reservations/:reservationId/payments/init', () => {
     it('should return the same response when replaying a successful request with the same idempotency key', async () => {
       const idempotencyKey = cuid();
-      const endpoint = `/api/v1/salons/${salonId}/bookings/${bookingId}/payments/init`;
+      const endpoint = `/api/v1/gamingCenters/${gamingCenterId}/reservations/${reservationId}/payments/init`;
 
       // First request
       const res1 = await request(app)
@@ -71,7 +71,7 @@ describe('Payments Idempotency E2E', () => {
 
     it('should return 409 Conflict when reusing an idempotency key with a different payload', async () => {
       const idempotencyKey = cuid();
-      const endpoint = `/api/v1/salons/${salonId}/bookings/${bookingId}/payments/init`;
+      const endpoint = `/api/v1/gamingCenters/${gamingCenterId}/reservations/${reservationId}/payments/init`;
 
       // First request with a specific payload
       await request(app)
@@ -94,7 +94,7 @@ describe('Payments Idempotency E2E', () => {
 
     it('should handle concurrent requests with the same idempotency key, succeeding once and failing others', async () => {
       const idempotencyKey = cuid();
-      const endpoint = `/api/v1/salons/${salonId}/bookings/${bookingId}/payments/init`;
+      const endpoint = `/api/v1/gamingCenters/${gamingCenterId}/reservations/${reservationId}/payments/init`;
 
       const req = () =>
         request(app)

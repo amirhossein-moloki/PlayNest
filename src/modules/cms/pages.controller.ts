@@ -1,24 +1,24 @@
 import { Request, Response } from 'express';
-import * as PagesService from './pages.service';
+import * as PagesService from './pages.station';
 import { CreatePageInput, UpdatePageInput } from './pages.types';
 import { listPagesSchema } from './pages.validators';
 
 export async function createPage(
-  req: Request<{ salonId: string }, unknown, CreatePageInput>,
+  req: Request<{ gamingCenterId: string }, unknown, CreatePageInput>,
   res: Response
 ) {
-  const { salonId } = req.params;
-  const page = await PagesService.createPage(salonId, req.body);
+  const { gamingCenterId } = req.params;
+  const page = await PagesService.createPage(gamingCenterId, req.body);
   res.created(page);
 }
 
-export async function listPages(req: Request<{ salonId: string }>, res: Response) {
-  const { salonId } = req.params;
+export async function listPages(req: Request<{ gamingCenterId: string }>, res: Response) {
+  const { gamingCenterId } = req.params;
   const { query } = listPagesSchema.parse({ query: req.query });
   const limit = query.limit ?? 20;
   const offset = query.offset ?? 0;
 
-  const { pages, total } = await PagesService.listPages(salonId, {
+  const { pages, total } = await PagesService.listPages(gamingCenterId, {
     status: query.status,
     type: query.type,
     limit,
@@ -41,19 +41,19 @@ export async function listPages(req: Request<{ salonId: string }>, res: Response
 }
 
 export async function updatePage(
-  req: Request<{ salonId: string; pageId: string }, unknown, UpdatePageInput>,
+  req: Request<{ gamingCenterId: string; pageId: string }, unknown, UpdatePageInput>,
   res: Response
 ) {
-  const { salonId, pageId } = req.params;
-  const page = await PagesService.updatePage(salonId, pageId, req.body);
+  const { gamingCenterId, pageId } = req.params;
+  const page = await PagesService.updatePage(gamingCenterId, pageId, req.body);
   res.ok(page);
 }
 
 export async function getPage(
-  req: Request<{ salonId: string; pageId: string }>,
+  req: Request<{ gamingCenterId: string; pageId: string }>,
   res: Response
 ) {
-  const { salonId, pageId } = req.params;
-  const page = await PagesService.getPage(salonId, pageId);
+  const { gamingCenterId, pageId } = req.params;
+  const page = await PagesService.getPage(gamingCenterId, pageId);
   res.ok(page);
 }

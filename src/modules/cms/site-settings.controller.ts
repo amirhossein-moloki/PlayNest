@@ -1,23 +1,23 @@
 import { Request, Response } from 'express';
-import * as SiteSettingsService from './site-settings.service';
+import * as SiteSettingsService from './site-settings.station';
 import { UpdateSiteSettingsInput } from './site-settings.validators';
 
 export async function getSiteSettings(
-  req: Request<{ salonId: string }>,
+  req: Request<{ gamingCenterId: string }>,
   res: Response
 ) {
-  const { salonId } = req.params;
-  const settings = await SiteSettingsService.getSiteSettings(salonId);
+  const { gamingCenterId } = req.params;
+  const settings = await SiteSettingsService.getSiteSettings(gamingCenterId);
   res.ok(settings);
 }
 
 export async function upsertSiteSettings(
-  req: Request<{ salonId: string }, unknown, UpdateSiteSettingsInput>,
+  req: Request<{ gamingCenterId: string }, unknown, UpdateSiteSettingsInput>,
   res: Response
 ) {
-  const { salonId } = req.params;
+  const { gamingCenterId } = req.params;
   const settings = await SiteSettingsService.upsertSiteSettings(
-    salonId,
+    gamingCenterId,
     req.body
   );
   res.ok(settings);

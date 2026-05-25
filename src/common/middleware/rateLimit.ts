@@ -11,7 +11,7 @@ const store = new RedisStore({
   sendCommand: (...args: string[]) => redis.call(...args),
 });
 
-// Custom key generator for public routes to limit requests per IP and per salon slug.
+// Custom key generator for public routes to limit requests per IP and per gamingCenter slug.
 const publicApiKeyGenerator = (req: Request): string => {
   const { salonSlug } = req.params;
   const ip = req.ip || 'unknown';
@@ -47,11 +47,11 @@ export const publicApiRateLimiter = env.NODE_ENV === 'test'
     legacyHeaders: false,
     store,
     keyGenerator: publicApiKeyGenerator,
-    message: 'Too many requests from this IP for this salon, please try again after 15 minutes',
+    message: 'Too many requests from this IP for this gamingCenter, please try again after 15 minutes',
   });
 
 /**
- * Strictest rate limiter for the public booking creation endpoint.
+ * Strictest rate limiter for the public reservation creation endpoint.
  */
 export const publicBookingRateLimiter = env.NODE_ENV === 'test'
   ? mockMiddleware
@@ -62,5 +62,5 @@ export const publicBookingRateLimiter = env.NODE_ENV === 'test'
     legacyHeaders: false,
     store,
     keyGenerator: publicApiKeyGenerator,
-    message: 'Too many booking attempts from this IP for this salon, please try again after 15 minutes',
+    message: 'Too many reservation attempts from this IP for this gamingCenter, please try again after 15 minutes',
   });

@@ -38,22 +38,22 @@ describe('CMS Pages API E2E Tests', () => {
 
   beforeAll(async () => {
     await prisma.user.deleteMany();
-    await prisma.salon.deleteMany();
+    await prisma.gamingCenter.deleteMany();
 
-    const salon = await prisma.salon.create({
+    const gamingCenter = await prisma.gamingCenter.create({
       data: {
-        name: 'CMS E2E Salon',
-        slug: `cms-e2e-salon-${Date.now()}`,
+        name: 'CMS E2E GamingCenter',
+        slug: `cms-e2e-gamingCenter-${Date.now()}`,
       },
     });
-    testSalonId = salon.id;
+    testSalonId = gamingCenter.id;
 
     const manager = await prisma.user.create({
       data: {
         fullName: 'CMS Manager',
         phone: `+989121111112${Date.now()}`.slice(0, 14),
         role: UserRole.MANAGER,
-        salonId: testSalonId,
+        gamingCenterId: testSalonId,
       },
     });
 
@@ -62,14 +62,14 @@ describe('CMS Pages API E2E Tests', () => {
         fullName: 'CMS Staff',
         phone: `+989121111113${Date.now()}`.slice(0, 14),
         role: UserRole.STAFF,
-        salonId: testSalonId,
+        gamingCenterId: testSalonId,
       },
     });
 
-    const otherSalon = await prisma.salon.create({
+    const otherSalon = await prisma.gamingCenter.create({
       data: {
-        name: 'CMS Other Salon',
-        slug: `cms-other-salon-${Date.now()}`,
+        name: 'CMS Other GamingCenter',
+        slug: `cms-other-gamingCenter-${Date.now()}`,
       },
     });
 
@@ -78,24 +78,24 @@ describe('CMS Pages API E2E Tests', () => {
         fullName: 'CMS Other Manager',
         phone: `+989121111114${Date.now()}`.slice(0, 14),
         role: UserRole.MANAGER,
-        salonId: otherSalon.id,
+        gamingCenterId: otherSalon.id,
       },
     });
 
     managerToken = jwt.sign(
-      { actorId: manager.id, actorType: 'USER', salonId: testSalonId, role: manager.role },
+      { actorId: manager.id, actorType: 'USER', gamingCenterId: testSalonId, role: manager.role },
       env.JWT_ACCESS_SECRET,
       { expiresIn: '1h' }
     );
 
     staffToken = jwt.sign(
-      { actorId: staff.id, actorType: 'USER', salonId: testSalonId, role: staff.role },
+      { actorId: staff.id, actorType: 'USER', gamingCenterId: testSalonId, role: staff.role },
       env.JWT_ACCESS_SECRET,
       { expiresIn: '1h' }
     );
 
     otherSalonManagerToken = jwt.sign(
-      { actorId: otherManager.id, actorType: 'USER', salonId: otherSalon.id, role: otherManager.role },
+      { actorId: otherManager.id, actorType: 'USER', gamingCenterId: otherSalon.id, role: otherManager.role },
       env.JWT_ACCESS_SECRET,
       { expiresIn: '1h' }
     );
@@ -103,16 +103,16 @@ describe('CMS Pages API E2E Tests', () => {
 
   afterAll(async () => {
     await prisma.salonPageSection.deleteMany();
-    await prisma.salonPage.deleteMany();
+    await prisma.page.deleteMany();
     await prisma.user.deleteMany();
-    await prisma.salon.deleteMany();
+    await prisma.gamingCenter.deleteMany();
     await prisma.$disconnect();
   });
 
   describe('Authorization', () => {
     it('should reject requests without a token', async () => {
       const response = await request(app)
-        .get(`/api/v1/salons/${testSalonId}/pages`)
+        .get(`/api/v1/gamingCenters/${testSalonId}/pages`)
         .expect(401);
 
       expect(response.body).toMatchObject({
@@ -126,7 +126,7 @@ describe('CMS Pages API E2E Tests', () => {
 
     it('should reject non-manager roles', async () => {
       const response = await request(app)
-        .get(`/api/v1/salons/${testSalonId}/pages`)
+        .get(`/api/v1/gamingCenters/${testSalonId}/pages`)
         .set('Authorization', `Bearer ${staffToken}`)
         .expect(403);
 
@@ -139,9 +139,9 @@ describe('CMS Pages API E2E Tests', () => {
       });
     });
 
-    it('should reject access to another salon', async () => {
+    it('should reject access to another gamingCenter', async () => {
       const response = await request(app)
-        .get(`/api/v1/salons/${testSalonId}/pages`)
+        .get(`/api/v1/gamingCenters/${testSalonId}/pages`)
         .set('Authorization', `Bearer ${otherSalonManagerToken}`)
         .expect(404);
 
@@ -149,16 +149,16 @@ describe('CMS Pages API E2E Tests', () => {
         success: false,
         error: {
           code: 'NOT_FOUND',
-          message: 'Salon not found.',
+          message: 'GamingCenter not found.',
         },
       });
     });
   });
 
-  describe('POST /api/v1/salons/:salonId/pages', () => {
+  describe('POST /api/v1/gamingCenters/:gamingCenterId/pages', () => {
     it('should create a published page with sections', async () => {
       const response = await request(app)
-        .post(`/api/v1/salons/${testSalonId}/pages`)
+        .post(`/api/v1/gamingCenters/${testSalonId}/pages`)
         .set('Authorization', `Bearer ${managerToken}`)
         .send({
           slug: 'home',
@@ -178,7 +178,7 @@ describe('CMS Pages API E2E Tests', () => {
 
     it('should create a draft page for listing filters', async () => {
       await request(app)
-        .post(`/api/v1/salons/${testSalonId}/pages`)
+        .post(`/api/v1/gamingCenters/${testSalonId}/pages`)
         .set('Authorization', `Bearer ${managerToken}`)
         .send({
           slug: 'about',
@@ -191,10 +191,10 @@ describe('CMS Pages API E2E Tests', () => {
     });
   });
 
-  describe('GET /api/v1/salons/:salonId/pages', () => {
+  describe('GET /api/v1/gamingCenters/:gamingCenterId/pages', () => {
     it('should list pages with filters and pagination', async () => {
       const response = await request(app)
-        .get(`/api/v1/salons/${testSalonId}/pages`)
+        .get(`/api/v1/gamingCenters/${testSalonId}/pages`)
         .set('Authorization', `Bearer ${managerToken}`)
         .query({ status: PageStatus.PUBLISHED, type: PageType.HOME, limit: 1, offset: 0 })
         .expect(200);
@@ -206,10 +206,10 @@ describe('CMS Pages API E2E Tests', () => {
     });
   });
 
-  describe('PATCH /api/v1/salons/:salonId/pages/:pageId', () => {
+  describe('PATCH /api/v1/gamingCenters/:gamingCenterId/pages/:pageId', () => {
     it('should update page status and replace sections', async () => {
       const response = await request(app)
-        .patch(`/api/v1/salons/${testSalonId}/pages/${publishedPageId}`)
+        .patch(`/api/v1/gamingCenters/${testSalonId}/pages/${publishedPageId}`)
         .set('Authorization', `Bearer ${managerToken}`)
         .send({
           status: PageStatus.ARCHIVED,
@@ -226,7 +226,7 @@ describe('CMS Pages API E2E Tests', () => {
 
     it('should create slug history when the slug changes', async () => {
       const response = await request(app)
-        .patch(`/api/v1/salons/${testSalonId}/pages/${publishedPageId}`)
+        .patch(`/api/v1/gamingCenters/${testSalonId}/pages/${publishedPageId}`)
         .set('Authorization', `Bearer ${managerToken}`)
         .send({ slug: 'home-updated' })
         .expect(200);

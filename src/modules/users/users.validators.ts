@@ -35,7 +35,7 @@ export const listUsersSchema = baseFilterSchema.extend({
     (val) => (val === 'true' ? true : val === 'false' ? false : undefined),
     z.boolean().optional()
   ),
-  serviceId: z.string().optional(),
+  stationId: z.string().optional(),
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>['body'];

@@ -6,18 +6,18 @@ import { UserRole } from '@prisma/client';
 import { validate } from '../../common/middleware/validate';
 import { PaymentsController } from './payments.controller';
 import { InitPaymentValidators } from './payments.validators';
-import { salonIdMiddleware } from '../../common/middleware/salonId.middleware';
+import { salonIdMiddleware } from '../../common/middleware/gamingCenterId.middleware';
 import { idempotencyMiddleware } from '../../common/middleware/idempotency';
 
 const router = Router();
 
 router.post(
-  '/bookings/:bookingId/payments/init', // Path is now relative to `/salons/:salonId/bookings`
+  '/reservations/:reservationId/payments/init', // Path is now relative to `/gamingCenters/:gamingCenterId/reservations`
   authMiddleware,
   salonIdMiddleware,
   tenantGuard,
   idempotencyMiddleware,
-  requireRole([UserRole.MANAGER, UserRole.RECEPTIONIST, UserRole.STAFF]),
+  requireRole([UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]),
   validate(InitPaymentValidators),
   PaymentsController.initiatePayment
 );

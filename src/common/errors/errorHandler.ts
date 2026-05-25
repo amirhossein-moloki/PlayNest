@@ -61,7 +61,7 @@ function normalizeError(err: any): NormalizedError { // eslint-disable-line @typ
   }
 
   // 3. PostgreSQL Exclusion Constraint Violation (via Prisma Raw Query Error)
-  // This is a specific case for our booking overlap constraint.
+  // This is a specific case for our reservation overlap constraint.
   // Prisma doesn't have a specific code for this, so we check the native DB error code.
   if (err.code === '23P01' && err.message?.includes('Booking_no_overlap_active')) {
     return {

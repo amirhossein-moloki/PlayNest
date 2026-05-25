@@ -2,12 +2,12 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { CustomerFilters, UpdateCustomerInput } from './customers.types';
 
-export async function findManyProfiles(salonId: string, filters: CustomerFilters) {
+export async function findManyProfiles(gamingCenterId: string, filters: CustomerFilters) {
   const { search, page = 1, limit = 10 } = filters;
   const skip = (page - 1) * limit;
 
   const where: Prisma.SalonCustomerProfileWhereInput = {
-    salonId,
+    gamingCenterId,
   };
 
   if (search) {
@@ -19,7 +19,7 @@ export async function findManyProfiles(salonId: string, filters: CustomerFilters
   }
 
   const [customers, total] = await Promise.all([
-    prisma.salonCustomerProfile.findMany({
+    prisma.customerProfile.findMany({
       where,
       include: {
         customerAccount: true,
@@ -28,17 +28,17 @@ export async function findManyProfiles(salonId: string, filters: CustomerFilters
       take: limit,
       orderBy: { createdAt: 'desc' },
     }),
-    prisma.salonCustomerProfile.count({ where }),
+    prisma.customerProfile.count({ where }),
   ]);
 
   return { customers, total };
 }
 
-export async function findProfileById(salonId: string, profileId: string) {
-  return prisma.salonCustomerProfile.findFirst({
+export async function findProfileById(gamingCenterId: string, profileId: string) {
+  return prisma.customerProfile.findFirst({
     where: {
       id: profileId,
-      salonId,
+      gamingCenterId,
     },
     include: {
       customerAccount: true,
@@ -46,11 +46,11 @@ export async function findProfileById(salonId: string, profileId: string) {
   });
 }
 
-export async function findProfileByAccountId(salonId: string, customerAccountId: string) {
-  return prisma.salonCustomerProfile.findUnique({
+export async function findProfileByAccountId(gamingCenterId: string, customerAccountId: string) {
+  return prisma.customerProfile.findUnique({
     where: {
-      salonId_customerAccountId: {
-        salonId,
+      gamingCenterId_customerAccountId: {
+        gamingCenterId,
         customerAccountId,
       },
     },
@@ -69,12 +69,12 @@ export async function upsertCustomerAccount(phone: string, fullName?: string) {
 }
 
 export async function createProfile(data: {
-  salonId: string;
+  gamingCenterId: string;
   customerAccountId: string;
   displayName?: string;
   note?: string;
 }) {
-  return prisma.salonCustomerProfile.create({
+  return prisma.customerProfile.create({
     data,
     include: {
       customerAccount: true,
@@ -84,13 +84,13 @@ export async function createProfile(data: {
 
 export async function updateProfile(
   profileId: string,
-  salonId: string,
+  gamingCenterId: string,
   data: UpdateCustomerInput
 ) {
-  return prisma.salonCustomerProfile.update({
+  return prisma.customerProfile.update({
     where: {
       id: profileId,
-      // We don't have a unique constraint on id and salonId, but it's safe since id is PK.
+      // We don't have a unique constraint on id and gamingCenterId, but it's safe since id is PK.
       // However, to ensure tenant isolation:
     },
     data,
@@ -100,15 +100,15 @@ export async function updateProfile(
   });
 }
 
-export async function deleteProfile(profileId: string, salonId: string) {
-  // Ensuring it belongs to the salon
-  const profile = await prisma.salonCustomerProfile.findFirst({
-    where: { id: profileId, salonId }
+export async function deleteProfile(profileId: string, gamingCenterId: string) {
+  // Ensuring it belongs to the gamingCenter
+  const profile = await prisma.customerProfile.findFirst({
+    where: { id: profileId, gamingCenterId }
   });
 
   if (!profile) return null;
 
-  return prisma.salonCustomerProfile.delete({
+  return prisma.customerProfile.delete({
     where: { id: profileId }
   });
 }

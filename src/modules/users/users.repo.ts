@@ -3,9 +3,9 @@ import { CreateUserInput, UpdateUserInput, ListUsersQuery } from './users.valida
 import { Prisma } from '@prisma/client';
 import { getPaginationParams, formatPaginatedResult } from '../../common/utils/pagination';
 
-export const createUser = async (salonId: string, data: CreateUserInput) => {
+export const createUser = async (gamingCenterId: string, data: CreateUserInput) => {
   const createInput: Prisma.UserUncheckedCreateInput = {
-    salonId,
+    gamingCenterId,
     ...(data as any), // eslint-disable-line @typescript-eslint/no-explicit-any
   };
   return prisma.user.create({
@@ -13,11 +13,11 @@ export const createUser = async (salonId: string, data: CreateUserInput) => {
   });
 };
 
-export const softDeleteUser = async (salonId: string, userId: string) => {
+export const softDeleteUser = async (gamingCenterId: string, userId: string) => {
   return prisma.user.updateMany({
     where: {
       id: userId,
-      salonId,
+      gamingCenterId,
     },
     data: {
       isActive: false,
@@ -25,12 +25,12 @@ export const softDeleteUser = async (salonId: string, userId: string) => {
   });
 };
 
-export const listUsersBySalon = async (salonId: string, query: ListUsersQuery) => {
-  const { page, limit, search, isActive, sortBy, sortOrder, role, isPublic, serviceId } = query;
+export const listUsersBySalon = async (gamingCenterId: string, query: ListUsersQuery) => {
+  const { page, limit, search, isActive, sortBy, sortOrder, role, isPublic, stationId } = query;
   const { skip, take } = getPaginationParams(page, limit);
 
   const where: Prisma.UserWhereInput = {
-    salonId,
+    gamingCenterId,
     isActive: isActive !== undefined ? isActive : true,
   };
 
@@ -49,10 +49,10 @@ export const listUsersBySalon = async (salonId: string, query: ListUsersQuery) =
     where.isPublic = isPublic;
   }
 
-  if (serviceId) {
-    where.userServices = {
+  if (stationId) {
+    where.stationSkills = {
       some: {
-        serviceId,
+        stationId,
       },
     };
   }
@@ -70,24 +70,24 @@ export const listUsersBySalon = async (salonId: string, query: ListUsersQuery) =
   return formatPaginatedResult(data, total, page, limit);
 };
 
-export const findUserById = async (salonId: string, userId: string) => {
+export const findUserById = async (gamingCenterId: string, userId: string) => {
   return prisma.user.findFirst({
     where: {
       id: userId,
-      salonId,
+      gamingCenterId,
     },
   });
 };
 
 export const updateUser = async (
-  salonId: string,
+  gamingCenterId: string,
   userId: string,
   data: UpdateUserInput
 ) => {
   return prisma.user.updateMany({
     where: {
       id: userId,
-      salonId,
+      gamingCenterId,
     },
     data,
   });

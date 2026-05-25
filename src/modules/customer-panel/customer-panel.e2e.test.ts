@@ -2,7 +2,7 @@ import request from 'supertest';
 import httpStatus from 'http-status';
 import app from '../../app';
 import { prisma } from '../../config/prisma';
-import { BookingStatus, ReviewTarget, Salon, Service, User } from '@prisma/client';
+import { ReservationStatus, RatingTarget, GamingCenter, GameStation, User } from '@prisma/client';
 import {
   createTestSalon,
   createTestService,
@@ -11,8 +11,8 @@ import {
 } from '../../common/utils/test-utils';
 
 describe('Customer Panel E2E Tests', () => {
-  let salon: Salon;
-  let service: Service;
+  let gamingCenter: GamingCenter;
+  let station: GameStation;
   let staff: User;
   let customerAccount: any;
   let customerToken: string;
@@ -27,19 +27,19 @@ describe('Customer Panel E2E Tests', () => {
 
   beforeEach(async () => {
     // Cleanup
-    await prisma.review.deleteMany();
-    await prisma.booking.deleteMany();
-    await prisma.salonCustomerProfile.deleteMany();
+    await prisma.rating.deleteMany();
+    await prisma.reservation.deleteMany();
+    await prisma.customerProfile.deleteMany();
     await prisma.customerAccount.deleteMany();
     await prisma.userService.deleteMany();
-    await prisma.service.deleteMany();
+    await prisma.gameStation.deleteMany();
     await prisma.user.deleteMany();
-    await prisma.salon.deleteMany();
+    await prisma.gamingCenter.deleteMany();
 
     // Setup
-    salon = await createTestSalon();
-    service = await createTestService({ salonId: salon.id });
-    staff = await createTestUser({ salonId: salon.id });
+    gamingCenter = await createTestSalon();
+    station = await createTestService({ gamingCenterId: gamingCenter.id });
+    staff = await createTestUser({ gamingCenterId: gamingCenter.id });
 
     customerAccount = await prisma.customerAccount.create({
       data: {
@@ -80,10 +80,10 @@ describe('Customer Panel E2E Tests', () => {
     });
   });
 
-  describe('GET /api/v1/customer/bookings', () => {
-    it('should return an empty list when there are no bookings', async () => {
+  describe('GET /api/v1/customer/reservations', () => {
+    it('should return an empty list when there are no reservations', async () => {
       const res = await request(app)
-        .get('/api/v1/customer/bookings')
+        .get('/api/v1/customer/reservations')
         .set('Authorization', `Bearer ${customerToken}`);
 
       expect(res.status).toBe(httpStatus.OK);
@@ -91,115 +91,115 @@ describe('Customer Panel E2E Tests', () => {
       expect(res.body.meta.totalItems).toBe(0);
     });
 
-    it('should return customer bookings', async () => {
-      // Create a profile and a booking for this customer
-      const profile = await prisma.salonCustomerProfile.create({
+    it('should return customer reservations', async () => {
+      // Create a profile and a reservation for this customer
+      const profile = await prisma.customerProfile.create({
         data: {
-          salonId: salon.id,
+          gamingCenterId: gamingCenter.id,
           customerAccountId: customerAccount.id,
           displayName: 'John',
         },
       });
 
-      await prisma.booking.create({
+      await prisma.reservation.create({
         data: {
-          salonId: salon.id,
+          gamingCenterId: gamingCenter.id,
           customerAccountId: customerAccount.id,
           customerProfileId: profile.id,
-          serviceId: service.id,
+          stationId: station.id,
           staffId: staff.id,
-          startAt: new Date(),
-          endAt: new Date(Date.now() + 3600000),
-          serviceNameSnapshot: service.name,
-          serviceDurationSnapshot: service.durationMinutes,
-          servicePriceSnapshot: service.price,
-          currencySnapshot: service.currency,
-          amountDueSnapshot: service.price,
+          startTime: new Date(),
+          endTime: new Date(Date.now() + 3600000),
+          (stationSnapshot as any): station.name,
+          (stationSnapshot as any): station.durationMinutes,
+          (stationSnapshot as any): station.price,
+          (stationSnapshot as any): station.currency,
+          totalPrice: station.price,
           createdByUserId: staff.id,
-          status: BookingStatus.CONFIRMED,
+          status: ReservationStatus.CONFIRMED,
         },
       });
 
       const res = await request(app)
-        .get('/api/v1/customer/bookings')
+        .get('/api/v1/customer/reservations')
         .set('Authorization', `Bearer ${customerToken}`);
 
       expect(res.status).toBe(httpStatus.OK);
       expect(res.body.data).toHaveLength(1);
-      expect(res.body.data[0].salon.name).toBe(salon.name);
+      expect(res.body.data[0].gamingCenter.name).toBe(gamingCenter.name);
     });
   });
 
-  describe('POST /api/v1/customer/bookings/:bookingId/cancel', () => {
-    it('should cancel a pending/confirmed booking', async () => {
-      const profile = await prisma.salonCustomerProfile.create({
+  describe('POST /api/v1/customer/reservations/:reservationId/cancel', () => {
+    it('should cancel a pending/confirmed reservation', async () => {
+      const profile = await prisma.customerProfile.create({
         data: {
-          salonId: salon.id,
+          gamingCenterId: gamingCenter.id,
           customerAccountId: customerAccount.id,
         },
       });
 
-      const booking = await prisma.booking.create({
+      const reservation = await prisma.reservation.create({
         data: {
-          salonId: salon.id,
+          gamingCenterId: gamingCenter.id,
           customerAccountId: customerAccount.id,
           customerProfileId: profile.id,
-          serviceId: service.id,
+          stationId: station.id,
           staffId: staff.id,
-          startAt: new Date(),
-          endAt: new Date(Date.now() + 3600000),
-          serviceNameSnapshot: service.name,
-          serviceDurationSnapshot: service.durationMinutes,
-          servicePriceSnapshot: service.price,
-          currencySnapshot: service.currency,
-          amountDueSnapshot: service.price,
+          startTime: new Date(),
+          endTime: new Date(Date.now() + 3600000),
+          (stationSnapshot as any): station.name,
+          (stationSnapshot as any): station.durationMinutes,
+          (stationSnapshot as any): station.price,
+          (stationSnapshot as any): station.currency,
+          totalPrice: station.price,
           createdByUserId: staff.id,
-          status: BookingStatus.CONFIRMED,
+          status: ReservationStatus.CONFIRMED,
         },
       });
 
       const res = await request(app)
-        .post(`/api/v1/customer/bookings/${booking.id}/cancel`)
+        .post(`/api/v1/customer/reservations/${reservation.id}/cancel`)
         .set('Authorization', `Bearer ${customerToken}`)
         .send({ reason: 'Changed my mind' });
 
       expect(res.status).toBe(httpStatus.OK);
-      expect(res.body.data.status).toBe(BookingStatus.CANCELED);
+      expect(res.body.data.status).toBe(ReservationStatus.CANCELED);
       expect(res.body.data.cancelReason).toBe('Changed my mind');
     });
 
-    it('should not cancel other people\'s bookings', async () => {
+    it('should not cancel other people\'s reservations', async () => {
         const otherCustomer = await prisma.customerAccount.create({
             data: { phone: '09129999999' }
         });
-        const profile = await prisma.salonCustomerProfile.create({
+        const profile = await prisma.customerProfile.create({
             data: {
-              salonId: salon.id,
+              gamingCenterId: gamingCenter.id,
               customerAccountId: otherCustomer.id,
             },
         });
 
-        const booking = await prisma.booking.create({
+        const reservation = await prisma.reservation.create({
           data: {
-            salonId: salon.id,
+            gamingCenterId: gamingCenter.id,
             customerAccountId: otherCustomer.id,
             customerProfileId: profile.id,
-            serviceId: service.id,
+            stationId: station.id,
             staffId: staff.id,
-            startAt: new Date(),
-            endAt: new Date(Date.now() + 3600000),
-            serviceNameSnapshot: service.name,
-            serviceDurationSnapshot: service.durationMinutes,
-            servicePriceSnapshot: service.price,
-            currencySnapshot: service.currency,
-            amountDueSnapshot: service.price,
+            startTime: new Date(),
+            endTime: new Date(Date.now() + 3600000),
+            (stationSnapshot as any): station.name,
+            (stationSnapshot as any): station.durationMinutes,
+            (stationSnapshot as any): station.price,
+            (stationSnapshot as any): station.currency,
+            totalPrice: station.price,
             createdByUserId: staff.id,
-            status: BookingStatus.CONFIRMED,
+            status: ReservationStatus.CONFIRMED,
           },
         });
 
         const res = await request(app)
-          .post(`/api/v1/customer/bookings/${booking.id}/cancel`)
+          .post(`/api/v1/customer/reservations/${reservation.id}/cancel`)
           .set('Authorization', `Bearer ${customerToken}`)
           .send({ reason: 'Malicious attempt' });
 
@@ -207,86 +207,86 @@ describe('Customer Panel E2E Tests', () => {
       });
   });
 
-  describe('POST /api/v1/customer/bookings/:bookingId/reviews', () => {
-    it('should submit a review for a completed booking', async () => {
-      const profile = await prisma.salonCustomerProfile.create({
+  describe('POST /api/v1/customer/reservations/:reservationId/ratings', () => {
+    it('should submit a rating for a completed reservation', async () => {
+      const profile = await prisma.customerProfile.create({
         data: {
-          salonId: salon.id,
+          gamingCenterId: gamingCenter.id,
           customerAccountId: customerAccount.id,
         },
       });
 
-      const booking = await prisma.booking.create({
+      const reservation = await prisma.reservation.create({
         data: {
-          salonId: salon.id,
+          gamingCenterId: gamingCenter.id,
           customerAccountId: customerAccount.id,
           customerProfileId: profile.id,
-          serviceId: service.id,
+          stationId: station.id,
           staffId: staff.id,
-          startAt: new Date(),
-          endAt: new Date(Date.now() + 3600000),
-          serviceNameSnapshot: service.name,
-          serviceDurationSnapshot: service.durationMinutes,
-          servicePriceSnapshot: service.price,
-          currencySnapshot: service.currency,
-          amountDueSnapshot: service.price,
+          startTime: new Date(),
+          endTime: new Date(Date.now() + 3600000),
+          (stationSnapshot as any): station.name,
+          (stationSnapshot as any): station.durationMinutes,
+          (stationSnapshot as any): station.price,
+          (stationSnapshot as any): station.currency,
+          totalPrice: station.price,
           createdByUserId: staff.id,
-          status: BookingStatus.DONE,
+          status: ReservationStatus.COMPLETED,
         },
       });
 
       const res = await request(app)
-        .post(`/api/v1/customer/bookings/${booking.id}/reviews`)
+        .post(`/api/v1/customer/reservations/${reservation.id}/ratings`)
         .set('Authorization', `Bearer ${customerToken}`)
         .send({
-          target: ReviewTarget.SALON,
+          target: RatingTarget.SALON,
           rating: 5,
-          comment: 'Great service!',
+          comment: 'Great station!',
         });
 
       expect(res.status).toBe(httpStatus.CREATED);
       expect(res.body.data.rating).toBe(5);
-      expect(res.body.data.comment).toBe('Great service!');
+      expect(res.body.data.comment).toBe('Great station!');
     });
 
-    it('should not allow reviewing a non-completed booking', async () => {
-        const profile = await prisma.salonCustomerProfile.create({
+    it('should not allow reviewing a non-completed reservation', async () => {
+        const profile = await prisma.customerProfile.create({
             data: {
-              salonId: salon.id,
+              gamingCenterId: gamingCenter.id,
               customerAccountId: customerAccount.id,
             },
           });
 
-          const booking = await prisma.booking.create({
+          const reservation = await prisma.reservation.create({
             data: {
-              salonId: salon.id,
+              gamingCenterId: gamingCenter.id,
               customerAccountId: customerAccount.id,
               customerProfileId: profile.id,
-              serviceId: service.id,
+              stationId: station.id,
               staffId: staff.id,
-              startAt: new Date(),
-              endAt: new Date(Date.now() + 3600000),
-              serviceNameSnapshot: service.name,
-              serviceDurationSnapshot: service.durationMinutes,
-              servicePriceSnapshot: service.price,
-              currencySnapshot: service.currency,
-              amountDueSnapshot: service.price,
+              startTime: new Date(),
+              endTime: new Date(Date.now() + 3600000),
+              (stationSnapshot as any): station.name,
+              (stationSnapshot as any): station.durationMinutes,
+              (stationSnapshot as any): station.price,
+              (stationSnapshot as any): station.currency,
+              totalPrice: station.price,
               createdByUserId: staff.id,
-              status: BookingStatus.CONFIRMED,
+              status: ReservationStatus.CONFIRMED,
             },
           });
 
           const res = await request(app)
-            .post(`/api/v1/customer/bookings/${booking.id}/reviews`)
+            .post(`/api/v1/customer/reservations/${reservation.id}/ratings`)
             .set('Authorization', `Bearer ${customerToken}`)
             .send({
-              target: ReviewTarget.SALON,
+              target: RatingTarget.SALON,
               rating: 5,
-              comment: 'Great service!',
+              comment: 'Great station!',
             });
 
           expect(res.status).toBe(httpStatus.BAD_REQUEST);
-          expect(res.body.message).toContain('Only completed bookings can be reviewed');
+          expect(res.body.message).toContain('Only completed reservations can be reviewed');
     });
   });
 });

@@ -70,7 +70,7 @@ const renderServicesGrid = (data: Record<string, any>) => {
   const title = data?.title ? escapeHtml(String(data.title)) : 'Services';
   const maxItems = Number(data?.maxItems ?? 6);
   const placeholders = Array.from({ length: Math.min(maxItems, 6) }, (_, index) => ({
-    name: `Service ${index + 1}`,
+    name: `GameStation ${index + 1}`,
     price: data?.showPrices ? `${(index + 1) * 10} $` : '',
   }));
   return `

@@ -121,8 +121,8 @@ export const SECTION_DEFINITIONS: Record<PageSectionType, SectionConfig & { sche
     defaults: {
       headline: 'صفحه جدید',
       subheadline: 'رزرو آنلاین و حضوری در شهر شما',
-      primaryCta: { label: 'رزرو نوبت', url: '/booking' },
-      secondaryCta: { label: 'مشاهده خدمات', url: '/services' },
+      primaryCta: { label: 'رزرو نوبت', url: '/reservation' },
+      secondaryCta: { label: 'مشاهده خدمات', url: '/stations' },
       backgroundImageUrl: 'https://picsum.photos/seed/new-hero/1600/900',
     },
     fields: [
@@ -298,7 +298,7 @@ export const SECTION_DEFINITIONS: Record<PageSectionType, SectionConfig & { sche
       title: 'برای تغییر استایل آماده‌اید؟',
       text: 'همین الان نوبت خود را رزرو کنید.',
       buttonLabel: 'رزرو نوبت',
-      buttonUrl: '/booking',
+      buttonUrl: '/reservation',
     },
     fields: [
       { name: 'title', label: 'Title', type: 'text', required: true },

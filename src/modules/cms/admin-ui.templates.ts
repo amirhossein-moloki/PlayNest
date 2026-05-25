@@ -1,6 +1,6 @@
 import { serializeSectionRegistryForEditor } from './page-section-registry';
 
-export const pagesListTemplate = (salonId: string, statusOptions: string, typeOptions: string) => `<!doctype html>
+export const pagesListTemplate = (gamingCenterId: string, statusOptions: string, typeOptions: string) => `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -137,7 +137,7 @@ export const pagesListTemplate = (salonId: string, statusOptions: string, typeOp
   <body>
     <header>
       <h1>CMS Pages</h1>
-      <div class="subtitle">Salon ID: ${salonId}</div>
+      <div class="subtitle">GamingCenter ID: ${gamingCenterId}</div>
     </header>
     <main>
       <div class="filters">
@@ -248,7 +248,7 @@ export const pagesListTemplate = (salonId: string, statusOptions: string, typeOp
             <td>\${page.type ?? '-'}</td>
             <td><span class="badge">\${page.status ?? '-'}</span></td>
             <td>\${page.updatedAt ? new Date(page.updatedAt).toLocaleString() : '-'}</td>
-            <td><a class="link-button" href="/api/v1/admin/salons/${salonId}/pages/\${page.id}">Edit</a></td>
+            <td><a class="link-button" href="/api/v1/admin/gamingCenters/${gamingCenterId}/pages/\${page.id}">Edit</a></td>
           \`;
           pagesBody.appendChild(row);
         });
@@ -268,7 +268,7 @@ export const pagesListTemplate = (salonId: string, statusOptions: string, typeOp
         if (token) saveToken();
 
         try {
-          const response = await fetch(\`/api/v1/salons/${salonId}/pages?\${params}\`,
+          const response = await fetch(\`/api/v1/gamingCenters/${gamingCenterId}/pages?\${params}\`,
             {
               headers: token ? { Authorization: \`Bearer \${token}\` } : {},
             }
@@ -322,7 +322,7 @@ export const pagesListTemplate = (salonId: string, statusOptions: string, typeOp
 </html>`;
 
 export const pageEditorTemplate = (
-  salonId: string,
+  gamingCenterId: string,
   pageId: string,
   statusOptions: string,
   typeOptions: string,
@@ -662,9 +662,9 @@ export const pageEditorTemplate = (
   <body>
     <header>
       <h1>Page Editor</h1>
-      <div class="subtitle">Salon ID: ${salonId} • Page ID: ${pageId}</div>
+      <div class="subtitle">GamingCenter ID: ${gamingCenterId} • Page ID: ${pageId}</div>
       <div class="header-actions">
-        <a class="back-link" href="/api/v1/admin/salons/${salonId}/pages">← Back to pages</a>
+        <a class="back-link" href="/api/v1/admin/gamingCenters/${gamingCenterId}/pages">← Back to pages</a>
         <div>
           <label for="authToken">Auth token</label>
           <input id="authToken" placeholder="Paste bearer token" />
@@ -725,7 +725,7 @@ export const pageEditorTemplate = (
               </div>
               <div>
                 <label for="canonicalPath">Canonical path</label>
-                <input id="canonicalPath" placeholder="/services/..." />
+                <input id="canonicalPath" placeholder="/stations/..." />
               </div>
               <div>
                 <label for="ogTitle">Open Graph title</label>
@@ -1362,7 +1362,7 @@ export const pageEditorTemplate = (
         if (token) saveToken();
 
         try {
-          const response = await fetch('/api/v1/salons/${salonId}/pages/${pageId}', {
+          const response = await fetch('/api/v1/gamingCenters/${gamingCenterId}/pages/${pageId}', {
             headers: token ? { Authorization: \`Bearer \${token}\` } : {},
           });
           if (!response.ok) {
@@ -1458,7 +1458,7 @@ export const pageEditorTemplate = (
         if (!previewFrame) return;
         setPreviewStatus('Loading preview...');
         try {
-          const response = await fetch('/api/v1/admin/salons/${salonId}/pages/preview', {
+          const response = await fetch('/api/v1/admin/gamingCenters/${gamingCenterId}/pages/preview', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(buildPreviewPayload()),
@@ -1484,7 +1484,7 @@ export const pageEditorTemplate = (
         try {
           const payload = buildPayload();
           setStatus('Saving...');
-          const response = await fetch('/api/v1/salons/${salonId}/pages/${pageId}', {
+          const response = await fetch('/api/v1/gamingCenters/${gamingCenterId}/pages/${pageId}', {
             method: 'PATCH',
             headers: {
               'Content-Type': 'application/json',

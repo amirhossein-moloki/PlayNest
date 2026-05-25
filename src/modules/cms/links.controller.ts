@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
-import { LinksService } from './links.service';
+import { LinksService } from './links.station';
 
 export const getLinks = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { salonId } = req.params;
-    const links = await LinksService.getLinks(salonId);
+    const { gamingCenterId } = req.params;
+    const links = await LinksService.getLinks(gamingCenterId);
     res.ok(links);
   } catch (error) {
     next(error);
@@ -13,8 +13,8 @@ export const getLinks = async (req: Request, res: Response, next: NextFunction) 
 
 export const createLink = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { salonId } = req.params;
-    const link = await LinksService.createLink(salonId, req.body);
+    const { gamingCenterId } = req.params;
+    const link = await LinksService.createLink(gamingCenterId, req.body);
     res.created(link);
   } catch (error) {
     next(error);
@@ -23,8 +23,8 @@ export const createLink = async (req: Request, res: Response, next: NextFunction
 
 export const updateLink = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { salonId, linkId } = req.params;
-    const link = await LinksService.updateLink(salonId, linkId, req.body);
+    const { gamingCenterId, linkId } = req.params;
+    const link = await LinksService.updateLink(gamingCenterId, linkId, req.body);
     res.ok(link);
   } catch (error) {
     next(error);
@@ -33,8 +33,8 @@ export const updateLink = async (req: Request, res: Response, next: NextFunction
 
 export const deleteLink = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { salonId, linkId } = req.params;
-    await LinksService.deleteLink(salonId, linkId);
+    const { gamingCenterId, linkId } = req.params;
+    await LinksService.deleteLink(gamingCenterId, linkId);
     res.noContent();
   } catch (error) {
     next(error);

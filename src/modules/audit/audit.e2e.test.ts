@@ -9,42 +9,42 @@ import {
   createTestService,
   generateToken,
 } from '../../common/utils/test-utils';
-import { BookingStatus, UserRole } from '@prisma/client';
+import { ReservationStatus, UserRole } from '@prisma/client';
 
 describe('Audit Logging E2E', () => {
-  let salon: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  let gamingCenter: any; // eslint-disable-line @typescript-eslint/no-explicit-any
   let manager: any; // eslint-disable-line @typescript-eslint/no-explicit-any
   let managerToken: string;
   let staff: any; // eslint-disable-line @typescript-eslint/no-explicit-any
   let staffToken: string;
 
   beforeAll(async () => {
-    salon = await createTestSalon({ name: 'Audit Salon', slug: 'audit-salon' });
-    manager = await createTestUser({ salonId: salon.id, role: UserRole.MANAGER });
+    gamingCenter = await createTestSalon({ name: 'Audit GamingCenter', slug: 'audit-gamingCenter' });
+    manager = await createTestUser({ gamingCenterId: gamingCenter.id, role: UserRole.MANAGER });
     managerToken = generateToken({ actorId: manager.id, actorType: 'USER', sessionId: 'test-session-id' });
 
-    staff = await createTestUser({ salonId: salon.id, role: UserRole.STAFF });
+    staff = await createTestUser({ gamingCenterId: gamingCenter.id, role: UserRole.STAFF });
     staffToken = generateToken({ actorId: staff.id, actorType: 'USER', sessionId: 'test-session-id' });
   });
 
   afterAll(async () => {
-    await prisma.auditLog.deleteMany({ where: { salonId: salon.id } });
-    await prisma.booking.deleteMany({ where: { salonId: salon.id } });
-    await prisma.user.deleteMany({ where: { salonId: salon.id } });
-    await prisma.salon.delete({ where: { id: salon.id } });
+    await prisma.auditLog.deleteMany({ where: { gamingCenterId: gamingCenter.id } });
+    await prisma.reservation.deleteMany({ where: { gamingCenterId: gamingCenter.id } });
+    await prisma.user.deleteMany({ where: { gamingCenterId: gamingCenter.id } });
+    await prisma.gamingCenter.delete({ where: { id: gamingCenter.id } });
   });
 
-  it('should generate an audit log when a booking is canceled', async () => {
-    const service = await createTestService({ salonId: salon.id });
-    const booking = await createTestBooking({
-      salonId: salon.id,
-      serviceId: service.id,
+  it('should generate an audit log when a reservation is canceled', async () => {
+    const station = await createTestService({ gamingCenterId: gamingCenter.id });
+    const reservation = await createTestBooking({
+      gamingCenterId: gamingCenter.id,
+      stationId: station.id,
       staffId: staff.id,
     });
 
-    // Cancel the booking
+    // Cancel the reservation
     const response = await request(app)
-      .post(`/api/v1/salons/${salon.id}/bookings/${booking.id}/cancel`)
+      .post(`/api/v1/gamingCenters/${gamingCenter.id}/reservations/${reservation.id}/cancel`)
       .set('Authorization', `Bearer ${managerToken}`)
       .send({ reason: 'Client requested' });
 
@@ -53,20 +53,20 @@ describe('Audit Logging E2E', () => {
     // Verify audit log exists
     const auditLog = await prisma.auditLog.findFirst({
       where: {
-        salonId: salon.id,
+        gamingCenterId: gamingCenter.id,
         action: 'BOOKING_CANCEL',
-        entityId: booking.id,
+        entityId: reservation.id,
       },
     });
 
     expect(auditLog).toBeDefined();
     expect(auditLog?.actorId).toBe(manager.id);
-    expect((auditLog?.newData as any).status).toBe(BookingStatus.CANCELED); // eslint-disable-line @typescript-eslint/no-explicit-any
+    expect((auditLog?.newData as any).status).toBe(ReservationStatus.CANCELED); // eslint-disable-line @typescript-eslint/no-explicit-any
   });
 
   it('should allow manager to retrieve audit logs', async () => {
     const response = await request(app)
-      .get(`/api/v1/salons/${salon.id}/audit-logs`)
+      .get(`/api/v1/gamingCenters/${gamingCenter.id}/audit-logs`)
       .set('Authorization', `Bearer ${managerToken}`);
 
     expect(response.status).toBe(200);
@@ -76,7 +76,7 @@ describe('Audit Logging E2E', () => {
 
   it('should deny staff from retrieving audit logs', async () => {
     const response = await request(app)
-      .get(`/api/v1/salons/${salon.id}/audit-logs`)
+      .get(`/api/v1/gamingCenters/${gamingCenter.id}/audit-logs`)
       .set('Authorization', `Bearer ${staffToken}`);
 
     expect(response.status).toBe(403);
@@ -84,7 +84,7 @@ describe('Audit Logging E2E', () => {
 
   it('should generate an audit log when a user is updated', async () => {
     const response = await request(app)
-      .patch(`/api/v1/salons/${salon.id}/staff/${staff.id}`)
+      .patch(`/api/v1/gamingCenters/${gamingCenter.id}/staff/${staff.id}`)
       .set('Authorization', `Bearer ${managerToken}`)
       .send({ fullName: 'Updated Staff Name' });
 
@@ -92,7 +92,7 @@ describe('Audit Logging E2E', () => {
 
     const auditLog = await prisma.auditLog.findFirst({
       where: {
-        salonId: salon.id,
+        gamingCenterId: gamingCenter.id,
         action: 'USER_UPDATE',
         entityId: staff.id,
       },

@@ -1,14 +1,14 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
-import { PaymentsService } from './payments.service';
+import { PaymentsService } from './payments.station';
 
 const initiatePayment = asyncHandler(async (req: Request, res: Response) => {
-  const { salonId, bookingId } = req.params;
+  const { gamingCenterId, reservationId } = req.params;
   const idempotencyKey = req.header('Idempotency-Key');
 
   const result = await PaymentsService.initiatePayment({
-    salonId: salonId!,
-    bookingId,
+    gamingCenterId: gamingCenterId!,
+    reservationId,
     idempotencyKey: idempotencyKey ?? null,
   });
 

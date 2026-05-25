@@ -10,12 +10,12 @@ export const updateSettingsSchema = z.object({
     preventOverlaps: z.boolean().optional(),
   }),
   params: z.object({
-    salonId: z.string().cuid(),
+    gamingCenterId: z.string().cuid(),
   }),
 });
 
 export const getSettingsSchema = z.object({
   params: z.object({
-    salonId: z.string().cuid(),
+    gamingCenterId: z.string().cuid(),
   }),
 });

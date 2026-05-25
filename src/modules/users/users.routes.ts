@@ -21,9 +21,9 @@ router.post(
   createUserController
 );
 
-router.get('/', getUsersController); // Any authenticated user of the salon can get the staff list
+router.get('/', getUsersController); // Any authenticated user of the gamingCenter can get the staff list
 
-router.get('/:userId', getUserController); // Any authenticated user of the salon can get a specific staff member
+router.get('/:userId', getUserController); // Any authenticated user of the gamingCenter can get a specific staff member
 
 router.put(
   '/:userId',

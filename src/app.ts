@@ -11,7 +11,7 @@ import routes from './routes';
 import { errorHandler } from './common/errors/errorHandler';
 import { responseMiddleware } from './common/middleware/response';
 import { env } from './config/env';
-import { initBookingEvents } from './modules/bookings/bookings.events';
+import { initBookingEvents } from './modules/reservations/reservations.events';
 
 // Initialize Event Listeners
 initBookingEvents();

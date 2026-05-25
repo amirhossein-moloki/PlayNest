@@ -2,7 +2,7 @@ import request from 'supertest';
 import crypto from 'crypto';
 import app from '../../app';
 import { createTestSalon, createTestService, createTestBooking, createTestPayment, createTestUser } from '../../common/utils/test-utils';
-import { BookingPaymentState, PaymentStatus } from '@prisma/client';
+import { ReservationPaymentState, PaymentStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { IdempotencyRepo } from '../../common/repositories/idempotency.repo';
 import { env } from '../../config/env';
@@ -14,27 +14,27 @@ const generateSignature = (payload: Buffer) => {
 };
 
 describe('Webhooks E2E', () => {
-  let salonId: string;
-  let bookingId: string;
+  let gamingCenterId: string;
+  let reservationId: string;
   let paymentId: string;
 
   beforeEach(async () => {
     // Reset DB
-    await prisma.$executeRaw`TRUNCATE "Salon", "User", "Service", "Booking", "Payment", "CustomerAccount", "SalonCustomerProfile" RESTART IDENTITY CASCADE;`;
+    await prisma.$executeRaw`TRUNCATE "GamingCenter", "User", "GameStation", "Reservation", "Payment", "CustomerAccount", "CustomerProfile" RESTART IDENTITY CASCADE;`;
     await IdempotencyRepo.clearAll();
 
-    const salon = await createTestSalon();
-    salonId = salon.id;
+    const gamingCenter = await createTestSalon();
+    gamingCenterId = gamingCenter.id;
 
-    const user = await createTestUser({ salonId });
-    const service = await createTestService({ salonId });
-    const booking = await createTestBooking({ salonId, serviceId: service.id, staffId: user.id });
-    bookingId = booking.id;
+    const user = await createTestUser({ gamingCenterId });
+    const station = await createTestService({ gamingCenterId });
+    const reservation = await createTestBooking({ gamingCenterId, stationId: station.id, staffId: user.id });
+    reservationId = reservation.id;
 
     // Create a payment in the INITIATED state to simulate a real flow
     const payment = await createTestPayment({
-      salonId,
-      bookingId,
+      gamingCenterId,
+      reservationId,
       status: PaymentStatus.INITIATED,
     });
     paymentId = payment.id;
@@ -82,8 +82,8 @@ describe('Webhooks E2E', () => {
           .expect(200);
 
         // Verify the state change
-        const updatedBooking = await prisma.booking.findUnique({ where: { id: bookingId } });
-        expect(updatedBooking?.paymentState).toBe(BookingPaymentState.PAID);
+        const updatedBooking = await prisma.reservation.findUnique({ where: { id: reservationId } });
+        expect(updatedBooking?.paymentState).toBe(ReservationPaymentState.PAID);
 
         // Second request (replay) - should also return 200 but not re-process
         await request(app)
@@ -102,7 +102,7 @@ describe('Webhooks E2E', () => {
     });
 
     describe('E2E Flows', () => {
-      it('should update booking to PAID on a valid SUCCEEDED webhook', async () => {
+      it('should update reservation to PAID on a valid SUCCEEDED webhook', async () => {
         const payload = { eventId: `evt_${crypto.randomBytes(8).toString('hex')}`, paymentId, status: 'SUCCEEDED' };
         const payloadBuffer = Buffer.from(JSON.stringify(payload));
         const signature = generateSignature(payloadBuffer);
@@ -115,15 +115,15 @@ describe('Webhooks E2E', () => {
           .expect(200);
 
         // Assert final DB state
-        const updatedBooking = await prisma.booking.findUnique({ where: { id: bookingId } });
+        const updatedBooking = await prisma.reservation.findUnique({ where: { id: reservationId } });
         const updatedPayment = await prisma.payment.findUnique({ where: { id: paymentId } });
 
-        expect(updatedBooking?.paymentState).toBe(BookingPaymentState.PAID);
+        expect(updatedBooking?.paymentState).toBe(ReservationPaymentState.PAID);
         expect(updatedPayment?.status).toBe(PaymentStatus.PAID);
         expect(updatedPayment?.paidAt).not.toBeNull();
       });
 
-      it('should update booking to FAILED on a valid FAILED webhook', async () => {
+      it('should update reservation to FAILED on a valid FAILED webhook', async () => {
         const payload = { eventId: `evt_${crypto.randomBytes(8).toString('hex')}`, paymentId, status: 'FAILED' };
         const payloadBuffer = Buffer.from(JSON.stringify(payload));
         const signature = generateSignature(payloadBuffer);
@@ -136,14 +136,14 @@ describe('Webhooks E2E', () => {
           .expect(200);
 
         // Assert final DB state
-        const updatedBooking = await prisma.booking.findUnique({ where: { id: bookingId } });
+        const updatedBooking = await prisma.reservation.findUnique({ where: { id: reservationId } });
         const updatedPayment = await prisma.payment.findUnique({ where: { id: paymentId } });
 
-        expect(updatedBooking?.paymentState).toBe(BookingPaymentState.FAILED);
+        expect(updatedBooking?.paymentState).toBe(ReservationPaymentState.FAILED);
         expect(updatedPayment?.status).toBe(PaymentStatus.FAILED);
       });
 
-      it('should update booking to CANCELED on a valid EXPIRED webhook', async () => {
+      it('should update reservation to CANCELED on a valid EXPIRED webhook', async () => {
         const payload = { eventId: `evt_${crypto.randomBytes(8).toString('hex')}`, paymentId, status: 'EXPIRED' };
         const payloadBuffer = Buffer.from(JSON.stringify(payload));
         const signature = generateSignature(payloadBuffer);
@@ -156,10 +156,10 @@ describe('Webhooks E2E', () => {
           .expect(200);
 
         // Assert final DB state
-        const updatedBooking = await prisma.booking.findUnique({ where: { id: bookingId } });
+        const updatedBooking = await prisma.reservation.findUnique({ where: { id: reservationId } });
         const updatedPayment = await prisma.payment.findUnique({ where: { id: paymentId } });
 
-        expect(updatedBooking?.paymentState).toBe(BookingPaymentState.CANCELED);
+        expect(updatedBooking?.paymentState).toBe(ReservationPaymentState.CANCELED);
         expect(updatedPayment?.status).toBe(PaymentStatus.CANCELED);
       });
     });

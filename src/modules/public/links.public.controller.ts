@@ -1,19 +1,19 @@
 import { Request, Response } from 'express';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
-import * as PublicLinksService from './links.public.service';
+import * as PublicLinksService from './links.public.station';
 
 type PublicSalonRequest = Request & {
-  tenant?: { salonId: string; salonSlug: string };
+  tenant?: { gamingCenterId: string; gamingCenterSlug: string };
 };
 
 export async function getPublicLinks(req: PublicSalonRequest, res: Response) {
-  const salonId = req.tenant?.salonId;
+  const gamingCenterId = req.tenant?.gamingCenterId;
 
-  if (!salonId) {
-    throw new AppError('Salon context is missing from the request.', httpStatus.BAD_REQUEST);
+  if (!gamingCenterId) {
+    throw new AppError('GamingCenter context is missing from the request.', httpStatus.BAD_REQUEST);
   }
 
-  const links = await PublicLinksService.getPublicLinksBySalon(salonId);
+  const links = await PublicLinksService.getPublicLinksBySalon(gamingCenterId);
   res.ok(links);
 }

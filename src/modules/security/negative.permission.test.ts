@@ -2,11 +2,11 @@
 import request from 'supertest';
 import app from '../../app';
 import { prisma } from '../../config/prisma';
-import { User, Salon } from '@prisma/client';
+import { User, GamingCenter } from '@prisma/client';
 import { createTestSalon, createTestUser, generateToken as createToken } from '../../common/utils/test-utils';
 
 describe('Negative Permission (RBAC) E2E Tests', () => {
-  let salon: Salon;
+  let gamingCenter: GamingCenter;
   let manager: User;
   let receptionist: User;
   let staff: User;
@@ -15,10 +15,10 @@ describe('Negative Permission (RBAC) E2E Tests', () => {
   let staffToken: string;
 
   beforeAll(async () => {
-    salon = await createTestSalon();
-    manager = await createTestUser({ salonId: salon.id, role: 'MANAGER' });
-    receptionist = await createTestUser({ salonId: salon.id, role: 'RECEPTIONIST' });
-    staff = await createTestUser({ salonId: salon.id, role: 'STAFF' });
+    gamingCenter = await createTestSalon();
+    manager = await createTestUser({ gamingCenterId: gamingCenter.id, role: 'MANAGER' });
+    receptionist = await createTestUser({ gamingCenterId: gamingCenter.id, role: 'SUPERVISOR' });
+    staff = await createTestUser({ gamingCenterId: gamingCenter.id, role: 'STAFF' });
 
     _managerToken = createToken({ actorId: manager.id, actorType: 'USER' });
     receptionistToken = createToken({ actorId: receptionist.id, actorType: 'USER' });
@@ -27,14 +27,14 @@ describe('Negative Permission (RBAC) E2E Tests', () => {
 
   afterAll(async () => {
     await prisma.user.deleteMany({});
-    await prisma.salon.deleteMany({});
+    await prisma.gamingCenter.deleteMany({});
     await prisma.$disconnect();
   });
 
   describe('Staff Management Routes', () => {
-    it('should return 403 Forbidden for RECEPTIONIST trying to create staff', async () => {
+    it('should return 403 Forbidden for SUPERVISOR trying to create staff', async () => {
       const response = await request(app)
-        .post(`/api/v1/salons/${salon.id}/staff`)
+        .post(`/api/v1/gamingCenters/${gamingCenter.id}/staff`)
         .set('Authorization', `Bearer ${receptionistToken}`)
         .send({
           fullName: 'New Staff',
@@ -45,21 +45,21 @@ describe('Negative Permission (RBAC) E2E Tests', () => {
     });
 
     it('should return 403 Forbidden for STAFF trying to delete another user', async () => {
-      const anotherStaff = await createTestUser({ salonId: salon.id, role: 'STAFF' });
+      const anotherStaff = await createTestUser({ gamingCenterId: gamingCenter.id, role: 'STAFF' });
       const response = await request(app)
-        .delete(`/api/v1/salons/${salon.id}/staff/${anotherStaff.id}`)
+        .delete(`/api/v1/gamingCenters/${gamingCenter.id}/staff/${anotherStaff.id}`)
         .set('Authorization', `Bearer ${staffToken}`);
       expect(response.status).toBe(403);
     });
   });
 
-  describe('Service Management Routes', () => {
-    it('should return 403 Forbidden for RECEPTIONIST trying to create a service', async () => {
+  describe('GameStation Management Routes', () => {
+    it('should return 403 Forbidden for SUPERVISOR trying to create a station', async () => {
       const response = await request(app)
-        .post(`/api/v1/salons/${salon.id}/services`)
+        .post(`/api/v1/gamingCenters/${gamingCenter.id}/stations`)
         .set('Authorization', `Bearer ${receptionistToken}`)
         .send({
-          name: 'New Service',
+          name: 'New GameStation',
           durationMinutes: 30,
           price: 10000,
           currency: 'IRR',
@@ -68,12 +68,12 @@ describe('Negative Permission (RBAC) E2E Tests', () => {
     });
   });
 
-  describe('Booking Management Routes', () => {
-    it('should return 403 Forbidden for STAFF trying to create a booking', async () => {
-      // This test requires a more complex setup with services and customers,
+  describe('Reservation Management Routes', () => {
+    it('should return 403 Forbidden for STAFF trying to create a reservation', async () => {
+      // This test requires a more complex setup with stations and customers,
       // but we can test the role guard with a minimal payload.
       const response = await request(app)
-        .post(`/api/v1/salons/${salon.id}/bookings`)
+        .post(`/api/v1/gamingCenters/${gamingCenter.id}/reservations`)
         .set('Authorization', `Bearer ${staffToken}`)
         .send({}); // Minimal payload to trigger the role guard
       expect(response.status).toBe(403);

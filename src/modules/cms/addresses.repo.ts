@@ -1,38 +1,38 @@
-import { SalonAddress } from '@prisma/client';
+import { Address } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
 export const AddressesRepo = {
-  async findBySalonId(salonId: string): Promise<SalonAddress[]> {
-    return prisma.salonAddress.findMany({
-      where: { salonId },
+  async findBySalonId(gamingCenterId: string): Promise<Address[]> {
+    return prisma.address.findMany({
+      where: { gamingCenterId },
       orderBy: { createdAt: 'desc' },
     });
   },
 
-  async findById(id: string): Promise<SalonAddress | null> {
-    return prisma.salonAddress.findUnique({
+  async findById(id: string): Promise<Address | null> {
+    return prisma.address.findUnique({
       where: { id },
     });
   },
 
-  async create(salonId: string, data: any): Promise<SalonAddress> {
-    return prisma.salonAddress.create({
+  async create(gamingCenterId: string, data: any): Promise<Address> {
+    return prisma.address.create({
       data: {
         ...data,
-        salonId,
+        gamingCenterId,
       },
     });
   },
 
-  async update(id: string, data: any): Promise<SalonAddress> {
-    return prisma.salonAddress.update({
+  async update(id: string, data: any): Promise<Address> {
+    return prisma.address.update({
       where: { id },
       data,
     });
   },
 
-  async delete(id: string): Promise<SalonAddress> {
-    return prisma.salonAddress.delete({
+  async delete(id: string): Promise<Address> {
+    return prisma.address.delete({
       where: { id },
     });
   },

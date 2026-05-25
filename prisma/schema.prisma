@@ -13,41 +13,53 @@ generator client {
 
 enum UserRole {
   MANAGER
-  RECEPTIONIST
+  SUPERVISOR
   STAFF
+  TRAINEE
 }
 
-enum BookingStatus {
+enum ShiftRole {
+  CASHIER
+  TECH_SUPPORT
+  CLEANER
+  HOST
+  SECURITY
+}
+
+enum ReservationStatus {
   PENDING
   CONFIRMED
-  DONE
+  IN_PROGRESS
+  COMPLETED
   CANCELED
   NO_SHOW
 }
 
-enum BookingSource {
-  IN_PERSON
+enum ReservationSource {
   ONLINE
+  WALK_IN
+  PHONE
 }
 
 enum PaymentMethod {
   CASH
   CARD
   ONLINE
+  GIFT_CARD
+  MEMBERSHIP
 }
 
-// ✅ updated: needed for online flows
 enum PaymentStatus {
   INITIATED
   PENDING
-  PAID // Represents SUCCEEDED
+  PAID
   FAILED
   REFUNDED
-  VOID // Can be used for CANCELED
+  VOID
   CANCELED
 }
 
-enum BookingPaymentState {
+enum ReservationPaymentState {
   UNPAID
   PENDING
   PARTIALLY_PAID
@@ -73,6 +85,8 @@ enum PageType {
   TEAM
   CONTACT
   CUSTOM
+  TOURNAMENT
+  BLOG
 }
 
 enum PageSectionType {
@@ -97,7 +111,7 @@ enum MediaType {
 enum MediaPurpose {
   COVER
   GALLERY
-  BEFORE_AFTER
+  STATION
   LOGO
 }
 
@@ -110,12 +124,7 @@ enum LinkType {
   GOOGLE_MAP
 }
 
-enum ReviewTarget {
-  SALON
-  SERVICE
-}
-
-enum ReviewStatus {
+enum RatingStatus {
   PUBLISHED
   HIDDEN
   DELETED
@@ -159,7 +168,7 @@ enum CommissionPaymentStatus {
   REFUNDED
 }
 
-// ---- OTP / Auth (NEW) ----
+// ---- OTP / Auth ----
 enum SessionActorType {
   USER
   CUSTOMER
@@ -175,51 +184,82 @@ enum OtpChannel {
   WHATSAPP
 }
 
-enum IdempotencyStatus {
-  IN_PROGRESS
+enum GameStationType {
+  PC
+  PLAYSTATION
+  XBOX
+  SWITCH
+  VR
+}
+
+enum GamingSessionStatus {
+  ACTIVE
+  PAUSED
   COMPLETED
-  FAILED
+  INTERRUPTED
+  NO_SHOW
+}
+
+enum SkillLevel {
+  BASIC
+  INTERMEDIATE
+  EXPERT
+}
+
+enum WalletTransactionType {
+  REFUND
+  RESERVATION_PAYMENT
+  DEPOSIT
+  MANUAL_ADJUSTMENT
 }
 
 // =======================
 // Models
 // =======================
 
-model Salon {
+model GamingCenter {
   id       String  @id @default(cuid())
   name     String
   isActive Boolean @default(true)
 
   // Public identity (site)
-  slug           String  @unique
-  description    String?
-  seoTitle       String?
-  seoDescription String?
+  slug        String  @unique
+  description String?
 
-  users    User[]
-  services Service[]
-  bookings Booking[]
-  shifts   Shift[]
-  settings Settings?
+  pcCount        Int     @default(0)
+  consoleCount   Int     @default(0)
+  openingTime    String? // e.g., "09:00"
+  closingTime    String? // e.g., "23:00"
+  hourlyRate     Float   @default(0)
+  vipHourlyRate  Float?
+  hasFoodService Boolean @default(false)
+
+  users        User[]
+  stations     GameStation[]
+  reservations Reservation[]
+  shifts       StaffShift[]
+  settings     Settings?
 
   // CRM
-  customers SalonCustomerProfile[]
+  customers CustomerProfile[]
 
   // Site builder / SEO
-  siteSettings SalonSiteSettings?
-  pages        SalonPage[]
-  media        SalonMedia[]
-  links        SalonLink[]
-  addresses    SalonAddress[]
-  slugHistory  SalonSlugHistory[]
+  siteSettings SiteSettings?
+  pages        Page[]
+  media        Media[]
+  links        SocialLink[]
+  addresses    Address[]
 
-  // Reviews
-  reviews Review[]
+  // Ratings
+  ratings Rating[]
 
   // Commission
-  commissionPolicy   SalonCommissionPolicy?
-  bookingCommissions BookingCommission[]
-  auditLogs          AuditLog[]
+  commissionPolicy CommissionPolicy?
+  earnings         Earning[]
+  auditLogs        AuditLog[]
+
+  // New features
+  tournaments Tournament[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -231,8 +271,8 @@ model Salon {
 model Settings {
   id String @id @default(cuid())
 
-  salonId String @unique
-  salon   Salon  @relation(fields: [salonId], references: [id])
+  gamingCenterId String       @unique
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
   preventOverlaps Boolean @default(true)
 
@@ -242,6 +282,11 @@ model Settings {
 
   allowOnlineBooking       Boolean @default(false)
   onlineBookingAutoConfirm Boolean @default(false)
+
+  maxAdvanceBookingDays    Int   @default(7)
+  cancellationHours        Int   @default(2)
+  noShowPenaltyAmount      Float @default(0)
+  autoReleaseUnpaidMinutes Int   @default(15)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -253,17 +298,16 @@ model Settings {
 model User {
   id String @id @default(cuid())
 
-  salonId String
-  salon   Salon  @relation(fields: [salonId], references: [id])
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
   fullName String
   phone    String
 
-  // ✅ OTP is primary now
   passwordHash    String?
   phoneVerifiedAt DateTime?
 
-  role     UserRole
+  role     UserRole @default(STAFF)
   isActive Boolean  @default(true)
 
   // Public profile (Team page)
@@ -272,30 +316,27 @@ model User {
   bio        String?
   avatarUrl  String?
 
-  // sessions are now polymorphic, so no direct relation
-  // sessions         Session[]
-
-  shifts           Shift[]
-  bookingsAsStaff  Booking[] @relation("BookingStaff")
-  bookingsCreated  Booking[] @relation("BookingCreator")
-  canceledBookings Booking[] @relation("BookingCanceler")
+  shifts               StaffShift[]
+  reservationsAsStaff  Reservation[] @relation("ReservationStaff")
+  reservationsCreated  Reservation[] @relation("ReservationCreator")
+  canceledReservations Reservation[] @relation("ReservationCanceler")
 
   // join table (explicit)
-  userServices UserService[]
+  stationSkills StaffStationSkill[]
+  auditLogs     AuditLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([salonId, phone])
-  @@index([salonId, role])
-  @@index([salonId, isActive])
-  @@index([salonId, isPublic])
+  @@unique([gamingCenterId, phone])
+  @@index([gamingCenterId, role])
+  @@index([gamingCenterId, isActive])
+  @@index([gamingCenterId, isPublic])
 }
 
 model Session {
   id String @id @default(cuid())
 
-  // ✅ UPDATED: actor-based session (USER + CUSTOMER)
   actorType SessionActorType
   actorId   String
 
@@ -310,7 +351,7 @@ model Session {
 }
 
 // -----------------------
-// OTP (NEW)
+// OTP
 // -----------------------
 model PhoneOtp {
   id String @id @default(cuid())
@@ -327,7 +368,6 @@ model PhoneOtp {
   ip        String?
   userAgent String?
 
-  // optional binding (after verification)
   targetActorType SessionActorType?
   targetActorId   String?
 
@@ -340,22 +380,23 @@ model PhoneOtp {
 }
 
 // -----------------------
-// Global Customer Identity (cross-salon)
+// Global Customer Identity (cross-center)
 // -----------------------
 model CustomerAccount {
   id       String  @id @default(cuid())
   phone    String  @unique
   fullName String?
 
-  // ✅ optional but recommended
   phoneVerifiedAt DateTime?
 
   walletBalance Int @default(0)
 
-  profiles           SalonCustomerProfile[]
-  bookings           Booking[]
-  reviews            Review[]
+  profiles           CustomerProfile[]
+  reservations       Reservation[]
+  ratings            Rating[]
   walletTransactions WalletTransaction[]
+  auditLogs          AuditLog[]
+  memberships        Membership[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -364,13 +405,13 @@ model CustomerAccount {
 }
 
 // -----------------------
-// Per-salon CRM Profile
+// Per-center CRM Profile
 // -----------------------
-model SalonCustomerProfile {
+model CustomerProfile {
   id String @id @default(cuid())
 
-  salonId String
-  salon   Salon  @relation(fields: [salonId], references: [id])
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
   customerAccountId String
   customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
@@ -378,62 +419,71 @@ model SalonCustomerProfile {
   displayName String?
   note        String?
 
-  bookings Booking[]
+  reservations Reservation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([salonId, customerAccountId])
-  @@index([salonId, displayName])
+  @@unique([gamingCenterId, customerAccountId])
+  @@index([gamingCenterId, displayName])
   @@index([customerAccountId])
-  @@index([salonId, createdAt])
+  @@index([gamingCenterId, createdAt])
 }
 
 // -----------------------
-// Services / Shifts
+// Game Stations / Shifts
 // -----------------------
-model Service {
+model GameStation {
   id String @id @default(cuid())
 
-  salonId String
-  salon   Salon  @relation(fields: [salonId], references: [id])
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
-  name            String
-  durationMinutes Int
-  price           Int
-  currency        String
-  isActive        Boolean @default(true)
+  name                 String
+  stationType          GameStationType @default(PC)
+  isVip                Boolean         @default(false)
+  hourlyPrice          Float
+  minRentHours         Int             @default(1)
+  maxRentHours         Int             @default(8)
+  defaultDurationHours Int             @default(1)
+  incrementMinutes     Int             @default(30)
+  isActive             Boolean         @default(true)
 
-  bookings Booking[]
-  reviews  Review[]
+  reservations Reservation[]
+  ratings      Rating[]
 
   // join table (explicit)
-  userServices UserService[]
+  staffSkills StaffStationSkill[]
+
+  maintenances   StationMaintenance[]
+  gamingSessions GamingSession[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([salonId, isActive])
-  @@index([salonId, name])
+  @@index([gamingCenterId, isActive])
+  @@index([gamingCenterId, name])
 }
 
-model UserService {
+model StaffStationSkill {
   userId    String
-  serviceId String
+  stationId String
 
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  skillLevel SkillLevel @default(BASIC)
 
-  @@id([userId, serviceId])
-  @@index([serviceId])
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  station GameStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@id([userId, stationId])
+  @@index([stationId])
   @@index([userId])
 }
 
-model Shift {
+model StaffShift {
   id String @id @default(cuid())
 
-  salonId String
-  salon   Salon  @relation(fields: [salonId], references: [id])
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
   userId String
   user   User   @relation(fields: [userId], references: [id])
@@ -441,78 +491,80 @@ model Shift {
   dayOfWeek Int
   startTime String
   endTime   String
-  isActive  Boolean @default(true)
+  shiftRole ShiftRole @default(HOST)
+  isActive  Boolean   @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([salonId, userId, dayOfWeek])
-  @@index([salonId, dayOfWeek])
+  @@unique([gamingCenterId, userId, dayOfWeek])
+  @@index([gamingCenterId, dayOfWeek])
 }
 
 // -----------------------
-// Booking
+// Reservation
 // -----------------------
-model Booking {
+model Reservation {
   id String @id @default(cuid())
 
-  salonId String
-  salon   Salon  @relation(fields: [salonId], references: [id])
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
   customerProfileId String
-  customerProfile   SalonCustomerProfile @relation(fields: [customerProfileId], references: [id])
+  customerProfile   CustomerProfile @relation(fields: [customerProfileId], references: [id])
 
   customerAccountId String
   customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id])
 
-  serviceId String
-  service   Service @relation(fields: [serviceId], references: [id])
+  stationId String
+  station   GameStation @relation(fields: [stationId], references: [id])
 
-  staffId String
-  staff   User   @relation("BookingStaff", fields: [staffId], references: [id])
+  staffId String?
+  staff   User?   @relation("ReservationStaff", fields: [staffId], references: [id])
 
   createdByUserId String
-  createdBy       User   @relation("BookingCreator", fields: [createdByUserId], references: [id])
+  createdBy       User   @relation("ReservationCreator", fields: [createdByUserId], references: [id])
 
-  startAt DateTime @db.Timestamptz(6)
-  endAt   DateTime @db.Timestamptz(6)
+  startTime DateTime @db.Timestamptz(6)
+  endTime   DateTime @db.Timestamptz(6)
 
-  // Snapshot (NON-NULL)
-  serviceNameSnapshot     String
-  serviceDurationSnapshot Int
-  servicePriceSnapshot    Int
-  currencySnapshot        String
+  // Snapshot
+  stationSnapshot Json
 
-  amountDueSnapshot Int
-  paymentState      BookingPaymentState @default(UNPAID)
+  totalHours     Float
+  totalPrice     Float
+  discountAmount Float @default(0)
+  voucherCode    String?
+  paymentState   ReservationPaymentState @default(UNPAID)
 
-  status BookingStatus @default(CONFIRMED)
-  source BookingSource @default(IN_PERSON)
+  status ReservationStatus @default(CONFIRMED)
+  source ReservationSource @default(WALK_IN)
   note   String?
 
   canceledAt       DateTime? @db.Timestamptz(6)
   cancelReason     String?
   canceledByUserId String?
-  canceledBy       User?     @relation("BookingCanceler", fields: [canceledByUserId], references: [id])
+  canceledBy       User?     @relation("ReservationCanceler", fields: [canceledByUserId], references: [id])
 
   completedAt DateTime? @db.Timestamptz(6)
   noShowAt    DateTime? @db.Timestamptz(6)
 
   payments           Payment[]
-  reviews            Review[]
-  commission         BookingCommission?
+  ratings            Rating[]
+  earning            Earning?
   walletTransactions WalletTransaction[]
+  gamingSessions     GamingSession[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([salonId, startAt])
-  @@index([salonId, staffId, startAt])
-  @@index([salonId, status, startAt])
-  @@index([salonId, staffId, status, startAt, endAt])
-  @@index([customerAccountId, startAt])
-  @@index([customerProfileId, startAt])
-  @@index([salonId, paymentState, startAt])
+  @@index([gamingCenterId, startTime])
+  @@index([gamingCenterId, staffId, startTime])
+  @@index([gamingCenterId, status, startTime])
+  @@index([gamingCenterId, staffId, status, startTime, endTime])
+  @@index([customerAccountId, startTime])
+  @@index([customerProfileId, startTime])
+  @@index([gamingCenterId, paymentState, startTime])
 }
 
 // -----------------------
@@ -528,11 +580,11 @@ enum PaymentProvider {
 model Payment {
   id String @id @default(cuid())
 
-  salonId String
-  salon   Salon  @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
 
-  bookingId String
-  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  reservationId String
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
 
   amount   Int
   currency String
@@ -547,8 +599,6 @@ model Payment {
 
   paidAt DateTime? @db.Timestamptz(6)
 
-  // Legacy fields for manual payments - can be deprecated later.
-  // For online payments, method is always ONLINE.
   method        PaymentMethod @default(ONLINE)
   referenceCode String?
 
@@ -556,44 +606,47 @@ model Payment {
   updatedAt DateTime @updatedAt
 
   @@unique(fields: [provider, providerPaymentId], name: "provider_payment_id")
-  @@unique(fields: [salonId, idempotencyKey], name: "idempotency_key")
-  @@index([bookingId, paidAt])
+  @@unique(fields: [gamingCenterId, idempotencyKey], name: "idempotency_key")
+  @@index([reservationId, paidAt])
   @@index([status, paidAt])
-  @@index([salonId, status, paidAt])
+  @@index([gamingCenterId, status, paidAt])
 }
 
 // =====================================================
-// Reviews
+// Ratings
 // =====================================================
-model Review {
+model Rating {
   id String @id @default(cuid())
 
-  salonId String
-  salon   Salon  @relation(fields: [salonId], references: [id])
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
   customerAccountId String
   customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id])
 
-  bookingId String
-  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  reservationId String
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
 
-  target    ReviewTarget
-  serviceId String?
-  service   Service?     @relation(fields: [serviceId], references: [id])
+  stationId String?
+  station   GameStation? @relation(fields: [stationId], references: [id])
+
+  cleanlinessRating Int @default(5)
+  equipmentRating   Int @default(5)
+  staffRating       Int @default(5)
+  priceValueRating  Int @default(5)
 
   rating  Int
   comment String?
 
-  status ReviewStatus @default(PUBLISHED)
+  status RatingStatus @default(PUBLISHED)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // allows: 1 SALON review per booking + 1 SERVICE review per booking+service
-  @@unique([bookingId, target, serviceId])
-  @@index([salonId, status, createdAt])
-  @@index([serviceId, status, createdAt])
-  @@index([bookingId])
+  @@unique([reservationId, stationId])
+  @@index([gamingCenterId, status, createdAt])
+  @@index([stationId, status, createdAt])
+  @@index([reservationId])
   @@index([customerAccountId, createdAt])
 }
 
@@ -601,11 +654,11 @@ model Review {
 // Commission
 // =====================================================
 
-model SalonCommissionPolicy {
+model CommissionPolicy {
   id String @id @default(cuid())
 
-  salonId String @unique
-  salon   Salon  @relation(fields: [salonId], references: [id])
+  gamingCenterId String       @unique
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
   type CommissionType @default(PERCENT)
 
@@ -627,21 +680,21 @@ model SalonCommissionPolicy {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([salonId, isActive])
+  @@index([gamingCenterId, isActive])
 }
 
-model BookingCommission {
+model Earning {
   id String @id @default(cuid())
 
-  bookingId String  @unique
-  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  reservationId String      @unique
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
 
-  salonId String
-  salon   Salon  @relation(fields: [salonId], references: [id])
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
   status CommissionStatus @default(PENDING)
 
-  // base used to calculate commission (choose: amountDueSnapshot or paid sum)
+  // base used to calculate commission
   baseAmount Int
   currency   String
 
@@ -658,20 +711,20 @@ model BookingCommission {
 
   note String?
 
-  payments CommissionPayment[]
+  payments EarningPayment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([salonId, status, createdAt])
+  @@index([gamingCenterId, status, createdAt])
   @@index([chargedAt])
 }
 
-model CommissionPayment {
+model EarningPayment {
   id String @id @default(cuid())
 
-  commissionId String
-  commission   BookingCommission @relation(fields: [commissionId], references: [id], onDelete: Cascade)
+  earningId String
+  earning   Earning @relation(fields: [earningId], references: [id], onDelete: Cascade)
 
   amount   Int
   currency String
@@ -685,7 +738,7 @@ model CommissionPayment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([commissionId, paidAt])
+  @@index([earningId, paidAt])
   @@index([status, paidAt])
 }
 
@@ -693,11 +746,11 @@ model CommissionPayment {
 // Site / Page Builder / SEO
 // =====================================================
 
-model SalonSiteSettings {
+model SiteSettings {
   id String @id @default(cuid())
 
-  salonId String @unique
-  salon   Salon  @relation(fields: [salonId], references: [id])
+  gamingCenterId String       @unique
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
   logoUrl    String?
   faviconUrl String?
@@ -716,11 +769,11 @@ model SalonSiteSettings {
   updatedAt DateTime @updatedAt
 }
 
-model SalonPage {
+model Page {
   id String @id @default(cuid())
 
-  salonId String
-  salon   Salon  @relation(fields: [salonId], references: [id])
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
   slug  String
   title String
@@ -742,23 +795,23 @@ model SalonPage {
 
   structuredDataJson String?
 
-  sections    SalonPageSection[]
-  slugHistory SalonPageSlugHistory[]
+  sections    PageSection[]
+  slugHistory PageSlugHistory[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([salonId, slug])
-  @@index([salonId, status])
-  @@index([salonId, type])
-  @@index([salonId, publishedAt])
+  @@unique([gamingCenterId, slug])
+  @@index([gamingCenterId, status])
+  @@index([gamingCenterId, type])
+  @@index([gamingCenterId, publishedAt])
 }
 
-model SalonPageSection {
+model PageSection {
   id String @id @default(cuid())
 
   pageId String
-  page   SalonPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  page   Page   @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
   type     PageSectionType
   dataJson String // block config JSON (NO HTML)
@@ -774,11 +827,11 @@ model SalonPageSection {
   @@index([pageId, type])
 }
 
-model SalonMedia {
+model Media {
   id String @id @default(cuid())
 
-  salonId String
-  salon   Salon  @relation(fields: [salonId], references: [id])
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
   type    MediaType    @default(IMAGE)
   purpose MediaPurpose @default(GALLERY)
@@ -798,15 +851,15 @@ model SalonMedia {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([salonId, purpose, isActive, sortOrder])
-  @@index([salonId, category])
+  @@index([gamingCenterId, purpose, isActive, sortOrder])
+  @@index([gamingCenterId, category])
 }
 
-model SalonLink {
+model SocialLink {
   id String @id @default(cuid())
 
-  salonId String
-  salon   Salon  @relation(fields: [salonId], references: [id])
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
   type  LinkType
   label String?
@@ -818,17 +871,17 @@ model SalonLink {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([salonId, type])
-  @@index([salonId, isPrimary])
-  @@index([salonId, isActive])
+  @@index([gamingCenterId, type])
+  @@index([gamingCenterId, isPrimary])
+  @@index([gamingCenterId, isActive])
 }
 
 // Address (Iran-friendly)
-model SalonAddress {
+model Address {
   id String @id @default(cuid())
 
-  salonId String
-  salon   Salon  @relation(fields: [salonId], references: [id])
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
   title String?
 
@@ -847,31 +900,17 @@ model SalonAddress {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([salonId])
-  @@index([salonId, isPrimary])
+  @@index([gamingCenterId])
+  @@index([gamingCenterId, isPrimary])
   @@index([province])
   @@index([city])
 }
 
-// Slug history for 301 redirects (SEO)
-model SalonSlugHistory {
-  id String @id @default(cuid())
-
-  salonId String
-  salon   Salon  @relation(fields: [salonId], references: [id], onDelete: Cascade)
-
-  oldSlug   String
-  createdAt DateTime @default(now())
-
-  @@unique([oldSlug])
-  @@index([salonId, createdAt])
-}
-
-model SalonPageSlugHistory {
+model PageSlugHistory {
   id String @id @default(cuid())
 
   pageId String
-  page   SalonPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  page   Page   @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
   oldSlug   String
   createdAt DateTime @default(now())
@@ -884,65 +923,64 @@ model SalonPageSlugHistory {
 // Analytics Summary Tables
 // =====================================================
 
-model SalonAnalytics {
-  salonId String
-  date    DateTime @db.Date
+model GamingCenterAnalytics {
+  gamingCenterId String
+  date           DateTime @db.Date
 
-  totalBookings     Int @default(0)
-  completedBookings Int @default(0)
-  canceledBookings  Int @default(0)
-  revenue           Int @default(0)
-  realizedCash      Int @default(0)
+  totalReservations     Int @default(0)
+  completedReservations Int @default(0)
+  canceledReservations  Int @default(0)
+  revenue               Int @default(0)
+  realizedCash          Int @default(0)
+
+  peakHours     Json?
+  occupancyRate Float @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@id([salonId, date])
-  @@index([salonId, date])
+  @@id([gamingCenterId, date])
 }
 
 model StaffAnalytics {
-  salonId String
-  staffId String
-  date    DateTime @db.Date
+  gamingCenterId String
+  staffId        String
+  date           DateTime @db.Date
 
-  completedBookings Int @default(0)
-  revenue           Int @default(0)
-  totalRating       Int @default(0)
-  ratingCount       Int @default(0)
+  completedReservations Int @default(0)
+  revenue               Int @default(0)
+  totalRating           Int @default(0)
+  ratingCount           Int @default(0)
+
+  reservationsHandled Int   @default(0)
+  cancellationRate    Float @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@id([salonId, staffId, date])
-  @@index([salonId, staffId, date])
+  @@id([gamingCenterId, staffId, date])
 }
 
-model ServiceAnalytics {
-  salonId   String
-  serviceId String
-  date      DateTime @db.Date
+model StationAnalytics {
+  gamingCenterId String
+  stationId      String
+  date           DateTime @db.Date
 
-  completedBookings Int @default(0)
-  revenue           Int @default(0)
+  completedReservations Int @default(0)
+  revenue               Int @default(0)
+
+  totalHoursBooked Float @default(0)
+  utilizationRate  Float @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@id([salonId, serviceId, date])
-  @@index([salonId, serviceId, date])
+  @@id([gamingCenterId, stationId, date])
 }
 
 // =====================================================
 // Wallet
 // =====================================================
-
-enum WalletTransactionType {
-  REFUND
-  BOOKING_PAYMENT
-  DEPOSIT
-  MANUAL_ADJUSTMENT
-}
 
 model WalletTransaction {
   id                String          @id @default(cuid())
@@ -953,15 +991,15 @@ model WalletTransaction {
   currency String
   type     WalletTransactionType
 
-  bookingId String?
-  booking   Booking? @relation(fields: [bookingId], references: [id])
+  reservationId String?
+  reservation   Reservation? @relation(fields: [reservationId], references: [id])
 
   note String?
 
   createdAt DateTime @default(now())
 
   @@index([customerAccountId])
-  @@index([bookingId])
+  @@index([reservationId])
 }
 
 // =====================================================
@@ -970,14 +1008,17 @@ model WalletTransaction {
 model AuditLog {
   id String @id @default(cuid())
 
-  salonId String
-  salon   Salon  @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  gamingCenterId String?
+  gamingCenter   GamingCenter? @relation(fields: [gamingCenterId], references: [id])
 
-  actorId   String
-  actorType SessionActorType
+  userId String?
+  user   User? @relation(fields: [userId], references: [id])
 
-  action String // e.g., "BOOKING_CANCEL", "SETTINGS_UPDATE"
-  entity String // e.g., "Booking", "Settings"
+  customerId String?
+  customer   CustomerAccount? @relation(fields: [customerId], references: [id])
+
+  action   String // e.g., "RESERVATION_CANCEL", "SETTINGS_UPDATE"
+  entity   String // e.g., "Reservation", "Settings"
   entityId String
 
   oldData Json?
@@ -988,7 +1029,82 @@ model AuditLog {
 
   createdAt DateTime @default(now())
 
-  @@index([salonId, createdAt])
-  @@index([salonId, entity, entityId])
+  @@index([gamingCenterId, createdAt])
+  @@index([entity, entityId])
+  @@index([userId])
 }
 
+// =====================================================
+// New Gamenet Specific Models
+// =====================================================
+
+model GamingSession {
+  id            String   @id @default(cuid())
+  reservationId String
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+
+  stationId String
+  station   GameStation @relation(fields: [stationId], references: [id])
+
+  startTime DateTime
+  endTime   DateTime?
+
+  actualHours Float               @default(0)
+  status      GamingSessionStatus @default(ACTIVE)
+
+  pausedAt      DateTime?
+  pausedMinutes Int       @default(0)
+
+  interruptionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StationMaintenance {
+  id        String      @id @default(cuid())
+  stationId String
+  station   GameStation @relation(fields: [stationId], references: [id])
+
+  startTime DateTime
+  endTime   DateTime?
+
+  reason String
+  cost   Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Membership {
+  id                String          @id @default(cuid())
+  customerAccountId String
+  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id])
+
+  type      String // e.g. GOLD, SILVER, VIP
+  expiresAt DateTime?
+
+  benefits Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Tournament {
+  id             String       @id @default(cuid())
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
+
+  title       String
+  description String?
+  gameName    String
+
+  startTime DateTime
+  endTime   DateTime?
+
+  prizePool       String?
+  maxParticipants Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

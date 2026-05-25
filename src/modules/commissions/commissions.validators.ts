@@ -38,7 +38,7 @@ export const listCommissionsQuerySchema = z.object({
 
 export const recordCommissionPaymentSchema = z.object({
   params: z.object({
-    commissionId: z.string().cuid(CUID_MESSAGE),
+    earningId: z.string().cuid(CUID_MESSAGE),
   }),
   body: z.object({
     amount: z.number().int().positive(),

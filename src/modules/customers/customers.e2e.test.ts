@@ -3,11 +3,11 @@ import httpStatus from 'http-status';
 import app from '../../app';
 import { prisma } from '../../config/prisma';
 import cuid from 'cuid';
-import { Salon, User, UserRole } from '@prisma/client';
+import { GamingCenter, User, UserRole } from '@prisma/client';
 import { createTestUser, createTestSalon, generateToken } from '../../common/utils/test-utils';
 
 describe('Customer Routes', () => {
-  let salon: Salon;
+  let gamingCenter: GamingCenter;
   let manager: User;
   let receptionist: User;
   let staff: User;
@@ -17,10 +17,10 @@ describe('Customer Routes', () => {
 
   beforeAll(async () => {
     await prisma.$connect();
-    salon = await createTestSalon();
-    manager = await createTestUser({ salonId: salon.id, role: UserRole.MANAGER });
-    receptionist = await createTestUser({ salonId: salon.id, role: UserRole.RECEPTIONIST, phone: '09120000001' });
-    staff = await createTestUser({ salonId: salon.id, role: UserRole.STAFF, phone: '09120000002' });
+    gamingCenter = await createTestSalon();
+    manager = await createTestUser({ gamingCenterId: gamingCenter.id, role: UserRole.MANAGER });
+    receptionist = await createTestUser({ gamingCenterId: gamingCenter.id, role: UserRole.SUPERVISOR, phone: '09120000001' });
+    staff = await createTestUser({ gamingCenterId: gamingCenter.id, role: UserRole.STAFF, phone: '09120000002' });
 
     managerToken = generateToken({ actorId: manager.id, actorType: 'USER' });
     receptionistToken = generateToken({ actorId: receptionist.id, actorType: 'USER' });
@@ -28,19 +28,19 @@ describe('Customer Routes', () => {
   });
 
   afterAll(async () => {
-    await prisma.shift.deleteMany({});
+    await prisma.staffShift.deleteMany({});
     await prisma.user.deleteMany({});
-    await prisma.salon.deleteMany({});
+    await prisma.gamingCenter.deleteMany({});
     await prisma.$disconnect();
   });
 
   afterEach(async () => {
-    await prisma.salonCustomerProfile.deleteMany({});
+    await prisma.customerProfile.deleteMany({});
     await prisma.customerAccount.deleteMany({});
   });
 
 
-  describe('POST /api/v1/salons/:salonId/customers', () => {
+  describe('POST /api/v1/gamingCenters/:gamingCenterId/customers', () => {
     it('should create a new customer and return 201', async () => {
       const newCustomer = {
         phone: '09121234567',
@@ -49,7 +49,7 @@ describe('Customer Routes', () => {
       };
 
       const res = await request(app)
-        .post(`/api/v1/salons/${salon.id}/customers`)
+        .post(`/api/v1/gamingCenters/${gamingCenter.id}/customers`)
         .set('Authorization', `Bearer ${managerToken}`)
         .send(newCustomer);
 
@@ -59,20 +59,20 @@ describe('Customer Routes', () => {
       expect(res.body.data.customerAccount.phone).toBe(newCustomer.phone);
     });
 
-    it('should return 409 if customer phone already exists in the salon', async () => {
+    it('should return 409 if customer phone already exists in the gamingCenter', async () => {
       const newCustomer = {
         phone: '09121234568',
         fullName: 'Existing Customer',
       };
       // Create customer once
       await request(app)
-        .post(`/api/v1/salons/${salon.id}/customers`)
+        .post(`/api/v1/gamingCenters/${gamingCenter.id}/customers`)
         .set('Authorization', `Bearer ${managerToken}`)
         .send(newCustomer);
 
       // Try to create again
       const res = await request(app)
-        .post(`/api/v1/salons/${salon.id}/customers`)
+        .post(`/api/v1/gamingCenters/${gamingCenter.id}/customers`)
         .set('Authorization', `Bearer ${managerToken}`)
         .send(newCustomer);
 
@@ -81,7 +81,7 @@ describe('Customer Routes', () => {
 
     it('should return 400 for invalid data', async () => {
       const res = await request(app)
-        .post(`/api/v1/salons/${salon.id}/customers`)
+        .post(`/api/v1/gamingCenters/${gamingCenter.id}/customers`)
         .set('Authorization', `Bearer ${managerToken}`)
         .send({ fullName: 'Only Name' });
 
@@ -94,7 +94,7 @@ describe('Customer Routes', () => {
         fullName: 'Forbidden Customer',
       };
       const res = await request(app)
-        .post(`/api/v1/salons/${salon.id}/customers`)
+        .post(`/api/v1/gamingCenters/${gamingCenter.id}/customers`)
         .set('Authorization', `Bearer ${staffToken}`)
         .send(newCustomer);
 
@@ -102,25 +102,25 @@ describe('Customer Routes', () => {
     });
   });
 
-  describe('GET /api/v1/salons/:salonId/customers', () => {
+  describe('GET /api/v1/gamingCenters/:gamingCenterId/customers', () => {
     let customer1: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
     beforeEach(async () => {
       const res1 = await request(app)
-        .post(`/api/v1/salons/${salon.id}/customers`)
+        .post(`/api/v1/gamingCenters/${gamingCenter.id}/customers`)
         .set('Authorization', `Bearer ${receptionistToken}`)
         .send({ phone: '09100000001', fullName: 'Alice' });
       customer1 = res1.body.data;
 
       await request(app)
-        .post(`/api/v1/salons/${salon.id}/customers`)
+        .post(`/api/v1/gamingCenters/${gamingCenter.id}/customers`)
         .set('Authorization', `Bearer ${receptionistToken}`)
         .send({ phone: '09100000002', fullName: 'Bob' });
     });
 
     it('should return a list of customers', async () => {
       const res = await request(app)
-        .get(`/api/v1/salons/${salon.id}/customers`)
+        .get(`/api/v1/gamingCenters/${gamingCenter.id}/customers`)
         .set('Authorization', `Bearer ${staffToken}`);
 
       expect(res.status).toBe(httpStatus.OK);
@@ -131,7 +131,7 @@ describe('Customer Routes', () => {
 
     it('should filter customers by search query', async () => {
       const res = await request(app)
-        .get(`/api/v1/salons/${salon.id}/customers?search=Alice`)
+        .get(`/api/v1/gamingCenters/${gamingCenter.id}/customers?search=Alice`)
         .set('Authorization', `Bearer ${staffToken}`);
 
       expect(res.status).toBe(httpStatus.OK);
@@ -141,20 +141,20 @@ describe('Customer Routes', () => {
     });
   });
 
-  describe('GET /api/v1/salons/:salonId/customers/:customerId', () => {
+  describe('GET /api/v1/gamingCenters/:gamingCenterId/customers/:customerId', () => {
     it('should get a customer by id', async () => {
       const newCustomer = {
         phone: '09121112233',
         fullName: 'Single Customer',
       };
       const creationRes = await request(app)
-        .post(`/api/v1/salons/${salon.id}/customers`)
+        .post(`/api/v1/gamingCenters/${gamingCenter.id}/customers`)
         .set('Authorization', `Bearer ${managerToken}`)
         .send(newCustomer);
       const customerId = creationRes.body.data.id;
 
       const res = await request(app)
-        .get(`/api/v1/salons/${salon.id}/customers/${customerId}`)
+        .get(`/api/v1/gamingCenters/${gamingCenter.id}/customers/${customerId}`)
         .set('Authorization', `Bearer ${staffToken}`);
 
       expect(res.status).toBe(httpStatus.OK);
@@ -165,21 +165,21 @@ describe('Customer Routes', () => {
     it('should return 404 for a non-existent customer', async () => {
       const nonExistentId = cuid();
       const res = await request(app)
-        .get(`/api/v1/salons/${salon.id}/customers/${nonExistentId}`)
+        .get(`/api/v1/gamingCenters/${gamingCenter.id}/customers/${nonExistentId}`)
         .set('Authorization', `Bearer ${staffToken}`);
 
       expect(res.status).toBe(httpStatus.NOT_FOUND);
     });
   });
 
-  describe('PATCH /api/v1/salons/:salonId/customers/:customerId', () => {
+  describe('PATCH /api/v1/gamingCenters/:gamingCenterId/customers/:customerId', () => {
     it('should update a customer and return 200', async () => {
       const newCustomer = {
         phone: '09351112233',
         fullName: 'Update Me',
       };
       const creationRes = await request(app)
-        .post(`/api/v1/salons/${salon.id}/customers`)
+        .post(`/api/v1/gamingCenters/${gamingCenter.id}/customers`)
         .set('Authorization', `Bearer ${managerToken}`)
         .send(newCustomer);
       const customerId = creationRes.body.data.id;
@@ -190,7 +190,7 @@ describe('Customer Routes', () => {
       };
 
       const res = await request(app)
-        .patch(`/api/v1/salons/${salon.id}/customers/${customerId}`)
+        .patch(`/api/v1/gamingCenters/${gamingCenter.id}/customers/${customerId}`)
         .set('Authorization', `Bearer ${receptionistToken}`)
         .send(updatePayload);
 
@@ -201,27 +201,27 @@ describe('Customer Routes', () => {
     });
   });
 
-  describe('DELETE /api/v1/salons/:salonId/customers/:customerId', () => {
+  describe('DELETE /api/v1/gamingCenters/:gamingCenterId/customers/:customerId', () => {
     it('should delete a customer and return 204', async () => {
       const newCustomer = {
         phone: '09361112233',
         fullName: 'Delete Me',
       };
       const creationRes = await request(app)
-        .post(`/api/v1/salons/${salon.id}/customers`)
+        .post(`/api/v1/gamingCenters/${gamingCenter.id}/customers`)
         .set('Authorization', `Bearer ${managerToken}`)
         .send(newCustomer);
       const customerId = creationRes.body.data.id;
 
       const res = await request(app)
-        .delete(`/api/v1/salons/${salon.id}/customers/${customerId}`)
+        .delete(`/api/v1/gamingCenters/${gamingCenter.id}/customers/${customerId}`)
         .set('Authorization', `Bearer ${managerToken}`);
 
       expect(res.status).toBe(httpStatus.NO_CONTENT);
 
       // Verify it's gone
       const getRes = await request(app)
-        .get(`/api/v1/salons/${salon.id}/customers/${customerId}`)
+        .get(`/api/v1/gamingCenters/${gamingCenter.id}/customers/${customerId}`)
         .set('Authorization', `Bearer ${managerToken}`);
       expect(getRes.status).toBe(httpStatus.NOT_FOUND);
     });

@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { getAvailabilityQuerySchema } from './availability.validators';
-import { getAvailableSlots } from './availability.service';
+import { getAvailableSlots } from './availability.station';
 import { z } from 'zod';
 
 // We need a schema for URL params as well
 const paramsSchema = z.object({
-  salonSlug: z.string(),
+  gamingCenterSlug: z.string(),
 });
 
 export const getAvailability = async (
@@ -14,10 +14,10 @@ export const getAvailability = async (
   next: NextFunction
 ) => {
   try {
-    const { salonSlug } = paramsSchema.parse(req.params);
+    const { gamingCenterSlug } = paramsSchema.parse(req.params);
     const query = getAvailabilityQuerySchema.parse(req.query);
 
-    const slots = await getAvailableSlots({ ...query, salonSlug });
+    const slots = await getAvailableSlots({ ...query, gamingCenterSlug });
 
     res.ok(slots);
   } catch (error) {

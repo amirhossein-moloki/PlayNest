@@ -1,13 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
-import * as customerService from './customers.service';
+import * as customerService from './customers.station';
 import { CreateCustomerInput, UpdateCustomerInput } from './customers.types';
 
 export async function getCustomers(req: Request, res: Response, next: NextFunction) {
   try {
-    const { salonId } = req.params;
+    const { gamingCenterId } = req.params;
     const { search, page, limit } = req.query;
 
-    const result = await customerService.listCustomers(salonId, {
+    const result = await customerService.listCustomers(gamingCenterId, {
       search: search as string,
       page: page ? parseInt(page as string, 10) : undefined,
       limit: limit ? parseInt(limit as string, 10) : undefined,
@@ -21,8 +21,8 @@ export async function getCustomers(req: Request, res: Response, next: NextFuncti
 
 export async function getCustomerById(req: Request, res: Response, next: NextFunction) {
   try {
-    const { salonId, customerId } = req.params;
-    const customer = await customerService.getCustomerDetail(salonId, customerId);
+    const { gamingCenterId, customerId } = req.params;
+    const customer = await customerService.getCustomerDetail(gamingCenterId, customerId);
 
     res.ok(customer);
   } catch (error) {
@@ -32,10 +32,10 @@ export async function getCustomerById(req: Request, res: Response, next: NextFun
 
 export async function createCustomer(req: Request, res: Response, next: NextFunction) {
   try {
-    const { salonId } = req.params;
+    const { gamingCenterId } = req.params;
     const input: CreateCustomerInput = req.body;
 
-    const customer = await customerService.createCustomer(salonId, input);
+    const customer = await customerService.createCustomer(gamingCenterId, input);
 
     res.created(customer);
   } catch (error) {
@@ -45,10 +45,10 @@ export async function createCustomer(req: Request, res: Response, next: NextFunc
 
 export async function updateCustomer(req: Request, res: Response, next: NextFunction) {
   try {
-    const { salonId, customerId } = req.params;
+    const { gamingCenterId, customerId } = req.params;
     const input: UpdateCustomerInput = req.body;
 
-    const customer = await customerService.updateCustomer(salonId, customerId, input);
+    const customer = await customerService.updateCustomer(gamingCenterId, customerId, input);
 
     res.ok(customer);
   } catch (error) {
@@ -58,8 +58,8 @@ export async function updateCustomer(req: Request, res: Response, next: NextFunc
 
 export async function deleteCustomer(req: Request, res: Response, next: NextFunction) {
   try {
-    const { salonId, customerId } = req.params;
-    await customerService.deleteCustomer(salonId, customerId);
+    const { gamingCenterId, customerId } = req.params;
+    await customerService.deleteCustomer(gamingCenterId, customerId);
     res.noContent();
   } catch (error) {
     next(error);

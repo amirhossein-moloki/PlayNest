@@ -1,9 +1,9 @@
 import { prisma } from '../../config/prisma';
 
-export async function findPublicAddressesBySalonId(salonId: string) {
-  return prisma.salonAddress.findMany({
+export async function findPublicAddressesBySalonId(gamingCenterId: string) {
+  return prisma.address.findMany({
     where: {
-      salonId,
+      gamingCenterId,
     },
   });
 }

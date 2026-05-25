@@ -15,7 +15,7 @@ export const updateCustomerSchema = z.object({
     note: z.string().optional(),
   }),
   params: z.object({
-    salonId: z.string().cuid(),
+    gamingCenterId: z.string().cuid(),
     customerId: z.string().cuid(),
   }),
 });
@@ -27,13 +27,13 @@ export const getCustomersSchema = z.object({
     limit: z.string().regex(/^\d+$/).transform(Number).optional(),
   }),
   params: z.object({
-    salonId: z.string().cuid(),
+    gamingCenterId: z.string().cuid(),
   }),
 });
 
 export const customerIdParamSchema = z.object({
   params: z.object({
-    salonId: z.string().cuid(),
+    gamingCenterId: z.string().cuid(),
     customerId: z.string().cuid(),
   }),
 });

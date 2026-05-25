@@ -40,7 +40,7 @@ router.get(
 );
 
 router.post(
-  '/:commissionId/pay',
+  '/:earningId/pay',
   requireRole([UserRole.MANAGER]),
   validate(recordCommissionPaymentSchema),
   asyncHandler(commissionsController.payCommission)

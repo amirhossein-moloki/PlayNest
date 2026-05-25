@@ -13,25 +13,25 @@ describe('CMS Media API E2E Tests', () => {
   let galleryMediaId: string;
 
   beforeAll(async () => {
-    await prisma.salonMedia.deleteMany();
+    await prisma.media.deleteMany();
     await prisma.user.deleteMany();
-    await prisma.salon.deleteMany();
+    await prisma.gamingCenter.deleteMany();
 
-    const salon = await prisma.salon.create({
+    const gamingCenter = await prisma.gamingCenter.create({
       data: {
-        name: 'CMS Media Salon',
-        slug: `cms-media-salon-${Date.now()}`,
+        name: 'CMS Media GamingCenter',
+        slug: `cms-media-gamingCenter-${Date.now()}`,
       },
     });
 
-    testSalonId = salon.id;
+    testSalonId = gamingCenter.id;
 
     const manager = await prisma.user.create({
       data: {
         fullName: 'CMS Media Manager',
         phone: `+98912122222${Date.now()}`.slice(0, 14),
         role: UserRole.MANAGER,
-        salonId: testSalonId,
+        gamingCenterId: testSalonId,
       },
     });
 
@@ -40,34 +40,34 @@ describe('CMS Media API E2E Tests', () => {
         fullName: 'CMS Media Staff',
         phone: `+98912122223${Date.now()}`.slice(0, 14),
         role: UserRole.STAFF,
-        salonId: testSalonId,
+        gamingCenterId: testSalonId,
       },
     });
 
     managerToken = jwt.sign(
-      { actorId: manager.id, actorType: 'USER', salonId: testSalonId, role: manager.role },
+      { actorId: manager.id, actorType: 'USER', gamingCenterId: testSalonId, role: manager.role },
       env.JWT_ACCESS_SECRET,
       { expiresIn: '1h' }
     );
 
     staffToken = jwt.sign(
-      { actorId: staff.id, actorType: 'USER', salonId: testSalonId, role: staff.role },
+      { actorId: staff.id, actorType: 'USER', gamingCenterId: testSalonId, role: staff.role },
       env.JWT_ACCESS_SECRET,
       { expiresIn: '1h' }
     );
   });
 
   afterAll(async () => {
-    await prisma.salonMedia.deleteMany();
+    await prisma.media.deleteMany();
     await prisma.user.deleteMany();
-    await prisma.salon.deleteMany();
+    await prisma.gamingCenter.deleteMany();
     await prisma.$disconnect();
   });
 
   describe('Authorization', () => {
     it('should reject requests without a token', async () => {
       const response = await request(app)
-        .post(`/api/v1/salons/${testSalonId}/media`)
+        .post(`/api/v1/gamingCenters/${testSalonId}/media`)
         .send({
           type: MediaType.IMAGE,
           purpose: MediaPurpose.GALLERY,
@@ -86,7 +86,7 @@ describe('CMS Media API E2E Tests', () => {
 
     it('should reject non-manager roles', async () => {
       const response = await request(app)
-        .post(`/api/v1/salons/${testSalonId}/media`)
+        .post(`/api/v1/gamingCenters/${testSalonId}/media`)
         .set('Authorization', `Bearer ${staffToken}`)
         .send({
           type: MediaType.IMAGE,
@@ -105,10 +105,10 @@ describe('CMS Media API E2E Tests', () => {
     });
   });
 
-  describe('POST /api/v1/salons/:salonId/media', () => {
+  describe('POST /api/v1/gamingCenters/:gamingCenterId/media', () => {
     it('should reject logo media without alt text', async () => {
       await request(app)
-        .post(`/api/v1/salons/${testSalonId}/media`)
+        .post(`/api/v1/gamingCenters/${testSalonId}/media`)
         .set('Authorization', `Bearer ${managerToken}`)
         .send({
           type: MediaType.IMAGE,
@@ -120,7 +120,7 @@ describe('CMS Media API E2E Tests', () => {
 
     it('should create gallery media without alt text', async () => {
       const response = await request(app)
-        .post(`/api/v1/salons/${testSalonId}/media`)
+        .post(`/api/v1/gamingCenters/${testSalonId}/media`)
         .set('Authorization', `Bearer ${managerToken}`)
         .send({
           type: MediaType.IMAGE,
@@ -136,10 +136,10 @@ describe('CMS Media API E2E Tests', () => {
     });
   });
 
-  describe('PATCH /api/v1/salons/:salonId/media/:mediaId', () => {
+  describe('PATCH /api/v1/gamingCenters/:gamingCenterId/media/:mediaId', () => {
     it('should require alt text when updating to cover purpose', async () => {
       await request(app)
-        .patch(`/api/v1/salons/${testSalonId}/media/${galleryMediaId}`)
+        .patch(`/api/v1/gamingCenters/${testSalonId}/media/${galleryMediaId}`)
         .set('Authorization', `Bearer ${managerToken}`)
         .send({
           purpose: MediaPurpose.COVER,
@@ -149,18 +149,18 @@ describe('CMS Media API E2E Tests', () => {
 
     it('should update media with alt text for cover purpose', async () => {
       const response = await request(app)
-        .patch(`/api/v1/salons/${testSalonId}/media/${galleryMediaId}`)
+        .patch(`/api/v1/gamingCenters/${testSalonId}/media/${galleryMediaId}`)
         .set('Authorization', `Bearer ${managerToken}`)
         .send({
           purpose: MediaPurpose.COVER,
-          altText: 'Salon cover image',
+          altText: 'GamingCenter cover image',
           isActive: false,
         })
         .expect(200);
 
       expect(response.body.success).toBe(true);
       expect(response.body.data.purpose).toBe(MediaPurpose.COVER);
-      expect(response.body.data.altText).toBe('Salon cover image');
+      expect(response.body.data.altText).toBe('GamingCenter cover image');
       expect(response.body.data.isActive).toBe(false);
     });
   });

@@ -34,7 +34,7 @@ const getRequestHash = (body: any): string => { // eslint-disable-line @typescri
 /**
  * Idempotency middleware to prevent duplicate requests.
  *
- * This middleware must run AFTER any middleware that resolves salon identifiers (e.g., salonIdMiddleware).
+ * This middleware must run AFTER any middleware that resolves gamingCenter identifiers (e.g., salonIdMiddleware).
  */
 export const idempotencyMiddleware = async (
   req: AppRequest,
@@ -65,7 +65,7 @@ export const idempotencyMiddleware = async (
 
   // 2. Define scope and hash
   // Use req.path instead of req.originalUrl to ignore query parameters
-  const scope = `${req.method}:${req.path}:${req.salonId}`;
+  const scope = `${req.method}:${req.path}:${req.gamingCenterId}`;
   const requestHash = getRequestHash(req.body);
 
   // 3. Check for an existing idempotency record

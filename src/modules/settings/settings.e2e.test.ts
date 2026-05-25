@@ -2,42 +2,42 @@ import request from 'supertest';
 import httpStatus from 'http-status';
 import app from '../../app';
 import { prisma } from '../../config/prisma';
-import { Salon, User, UserRole } from '@prisma/client';
+import { GamingCenter, User, UserRole } from '@prisma/client';
 import { createTestUser, createTestSalon, generateToken } from '../../common/utils/test-utils';
 
 describe('Settings Routes', () => {
-  let salon: Salon;
+  let gamingCenter: GamingCenter;
   let manager: User;
   let managerToken: string;
 
   beforeAll(async () => {
     await prisma.$connect();
-    salon = await createTestSalon();
-    manager = await createTestUser({ salonId: salon.id, role: UserRole.MANAGER });
+    gamingCenter = await createTestSalon();
+    manager = await createTestUser({ gamingCenterId: gamingCenter.id, role: UserRole.MANAGER });
     managerToken = generateToken({ actorId: manager.id, actorType: 'USER' });
   });
 
   afterAll(async () => {
     await prisma.settings.deleteMany({});
     await prisma.user.deleteMany({});
-    await prisma.salon.deleteMany({});
+    await prisma.gamingCenter.deleteMany({});
     await prisma.$disconnect();
   });
 
-  describe('GET /salons/:salonId/settings', () => {
-    it('should return settings for a salon', async () => {
+  describe('GET /gamingCenters/:gamingCenterId/settings', () => {
+    it('should return settings for a gamingCenter', async () => {
       const res = await request(app)
-        .get(`/api/v1/salons/${salon.id}/settings`)
+        .get(`/api/v1/gamingCenters/${gamingCenter.id}/settings`)
         .set('Authorization', `Bearer ${managerToken}`);
 
       expect(res.status).toBe(httpStatus.OK);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.salonId).toBe(salon.id);
+      expect(res.body.data.gamingCenterId).toBe(gamingCenter.id);
     });
   });
 
-  describe('PATCH /salons/:salonId/settings', () => {
-    it('should update settings for a salon', async () => {
+  describe('PATCH /gamingCenters/:gamingCenterId/settings', () => {
+    it('should update settings for a gamingCenter', async () => {
       const updatePayload = {
         timeZone: 'Asia/Tehran',
         workStartTime: '09:00',
@@ -46,7 +46,7 @@ describe('Settings Routes', () => {
       };
 
       const res = await request(app)
-        .patch(`/api/v1/salons/${salon.id}/settings`)
+        .patch(`/api/v1/gamingCenters/${gamingCenter.id}/settings`)
         .set('Authorization', `Bearer ${managerToken}`)
         .send(updatePayload);
 
@@ -59,7 +59,7 @@ describe('Settings Routes', () => {
 
     it('should return 400 for invalid workStartTime format', async () => {
       const res = await request(app)
-        .patch(`/api/v1/salons/${salon.id}/settings`)
+        .patch(`/api/v1/gamingCenters/${gamingCenter.id}/settings`)
         .set('Authorization', `Bearer ${managerToken}`)
         .send({ workStartTime: '9:00' }); // Invalid format, should be HH:mm
 

@@ -1,41 +1,41 @@
-import { Prisma, BookingPaymentState, PaymentStatus } from '@prisma/client';
+import { Prisma, ReservationPaymentState, PaymentStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { validateBookingTransition, validatePaymentTransition } from './payments.state';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
-import { commissionsService } from '../commissions/commissions.service';
-import { WalletService } from '../wallet/wallet.service';
+import { commissionsService } from '../commissions/commissions.station';
+import { WalletService } from '../wallet/wallet.station';
 
 type Tx = Prisma.TransactionClient;
 
-const findBookingForUpdate = (bookingId: string, salonId: string) => {
-  return prisma.booking.findFirst({
-    where: { id: bookingId, salonId },
+const findBookingForUpdate = (reservationId: string, gamingCenterId: string) => {
+  return prisma.reservation.findFirst({
+    where: { id: reservationId, gamingCenterId },
   });
 };
 
 const createPaymentAndUpdateBooking = ({
-  bookingId,
+  reservationId,
   paymentData,
 }: {
-  bookingId: string;
+  reservationId: string;
   paymentData: Prisma.PaymentCreateInput;
 }) => {
   return prisma.$transaction(async (tx) => {
     const payment = await tx.payment.create({ data: paymentData });
-    const booking = await tx.booking.update({
-      where: { id: bookingId },
-      data: { paymentState: BookingPaymentState.PENDING },
+    const reservation = await tx.reservation.update({
+      where: { id: reservationId },
+      data: { paymentState: ReservationPaymentState.PENDING },
     });
 
-    return { payment, booking };
+    return { payment, reservation };
   });
 };
 
 const handleSuccessfulPayment = async (tx: Tx, paymentId: string) => {
   const payment = await tx.payment.findUnique({
     where: { id: paymentId },
-    include: { booking: true },
+    include: { reservation: true },
   });
 
   if (!payment) {
@@ -43,7 +43,7 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string) => {
   }
 
   // Idempotency check: If already paid, do nothing.
-  if (payment.status === PaymentStatus.PAID && payment.booking.paymentState === BookingPaymentState.PAID) {
+  if (payment.status === PaymentStatus.PAID && payment.reservation.paymentState === ReservationPaymentState.PAID) {
     return;
   }
 
@@ -51,7 +51,7 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string) => {
   validatePaymentTransition(payment.status, PaymentStatus.PAID);
 
   try {
-    validateBookingTransition(payment.booking.paymentState, BookingPaymentState.PAID);
+    validateBookingTransition(payment.reservation.paymentState, ReservationPaymentState.PAID);
 
     // Update records
     await tx.payment.update({
@@ -59,29 +59,29 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string) => {
       data: { status: PaymentStatus.PAID, paidAt: new Date() },
     });
 
-    await tx.booking.update({
-      where: { id: payment.bookingId },
-      data: { paymentState: BookingPaymentState.PAID },
+    await tx.reservation.update({
+      where: { id: payment.reservationId },
+      data: { paymentState: ReservationPaymentState.PAID },
     });
   } catch (error) {
     if (error instanceof AppError && error.statusCode === httpStatus.CONFLICT) {
-      // If booking is in a state that doesn't allow transitioning to PAID (e.g., CANCELED)
+      // If reservation is in a state that doesn't allow transitioning to PAID (e.g., CANCELED)
       // we still mark the payment as PAID but immediately refund it to the wallet.
       await tx.payment.update({
         where: { id: paymentId },
         data: { status: PaymentStatus.PAID, paidAt: new Date() },
       });
 
-      await WalletService.refundBookingToWallet(payment.bookingId, tx);
+      await WalletService.refundBookingToWallet(payment.reservationId, tx);
       return;
     }
     throw error;
   }
 
   // Trigger commission calculation (async, non-blocking for the transaction)
-  // We use the bookingId from the payment record
-  commissionsService.calculateCommission(payment.bookingId).catch((err) => {
-    console.error('Failed to calculate commission for booking after payment:', payment.bookingId, err);
+  // We use the reservationId from the payment record
+  commissionsService.calculateCommission(payment.reservationId).catch((err) => {
+    console.error('Failed to calculate commission for reservation after payment:', payment.reservationId, err);
   });
 };
 
@@ -92,7 +92,7 @@ const handleFailedPayment = async (
 ) => {
   const payment = await tx.payment.findUnique({
     where: { id: paymentId },
-    include: { booking: true },
+    include: { reservation: true },
   });
 
   if (!payment) {
@@ -105,9 +105,9 @@ const handleFailedPayment = async (
   }
 
   // Validate state transitions
-  const newBookingState = newStatus === PaymentStatus.CANCELED ? BookingPaymentState.CANCELED : BookingPaymentState.FAILED;
+  const newBookingState = newStatus === PaymentStatus.CANCELED ? ReservationPaymentState.CANCELED : ReservationPaymentState.FAILED;
   validatePaymentTransition(payment.status, newStatus);
-  validateBookingTransition(payment.booking.paymentState, newBookingState);
+  validateBookingTransition(payment.reservation.paymentState, newBookingState);
 
   // Update records
   await tx.payment.update({
@@ -115,8 +115,8 @@ const handleFailedPayment = async (
     data: { status: newStatus },
   });
 
-  await tx.booking.update({
-    where: { id: payment.bookingId },
+  await tx.reservation.update({
+    where: { id: payment.reservationId },
     data: { paymentState: newBookingState },
   });
 };

@@ -1,18 +1,18 @@
 import { Router } from 'express';
 import healthRouter from './health.routes';
 import authRouter from '../modules/auth/auth.routes';
-import salonRouter from '../modules/salon/salon.routes';
+import salonRouter from '../modules/gamingCenter/gamingCenter.routes';
 
-// Import the new service routers
+// Import the new station routers
 import {
   privateServiceRouter,
   publicServiceRouter,
-} from '../modules/services/services.routes';
+} from '../modules/stations/stations.routes';
 import staffRouter from '../modules/users/users.routes';
-import shiftsRouter from '../modules/shifts/shifts.routes';
+import shiftsRouter from '../modules/staffShifts/staffShifts.routes';
 import availabilityRouter from '../modules/availability/availability.routes';
-import bookingsRoutes from '../modules/bookings/bookings.routes';
-import publicBookingsRoutes from '../modules/bookings/bookings.public.routes';
+import bookingsRoutes from '../modules/reservations/reservations.routes';
+import publicBookingsRoutes from '../modules/reservations/reservations.public.routes';
 import { cmsRouter } from '../modules/cms/cms.routes';
 import { cmsAdminUiRouter } from '../modules/cms/admin-ui.routes';
 import {
@@ -28,7 +28,7 @@ import { customersRouter } from '../modules/customers/customers.routes';
 import {
   privateReviewsRouter,
   publicReviewsRouter,
-} from '../modules/reviews/reviews.routes';
+} from '../modules/ratings/ratings.routes';
 import { settingsRouter } from '../modules/settings/settings.routes';
 import { commissionsRoutes } from '../modules/commissions/commissions.routes';
 import auditRoutes from '../modules/audit/audit.routes';
@@ -41,72 +41,72 @@ const router = Router();
 // --- Existing Routes ---
 router.use('/health', healthRouter);
 router.use('/auth', authRouter);
-router.use('/salons', salonRouter);
+router.use('/gamingCenters', salonRouter);
 
-// --- Service Module Routes ---
-// Mount the private router under the salon-specific path
-router.use('/salons/:salonId/services', privateServiceRouter);
+// --- GameStation Module Routes ---
+// Mount the private router under the gamingCenter-specific path
+router.use('/gamingCenters/:gamingCenterId/stations', privateServiceRouter);
 
-// Mount the public router under the public salon path
-router.use('/public/salons/:salonSlug/services', publicServiceRouter);
+// Mount the public router under the public gamingCenter path
+router.use('/public/gamingCenters/:salonSlug/stations', publicServiceRouter);
 
 // --- Staff Module Routes ---
-router.use('/salons/:salonId/staff', staffRouter);
+router.use('/gamingCenters/:gamingCenterId/staff', staffRouter);
 
 // --- Shifts Module Routes ---
 // Nested under staff for clarity
-router.use('/salons/:salonId/staff/:userId/shifts', shiftsRouter);
+router.use('/gamingCenters/:gamingCenterId/staff/:userId/staffShifts', shiftsRouter);
 
 // --- Availability Module Routes ---
 router.use(
-  '/public/salons/:salonSlug/availability',
+  '/public/gamingCenters/:salonSlug/availability',
   resolveSalonBySlug,
   availabilityRouter
 );
 
 // --- Bookings Module Routes ---
-router.use('/salons/:salonId/bookings', bookingsRoutes);
-router.use('/public/salons/:salonSlug/bookings', publicBookingsRoutes);
+router.use('/gamingCenters/:gamingCenterId/reservations', bookingsRoutes);
+router.use('/public/gamingCenters/:salonSlug/reservations', publicBookingsRoutes);
 
 // --- Customers Module Routes ---
-router.use('/salons/:salonId/customers', customersRouter);
+router.use('/gamingCenters/:gamingCenterId/customers', customersRouter);
 
 // --- Reviews Module Routes ---
-router.use('/salons/:salonId/reviews', privateReviewsRouter);
+router.use('/gamingCenters/:gamingCenterId/ratings', privateReviewsRouter);
 
-// Public Salon Root & Reviews
-router.use('/public/salons/:salonSlug', publicSalonRouter);
-router.use('/public/salons/:salonSlug', publicReviewsRouter);
+// Public GamingCenter Root & Reviews
+router.use('/public/gamingCenters/:salonSlug', publicSalonRouter);
+router.use('/public/gamingCenters/:salonSlug', publicReviewsRouter);
 
 // --- Settings Module Routes ---
-router.use('/salons/:salonId/settings', settingsRouter);
+router.use('/gamingCenters/:gamingCenterId/settings', settingsRouter);
 
 // --- Commissions Module Routes ---
-router.use('/salons/:salonId/commissions', commissionsRoutes);
+router.use('/gamingCenters/:gamingCenterId/commissions', commissionsRoutes);
 
 // --- Audit Module Routes ---
-router.use('/salons/:salonId/audit-logs', auditRoutes);
+router.use('/gamingCenters/:gamingCenterId/audit-logs', auditRoutes);
 
 // --- Customer Panel Routes ---
 router.use('/customer', customerPanelRouter);
 
 // --- Analytics Module Routes ---
-router.use('/salons/:salonId/analytics', analyticsRoutes);
+router.use('/gamingCenters/:gamingCenterId/analytics', analyticsRoutes);
 
 // --- Payments Module Routes ---
-router.use('/salons/:salonId/bookings', paymentsRoutes); // This will be scoped within the booking
+router.use('/gamingCenters/:gamingCenterId/reservations', paymentsRoutes); // This will be scoped within the reservation
 
 // --- CMS Module Routes ---
-router.use('/salons/:salonId', cmsRouter);
+router.use('/gamingCenters/:gamingCenterId', cmsRouter);
 
 // --- CMS Admin UI ---
 router.use('/admin', cmsAdminUiRouter);
 
 // --- Public CMS Routes ---
-router.use('/public/salons/:salonSlug/pages', publicPagesRouter);
-router.use('/public/salons/:salonSlug/media', publicMediaRouter);
-router.use('/public/salons/:salonSlug/links', publicLinksRouter);
-router.use('/public/salons/:salonSlug/addresses', publicAddressesRouter);
+router.use('/public/gamingCenters/:salonSlug/pages', publicPagesRouter);
+router.use('/public/gamingCenters/:salonSlug/media', publicMediaRouter);
+router.use('/public/gamingCenters/:salonSlug/links', publicLinksRouter);
+router.use('/public/gamingCenters/:salonSlug/addresses', publicAddressesRouter);
 
 // --- Webhooks Module ---
 router.use(webhooksRoutes);

@@ -16,7 +16,7 @@ router.use(requireRole([UserRole.MANAGER]));
 
 router.get('/summary', validate(AnalyticsQuerySchema as any), AnalyticsController.getSummary); // eslint-disable-line @typescript-eslint/no-explicit-any
 router.get('/staff', validate(AnalyticsQuerySchema as any), AnalyticsController.getStaffPerformance); // eslint-disable-line @typescript-eslint/no-explicit-any
-router.get('/services', validate(AnalyticsQuerySchema as any), AnalyticsController.getServicePerformance); // eslint-disable-line @typescript-eslint/no-explicit-any
+router.get('/stations', validate(AnalyticsQuerySchema as any), AnalyticsController.getServicePerformance); // eslint-disable-line @typescript-eslint/no-explicit-any
 router.get('/revenue-chart', validate(AnalyticsQuerySchema as any), AnalyticsController.getRevenueChart); // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export const analyticsRoutes = router;

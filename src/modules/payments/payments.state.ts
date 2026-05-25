@@ -1,4 +1,4 @@
-import { PaymentStatus, BookingPaymentState } from '@prisma/client';
+import { PaymentStatus, ReservationPaymentState } from '@prisma/client';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 
@@ -17,17 +17,17 @@ const paymentTransitions: Record<PaymentStatus, PaymentStatus[]> = {
 };
 
 /**
- * Defines the state machine for BookingPaymentState.
+ * Defines the state machine for ReservationPaymentState.
  */
-const bookingTransitions: Record<BookingPaymentState, BookingPaymentState[]> = {
-  [BookingPaymentState.UNPAID]: [BookingPaymentState.PENDING, BookingPaymentState.PAID],
-  [BookingPaymentState.PENDING]: [BookingPaymentState.PAID, BookingPaymentState.FAILED, BookingPaymentState.CANCELED],
-  [BookingPaymentState.PARTIALLY_PAID]: [BookingPaymentState.PAID, BookingPaymentState.REFUNDED, BookingPaymentState.OVERPAID],
-  [BookingPaymentState.PAID]: [BookingPaymentState.REFUNDED],
-  [BookingPaymentState.REFUNDED]: [],
-  [BookingPaymentState.OVERPAID]: [BookingPaymentState.REFUNDED],
-  [BookingPaymentState.FAILED]: [],
-  [BookingPaymentState.CANCELED]: [],
+const bookingTransitions: Record<ReservationPaymentState, ReservationPaymentState[]> = {
+  [ReservationPaymentState.UNPAID]: [ReservationPaymentState.PENDING, ReservationPaymentState.PAID],
+  [ReservationPaymentState.PENDING]: [ReservationPaymentState.PAID, ReservationPaymentState.FAILED, ReservationPaymentState.CANCELED],
+  [ReservationPaymentState.PARTIALLY_PAID]: [ReservationPaymentState.PAID, ReservationPaymentState.REFUNDED, ReservationPaymentState.OVERPAID],
+  [ReservationPaymentState.PAID]: [ReservationPaymentState.REFUNDED],
+  [ReservationPaymentState.REFUNDED]: [],
+  [ReservationPaymentState.OVERPAID]: [ReservationPaymentState.REFUNDED],
+  [ReservationPaymentState.FAILED]: [],
+  [ReservationPaymentState.CANCELED]: [],
 };
 
 /**
@@ -42,12 +42,12 @@ export function validatePaymentTransition(from: PaymentStatus, to: PaymentStatus
 }
 
 /**
- * Validates a transition for the BookingPaymentState.
+ * Validates a transition for the ReservationPaymentState.
  * @throws {AppError} if the transition is invalid.
  */
-export function validateBookingTransition(from: BookingPaymentState, to: BookingPaymentState): void {
+export function validateBookingTransition(from: ReservationPaymentState, to: ReservationPaymentState): void {
   const allowedTransitions = bookingTransitions[from];
   if (!allowedTransitions || !allowedTransitions.includes(to)) {
-    throw new AppError(`Invalid booking payment state transition from ${from} to ${to}.`, httpStatus.CONFLICT);
+    throw new AppError(`Invalid reservation payment state transition from ${from} to ${to}.`, httpStatus.CONFLICT);
   }
 }

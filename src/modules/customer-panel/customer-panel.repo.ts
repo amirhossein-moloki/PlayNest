@@ -8,7 +8,7 @@ export const CustomerPanelRepo = {
       include: {
         profiles: {
           include: {
-            salon: {
+            gamingCenter: {
               select: {
                 id: true,
                 name: true,
@@ -25,15 +25,15 @@ export const CustomerPanelRepo = {
     where: Prisma.BookingWhereInput,
     skip: number,
     take: number,
-    orderBy: Prisma.BookingOrderByWithRelationInput = { startAt: 'desc' }
+    orderBy: Prisma.BookingOrderByWithRelationInput = { startTime: 'desc' }
   ) {
-    return prisma.booking.findMany({
+    return prisma.reservation.findMany({
       where,
       skip,
       take,
       orderBy,
       include: {
-        salon: {
+        gamingCenter: {
           select: {
             id: true,
             name: true,
@@ -47,7 +47,7 @@ export const CustomerPanelRepo = {
             avatarUrl: true,
           },
         },
-        service: {
+        station: {
           select: {
             id: true,
             name: true,
@@ -58,17 +58,17 @@ export const CustomerPanelRepo = {
   },
 
   async countBookings(where: Prisma.BookingWhereInput) {
-    return prisma.booking.count({ where });
+    return prisma.reservation.count({ where });
   },
 
   async findBookingById(id: string, customerAccountId: string) {
-    return prisma.booking.findFirst({
+    return prisma.reservation.findFirst({
       where: {
         id,
         customerAccountId,
       },
       include: {
-        salon: {
+        gamingCenter: {
           include: {
             settings: true,
           },
@@ -80,7 +80,7 @@ export const CustomerPanelRepo = {
             avatarUrl: true,
           },
         },
-        service: {
+        station: {
           select: {
             id: true,
             name: true,
@@ -92,7 +92,7 @@ export const CustomerPanelRepo = {
 
   async updateBooking(id: string, data: Prisma.BookingUpdateInput, tx?: Prisma.TransactionClient) {
     const client = tx || prisma;
-    return client.booking.update({
+    return client.reservation.update({
       where: { id },
       data,
     });

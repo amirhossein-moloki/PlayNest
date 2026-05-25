@@ -2,8 +2,8 @@ import { SessionActorType } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
 export const AuthRepository = {
-  async findUserByPhone(phone: string, salonId: string) {
-    return prisma.user.findFirst({ where: { phone, salonId } });
+  async findUserByPhone(phone: string, gamingCenterId: string) {
+    return prisma.user.findFirst({ where: { phone, gamingCenterId } });
   },
 
   async findCustomerByPhone(phone: string) {
@@ -51,7 +51,7 @@ export const AuthRepository = {
   async findUsersWithSalons(phone: string) {
     return prisma.user.findMany({
       where: { phone },
-      include: { salon: true },
+      include: { gamingCenter: true },
     });
   },
 

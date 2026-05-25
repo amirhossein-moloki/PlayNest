@@ -8,9 +8,9 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
   if (req.headers.authorization) {
     const token = req.headers.authorization.split(' ')[1];
     if (token === 'mock-manager-token') {
-      req.actor = { id: 'mock-manager-id', role: 'MANAGER', salonId: req.params.salonId };
+      req.actor = { id: 'mock-manager-id', role: 'MANAGER', gamingCenterId: req.params.gamingCenterId };
     } else if (token === 'mock-staff-token') {
-      req.actor = { id: 'mock-staff-id', role: 'STAFF', salonId: req.params.salonId };
+      req.actor = { id: 'mock-staff-id', role: 'STAFF', gamingCenterId: req.params.gamingCenterId };
     }
     return next();
   }

@@ -1,12 +1,12 @@
 
 import { Response } from 'express';
 import { AppRequest } from '../../types/express';
-import { commissionsService } from './commissions.service';
+import { commissionsService } from './commissions.station';
 export const getPolicy = async (
   req: AppRequest,
   res: Response
 ) => {
-  const policy = await commissionsService.getPolicy(req.tenant.salonId);
+  const policy = await commissionsService.getPolicy(req.tenant.gamingCenterId);
   res.ok(policy);
 };
 
@@ -15,7 +15,7 @@ export const upsertPolicy = async (
   res: Response
 ) => {
   const policy = await commissionsService.upsertPolicy(
-    req.tenant.salonId,
+    req.tenant.gamingCenterId,
     req.body,
     req.actor,
     { ip: req.ip, userAgent: req.headers['user-agent'] }
@@ -27,7 +27,7 @@ export const listCommissions = async (
   req: AppRequest,
   res: Response
 ) => {
-  const result = await commissionsService.listCommissions(req.tenant.salonId, req.query);
+  const result = await commissionsService.listCommissions(req.tenant.gamingCenterId, req.query);
   res.ok(result.data, { pagination: result.meta });
 };
 
@@ -36,8 +36,8 @@ export const payCommission = async (
   res: Response
 ) => {
   const payment = await commissionsService.payCommission(
-    req.params.commissionId,
-    req.tenant.salonId,
+    req.params.earningId,
+    req.tenant.gamingCenterId,
     req.body,
     req.actor,
     { ip: req.ip, userAgent: req.headers['user-agent'] }

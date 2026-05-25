@@ -1,38 +1,38 @@
-import { SalonLink } from '@prisma/client';
+import { SocialLink } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
 export const LinksRepo = {
-  async findBySalonId(salonId: string): Promise<SalonLink[]> {
-    return prisma.salonLink.findMany({
-      where: { salonId },
+  async findBySalonId(gamingCenterId: string): Promise<SocialLink[]> {
+    return prisma.socialLink.findMany({
+      where: { gamingCenterId },
       orderBy: { createdAt: 'desc' },
     });
   },
 
-  async findById(id: string): Promise<SalonLink | null> {
-    return prisma.salonLink.findUnique({
+  async findById(id: string): Promise<SocialLink | null> {
+    return prisma.socialLink.findUnique({
       where: { id },
     });
   },
 
-  async create(salonId: string, data: any): Promise<SalonLink> {
-    return prisma.salonLink.create({
+  async create(gamingCenterId: string, data: any): Promise<SocialLink> {
+    return prisma.socialLink.create({
       data: {
         ...data,
-        salonId,
+        gamingCenterId,
       },
     });
   },
 
-  async update(id: string, data: any): Promise<SalonLink> {
-    return prisma.salonLink.update({
+  async update(id: string, data: any): Promise<SocialLink> {
+    return prisma.socialLink.update({
       where: { id },
       data,
     });
   },
 
-  async delete(id: string): Promise<SalonLink> {
-    return prisma.salonLink.delete({
+  async delete(id: string): Promise<SocialLink> {
+    return prisma.socialLink.delete({
       where: { id },
     });
   },

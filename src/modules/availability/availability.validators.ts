@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const getAvailabilityQuerySchema = z.object({
-  serviceId: z.string().cuid({ message: 'Invalid service ID format' }),
+  stationId: z.string().cuid({ message: 'Invalid station ID format' }),
   staffId: z.string().cuid({ message: 'Invalid staff ID format' }).optional(),
   startDate: z.coerce.date(),
   endDate: z.coerce.date(),

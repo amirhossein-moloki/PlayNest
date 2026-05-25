@@ -8,7 +8,7 @@ import fs from 'fs';
 const prisma = new PrismaClient();
 
 describe('Media Upload E2E', () => {
-  let salon: { id: string };
+  let gamingCenter: { id: string };
   let manager: { id: string };
   let token: string;
   const testImagePath = path.join(__dirname, 'test-image.png');
@@ -22,20 +22,20 @@ describe('Media Upload E2E', () => {
     );
     fs.writeFileSync(testImagePath, pngBuffer);
 
-    await prisma.salonMedia.deleteMany();
+    await prisma.media.deleteMany();
     await prisma.user.deleteMany();
-    await prisma.salon.deleteMany();
+    await prisma.gamingCenter.deleteMany();
 
-    salon = await prisma.salon.create({
+    gamingCenter = await prisma.gamingCenter.create({
       data: {
-        name: 'Media Test Salon',
-        slug: 'media-test-salon',
+        name: 'Media Test GamingCenter',
+        slug: 'media-test-gamingCenter',
       },
     });
 
     manager = await prisma.user.create({
       data: {
-        salonId: salon.id,
+        gamingCenterId: gamingCenter.id,
         fullName: 'Manager User',
         phone: '09123456789',
         role: UserRole.MANAGER,
@@ -44,7 +44,7 @@ describe('Media Upload E2E', () => {
 
     token = generateToken({
       userId: manager.id,
-      salonId: salon.id,
+      gamingCenterId: gamingCenter.id,
       role: UserRole.MANAGER,
     });
   });
@@ -53,15 +53,15 @@ describe('Media Upload E2E', () => {
     if (fs.existsSync(testImagePath)) {
       fs.unlinkSync(testImagePath);
     }
-    await prisma.salonMedia.deleteMany();
+    await prisma.media.deleteMany();
     await prisma.user.deleteMany();
-    await prisma.salon.deleteMany();
+    await prisma.gamingCenter.deleteMany();
     await prisma.$disconnect();
   });
 
   it('uploads an image and creates a record', async () => {
     const response = await request(app)
-      .post(`/api/v1/salons/${salon.id}/media/upload`)
+      .post(`/api/v1/gamingCenters/${gamingCenter.id}/media/upload`)
       .set('Authorization', `Bearer ${token}`)
       .attach('file', testImagePath)
       .field('purpose', 'GALLERY')
@@ -74,7 +74,7 @@ describe('Media Upload E2E', () => {
     expect(response.body.data.altText).toBe('Test Image');
 
     // Verify DB record
-    const media = await prisma.salonMedia.findUnique({
+    const media = await prisma.media.findUnique({
       where: { id: response.body.data.id },
     });
     expect(media).toBeDefined();
@@ -83,7 +83,7 @@ describe('Media Upload E2E', () => {
 
   it('returns 400 if no file is uploaded', async () => {
     await request(app)
-      .post(`/api/v1/salons/${salon.id}/media/upload`)
+      .post(`/api/v1/gamingCenters/${gamingCenter.id}/media/upload`)
       .set('Authorization', `Bearer ${token}`)
       .field('purpose', 'GALLERY')
       .expect(400);
@@ -91,7 +91,7 @@ describe('Media Upload E2E', () => {
 
   it('enforces altText for logo purpose', async () => {
     await request(app)
-      .post(`/api/v1/salons/${salon.id}/media/upload`)
+      .post(`/api/v1/gamingCenters/${gamingCenter.id}/media/upload`)
       .set('Authorization', `Bearer ${token}`)
       .attach('file', testImagePath)
       .field('purpose', 'LOGO')

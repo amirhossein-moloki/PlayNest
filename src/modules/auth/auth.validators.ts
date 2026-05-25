@@ -6,15 +6,15 @@ export const loginSchema = z.object({
     phone: z.string().min(10, 'Phone number must be at least 10 digits'),
     password: z.string().optional(),
     actorType: z.nativeEnum(SessionActorType),
-    salonId: z.string().optional(), // Required for USER actorType
+    gamingCenterId: z.string().optional(), // Required for USER actorType
   }),
 }).refine(data => {
   if (data.body.actorType === 'USER') {
-    return !!data.body.password && !!data.body.salonId;
+    return !!data.body.password && !!data.body.gamingCenterId;
   }
   return true;
 }, {
-  message: 'Password and Salon ID are required for USER login',
+  message: 'Password and GamingCenter ID are required for USER login',
   path: ['body'],
 });
 
@@ -40,6 +40,6 @@ export const verifyOtpSchema = z.object({
 export const loginWithOtpSchema = z.object({
   body: z.object({
     phone: z.string().min(10, 'Phone number must be at least 10 digits'),
-    salonId: z.string().cuid('Invalid Salon ID format'),
+    gamingCenterId: z.string().cuid('Invalid GamingCenter ID format'),
   }),
 });

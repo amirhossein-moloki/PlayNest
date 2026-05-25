@@ -1,9 +1,9 @@
 import { prisma } from '../../config/prisma';
 
-export async function findPublicLinksBySalonId(salonId: string) {
-  return prisma.salonLink.findMany({
+export async function findPublicLinksBySalonId(gamingCenterId: string) {
+  return prisma.socialLink.findMany({
     where: {
-      salonId,
+      gamingCenterId,
       isActive: true,
     },
     select: {

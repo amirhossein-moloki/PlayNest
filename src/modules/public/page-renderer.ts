@@ -1,5 +1,5 @@
 import { RobotsFollow, RobotsIndex } from '@prisma/client';
-import type { SalonPage, SalonSiteSettings } from '@prisma/client';
+import type { Page, SiteSettings } from '@prisma/client';
 import { renderPageSections } from '../../components/cms/PageRenderer';
 import { PageSectionInput, escapeHtml } from '../../components/cms/sections/sectionRenderers';
 
@@ -12,7 +12,7 @@ type PageRenderInput = {
 };
 
 type SeoPageInput = Pick<
-  SalonPage,
+  Page,
   | 'title'
   | 'seoTitle'
   | 'seoDescription'
@@ -26,7 +26,7 @@ type SeoPageInput = Pick<
 >;
 
 type SeoSiteSettingsInput = Pick<
-  SalonSiteSettings,
+  SiteSettings,
   | 'defaultSeoTitle'
   | 'defaultSeoDescription'
   | 'defaultOgImageUrl'

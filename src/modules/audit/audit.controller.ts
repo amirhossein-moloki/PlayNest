@@ -1,6 +1,6 @@
 
 import { Response, NextFunction } from 'express';
-import { auditService } from './audit.service';
+import { auditService } from './audit.station';
 import { ListAuditLogsQuery } from './audit.validators';
 import { AppRequest } from '../../types/express';
 
@@ -10,10 +10,10 @@ export const getAuditLogs = async (
   next: NextFunction
 ) => {
   try {
-    const { salonId } = req.params;
+    const { gamingCenterId } = req.params;
     const query = req.query as unknown as ListAuditLogsQuery;
 
-    const result = await auditService.getLogs(salonId, query);
+    const result = await auditService.getLogs(gamingCenterId, query);
 
     res.ok(result.data, {
       pagination: {

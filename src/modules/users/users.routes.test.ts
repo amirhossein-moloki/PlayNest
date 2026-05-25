@@ -9,9 +9,9 @@ jest.mock('../../common/middleware/auth', () => ({
     if (req.headers.authorization) {
       const token = req.headers.authorization.split(' ')[1];
       if (token === 'mock-manager-token') {
-        req.actor = { id: 'mock-manager-id', role: UserRole.MANAGER, salonId: req.params.salonId };
+        req.actor = { id: 'mock-manager-id', role: UserRole.MANAGER, gamingCenterId: req.params.gamingCenterId };
       } else if (token === 'mock-staff-token') {
-        req.actor = { id: 'mock-staff-id', role: UserRole.STAFF, salonId: req.params.salonId };
+        req.actor = { id: 'mock-staff-id', role: UserRole.STAFF, gamingCenterId: req.params.gamingCenterId };
       }
       return next();
     }
@@ -30,24 +30,24 @@ jest.mock('../../common/middleware/requireRole', () => ({
 }));
 
 describe('Users API Endpoints', () => {
-  let salonId: string;
+  let gamingCenterId: string;
   let managerToken: string;
   let staffToken: string;
   let managerId: string;
   let staffId: string;
 
   beforeAll(async () => {
-    const salon = await prisma.salon.create({
+    const gamingCenter = await prisma.gamingCenter.create({
       data: {
-        name: 'Test Salon for Users',
-        slug: `test-salon-users-${Date.now()}`,
+        name: 'Test GamingCenter for Users',
+        slug: `test-gamingCenter-users-${Date.now()}`,
       },
     });
-    salonId = salon.id;
+    gamingCenterId = gamingCenter.id;
 
     const manager = await prisma.user.create({
       data: {
-        salonId,
+        gamingCenterId,
         fullName: 'Test Manager',
         phone: '+10000000001',
         role: UserRole.MANAGER,
@@ -58,7 +58,7 @@ describe('Users API Endpoints', () => {
 
     const staff = await prisma.user.create({
       data: {
-        salonId,
+        gamingCenterId,
         fullName: 'Test Staff',
         phone: '+10000000002',
         role: UserRole.STAFF,
@@ -72,15 +72,15 @@ describe('Users API Endpoints', () => {
   });
 
   afterAll(async () => {
-    await prisma.user.deleteMany({ where: { salonId } });
-    await prisma.salon.delete({ where: { id: salonId } });
+    await prisma.user.deleteMany({ where: { gamingCenterId } });
+    await prisma.gamingCenter.delete({ where: { id: gamingCenterId } });
     await prisma.$disconnect();
   });
 
-  describe('GET /salons/:salonId/staff/:userId', () => {
+  describe('GET /gamingCenters/:gamingCenterId/staff/:userId', () => {
     it('should return 401 if the request is unauthenticated', async () => {
       const response = await request(app)
-        .get(`/api/v1/salons/${salonId}/staff/${staffId}`);
+        .get(`/api/v1/gamingCenters/${gamingCenterId}/staff/${staffId}`);
 
       expect(response.status).toBe(401);
       expect(response.body).toMatchObject({
@@ -92,9 +92,9 @@ describe('Users API Endpoints', () => {
       });
     });
 
-    it('should allow any authenticated user of the salon to get a specific staff member', async () => {
+    it('should allow any authenticated user of the gamingCenter to get a specific staff member', async () => {
       const response = await request(app)
-        .get(`/api/v1/salons/${salonId}/staff/${staffId}`)
+        .get(`/api/v1/gamingCenters/${gamingCenterId}/staff/${staffId}`)
         .set('Authorization', `Bearer ${staffToken}`);
 
       expect(response.status).toBe(200);
@@ -106,18 +106,18 @@ describe('Users API Endpoints', () => {
     it('should return 404 if the user is not found', async () => {
       const nonExistentId = 'clxxxxxxxxxxxxxx';
       const response = await request(app)
-        .get(`/api/v1/salons/${salonId}/staff/${nonExistentId}`)
+        .get(`/api/v1/gamingCenters/${gamingCenterId}/staff/${nonExistentId}`)
         .set('Authorization', `Bearer ${managerToken}`);
 
       expect(response.status).toBe(404);
     });
   });
 
-  describe('DELETE /salons/:salonId/staff/:userId', () => {
+  describe('DELETE /gamingCenters/:gamingCenterId/staff/:userId', () => {
     it('should allow a MANAGER to soft-delete a user', async () => {
       const userToDelete = await prisma.user.create({
         data: {
-          salonId,
+          gamingCenterId,
           fullName: 'To Be Deleted',
           phone: '+10000000003',
           role: UserRole.STAFF,
@@ -125,7 +125,7 @@ describe('Users API Endpoints', () => {
       });
 
       const response = await request(app)
-        .delete(`/api/v1/salons/${salonId}/staff/${userToDelete.id}`)
+        .delete(`/api/v1/gamingCenters/${gamingCenterId}/staff/${userToDelete.id}`)
         .set('Authorization', `Bearer ${managerToken}`);
 
       expect(response.status).toBe(204);
@@ -136,7 +136,7 @@ describe('Users API Endpoints', () => {
 
     it('should NOT allow a non-MANAGER to delete a user', async () => {
       const response = await request(app)
-        .delete(`/api/v1/salons/${salonId}/staff/${managerId}`)
+        .delete(`/api/v1/gamingCenters/${gamingCenterId}/staff/${managerId}`)
         .set('Authorization', `Bearer ${staffToken}`);
 
       expect(response.status).toBe(403);
@@ -152,7 +152,7 @@ describe('Users API Endpoints', () => {
     it('should return 404 if the user to delete is not found', async () => {
       const nonExistentId = 'clxxxxxxxxxxxxxx';
       const response = await request(app)
-        .delete(`/api/v1/salons/${salonId}/staff/${nonExistentId}`)
+        .delete(`/api/v1/gamingCenters/${gamingCenterId}/staff/${nonExistentId}`)
         .set('Authorization', `Bearer ${managerToken}`);
 
       expect(response.status).toBe(404);

@@ -1,14 +1,14 @@
 import { prisma } from '../../config/prisma';
 
 export const AvailabilityRepo = {
-  async findServiceWithSalon(serviceId: string, salonSlug: string) {
-    return prisma.service.findFirst({
+  async findServiceWithSalon(stationId: string, salonSlug: string) {
+    return prisma.gameStation.findFirst({
       where: {
-        id: serviceId,
-        salon: { slug: salonSlug },
+        id: stationId,
+        gamingCenter: { slug: salonSlug },
       },
       include: {
-        salon: {
+        gamingCenter: {
           include: {
             settings: true,
           },
@@ -17,39 +17,39 @@ export const AvailabilityRepo = {
     });
   },
 
-  async findStaff(staffId: string, salonId: string, serviceId: string) {
+  async findStaff(staffId: string, gamingCenterId: string, stationId: string) {
     return prisma.user.findFirst({
       where: {
         id: staffId,
-        salonId,
-        userServices: { some: { serviceId } },
+        gamingCenterId,
+        userServices: { some: { stationId } },
       },
     });
   },
 
-  async findStaffList(salonId: string, serviceId: string) {
+  async findStaffList(gamingCenterId: string, stationId: string) {
     return prisma.user.findMany({
       where: {
-        salonId,
-        userServices: { some: { serviceId } },
+        gamingCenterId,
+        userServices: { some: { stationId } },
         isActive: true,
       },
     });
   },
 
   async findShifts(staffIds: string[]) {
-    return prisma.shift.findMany({
+    return prisma.staffShift.findMany({
       where: { userId: { in: staffIds }, isActive: true },
     });
   },
 
   async findBookings(staffIds: string[], startDate: Date, endDate: Date) {
-    return prisma.booking.findMany({
+    return prisma.reservation.findMany({
       where: {
         staffId: { in: staffIds },
         status: { notIn: ['CANCELED', 'NO_SHOW'] },
-        startAt: { gte: startDate },
-        endAt: { lte: endDate },
+        startTime: { gte: startDate },
+        endTime: { lte: endDate },
       },
     });
   }

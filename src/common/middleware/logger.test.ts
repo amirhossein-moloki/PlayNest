@@ -31,7 +31,7 @@ jest.mock('pino-http', () => {
     const logObject = {
       requestId: res.getHeader('X-Request-Id'),
       actorId: req.actor?.id || null,
-      salonId: req.params?.salonId || null,
+      gamingCenterId: req.params?.gamingCenterId || null,
       request: {
         method: req.method,
         url: req.url,
@@ -74,7 +74,7 @@ describe('Logger Middleware', () => {
         password: 'a-very-secret-password',
       },
       actor: { id: 'user-123' },
-      params: { salonId: 'salon-abc' },
+      params: { gamingCenterId: 'gamingCenter-abc' },
     } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
     // A mock for ServerResponse that allows setting headers and status code
@@ -107,7 +107,7 @@ describe('Logger Middleware', () => {
       // 1. Check for custom context
       expect(loggedData).toHaveProperty('requestId');
       expect(loggedData.actorId).toBe('user-123');
-      expect(loggedData.salonId).toBe('salon-abc');
+      expect(loggedData.gamingCenterId).toBe('gamingCenter-abc');
 
       // 2. Check for redaction (based on our simple mock sanitizer)
       expect(loggedData.request.headers.authorization).toBe('[REDACTED]');

@@ -19,28 +19,28 @@ router.use(privateApiRateLimiter, authMiddleware, tenantGuard);
 
 router.get(
   '/',
-  requireRole([UserRole.MANAGER, UserRole.RECEPTIONIST, UserRole.STAFF]),
+  requireRole([UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]),
   validate(getCustomersSchema),
   CustomerController.getCustomers
 );
 
 router.get(
   '/:customerId',
-  requireRole([UserRole.MANAGER, UserRole.RECEPTIONIST, UserRole.STAFF]),
+  requireRole([UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]),
   validate(customerIdParamSchema),
   CustomerController.getCustomerById
 );
 
 router.post(
   '/',
-  requireRole([UserRole.MANAGER, UserRole.RECEPTIONIST]),
+  requireRole([UserRole.MANAGER, UserRole.SUPERVISOR]),
   validate(createCustomerSchema),
   CustomerController.createCustomer
 );
 
 router.patch(
   '/:customerId',
-  requireRole([UserRole.MANAGER, UserRole.RECEPTIONIST]),
+  requireRole([UserRole.MANAGER, UserRole.SUPERVISOR]),
   validate(updateCustomerSchema),
   CustomerController.updateCustomer
 );

@@ -6,8 +6,8 @@ describe('page section schemas', () => {
     [PageSectionType.HERO]: {
       headline: 'عنوان اصلی',
       subheadline: 'زیرعنوان',
-      primaryCta: { label: 'رزرو نوبت', url: '/booking' },
-      secondaryCta: { label: 'خدمات', url: '/services' },
+      primaryCta: { label: 'رزرو نوبت', url: '/reservation' },
+      secondaryCta: { label: 'خدمات', url: '/stations' },
       backgroundImageUrl: 'https://picsum.photos/seed/hero/1600/900',
     },
     [PageSectionType.HIGHLIGHTS]: {
@@ -42,7 +42,7 @@ describe('page section schemas', () => {
       title: 'برای تغییر استایل آماده‌اید؟',
       text: 'همین الان نوبت خود را رزرو کنید.',
       buttonLabel: 'رزرو نوبت',
-      buttonUrl: '/booking',
+      buttonUrl: '/reservation',
     },
     [PageSectionType.CONTACT_CARD]: {
       title: 'اطلاعات تماس',

@@ -2,9 +2,9 @@ import request from 'supertest';
 import app from '../../app';
 import { prisma } from '../../config/prisma';
 
-describe('GET /public/salons/:salonSlug/availability/slots', () => {
-  let salon: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-  let service: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+describe('GET /public/gamingCenters/:salonSlug/availability/slots', () => {
+  let gamingCenter: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  let station: any; // eslint-disable-line @typescript-eslint/no-explicit-any
   let staff: any; // eslint-disable-line @typescript-eslint/no-explicit-any
   let testDate: Date; // A fixed Monday for testing
 
@@ -18,29 +18,29 @@ describe('GET /public/salons/:salonSlug/availability/slots', () => {
       testDate.setDate(testDate.getDate() + 1);
     }
 
-    // 1. Create Salon
-    salon = await prisma.salon.create({
+    // 1. Create GamingCenter
+    gamingCenter = await prisma.gamingCenter.create({
       data: {
-        name: 'Test Salon for Availability',
-        slug: `test-salon-avail-${Date.now()}`,
+        name: 'Test GamingCenter for Availability',
+        slug: `test-gamingCenter-avail-${Date.now()}`,
       },
     });
 
     // 2. Create Staff Member
     staff = await prisma.user.create({
       data: {
-        salonId: salon.id,
+        gamingCenterId: gamingCenter.id,
         fullName: 'Available Staff',
         phone: `+2${Date.now()}`,
         role: 'STAFF',
       },
     });
 
-    // 3. Create Service and link it to the staff
-    service = await prisma.service.create({
+    // 3. Create GameStation and link it to the staff
+    station = await prisma.gameStation.create({
       data: {
-        salonId: salon.id,
-        name: 'Availability Test Service',
+        gamingCenterId: gamingCenter.id,
+        name: 'Availability Test GameStation',
         durationMinutes: 60,
         price: 100,
         currency: 'USD',
@@ -52,11 +52,11 @@ describe('GET /public/salons/:salonSlug/availability/slots', () => {
       },
     });
 
-    // 4. Create a Shift for the staff on Monday (dayOfWeek = 1)
-    await prisma.shift.create({
+    // 4. Create a StaffShift for the staff on Monday (dayOfWeek = 1)
+    await prisma.staffShift.create({
       data: {
         userId: staff.id,
-        salonId: salon.id,
+        gamingCenterId: gamingCenter.id,
         dayOfWeek: 1, // Monday
         startTime: '09:00:00',
         endTime: '17:00:00',
@@ -64,30 +64,30 @@ describe('GET /public/salons/:salonSlug/availability/slots', () => {
       },
     });
 
-    // 5. Create a Booking that blocks a part of the shift (11:00 to 12:00)
+    // 5. Create a Reservation that blocks a part of the staffShift (11:00 to 12:00)
     const customer = await prisma.customerAccount.create({ data: { phone: `+3${Date.now()}` } });
-    const customerProfile = await prisma.salonCustomerProfile.create({
-      data: { salonId: salon.id, customerAccountId: customer.id },
+    const customerProfile = await prisma.customerProfile.create({
+      data: { gamingCenterId: gamingCenter.id, customerAccountId: customer.id },
     });
     const creator = await prisma.user.create({
-      data: { salonId: salon.id, fullName: 'Booking Creator', phone: `+4${Date.now()}`, role: 'MANAGER' }
+      data: { gamingCenterId: gamingCenter.id, fullName: 'Reservation Creator', phone: `+4${Date.now()}`, role: 'MANAGER' }
     });
 
-    await prisma.booking.create({
+    await prisma.reservation.create({
       data: {
-        salonId: salon.id,
+        gamingCenterId: gamingCenter.id,
         staffId: staff.id,
-        serviceId: service.id,
+        stationId: station.id,
         customerProfileId: customerProfile.id,
         customerAccountId: customer.id,
         createdByUserId: creator.id,
-        startAt: new Date(new Date(testDate).setHours(11, 0, 0, 0)),
-        endAt: new Date(new Date(testDate).setHours(12, 0, 0, 0)),
-        serviceNameSnapshot: service.name,
-        serviceDurationSnapshot: service.durationMinutes,
-        servicePriceSnapshot: service.price,
-        currencySnapshot: service.currency,
-        amountDueSnapshot: service.price,
+        startTime: new Date(new Date(testDate).setHours(11, 0, 0, 0)),
+        endTime: new Date(new Date(testDate).setHours(12, 0, 0, 0)),
+        (stationSnapshot as any): station.name,
+        (stationSnapshot as any): station.durationMinutes,
+        (stationSnapshot as any): station.price,
+        (stationSnapshot as any): station.currency,
+        totalPrice: station.price,
       }
     });
   });
@@ -95,16 +95,16 @@ describe('GET /public/salons/:salonSlug/availability/slots', () => {
   afterAll(async () => {
     // Clean up in reverse order of creation
     await prisma.$transaction([
-      prisma.booking.deleteMany({ where: { salonId: salon.id } }),
-      prisma.salonCustomerProfile.deleteMany({ where: { salonId: salon.id } }),
-      prisma.userService.deleteMany({ where: { serviceId: service.id } }),
-      prisma.shift.deleteMany({ where: { salonId: salon.id } }),
+      prisma.reservation.deleteMany({ where: { gamingCenterId: gamingCenter.id } }),
+      prisma.customerProfile.deleteMany({ where: { gamingCenterId: gamingCenter.id } }),
+      prisma.userService.deleteMany({ where: { stationId: station.id } }),
+      prisma.staffShift.deleteMany({ where: { gamingCenterId: gamingCenter.id } }),
     ]);
 
-    await prisma.service.delete({ where: { id: service.id } });
-    await prisma.user.deleteMany({ where: { salonId: salon.id } });
+    await prisma.gameStation.delete({ where: { id: station.id } });
+    await prisma.user.deleteMany({ where: { gamingCenterId: gamingCenter.id } });
     await prisma.customerAccount.deleteMany({});
-    await prisma.salon.delete({ where: { id: salon.id } });
+    await prisma.gamingCenter.delete({ where: { id: gamingCenter.id } });
     await prisma.$disconnect();
   });
 
@@ -113,9 +113,9 @@ describe('GET /public/salons/:salonSlug/availability/slots', () => {
     const endDate = new Date(new Date(testDate).setHours(23, 59, 59, 999));
 
     const response = await request(app)
-      .get(`/api/v1/public/salons/${salon.slug}/availability/slots`)
+      .get(`/api/v1/public/gamingCenters/${gamingCenter.slug}/availability/slots`)
       .query({
-        serviceId: service.id,
+        stationId: station.id,
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
       });

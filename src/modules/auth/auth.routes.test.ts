@@ -6,24 +6,24 @@ import { UserRole } from '@prisma/client';
 
 describe('Auth Routes', () => {
   afterEach(async () => {
-    await prisma.booking.deleteMany();
+    await prisma.reservation.deleteMany();
     await prisma.session.deleteMany();
     await prisma.user.deleteMany();
     await prisma.customerAccount.deleteMany();
-    await prisma.service.deleteMany();
-    await prisma.salon.deleteMany();
+    await prisma.gameStation.deleteMany();
+    await prisma.gamingCenter.deleteMany();
   });
 
   describe('POST /auth/login', () => {
     it('should login a user with valid credentials', async () => {
-      const salon = await prisma.salon.create({ data: { name: 'Test Salon', slug: 'test-salon' } });
+      const gamingCenter = await prisma.gamingCenter.create({ data: { name: 'Test GamingCenter', slug: 'test-gamingCenter' } });
       await prisma.user.create({
         data: {
           phone: '1234567890',
           passwordHash: await argon2.hash('password'),
           fullName: 'Test User',
           role: UserRole.MANAGER,
-          salon: { connect: { id: salon.id } },
+          gamingCenter: { connect: { id: gamingCenter.id } },
         },
       });
 
@@ -33,7 +33,7 @@ describe('Auth Routes', () => {
           phone: '1234567890',
           password: 'password',
           actorType: 'USER',
-          salonId: salon.id,
+          gamingCenterId: gamingCenter.id,
         });
 
       expect(res.status).toBe(200);
@@ -48,7 +48,7 @@ describe('Auth Routes', () => {
           phone: '1234567890',
           password: 'wrong-password',
           actorType: 'USER',
-          salonId: '1',
+          gamingCenterId: '1',
         });
 
       expect(res.status).toBe(401);
@@ -57,13 +57,13 @@ describe('Auth Routes', () => {
 
   describe('POST /auth/user/otp/request', () => {
     it('should request an OTP for an existing user', async () => {
-      const salon = await prisma.salon.create({ data: { name: 'Test Salon', slug: 'test-salon' } });
+      const gamingCenter = await prisma.gamingCenter.create({ data: { name: 'Test GamingCenter', slug: 'test-gamingCenter' } });
       await prisma.user.create({
         data: {
           phone: '1234567890',
           fullName: 'Test User',
           role: UserRole.MANAGER,
-          salon: { connect: { id: salon.id } }
+          gamingCenter: { connect: { id: gamingCenter.id } }
         },
       });
 
@@ -118,13 +118,13 @@ describe('Auth Routes', () => {
   describe('POST /auth/user/login/otp', () => {
     it('should login a user with a valid OTP', async () => {
       const phone = '1234567890';
-      const salon = await prisma.salon.create({ data: { name: 'Test Salon', slug: 'test-salon' } });
+      const gamingCenter = await prisma.gamingCenter.create({ data: { name: 'Test GamingCenter', slug: 'test-gamingCenter' } });
       await prisma.user.create({
         data: {
           phone,
           fullName: 'Test User',
           role: UserRole.MANAGER,
-          salon: { connect: { id: salon.id } }
+          gamingCenter: { connect: { id: gamingCenter.id } }
         }
       });
       await prisma.phoneOtp.create({
@@ -139,7 +139,7 @@ describe('Auth Routes', () => {
 
       const res = await request(app)
         .post('/api/v1/auth/user/login/otp')
-        .send({ phone, salonId: salon.id });
+        .send({ phone, gamingCenterId: gamingCenter.id });
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
@@ -148,19 +148,19 @@ describe('Auth Routes', () => {
 
     it('should not login a user with an unverified OTP', async () => {
       const phone = '1234567890';
-      const salon = await prisma.salon.create({ data: { name: 'Test Salon', slug: 'test-salon' } });
+      const gamingCenter = await prisma.gamingCenter.create({ data: { name: 'Test GamingCenter', slug: 'test-gamingCenter' } });
       await prisma.user.create({
         data: {
           phone,
           fullName: 'Test User',
           role: UserRole.MANAGER,
-          salon: { connect: { id: salon.id } }
+          gamingCenter: { connect: { id: gamingCenter.id } }
         }
       });
 
       const res = await request(app)
         .post('/api/v1/auth/user/login/otp')
-        .send({ phone, salonId: salon.id });
+        .send({ phone, gamingCenterId: gamingCenter.id });
 
       expect(res.status).toBe(401);
     });

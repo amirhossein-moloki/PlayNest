@@ -1,21 +1,21 @@
 import { Request, Response } from 'express';
-import * as MediaService from './media.service';
+import * as MediaService from './media.station';
 import { CreateMediaInput, UpdateMediaInput } from './media.types';
 
 export async function createMedia(
-  req: Request<{ salonId: string }, unknown, CreateMediaInput>,
+  req: Request<{ gamingCenterId: string }, unknown, CreateMediaInput>,
   res: Response
 ) {
-  const { salonId } = req.params;
-  const media = await MediaService.createMedia(salonId, req.body);
+  const { gamingCenterId } = req.params;
+  const media = await MediaService.createMedia(gamingCenterId, req.body);
   res.created(media);
 }
 
 export async function updateMedia(
-  req: Request<{ salonId: string; mediaId: string }, unknown, UpdateMediaInput>,
+  req: Request<{ gamingCenterId: string; mediaId: string }, unknown, UpdateMediaInput>,
   res: Response
 ) {
-  const { salonId, mediaId } = req.params;
-  const media = await MediaService.updateMedia(salonId, mediaId, req.body);
+  const { gamingCenterId, mediaId } = req.params;
+  const media = await MediaService.updateMedia(gamingCenterId, mediaId, req.body);
   res.ok(media);
 }

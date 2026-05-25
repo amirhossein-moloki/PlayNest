@@ -17,7 +17,7 @@ router.use(privateApiRateLimiter, authMiddleware, tenantGuard);
 
 router.get(
   '/',
-  requireRole([UserRole.MANAGER, UserRole.RECEPTIONIST, UserRole.STAFF]),
+  requireRole([UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]),
   validate(getSettingsSchema),
   SettingsController.getSettings
 );

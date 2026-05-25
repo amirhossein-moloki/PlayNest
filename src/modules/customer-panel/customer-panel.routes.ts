@@ -17,18 +17,18 @@ router.use(privateApiRateLimiter, authMiddleware, requireActorType(SessionActorT
 
 router.get('/me', CustomerPanelController.getMe);
 
-router.get('/bookings', validate(getCustomerBookingsSchema), CustomerPanelController.getMyBookings);
+router.get('/reservations', validate(getCustomerBookingsSchema), CustomerPanelController.getMyBookings);
 
-router.get('/bookings/:bookingId', CustomerPanelController.getMyBookingDetails);
+router.get('/reservations/:reservationId', CustomerPanelController.getMyBookingDetails);
 
 router.post(
-  '/bookings/:bookingId/cancel',
+  '/reservations/:reservationId/cancel',
   validate(customerCancelBookingSchema),
   CustomerPanelController.cancelMyBooking
 );
 
 router.post(
-  '/bookings/:bookingId/reviews',
+  '/reservations/:reservationId/ratings',
   validate(customerSubmitReviewSchema),
   CustomerPanelController.submitMyReview
 );

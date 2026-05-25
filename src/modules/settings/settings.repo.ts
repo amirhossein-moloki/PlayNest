@@ -1,18 +1,18 @@
 import { prisma } from '../../config/prisma';
 import { UpdateSettingsInput } from './settings.types';
 
-export async function findBySalonId(salonId: string) {
+export async function findBySalonId(gamingCenterId: string) {
   return prisma.settings.findUnique({
-    where: { salonId },
+    where: { gamingCenterId },
   });
 }
 
-export async function updateBySalonId(salonId: string, data: UpdateSettingsInput) {
+export async function updateBySalonId(gamingCenterId: string, data: UpdateSettingsInput) {
   return prisma.settings.upsert({
-    where: { salonId },
+    where: { gamingCenterId },
     update: data,
     create: {
-      salonId,
+      gamingCenterId,
       ...data,
     },
   });

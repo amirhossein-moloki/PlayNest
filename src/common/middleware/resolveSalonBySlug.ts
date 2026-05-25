@@ -4,13 +4,13 @@ import httpStatus from 'http-status';
 import { prisma } from '../../config/prisma';
 
 /**
- * Middleware to resolve a salon from a public slug and attach its tenant
+ * Middleware to resolve a gamingCenter from a public slug and attach its tenant
  * context to the request. This is used for public-facing routes.
  *
  * It attaches a `tenant` object to the request:
- * `req.tenant = { salonId: string, salonSlug: string }`
+ * `req.tenant = { gamingCenterId: string, salonSlug: string }`
  *
- * @throws {HttpError} 404 - If the salon with the given slug is not found.
+ * @throws {HttpError} 404 - If the gamingCenter with the given slug is not found.
  */
 export const resolveSalonBySlug = async (
   req: Request,
@@ -21,19 +21,19 @@ export const resolveSalonBySlug = async (
 
   if (!salonSlug) {
     // This indicates a routing configuration error.
-    return next(new AppError('Salon slug is missing from the request params.', httpStatus.BAD_REQUEST));
+    return next(new AppError('GamingCenter slug is missing from the request params.', httpStatus.BAD_REQUEST));
   }
 
-  const salon = await prisma.salon.findUnique({
+  const gamingCenter = await prisma.gamingCenter.findUnique({
     where: { slug: salonSlug, isActive: true },
   });
-  if (!salon) {
-    return next(new AppError('Salon not found', httpStatus.NOT_FOUND));
+  if (!gamingCenter) {
+    return next(new AppError('GamingCenter not found', httpStatus.NOT_FOUND));
   }
 
   // Attach a standardized tenant context to the request.
-  (req as any).tenant = { salonId: salon.id, salonSlug: salon.slug }; // eslint-disable-line @typescript-eslint/no-explicit-any
-  (req as any).salonId = salon.id; // eslint-disable-line @typescript-eslint/no-explicit-any
+  (req as any).tenant = { gamingCenterId: gamingCenter.id, salonSlug: gamingCenter.slug }; // eslint-disable-line @typescript-eslint/no-explicit-any
+  (req as any).gamingCenterId = gamingCenter.id; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   next();
 };

@@ -19,11 +19,11 @@ export const WalletRepo = {
     return client.walletTransaction.create({ data });
   },
 
-  async findTotalPaidForBooking(bookingId: string, tx?: Prisma.TransactionClient) {
+  async findTotalPaidForBooking(reservationId: string, tx?: Prisma.TransactionClient) {
     const client = tx || prisma;
     const payments = await client.payment.findMany({
       where: {
-        bookingId,
+        reservationId,
         status: PaymentStatus.PAID,
       },
     });
@@ -33,10 +33,10 @@ export const WalletRepo = {
     return payments.reduce((acc, p) => acc + p.amount, 0);
   },
 
-  async findBooking(bookingId: string, tx?: Prisma.TransactionClient) {
+  async findBooking(reservationId: string, tx?: Prisma.TransactionClient) {
     const client = tx || prisma;
-    return client.booking.findUnique({
-      where: { id: bookingId },
+    return client.reservation.findUnique({
+      where: { id: reservationId },
       include: {
         customerAccount: true,
       },

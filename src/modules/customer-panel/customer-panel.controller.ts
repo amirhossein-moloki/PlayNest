@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { CustomerPanelService } from './customer-panel.service';
+import { CustomerPanelService } from './customer-panel.station';
 import { AppRequest } from '../../types/express';
 
 export const getMe = async (req: AppRequest, res: Response) => {
@@ -16,35 +16,35 @@ export const getMyBookings = async (req: AppRequest, res: Response) => {
 
 export const getMyBookingDetails = async (req: AppRequest, res: Response) => {
   const customerAccountId = req.actor.id;
-  const { bookingId } = req.params;
-  const booking = await CustomerPanelService.getBookingDetails(bookingId, customerAccountId);
-  res.ok(booking);
+  const { reservationId } = req.params;
+  const reservation = await CustomerPanelService.getBookingDetails(reservationId, customerAccountId);
+  res.ok(reservation);
 };
 
 export const cancelMyBooking = async (req: AppRequest, res: Response) => {
   const customerAccountId = req.actor.id;
-  const { bookingId } = req.params;
+  const { reservationId } = req.params;
   const { reason } = req.body;
 
-  const booking = await CustomerPanelService.cancelBooking(
-    bookingId,
+  const reservation = await CustomerPanelService.cancelBooking(
+    reservationId,
     customerAccountId,
     reason,
     { ip: req.ip, userAgent: req.headers['user-agent'] }
   );
 
-  res.ok(booking);
+  res.ok(reservation);
 };
 
 export const submitMyReview = async (req: AppRequest, res: Response) => {
   const customerAccountId = req.actor.id;
-  const { bookingId } = req.params;
+  const { reservationId } = req.params;
 
-  const review = await CustomerPanelService.submitReview(
-    bookingId,
+  const rating = await CustomerPanelService.submitReview(
+    reservationId,
     customerAccountId,
     req.body
   );
 
-  res.created(review);
+  res.created(rating);
 };

@@ -11,28 +11,28 @@ describe('Public Routes Enforcement', () => {
 
   beforeAll(async () => {
     // Cleanup
-    await prisma.salonPage.deleteMany();
-    await prisma.salon.deleteMany();
+    await prisma.page.deleteMany();
+    await prisma.gamingCenter.deleteMany();
 
-    activeSalon = await prisma.salon.create({
+    activeSalon = await prisma.gamingCenter.create({
       data: {
-        name: 'Active Salon',
-        slug: 'active-salon',
+        name: 'Active GamingCenter',
+        slug: 'active-gamingCenter',
         isActive: true,
       },
     });
 
-    inactiveSalon = await prisma.salon.create({
+    inactiveSalon = await prisma.gamingCenter.create({
       data: {
-        name: 'Inactive Salon',
-        slug: 'inactive-salon',
+        name: 'Inactive GamingCenter',
+        slug: 'inactive-gamingCenter',
         isActive: false,
       },
     });
 
-    page = await prisma.salonPage.create({
+    page = await prisma.page.create({
       data: {
-        salonId: activeSalon.id,
+        gamingCenterId: activeSalon.id,
         slug: 'test-page',
         title: 'Test Page',
         status: PageStatus.PUBLISHED,
@@ -41,9 +41,9 @@ describe('Public Routes Enforcement', () => {
       },
     });
 
-    await prisma.salonPage.create({
+    await prisma.page.create({
       data: {
-        salonId: activeSalon.id,
+        gamingCenterId: activeSalon.id,
         slug: 'home',
         title: 'Home',
         type: 'HOME',
@@ -54,68 +54,68 @@ describe('Public Routes Enforcement', () => {
   });
 
   afterAll(async () => {
-    await prisma.salonPage.deleteMany();
-    await prisma.salon.deleteMany();
+    await prisma.page.deleteMany();
+    await prisma.gamingCenter.deleteMany();
     await prisma.$disconnect();
   });
 
   describe('resolveSalonBySlug middleware', () => {
-    it('returns 200 for an active salon', async () => {
+    it('returns 200 for an active gamingCenter', async () => {
       await request(app)
-        .get(`/api/v1/public/salons/${activeSalon.slug}/pages/${page.slug}`)
+        .get(`/api/v1/public/gamingCenters/${activeSalon.slug}/pages/${page.slug}`)
         .expect(200);
     });
 
-    it('returns 404 for an inactive salon', async () => {
+    it('returns 404 for an inactive gamingCenter', async () => {
       await request(app)
-        .get(`/api/v1/public/salons/${inactiveSalon.slug}/pages/some-page`)
+        .get(`/api/v1/public/gamingCenters/${inactiveSalon.slug}/pages/some-page`)
         .expect(404);
     });
 
-    it('returns 404 for a non-existent salon slug', async () => {
+    it('returns 404 for a non-existent gamingCenter slug', async () => {
       await request(app)
-        .get('/api/v1/public/salons/non-existent/pages/some-page')
+        .get('/api/v1/public/gamingCenters/non-existent/pages/some-page')
         .expect(404);
     });
   });
 
   describe('Availability route enforcement', () => {
-    it('returns 404 for availability on an inactive salon', async () => {
-      // Even if the service exists, the salon is inactive
+    it('returns 404 for availability on an inactive gamingCenter', async () => {
+      // Even if the station exists, the gamingCenter is inactive
       await request(app)
-        .get(`/api/v1/public/salons/${inactiveSalon.slug}/availability/slots`)
+        .get(`/api/v1/public/gamingCenters/${inactiveSalon.slug}/availability/slots`)
         .expect(404);
     });
 
-    it('returns 400 or 404 for availability with missing serviceId (validation check)', async () => {
+    it('returns 400 or 404 for availability with missing stationId (validation check)', async () => {
       // Just checking that it goes through resolveSalonBySlug first
       const response = await request(app)
-        .get(`/api/v1/public/salons/${activeSalon.slug}/availability/slots`);
+        .get(`/api/v1/public/gamingCenters/${activeSalon.slug}/availability/slots`);
 
-      // It should reach validation if salon is found
+      // It should reach validation if gamingCenter is found
       expect(response.status).not.toBe(404);
     });
   });
 
-  describe('Salon root and Home page', () => {
-    it('returns the HOME page for the salon root route', async () => {
+  describe('GamingCenter root and Home page', () => {
+    it('returns the HOME page for the gamingCenter root route', async () => {
       const response = await request(app)
-        .get(`/api/v1/public/salons/${activeSalon.slug}`)
+        .get(`/api/v1/public/gamingCenters/${activeSalon.slug}`)
         .expect(200);
 
       expect(response.text).toContain('<title>Home SEO Title</title>');
     });
 
-    it('returns 404 for salon root if no HOME page exists', async () => {
-      const salonNoHome = await prisma.salon.create({
+    it('returns 404 for gamingCenter root if no HOME page exists', async () => {
+      const salonNoHome = await prisma.gamingCenter.create({
         data: {
-          name: 'No Home Salon',
-          slug: 'no-home-salon',
+          name: 'No Home GamingCenter',
+          slug: 'no-home-gamingCenter',
         }
       });
 
       await request(app)
-        .get(`/api/v1/public/salons/${salonNoHome.slug}`)
+        .get(`/api/v1/public/gamingCenters/${salonNoHome.slug}`)
         .expect(404);
     });
   });
@@ -123,7 +123,7 @@ describe('Public Routes Enforcement', () => {
   describe('SEO Metadata in getPublicPage', () => {
     it('serves correct SEO tags in the HTML', async () => {
       const response = await request(app)
-        .get(`/api/v1/public/salons/${activeSalon.slug}/pages/${page.slug}`)
+        .get(`/api/v1/public/gamingCenters/${activeSalon.slug}/pages/${page.slug}`)
         .expect(200);
 
       expect(response.text).toContain('<title>SEO Title</title>');
@@ -131,20 +131,20 @@ describe('Public Routes Enforcement', () => {
     });
 
     it('falls back to site settings for SEO if page fields are missing', async () => {
-      await prisma.salonSiteSettings.upsert({
-        where: { salonId: activeSalon.id },
+      await prisma.siteSettings.upsert({
+        where: { gamingCenterId: activeSalon.id },
         create: {
-          salonId: activeSalon.id,
-          defaultSeoTitle: 'Default Salon SEO',
+          gamingCenterId: activeSalon.id,
+          defaultSeoTitle: 'Default GamingCenter SEO',
         },
         update: {
-          defaultSeoTitle: 'Default Salon SEO',
+          defaultSeoTitle: 'Default GamingCenter SEO',
         }
       });
 
-      const pageNoSeo = await prisma.salonPage.create({
+      const pageNoSeo = await prisma.page.create({
         data: {
-          salonId: activeSalon.id,
+          gamingCenterId: activeSalon.id,
           slug: 'fallback-seo',
           title: 'Fallback Page',
           status: PageStatus.PUBLISHED,
@@ -152,19 +152,19 @@ describe('Public Routes Enforcement', () => {
       });
 
       const response = await request(app)
-        .get(`/api/v1/public/salons/${activeSalon.slug}/pages/${pageNoSeo.slug}`)
+        .get(`/api/v1/public/gamingCenters/${activeSalon.slug}/pages/${pageNoSeo.slug}`)
         .expect(200);
 
-      expect(response.text).toContain('<title>Default Salon SEO</title>');
+      expect(response.text).toContain('<title>Default GamingCenter SEO</title>');
     });
 
     it('falls back to page title if both seoTitle and site settings are missing', async () => {
-      const otherSalon = await prisma.salon.create({
-        data: { name: 'Other Salon', slug: 'other-salon' }
+      const otherSalon = await prisma.gamingCenter.create({
+        data: { name: 'Other GamingCenter', slug: 'other-gamingCenter' }
       });
-      const pageNoSeo = await prisma.salonPage.create({
+      const pageNoSeo = await prisma.page.create({
         data: {
-          salonId: otherSalon.id,
+          gamingCenterId: otherSalon.id,
           slug: 'no-seo',
           title: 'Just Title',
           status: PageStatus.PUBLISHED,
@@ -172,7 +172,7 @@ describe('Public Routes Enforcement', () => {
       });
 
       const response = await request(app)
-        .get(`/api/v1/public/salons/${otherSalon.slug}/pages/${pageNoSeo.slug}`)
+        .get(`/api/v1/public/gamingCenters/${otherSalon.slug}/pages/${pageNoSeo.slug}`)
         .expect(200);
 
       expect(response.text).toContain('<title>Just Title</title>');

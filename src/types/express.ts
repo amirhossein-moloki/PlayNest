@@ -11,10 +11,10 @@ declare global {
         id?: string;
         actorId?: string;
         role?: UserRole;
-        salonId?: string;
+        gamingCenterId?: string;
         actorType?: SessionActorType;
       };
-      salonId?: string;
+      gamingCenterId?: string;
       id?: string;
       requestId?: string;
       rawBody?: Buffer;
@@ -40,10 +40,10 @@ export interface AppRequest extends Request {
     id: string;
     actorId?: string;
     role?: UserRole;
-    salonId?: string;
+    gamingCenterId?: string;
     actorType: SessionActorType;
   };
-  tenant: { salonId: string };
-  salonId?: string;
+  tenant: { gamingCenterId: string };
+  gamingCenterId?: string;
   id?: string;
 }

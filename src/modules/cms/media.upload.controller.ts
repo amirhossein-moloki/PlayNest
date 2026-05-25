@@ -1,16 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
-import * as UploadService from '../../common/services/upload.service';
-import * as MediaService from './media.service';
+import * as UploadService from '../../common/stations/upload.station';
+import * as MediaService from './media.station';
 
 export async function uploadMedia(
-  req: Request<{ salonId: string }>,
+  req: Request<{ gamingCenterId: string }>,
   res: Response,
   next: NextFunction
 ) {
   try {
-    const { salonId } = req.params;
+    const { gamingCenterId } = req.params;
     const file = req.file;
 
     if (!file) {
@@ -20,9 +20,9 @@ export async function uploadMedia(
     // Process image: save original and generate thumbnail
     const { url, thumbUrl } = await UploadService.processAndStoreImage(file);
 
-    // Create database record using existing service logic
-    // We pass the generated URLs to the service
-    const media = await MediaService.createMedia(salonId, {
+    // Create database record using existing station logic
+    // We pass the generated URLs to the station
+    const media = await MediaService.createMedia(gamingCenterId, {
       ...req.body,
       url,
       thumbUrl,

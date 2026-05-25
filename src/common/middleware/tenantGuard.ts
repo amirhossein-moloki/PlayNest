@@ -4,16 +4,16 @@ import httpStatus from 'http-status';
 
 /**
  * This middleware enforces tenant isolation for private routes.
- * It ensures that the authenticated user (actor) belongs to the salon
+ * It ensures that the authenticated user (actor) belongs to the gamingCenter
  * they are trying to access.
  *
  * It must be placed AFTER the authMiddleware.
  *
- * @throws {HttpError} 404 - If salonId does not match or user is not part of a salon.
+ * @throws {HttpError} 404 - If gamingCenterId does not match or user is not part of a gamingCenter.
  * @throws {HttpError} 500 - If the actor object is not found on the request.
  */
 export const tenantGuard = (req: Request, res: Response, next: NextFunction) => {
-  const { salonId } = req.params;
+  const { gamingCenterId } = req.params;
   const actor = (req as any).actor; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   if (!actor) {
@@ -24,19 +24,19 @@ export const tenantGuard = (req: Request, res: Response, next: NextFunction) => 
     );
   }
 
-  // Every user accessing a tenant route MUST have a salonId.
-  if (!actor.salonId) {
-    return next(new AppError('Salon not found.', httpStatus.NOT_FOUND));
+  // Every user accessing a tenant route MUST have a gamingCenterId.
+  if (!actor.gamingCenterId) {
+    return next(new AppError('GamingCenter not found.', httpStatus.NOT_FOUND));
   }
 
-  if (actor.salonId !== salonId) {
+  if (actor.gamingCenterId !== gamingCenterId) {
     // Use 404 to prevent tenant enumeration attacks.
-    // The user should not know that a salon with this ID exists.
-    return next(new AppError('Salon not found.', httpStatus.NOT_FOUND));
+    // The user should not know that a gamingCenter with this ID exists.
+    return next(new AppError('GamingCenter not found.', httpStatus.NOT_FOUND));
   }
 
-  // Attach tenant context to the request for use in downstream services/repos.
-  (req as any).tenant = { salonId }; // eslint-disable-line @typescript-eslint/no-explicit-any
+  // Attach tenant context to the request for use in downstream stations/repos.
+  (req as any).tenant = { gamingCenterId }; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   next();
 };

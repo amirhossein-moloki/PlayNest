@@ -6,49 +6,49 @@ import { AnalyticsRepo } from '../src/modules/analytics/analytics.repo';
 async function backfill() {
   console.log('Starting backfill of analytics summary tables...');
 
-  // 1. Get all unique (salonId, date) combinations from Bookings
+  // 1. Get all unique (gamingCenterId, date) combinations from Bookings
   const bookingDates = await prisma.$queryRaw<any[]>` // eslint-disable-line @typescript-eslint/no-explicit-any
-    SELECT DISTINCT "salonId", "startAt"::date as date
-    FROM "Booking"
+    SELECT DISTINCT "gamingCenterId", "startTime"::date as date
+    FROM "Reservation"
   `;
 
-  console.log(`Found ${bookingDates.length} unique salon-date pairs to sync from Bookings.`);
+  console.log(`Found ${bookingDates.length} unique gamingCenter-date pairs to sync from Bookings.`);
 
   for (const pair of bookingDates) {
     const date = new Date(pair.date);
-    console.log(`Syncing stats for Salon: ${pair.salonId} on Date: ${pair.date}`);
-    await AnalyticsRepo.syncSalonStats(pair.salonId, date);
+    console.log(`Syncing stats for GamingCenter: ${pair.gamingCenterId} on Date: ${pair.date}`);
+    await AnalyticsRepo.syncSalonStats(pair.gamingCenterId, date);
 
     // Sync for each staff on that date
     const staffIds = await prisma.$queryRaw<any[]>` // eslint-disable-line @typescript-eslint/no-explicit-any
-      SELECT DISTINCT "staffId" FROM "Booking"
-      WHERE "salonId" = ${pair.salonId} AND "startAt"::date = ${pair.date}::date
+      SELECT DISTINCT "staffId" FROM "Reservation"
+      WHERE "gamingCenterId" = ${pair.gamingCenterId} AND "startTime"::date = ${pair.date}::date
     `;
     for (const s of staffIds) {
-      await AnalyticsRepo.syncStaffStats(pair.salonId, s.staffId, date);
+      await AnalyticsRepo.syncStaffStats(pair.gamingCenterId, s.staffId, date);
     }
 
-    // Sync for each service on that date
+    // Sync for each station on that date
     const serviceIds = await prisma.$queryRaw<any[]>` // eslint-disable-line @typescript-eslint/no-explicit-any
-      SELECT DISTINCT "serviceId" FROM "Booking"
-      WHERE "salonId" = ${pair.salonId} AND "startAt"::date = ${pair.date}::date
+      SELECT DISTINCT "stationId" FROM "Reservation"
+      WHERE "gamingCenterId" = ${pair.gamingCenterId} AND "startTime"::date = ${pair.date}::date
     `;
     for (const s of serviceIds) {
-      await AnalyticsRepo.syncServiceStats(pair.salonId, s.serviceId, date);
+      await AnalyticsRepo.syncServiceStats(pair.gamingCenterId, s.stationId, date);
     }
   }
 
-  // 2. Also handle payments that might be on different dates than bookings
+  // 2. Also handle payments that might be on different dates than reservations
   const paymentDates = await prisma.$queryRaw<any[]>` // eslint-disable-line @typescript-eslint/no-explicit-any
-    SELECT DISTINCT "salonId", "paidAt"::date as date
+    SELECT DISTINCT "gamingCenterId", "paidAt"::date as date
     FROM "Payment"
     WHERE "status" = 'PAID' AND "paidAt" IS NOT NULL
   `;
 
-  console.log(`Found ${paymentDates.length} unique salon-date pairs to sync from Payments.`);
+  console.log(`Found ${paymentDates.length} unique gamingCenter-date pairs to sync from Payments.`);
 
   for (const pair of paymentDates) {
-    await AnalyticsRepo.syncSalonStats(pair.salonId, new Date(pair.date));
+    await AnalyticsRepo.syncSalonStats(pair.gamingCenterId, new Date(pair.date));
   }
 
   console.log('Backfill completed successfully.');

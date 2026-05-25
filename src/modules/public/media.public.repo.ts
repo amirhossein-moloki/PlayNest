@@ -1,9 +1,9 @@
 import { prisma } from '../../config/prisma';
 
-export async function findPublicMediaBySalonId(salonId: string) {
-  return prisma.salonMedia.findMany({
+export async function findPublicMediaBySalonId(gamingCenterId: string) {
+  return prisma.media.findMany({
     where: {
-      salonId,
+      gamingCenterId,
       isActive: true,
     },
     orderBy: {

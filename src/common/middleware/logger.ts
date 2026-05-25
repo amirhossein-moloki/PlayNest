@@ -32,7 +32,7 @@ if (env.NODE_ENV === 'test') {
     customProps: function (req, _res) { // eslint-disable-line @typescript-eslint/no-unused-vars
       return {
         actorId: req.actor?.id || null,
-        salonId: req.params?.salonId || null,
+        gamingCenterId: req.params?.gamingCenterId || null,
       };
     },
     // Use serializers to sanitize sensitive fields from the log output.
