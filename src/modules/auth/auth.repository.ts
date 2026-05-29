@@ -10,8 +10,22 @@ export const AuthRepository = {
     return prisma.customerAccount.findFirst({ where: { phone } });
   },
 
-  async createCustomer(phone: string) {
-    return prisma.customerAccount.create({ data: { phone } });
+  async createCustomer(phone: string, phoneVerifiedAt?: Date) {
+    return prisma.customerAccount.create({ data: { phone, phoneVerifiedAt } });
+  },
+
+  async markCustomerPhoneVerified(id: string) {
+    return prisma.customerAccount.update({
+      where: { id },
+      data: { phoneVerifiedAt: new Date() },
+    });
+  },
+
+  async markUserPhoneVerified(phone: string) {
+    return prisma.user.updateMany({
+      where: { phone },
+      data: { phoneVerifiedAt: new Date() },
+    });
   },
 
   async createOtp(data: { phone: string; purpose: any; codeHash: string; expiresAt: Date }) { // eslint-disable-line @typescript-eslint/no-explicit-any

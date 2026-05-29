@@ -9,6 +9,7 @@ module.exports = {
   testEnvironment: 'node',
   testTimeout: 30000,
   testMatch: ['**/?(*.)+(spec|test|e2e.test).[jt]s?(x)'],
+  modulePathIgnorePatterns: ['<rootDir>/dist/'],
   clearMocks: true,
   transformIgnorePatterns: ['/node_modules/(?!uuid|@faker-js/faker)'],
   moduleNameMapper: {

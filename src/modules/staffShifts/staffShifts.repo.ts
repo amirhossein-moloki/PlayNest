@@ -1,6 +1,12 @@
 import { prisma } from '../../config/prisma';
 import { UpsertShiftsInput } from './staffShifts.validators';
 
+export const findShiftsByUserId = async (gamingCenterId: string, userId: string) => {
+  return prisma.staffShift.findMany({
+    where: { gamingCenterId, userId },
+  });
+};
+
 export const upsertShifts = async (gamingCenterId: string, userId: string, staffShifts: UpsertShiftsInput) => {
   // Use a transaction to ensure all or no staffShifts are updated
   const upsertPromises = staffShifts.map(staffShift =>

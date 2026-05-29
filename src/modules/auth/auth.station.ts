@@ -5,8 +5,8 @@ import { generateAccessToken } from './auth.tokens';
 import { OtpPurpose, SessionActorType } from '@prisma/client';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
-import { SmsService } from '../notifications/sms.station';
 import { env } from '../../config/env';
+import { queueSms } from '../../jobs/producers/sms.producer';
 
 const hashToken = (token: string) => {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -91,7 +91,7 @@ export const AuthService = {
       expiresAt,
     });
 
-    await SmsService.sendTemplateSms(phone, getOtpTemplateId(), [{ name: 'CODE', value: code }]);
+    await queueSms({ mobile: phone, templateId: getOtpTemplateId(), parameters: [{ name: 'CODE', value: code }] });
 
     return { message: `OTP sent to ${phone}. It will expire in ${OTP_EXPIRATION_MINUTES} minutes.` };
   },
@@ -111,6 +111,7 @@ export const AuthService = {
     }
 
     await AuthRepository.consumeOtp(otp.id);
+    await AuthRepository.markUserPhoneVerified(phone);
 
     const users = await AuthRepository.findUsersWithSalons(phone);
 
@@ -134,7 +135,7 @@ export const AuthService = {
       expiresAt,
     });
 
-    await SmsService.sendTemplateSms(phone, getOtpTemplateId(), [{ name: 'CODE', value: code }]);
+    await queueSms({ mobile: phone, templateId: getOtpTemplateId(), parameters: [{ name: 'CODE', value: code }] });
 
     return { message: `OTP sent to ${phone}. It will expire in ${OTP_EXPIRATION_MINUTES} minutes.` };
   },
@@ -153,6 +154,11 @@ export const AuthService = {
     }
 
     await AuthRepository.consumeOtp(otp.id);
+
+    const customer = await AuthRepository.findCustomerByPhone(phone);
+    if (customer && !customer.phoneVerifiedAt) {
+      await AuthRepository.markCustomerPhoneVerified(customer.id);
+    }
 
     return { message: 'OTP verified successfully.' };
   },
@@ -191,7 +197,9 @@ export const AuthService = {
     let customer = await AuthRepository.findCustomerByPhone(phone);
 
     if (!customer) {
-      customer = await AuthRepository.createCustomer(phone);
+      customer = await AuthRepository.createCustomer(phone, new Date());
+    } else if (!customer.phoneVerifiedAt) {
+      customer = await AuthRepository.markCustomerPhoneVerified(customer.id);
     }
 
     const { accessToken, refreshToken } = await createAndSaveSession(customer.id, 'CUSTOMER');

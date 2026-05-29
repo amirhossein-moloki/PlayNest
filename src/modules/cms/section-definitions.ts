@@ -21,6 +21,8 @@ export interface SectionConfig {
   defaults: Record<string, unknown>;
 }
 
+export type SectionRenderer = (data: Record<string, any>) => string;
+
 // Helper for escaping HTML
 export const escapeHtml = (value: string) =>
   value
@@ -29,6 +31,233 @@ export const escapeHtml = (value: string) =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+
+const renderButton = (label?: string, url?: string) => {
+  if (!label || !url) return '';
+  return `<a class="btn" href="${escapeHtml(url)}">${escapeHtml(label)}</a>`;
+};
+
+const renderHero = (data: Record<string, any>) => {
+  const headline = data?.headline ? escapeHtml(String(data.headline)) : 'Untitled hero';
+  const subheadline = data?.subheadline ? escapeHtml(String(data.subheadline)) : '';
+  const backgroundImageUrl = data?.backgroundImageUrl
+    ? escapeHtml(String(data.backgroundImageUrl))
+    : '';
+  return `
+    <section class="section hero" style="${backgroundImageUrl ? `background-image: url('${backgroundImageUrl}');` : ''}">
+      <div class="hero-overlay"></div>
+      <div class="hero-content">
+        <h2>${headline}</h2>
+        <p>${subheadline}</p>
+        <div class="hero-actions">
+          ${renderButton(data?.primaryCta?.label, data?.primaryCta?.url)}
+          ${renderButton(data?.secondaryCta?.label, data?.secondaryCta?.url)}
+        </div>
+      </div>
+    </section>
+  `;
+};
+
+const renderHighlights = (data: Record<string, any>) => {
+  const title = data?.title ? escapeHtml(String(data.title)) : 'Highlights';
+  const items = Array.isArray(data?.items) ? data.items : [];
+  return `
+    <section class="section">
+      <h2>${title}</h2>
+      <div class="grid three">
+        ${items
+    .map(
+      (item: Record<string, any>) => `
+            <div class="card-block">
+              <h3>${escapeHtml(String(item?.title ?? ''))}</h3>
+              <p>${escapeHtml(String(item?.text ?? ''))}</p>
+            </div>
+          `,
+    )
+    .join('')}
+      </div>
+    </section>
+  `;
+};
+
+const renderServicesGrid = (data: Record<string, any>) => {
+  const title = data?.title ? escapeHtml(String(data.title)) : 'Services';
+  const maxItems = Number(data?.maxItems ?? 6);
+  const placeholders = Array.from({ length: Math.min(maxItems, 6) }, (_, index) => ({
+    name: `GameStation ${index + 1}`,
+    price: data?.showPrices ? `${(index + 1) * 10} $` : '',
+  }));
+  return `
+    <section class="section">
+      <h2>${title}</h2>
+      <div class="grid three">
+        ${placeholders
+    .map(
+      (item) => `
+            <div class="card-block">
+              <h3>${escapeHtml(item.name)}</h3>
+              <p>${item.price ? escapeHtml(item.price) : 'Popular choice'}</p>
+            </div>
+          `,
+    )
+    .join('')}
+      </div>
+    </section>
+  `;
+};
+
+const renderGalleryGrid = (data: Record<string, any>) => {
+  const title = data?.title ? escapeHtml(String(data.title)) : 'Gallery';
+  const categories = Array.isArray(data?.categories) ? data.categories : [];
+  return `
+    <section class="section">
+      <h2>${title}</h2>
+      <div class="pill-row">
+        ${categories
+    .map((c: any) => {
+      const val = typeof c === 'string' ? c : c?.value ?? '';
+      return `<span class="pill">${escapeHtml(String(val))}</span>`;
+    })
+    .join('')}
+      </div>
+      <div class="grid three">
+        ${Array.from({ length: 6 })
+    .map(
+      (_item, index) => `
+            <div class="image-card">Image ${index + 1}</div>
+          `,
+    )
+    .join('')}
+      </div>
+    </section>
+  `;
+};
+
+const renderTestimonials = (data: Record<string, any>) => {
+  const title = data?.title ? escapeHtml(String(data.title)) : 'Testimonials';
+  const limit = Number(data?.limit ?? 3);
+  return `
+    <section class="section">
+      <h2>${title}</h2>
+      <div class="grid three">
+        ${Array.from({ length: Math.min(limit, 3) })
+    .map(
+      (_item, index) => `
+            <div class="card-block">
+              <p>“Great experience ${index + 1}."</p>
+              <span>Happy client</span>
+            </div>
+          `,
+    )
+    .join('')}
+      </div>
+    </section>
+  `;
+};
+
+const renderFaq = (data: Record<string, any>) => {
+  const title = data?.title ? escapeHtml(String(data.title)) : 'FAQs';
+  const items = Array.isArray(data?.items) ? data.items : [];
+  return `
+    <section class="section">
+      <h2>${title}</h2>
+      <div class="stack">
+        ${items
+    .map(
+      (item: Record<string, any>) => `
+            <div class="card-block">
+              <h3>${escapeHtml(String(item?.q ?? ''))}</h3>
+              <p>${escapeHtml(String(item?.a ?? ''))}</p>
+            </div>
+          `,
+    )
+    .join('')}
+      </div>
+    </section>
+  `;
+};
+
+const renderCta = (data: Record<string, any>) => {
+  const title = data?.title ? escapeHtml(String(data.title)) : 'Ready to book?';
+  const text = data?.text ? escapeHtml(String(data.text)) : '';
+  return `
+    <section class="section cta">
+      <h2>${title}</h2>
+      <p>${text}</p>
+      ${renderButton(data?.buttonLabel, data?.buttonUrl)}
+    </section>
+  `;
+};
+
+const renderContactCard = (data: Record<string, any>) => {
+  const title = data?.title ? escapeHtml(String(data.title)) : 'Contact';
+  const city = data?.city ? escapeHtml(String(data.city)) : '';
+  const workHours = data?.workHours ? escapeHtml(String(data.workHours)) : '';
+  return `
+    <section class="section">
+      <h2>${title}</h2>
+      <div class="card-block">
+        <p>${city}</p>
+        <p>${workHours}</p>
+      </div>
+    </section>
+  `;
+};
+
+const renderMap = (data: Record<string, any>) => {
+  const lat = data?.lat ?? 0;
+  const lng = data?.lng ?? 0;
+  const zoom = data?.zoom ?? 12;
+  return `
+    <section class="section">
+      <h2>Map</h2>
+      <div class="map-card">
+        <p>Latitude: ${escapeHtml(String(lat))}</p>
+        <p>Longitude: ${escapeHtml(String(lng))}</p>
+        <p>Zoom: ${escapeHtml(String(zoom))}</p>
+      </div>
+    </section>
+  `;
+};
+
+const renderRichText = (data: Record<string, any>) => {
+  const title = data?.title ? escapeHtml(String(data.title)) : '';
+  const blocks = Array.isArray(data?.blocks) ? data.blocks : [];
+  return `
+    <section class="section">
+      ${title ? `<h2>${title}</h2>` : ''}
+      <div class="stack">
+        ${blocks
+    .map((block: Record<string, any>) => {
+      const text = block?.text ?? '';
+      return `<p>${text}</p>`;
+    })
+    .join('')}
+      </div>
+    </section>
+  `;
+};
+
+const renderStaffGrid = (data: Record<string, any>) => {
+  const title = data?.title ? escapeHtml(String(data.title)) : 'Staff';
+  return `
+    <section class="section">
+      <h2>${title}</h2>
+      <div class="grid three">
+        ${Array.from({ length: 3 })
+    .map(
+      (_item, index) => `
+            <div class="card-block">
+              <h3>Team member ${index + 1}</h3>
+              <p>Host</p>
+            </div>
+          `,
+    )
+    .join('')}
+      </div>
+    </section>
+  `;
+};
 
 const allowedRichTextTags = new Set(['a', 'b', 'strong', 'i', 'em', 'u', 's', 'br', 'span', 'code']);
 const safeHrefPattern = /^(https?:|mailto:|tel:|\/|#)/i;
@@ -114,7 +343,10 @@ const sanitizeRichTextHtml = (value: string, allowHtml: boolean) => {
 
 // --- Configs & Schemas ---
 
-export const SECTION_DEFINITIONS: Record<PageSectionType, SectionConfig & { schema: z.ZodTypeAny }> = {
+export const SECTION_DEFINITIONS: Record<
+  PageSectionType,
+  SectionConfig & { schema: z.ZodTypeAny; renderer: SectionRenderer }
+> = {
   [PageSectionType.HERO]: {
     type: PageSectionType.HERO,
     label: 'Hero',
@@ -161,6 +393,7 @@ export const SECTION_DEFINITIONS: Record<PageSectionType, SectionConfig & { sche
       }),
       backgroundImageUrl: z.string().min(1),
     }),
+    renderer: renderHero,
   },
   [PageSectionType.HIGHLIGHTS]: {
     type: PageSectionType.HIGHLIGHTS,
@@ -194,6 +427,7 @@ export const SECTION_DEFINITIONS: Record<PageSectionType, SectionConfig & { sche
         }),
       ),
     }),
+    renderer: renderHighlights,
   },
   [PageSectionType.SERVICES_GRID]: {
     type: PageSectionType.SERVICES_GRID,
@@ -213,6 +447,7 @@ export const SECTION_DEFINITIONS: Record<PageSectionType, SectionConfig & { sche
       showPrices: z.boolean(),
       maxItems: z.number().int().positive(),
     }),
+    renderer: renderServicesGrid,
   },
   [PageSectionType.GALLERY_GRID]: {
     type: PageSectionType.GALLERY_GRID,
@@ -242,6 +477,7 @@ export const SECTION_DEFINITIONS: Record<PageSectionType, SectionConfig & { sche
       ])),
       limit: z.number().int().positive(),
     }),
+    renderer: renderGalleryGrid,
   },
   [PageSectionType.TESTIMONIALS]: {
     type: PageSectionType.TESTIMONIALS,
@@ -258,6 +494,7 @@ export const SECTION_DEFINITIONS: Record<PageSectionType, SectionConfig & { sche
       title: z.string().min(1),
       limit: z.number().int().positive(),
     }),
+    renderer: renderTestimonials,
   },
   [PageSectionType.FAQ]: {
     type: PageSectionType.FAQ,
@@ -290,6 +527,7 @@ export const SECTION_DEFINITIONS: Record<PageSectionType, SectionConfig & { sche
         }),
       ),
     }),
+    renderer: renderFaq,
   },
   [PageSectionType.CTA]: {
     type: PageSectionType.CTA,
@@ -312,6 +550,7 @@ export const SECTION_DEFINITIONS: Record<PageSectionType, SectionConfig & { sche
       buttonLabel: z.string().min(1),
       buttonUrl: z.string().min(1),
     }),
+    renderer: renderCta,
   },
   [PageSectionType.CONTACT_CARD]: {
     type: PageSectionType.CONTACT_CARD,
@@ -331,6 +570,7 @@ export const SECTION_DEFINITIONS: Record<PageSectionType, SectionConfig & { sche
       city: z.string().min(1),
       workHours: z.string().min(1),
     }),
+    renderer: renderContactCard,
   },
   [PageSectionType.MAP]: {
     type: PageSectionType.MAP,
@@ -350,6 +590,7 @@ export const SECTION_DEFINITIONS: Record<PageSectionType, SectionConfig & { sche
       lng: z.number(),
       zoom: z.number().int().positive(),
     }),
+    renderer: renderMap,
   },
   [PageSectionType.RICH_TEXT]: {
     type: PageSectionType.RICH_TEXT,
@@ -387,6 +628,7 @@ export const SECTION_DEFINITIONS: Record<PageSectionType, SectionConfig & { sche
           text: sanitizeRichTextHtml(value.text, Boolean(value.allowHtml)),
         }))),
     }),
+    renderer: renderRichText,
   },
   [PageSectionType.STAFF_GRID]: {
     type: PageSectionType.STAFF_GRID,
@@ -406,5 +648,6 @@ export const SECTION_DEFINITIONS: Record<PageSectionType, SectionConfig & { sche
       showRoles: z.boolean(),
       showBio: z.boolean(),
     }),
+    renderer: renderStaffGrid,
   },
 };

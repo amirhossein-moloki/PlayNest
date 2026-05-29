@@ -4,5 +4,6 @@ export interface UpdateSettingsInput {
   workEndTime?: string;
   allowOnlineBooking?: boolean;
   onlineBookingAutoConfirm?: boolean;
+  requireOtpForPublicBooking?: boolean;
   preventOverlaps?: boolean;
 }

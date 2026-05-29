@@ -1,12 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { getAvailabilityQuerySchema } from './availability.validators';
+import { GetAvailabilityQuery } from './availability.validators';
 import { getAvailableSlots } from './availability.station';
-import { z } from 'zod';
-
-// We need a schema for URL params as well
-const paramsSchema = z.object({
-  salonSlug: z.string(),
-});
 
 export const getAvailability = async (
   req: Request,
@@ -14,8 +8,8 @@ export const getAvailability = async (
   next: NextFunction
 ) => {
   try {
-    const { salonSlug } = paramsSchema.parse(req.params);
-    const query = getAvailabilityQuerySchema.parse(req.query);
+    const { salonSlug } = req.params;
+    const query = req.query as unknown as GetAvailabilityQuery;
 
     const slots = await getAvailableSlots({ ...query, salonSlug });
 

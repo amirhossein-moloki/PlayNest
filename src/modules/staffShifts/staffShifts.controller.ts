@@ -9,7 +9,13 @@ export const upsertShiftsController = async (
 ) => {
   try {
     const { gamingCenterId, userId } = req.params;
-    const staffShifts = await staffShiftsService.upsertShifts(gamingCenterId, userId, req.body);
+    const staffShifts = await staffShiftsService.upsertShifts(
+      gamingCenterId,
+      userId,
+      req.body,
+      (req as any).actor,
+      { ip: req.ip, userAgent: req.headers['user-agent'] }
+    );
     res.ok(staffShifts);
   } catch (error) {
     next(error);

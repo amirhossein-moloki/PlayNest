@@ -3,7 +3,7 @@ import httpStatus from 'http-status';
 import * as reviewsRepo from './ratings.repo';
 import { SubmitReviewInput } from './ratings.types';
 import { RatingStatus, ReservationStatus } from '@prisma/client';
-import { AnalyticsRepo } from '../analytics/analytics.repo';
+import { queueAnalyticsSync } from '../../jobs/producers/analytics.producer';
 
 export async function submitReview(salonSlug: string, input: SubmitReviewInput) {
   // 1. Verify reservation exists and belongs to the gamingCenter (by slug)
@@ -23,7 +23,7 @@ export async function submitReview(salonSlug: string, input: SubmitReviewInput) 
   const rating = await reviewsRepo.createReview(reservation.gamingCenterId, reservation.customerAccountId, input);
 
   // Sync analytics
-  AnalyticsRepo.syncAllStatsForReview(rating.id).catch(console.error);
+  queueAnalyticsSync({ type: 'REVIEW', entityId: rating.id }).catch(console.error);
 
   return rating;
 }
@@ -41,7 +41,7 @@ export async function moderateReview(gamingCenterId: string, reviewId: string, s
   const updatedReview = await reviewsRepo.updateReviewStatus(reviewId, gamingCenterId, status);
 
   // Sync analytics
-  AnalyticsRepo.syncAllStatsForReview(reviewId).catch(console.error);
+  queueAnalyticsSync({ type: 'REVIEW', entityId: reviewId }).catch(console.error);
 
   return updatedReview;
 }

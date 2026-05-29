@@ -282,6 +282,7 @@ model Settings {
 
   allowOnlineBooking       Boolean @default(false)
   onlineBookingAutoConfirm Boolean @default(false)
+  requireOtpForPublicBooking Boolean @default(false)
 
   maxAdvanceBookingDays    Int   @default(7)
   cancellationHours        Int   @default(2)

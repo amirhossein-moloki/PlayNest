@@ -1,8 +1,9 @@
 
 import { addMinutes, isBefore } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { Reservation, ReservationSource, ReservationStatus, Prisma, SessionActorType, UserRole } from '@prisma/client';
+import { Reservation, ReservationSource, ReservationStatus, Prisma, SessionActorType, UserRole, OtpPurpose } from '@prisma/client';
 import { ReservationsRepo } from './reservations.repo';
+import { AuthRepository } from '../auth/auth.repository';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { getZonedStartAndEnd } from '../../common/utils/date';
@@ -21,6 +22,8 @@ import {
 } from './reservations.validators';
 
 
+
+const OTP_POST_VERIFICATION_WINDOW_MINUTES = 5;
 
 const findAndValidateReservation = async (
   reservationId: string,
@@ -157,6 +160,19 @@ export const reservationsService = {
           throw new AppError('Reservation start time must be in the future.', httpStatus.BAD_REQUEST, {
             code: 'BOOKING_START_TIME_IN_PAST',
           });
+        }
+
+        // Configurable OTP verification
+        if (gamingCenter.settings?.requireOtpForPublicBooking) {
+          const normalizedPhone = normalizePhone(input.customer.phone);
+          const verificationWindow = new Date(Date.now() - OTP_POST_VERIFICATION_WINDOW_MINUTES * 60 * 1000);
+          const recentVerifiedOtp = await AuthRepository.findRecentConsumedOtp(normalizedPhone, OtpPurpose.LOGIN, verificationWindow);
+
+          if (!recentVerifiedOtp) {
+            throw new AppError('Phone number not verified. Please verify via OTP first.', httpStatus.UNAUTHORIZED, {
+              code: 'OTP_REQUIRED',
+            });
+          }
         }
 
         const station = await ReservationsRepo.findStation(input.stationId, gamingCenter.id, true, tx);

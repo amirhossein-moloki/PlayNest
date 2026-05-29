@@ -1,6 +1,7 @@
 import { gamingCenterService } from './gamingCenter.station';
 import { salonRepository } from './gamingCenter.repository';
 import createHttpError from 'http-errors';
+import { SessionActorType } from '@prisma/client';
 
 // Mock the repository
 jest.mock('./gamingCenter.repository', () => ({
@@ -14,6 +15,8 @@ jest.mock('./gamingCenter.repository', () => ({
   },
 }));
 
+jest.mock('../audit/audit.station');
+
 describe('SalonService', () => {
   // Clear mocks before each test
   beforeEach(() => {
@@ -21,6 +24,9 @@ describe('SalonService', () => {
   });
 
   describe('createSalon', () => {
+    const mockActor = { id: 'actor-id', actorType: SessionActorType.USER };
+    const mockContext = { ip: '127.0.0.1', userAgent: 'test' };
+
     it('should create a new gamingCenter if the slug is unique', async () => {
       const salonData = {
         name: 'Test GamingCenter',
@@ -32,7 +38,7 @@ describe('SalonService', () => {
       (salonRepository.findBySlug as jest.Mock).mockResolvedValue(null);
       (salonRepository.create as jest.Mock).mockResolvedValue(createdSalon);
 
-      const result = await gamingCenterService.createSalon(salonData);
+      const result = await gamingCenterService.createSalon(salonData, mockActor, mockContext);
 
       expect(salonRepository.findBySlug).toHaveBeenCalledWith(salonData.slug);
       expect(salonRepository.create).toHaveBeenCalledWith(salonData);
@@ -105,6 +111,8 @@ describe('SalonService', () => {
       isActive: true,
     };
     const updateData = { name: 'New Name', slug: 'new-slug' };
+    const mockActor = { id: 'actor-id', actorType: SessionActorType.USER };
+    const mockContext = { ip: '127.0.0.1', userAgent: 'test' };
 
     it('should update the gamingCenter successfully', async () => {
       const updatedSalon = { ...existingSalon, ...updateData };
@@ -112,7 +120,7 @@ describe('SalonService', () => {
       (salonRepository.findBySlug as jest.Mock).mockResolvedValue(null);
       (salonRepository.update as jest.Mock).mockResolvedValue(updatedSalon);
 
-      const result = await gamingCenterService.updateSalon(gamingCenterId, updateData);
+      const result = await gamingCenterService.updateSalon(gamingCenterId, updateData, mockActor, mockContext);
 
       expect(salonRepository.findById).toHaveBeenCalledWith(gamingCenterId);
       expect(salonRepository.findBySlug).toHaveBeenCalledWith(updateData.slug);
@@ -124,7 +132,7 @@ describe('SalonService', () => {
       (salonRepository.findById as jest.Mock).mockResolvedValue(null);
 
       await expect(
-        gamingCenterService.updateSalon(gamingCenterId, updateData),
+        gamingCenterService.updateSalon(gamingCenterId, updateData, mockActor, mockContext),
       ).rejects.toThrow(createHttpError(404, 'GamingCenter not found'));
 
       expect(salonRepository.findById).toHaveBeenCalledWith(gamingCenterId);
@@ -141,7 +149,7 @@ describe('SalonService', () => {
       (salonRepository.findBySlug as jest.Mock).mockResolvedValue(anotherSalon);
 
       await expect(
-        gamingCenterService.updateSalon(gamingCenterId, updateData),
+        gamingCenterService.updateSalon(gamingCenterId, updateData, mockActor, mockContext),
       ).rejects.toThrow(
         createHttpError(409, 'A gamingCenter with this slug already exists'),
       );
@@ -159,6 +167,8 @@ describe('SalonService', () => {
       name: 'Test GamingCenter',
       slug: 'test-gamingCenter',
     };
+    const mockActor = { id: 'actor-id', actorType: SessionActorType.USER };
+    const mockContext = { ip: '127.0.0.1', userAgent: 'test' };
 
     it('should soft delete the gamingCenter successfully', async () => {
       (salonRepository.findById as jest.Mock).mockResolvedValue(existingSalon);
@@ -167,7 +177,7 @@ describe('SalonService', () => {
         isActive: false,
       });
 
-      await gamingCenterService.deleteSalon(gamingCenterId);
+      await gamingCenterService.deleteSalon(gamingCenterId, mockActor, mockContext);
 
       expect(salonRepository.findById).toHaveBeenCalledWith(gamingCenterId);
       expect(salonRepository.softDelete).toHaveBeenCalledWith(gamingCenterId);
@@ -176,7 +186,7 @@ describe('SalonService', () => {
     it('should throw a 404 error if the gamingCenter to delete is not found', async () => {
       (salonRepository.findById as jest.Mock).mockResolvedValue(null);
 
-      await expect(gamingCenterService.deleteSalon(gamingCenterId)).rejects.toThrow(
+      await expect(gamingCenterService.deleteSalon(gamingCenterId, mockActor, mockContext)).rejects.toThrow(
         createHttpError(404, 'GamingCenter not found'),
       );
 

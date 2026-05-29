@@ -1,7 +1,10 @@
 import app from './app';
 import { env } from './config/env';
+import { initWorkers } from './jobs/workers';
 
 const PORT = env.PORT;
+
+initWorkers();
 
 const server = app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

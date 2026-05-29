@@ -7,6 +7,7 @@ export const updateSettingsSchema = z.object({
     workEndTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
     allowOnlineBooking: z.boolean().optional(),
     onlineBookingAutoConfirm: z.boolean().optional(),
+    requireOtpForPublicBooking: z.boolean().optional(),
     preventOverlaps: z.boolean().optional(),
   }),
   params: z.object({

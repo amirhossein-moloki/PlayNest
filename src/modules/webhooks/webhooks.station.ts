@@ -4,7 +4,7 @@ import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { IdempotencyRepo } from '../../common/repositories/idempotency.repo';
 import { PaymentsRepo } from '../payments/payments.repo';
-import { AnalyticsRepo } from '../analytics/analytics.repo';
+import { queueAnalyticsSync } from '../../jobs/producers/analytics.producer';
 
 const processPaymentWebhook = async ({
   provider,
@@ -97,7 +97,7 @@ const processPaymentWebhook = async ({
     });
 
     // Sync analytics
-    AnalyticsRepo.syncAllStatsForPayment(paymentId).catch(console.error);
+    queueAnalyticsSync({ type: 'PAYMENT', entityId: paymentId }).catch(console.error);
 
     // Mark the idempotency key as completed outside the DB transaction
     await IdempotencyRepo.updateKey(idempotencyScope, eventId, { status: IdempotencyStatus.COMPLETED });

@@ -6,7 +6,11 @@ export const salonController = {
   async createSalon(req: Request, res: Response, next: NextFunction) {
     try {
       const validatedData = createSalonSchema.parse(req.body);
-      const gamingCenter = await gamingCenterService.createSalon(validatedData);
+      const gamingCenter = await gamingCenterService.createSalon(
+        validatedData,
+        (req as any).actor,
+        { ip: req.ip, userAgent: req.headers['user-agent'] }
+      );
       res.created(gamingCenter);
     } catch (error) {
       next(error);
@@ -37,7 +41,12 @@ export const salonController = {
     try {
       const { id } = req.params;
       const validatedData = updateSalonSchema.parse(req.body);
-      const updatedSalon = await gamingCenterService.updateSalon(id, validatedData);
+      const updatedSalon = await gamingCenterService.updateSalon(
+        id,
+        validatedData,
+        (req as any).actor,
+        { ip: req.ip, userAgent: req.headers['user-agent'] }
+      );
       res.ok(updatedSalon);
     } catch (error) {
       next(error);
@@ -47,7 +56,11 @@ export const salonController = {
   async deleteSalon(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      await gamingCenterService.deleteSalon(id);
+      await gamingCenterService.deleteSalon(
+        id,
+        (req as any).actor,
+        { ip: req.ip, userAgent: req.headers['user-agent'] }
+      );
       res.noContent();
     } catch (error) {
       next(error);

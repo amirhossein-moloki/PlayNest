@@ -1,6 +1,6 @@
 import { AppEvents, eventEmitter } from '../../common/events/event-emitter';
-import { AnalyticsRepo } from '../analytics/analytics.repo';
-import { SmsService } from '../notifications/sms.station';
+import { queueAnalyticsSync } from '../../jobs/producers/analytics.producer';
+import { queueSms } from '../../jobs/producers/sms.producer';
 import { Reservation, GamingCenter, Settings, ReservationStatus } from '@prisma/client';
 import { formatInTimeZone } from 'date-fns-tz';
 import { env } from '../../config/env';
@@ -33,49 +33,38 @@ const sendBookingStatusSms = async (reservation: Reservation, gamingCenter: Salo
   ];
 
   try {
-    await SmsService.sendTemplateSms(customerPhone, templateId, parameters);
+    await queueSms({ mobile: customerPhone, templateId, parameters });
   } catch (error) {
-    console.error('Failed to send reservation SMS:', error);
+    console.error('Failed to queue reservation SMS:', error);
   }
 };
 
 export const initBookingEvents = () => {
   eventEmitter.on(AppEvents.BOOKING_CREATED, async ({ reservation, gamingCenter, customerAccount }) => {
-    AnalyticsRepo.syncAllStatsForBooking(reservation.id).catch(console.error);
+    queueAnalyticsSync({ type: 'BOOKING', entityId: reservation.id }).catch(console.error);
     await sendBookingStatusSms(reservation, gamingCenter, customerAccount.phone, customerAccount.fullName || '');
   });
 
-  eventEmitter.on(AppEvents.BOOKING_UPDATED, async ({ updatedBooking, oldBooking }) => {
-    AnalyticsRepo.syncSpecificStats(
-      oldBooking.gamingCenterId,
-      oldBooking.startTime,
-      oldBooking.staffId,
-      oldBooking.stationId
-    ).catch(console.error);
-
-    AnalyticsRepo.syncSpecificStats(
-      updatedBooking.gamingCenterId,
-      updatedBooking.startTime,
-      updatedBooking.staffId,
-      updatedBooking.stationId
-    ).catch(console.error);
+  eventEmitter.on(AppEvents.BOOKING_UPDATED, async ({ updatedBooking }) => {
+    // For simplicity, we sync all stats for the updated booking
+    queueAnalyticsSync({ type: 'BOOKING', entityId: updatedBooking.id }).catch(console.error);
   });
 
   eventEmitter.on(AppEvents.BOOKING_CONFIRMED, async ({ reservation, gamingCenter, customerAccount }) => {
-    AnalyticsRepo.syncAllStatsForBooking(reservation.id).catch(console.error);
+    queueAnalyticsSync({ type: 'BOOKING', entityId: reservation.id }).catch(console.error);
     await sendBookingStatusSms(reservation, gamingCenter, customerAccount.phone, customerAccount.fullName || '');
   });
 
   eventEmitter.on(AppEvents.BOOKING_CANCELED, async ({ reservation, gamingCenter, customerAccount }) => {
-    AnalyticsRepo.syncAllStatsForBooking(reservation.id).catch(console.error);
+    queueAnalyticsSync({ type: 'BOOKING', entityId: reservation.id }).catch(console.error);
     await sendBookingStatusSms(reservation, gamingCenter, customerAccount.phone, customerAccount.fullName || '');
   });
 
   eventEmitter.on(AppEvents.BOOKING_COMPLETED, async ({ reservation }) => {
-    AnalyticsRepo.syncAllStatsForBooking(reservation.id).catch(console.error);
+    queueAnalyticsSync({ type: 'BOOKING', entityId: reservation.id }).catch(console.error);
   });
 
   eventEmitter.on(AppEvents.BOOKING_NOSHOW, async ({ reservation }) => {
-    AnalyticsRepo.syncAllStatsForBooking(reservation.id).catch(console.error);
+    queueAnalyticsSync({ type: 'BOOKING', entityId: reservation.id }).catch(console.error);
   });
 };

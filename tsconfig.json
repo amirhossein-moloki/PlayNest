@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2019",
-    "moduleResolution": "node10",
+    "moduleResolution": "node",
+    "outDir": "dist",
     "types": ["node", "jest"],
     "lib": ["ES2019", "DOM"],
     "module": "CommonJS",
@@ -9,8 +10,7 @@
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "typeRoots": ["./node_modules/@types", "./src/types"],
-    "ignoreDeprecations": "6.0"
+    "typeRoots": ["./node_modules/@types", "./src/types"]
   },
   "include": ["src/**/*.ts", "test-utils/**/*.ts"],
   "exclude": ["node_modules", "dist"]

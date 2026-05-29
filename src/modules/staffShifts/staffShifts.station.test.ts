@@ -3,11 +3,12 @@ import * as shiftsRepo from './staffShifts.repo';
 import * as userRepo from '../users/users.repo';
 import AppError from '../../common/errors/AppError';
 import { UpsertShiftsInput } from './staffShifts.validators';
-import { UserRole } from '@prisma/client';
+import { UserRole, SessionActorType } from '@prisma/client';
 
 // Mock repositories
 jest.mock('./staffShifts.repo');
 jest.mock('../users/users.repo');
+jest.mock('../audit/audit.station');
 
 const mockedShiftsRepo = shiftsRepo as jest.Mocked<typeof shiftsRepo>;
 const mockedUserRepo = userRepo as jest.Mocked<typeof userRepo>;
@@ -20,6 +21,8 @@ describe('ShiftsService', () => {
   describe('upsertShifts', () => {
     const gamingCenterId = 'gamingCenter-id-1';
     const userId = 'user-id-1';
+    const mockActor = { id: 'actor-id', actorType: SessionActorType.USER };
+    const mockContext = { ip: '127.0.0.1', userAgent: 'test' };
     const shiftsInput: UpsertShiftsInput = [
       { dayOfWeek: 1, startTime: '09:00', endTime: '17:00', isActive: true },
       { dayOfWeek: 2, startTime: '09:00', endTime: '17:00', isActive: true },
@@ -44,11 +47,12 @@ describe('ShiftsService', () => {
     it('should successfully upsert staffShifts if the user exists', async () => {
       // Arrange
       mockedUserRepo.findUserById.mockResolvedValue(mockUser);
+      mockedShiftsRepo.findShiftsByUserId.mockResolvedValue([]);
       // Corrected the mock return value to be an array of staffShifts
       mockedShiftsRepo.upsertShifts.mockResolvedValue(shiftsInput.map(s => ({ ...s, id: 'staffShift-id', gamingCenterId, userId, createdAt: new Date(), updatedAt: new Date() })) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
       // Act
-      const result = await shiftsService.upsertShifts(gamingCenterId, userId, shiftsInput);
+      const result = await shiftsService.upsertShifts(gamingCenterId, userId, shiftsInput, mockActor, mockContext);
 
       // Assert
       expect(result).toBeInstanceOf(Array);
@@ -62,7 +66,7 @@ describe('ShiftsService', () => {
       mockedUserRepo.findUserById.mockResolvedValue(null);
 
       // Act & Assert
-      await expect(shiftsService.upsertShifts(gamingCenterId, userId, shiftsInput))
+      await expect(shiftsService.upsertShifts(gamingCenterId, userId, shiftsInput, mockActor, mockContext))
         .rejects.toThrow(new AppError('User not found', 404));
 
       expect(mockedUserRepo.findUserById).toHaveBeenCalledWith(gamingCenterId, userId);
