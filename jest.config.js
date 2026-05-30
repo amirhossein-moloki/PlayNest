@@ -11,7 +11,7 @@ module.exports = {
   testMatch: ['**/?(*.)+(spec|test|e2e.test).[jt]s?(x)'],
   modulePathIgnorePatterns: ['<rootDir>/dist/'],
   clearMocks: true,
-  transformIgnorePatterns: ['/node_modules/(?!uuid|@faker-js/faker)'],
+  transformIgnorePatterns: ['node_modules/(?!(uuid|@faker-js/faker)/)'],
   moduleNameMapper: {
     '^cuid$': '<rootDir>/test-utils/cuid.ts',
   },

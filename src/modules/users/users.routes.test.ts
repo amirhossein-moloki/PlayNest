@@ -10,9 +10,9 @@ jest.mock('../../common/middleware/auth', () => ({
     if (req.headers.authorization) {
       const token = req.headers.authorization.split(' ')[1];
       if (token === 'mock-manager-token') {
-        req.actor = { id: 'mock-manager-id', role: UserRole.MANAGER, gamingCenterId: req.params.gamingCenterId };
+        req.actor = { id: 'mock-manager-id', role: UserRole.MANAGER, gamingCenterId: req.params.gamingCenterId, actorType: 'USER' };
       } else if (token === 'mock-staff-token') {
-        req.actor = { id: 'mock-staff-id', role: UserRole.STAFF, gamingCenterId: req.params.gamingCenterId };
+        req.actor = { id: 'mock-staff-id', role: UserRole.STAFF, gamingCenterId: req.params.gamingCenterId, actorType: 'USER' };
       }
       return next();
     }

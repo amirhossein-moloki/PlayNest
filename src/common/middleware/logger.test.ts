@@ -52,16 +52,18 @@ jest.mock('../../config/logger', () => ({
 }));
 
 // We need to import the middleware *after* the mocks are set up.
+process.env.NODE_ENV = 'development';
 import loggerMiddleware from './logger';
+import { Request, Response } from 'express';
 
 describe('Logger Middleware', () => {
-  let req: http.IncomingMessage;
-  let res: http.ServerResponse;
+  let req: Request;
+  let res: Response;
   let next: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // A basic mock for IncomingMessage
+    // A basic mock for Request
     req = {
       method: 'POST',
       url: '/api/v1/auth/login',
@@ -73,7 +75,7 @@ describe('Logger Middleware', () => {
         email: 'test@example.com',
         password: 'a-very-secret-password',
       },
-      actor: { id: 'user-123' },
+      actor: { id: 'user-123', actorType: 'USER' },
       params: { gamingCenterId: 'gamingCenter-abc' },
     } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -83,8 +85,8 @@ describe('Logger Middleware', () => {
         callback();
       },
     });
-    res = new http.ServerResponse(req);
-    res.assignSocket(resWritable as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    res = new http.ServerResponse(req as any) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    (res as any).assignSocket(resWritable as any); // eslint-disable-line @typescript-eslint/no-explicit-any
     res.statusCode = 200;
 
     next = jest.fn();
@@ -97,7 +99,8 @@ describe('Logger Middleware', () => {
 
   it('should call the mocked logger with sanitized data and custom props', (done) => {
     // Manually invoke the middleware
-    loggerMiddleware(req, res, next);
+    // We need to cast it since we might have made it incompatible with RequestHandler in some way during refactoring
+    (loggerMiddleware as any)(req, res, next); // eslint-disable-line @typescript-eslint/no-explicit-any
 
     // End the response to trigger the logging logic in a real scenario
     res.end(() => {

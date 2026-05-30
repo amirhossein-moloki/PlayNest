@@ -45,9 +45,19 @@ if (env.NODE_ENV === 'test') {
         req.body = sanitizeLog(req.body);
         return req;
       },
-      res(res: Response) {
+      res(res: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
         // Sanitize headers from the response.
-        res.headers = sanitizeLog(res.headers);
+        if (res.headers) {
+          res.headers = sanitizeLog(res.headers);
+        } else if (typeof res.getHeaders === 'function') {
+          const headers = res.getHeaders();
+          // Since getHeaders returns a copy or we can't easily mutate the log record this way
+          // pino-http usually expects us to return the object to be logged.
+          return {
+            ...res,
+            headers: sanitizeLog(headers),
+          };
+        }
         return res;
       },
     },
