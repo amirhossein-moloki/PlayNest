@@ -362,7 +362,7 @@ export const reservationsService = {
           }
         }
 
-        if (staffChanged || serviceChanged) {
+        if ((staffChanged || serviceChanged) && effectiveStaffId) {
           const staff = await ReservationsRepo.findStaff(effectiveStaffId, gamingCenterId, effectiveServiceId, undefined, tx);
 
           if (!staff || !staff.id) {
@@ -406,7 +406,7 @@ export const reservationsService = {
           const newEndAt = addMinutes(newStartAt, durationHours * 60);
           const zonedNewStartAt = toZonedTime(newStartAt, timeZone);
 
-          const staffShift = await ReservationsRepo.findStaffShift(gamingCenterId, effectiveStaffId, zonedNewStartAt.getDay(), tx);
+          const staffShift = effectiveStaffId ? await ReservationsRepo.findStaffShift(gamingCenterId, effectiveStaffId, zonedNewStartAt.getDay(), tx) : null;
 
           if (!staffShift || !staffShift.startTime || !staffShift.endTime) {
             throw new AppError('Selected time is not available.', httpStatus.CONFLICT, {
