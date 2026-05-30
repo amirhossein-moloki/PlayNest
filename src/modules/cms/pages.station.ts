@@ -63,6 +63,7 @@ export async function updatePage(
     data.slug && data.slug !== existingPage.slug ? existingPage.slug : undefined;
 
   return PagesRepo.updatePage(
+    gamingCenterId,
     pageId,
     {
       ...data,

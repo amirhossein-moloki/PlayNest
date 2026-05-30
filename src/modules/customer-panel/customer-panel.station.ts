@@ -67,7 +67,7 @@ export const CustomerPanelService = {
     }
 
     const updatedBooking = await CustomerPanelRepo.transaction(async (tx) => {
-      const result = await CustomerPanelRepo.updateReservation(reservationId, {
+      const result = await CustomerPanelRepo.updateReservation(reservationId, customerAccountId, {
         status: ReservationStatus.CANCELED,
         canceledAt: new Date(),
         cancelReason: reason || 'Canceled by customer',
