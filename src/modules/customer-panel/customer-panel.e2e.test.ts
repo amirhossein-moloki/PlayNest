@@ -2,7 +2,7 @@ import request from 'supertest';
 import httpStatus from 'http-status';
 import app from '../../app';
 import { prisma } from '../../config/prisma';
-import { ReservationStatus, GamingCenter, GameStation, User, GameStationType, SessionActorType } from '@prisma/client';
+import { ReservationStatus, GamingCenter, GameStation, User, SessionActorType, CustomerAccount } from '@prisma/client';
 import {
   createTestSalon,
   createTestService,
@@ -14,7 +14,7 @@ describe('Customer Panel E2E Tests', () => {
   let gamingCenter: GamingCenter;
   let station: GameStation;
   let staff: User;
-  let customerAccount: any;
+  let customerAccount: CustomerAccount;
   let customerToken: string;
 
   beforeAll(async () => {

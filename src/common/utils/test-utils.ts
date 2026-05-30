@@ -14,14 +14,15 @@ import {
   Payment,
   PaymentStatus,
   PaymentProvider,
-  PaymentMethod
+  PaymentMethod,
+  Prisma
 } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { faker } from '@faker-js/faker';
 import jwt from 'jsonwebtoken';
 import { env } from '../../config/env';
 
-export const createTestSalon = (options?: { name?: string; slug?: string; settings?: any }): Promise<GamingCenter> => {
+export const createTestSalon = (options?: { name?: string; slug?: string; settings?: Record<string, unknown> }): Promise<GamingCenter> => {
   const { name = 'Test Gaming Center', slug = faker.lorem.slug(), settings } = options || {};
   return prisma.gamingCenter.create({
     data: {
@@ -52,11 +53,11 @@ export const createTestStation = (options: { gamingCenterId: string } & Partial<
   const { gamingCenterId, name = 'Test Station', stationType = GameStationType.PC, hourlyPrice = 50000 } = options;
   return prisma.gameStation.create({
     data: {
+      ...options,
       gamingCenterId,
       name,
       stationType,
       hourlyPrice,
-      ...(options as any),
     },
   });
 };
@@ -85,7 +86,7 @@ export const createTestReservation = (
         name: 'Snapshot Station',
         hourlyPrice: 50000,
         stationType: GameStationType.PC,
-      } as any,
+      } as Prisma.InputJsonValue,
       totalPrice: 50000,
       totalHours: 1,
       status: ReservationStatus.CONFIRMED,

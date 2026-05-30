@@ -34,7 +34,7 @@ const initiatePayment = async ({
       gamingCenter: { connect: { id: gamingCenterId } },
       reservation: { connect: { id: reservationId } },
       amount: reservation.totalPrice,
-      currency: ((reservation.stationSnapshot as any)?.currency || 'USD'),
+      currency: ((reservation.stationSnapshot as Record<string, unknown>)?.currency as string | undefined || 'USD'),
       provider: PaymentProvider.ZARINPAL, // Hardcoded for MVP
       status: PaymentStatus.INITIATED,
       idempotencyKey,
@@ -56,7 +56,7 @@ const initiatePayment = async ({
         merchant_id: env.ZARINPAL_MERCHANT_ID,
         amount: reservation.totalPrice,
         callback_url: env.ZARINPAL_CALLBACK_URL,
-        description: `Reservation for ${((reservation.stationSnapshot as any)?.currency || 'USD')} - ${reservation.id}`,
+        description: `Reservation for ${((reservation.stationSnapshot as Record<string, unknown>)?.currency as string | undefined || 'USD')} - ${reservation.id}`,
         metadata: {
           reservationId: reservation.id,
           gamingCenterId: gamingCenterId,

@@ -8,7 +8,7 @@ export const salonController = {
       const validatedData = createSalonSchema.parse(req.body);
       const gamingCenter = await gamingCenterService.createSalon(
         validatedData,
-        (req as any).actor,
+        req.actor!,
         { ip: req.ip, userAgent: req.headers['user-agent'] }
       );
       res.created(gamingCenter);
@@ -44,7 +44,7 @@ export const salonController = {
       const updatedSalon = await gamingCenterService.updateSalon(
         id,
         validatedData,
-        (req as any).actor,
+        req.actor!,
         { ip: req.ip, userAgent: req.headers['user-agent'] }
       );
       res.ok(updatedSalon);
@@ -58,7 +58,7 @@ export const salonController = {
       const { id } = req.params;
       await gamingCenterService.deleteSalon(
         id,
-        (req as any).actor,
+        req.actor!,
         { ip: req.ip, userAgent: req.headers['user-agent'] }
       );
       res.noContent();

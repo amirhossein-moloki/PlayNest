@@ -3,9 +3,10 @@ import app from '../../app';
 import { prisma } from '../../config/prisma';
 import { UserRole } from '@prisma/client';
 import createHttpError from 'http-errors';
+import { Request, Response, NextFunction } from 'express';
 
 jest.mock('../../common/middleware/auth', () => ({
-  authMiddleware: (req: any, res: any, next: any) => {
+  authMiddleware: (req: Request, _res: Response, next: NextFunction) => {
     if (req.headers.authorization) {
       const token = req.headers.authorization.split(' ')[1];
       if (token === 'mock-manager-token') {
@@ -20,8 +21,8 @@ jest.mock('../../common/middleware/auth', () => ({
 }));
 
 jest.mock('../../common/middleware/requireRole', () => ({
-  requireRole: (roles: any) => (req: any, res: any, next: any) => {
-    if (req.actor && roles.includes(req.actor.role)) {
+  requireRole: (roles: UserRole[]) => (req: Request, _res: Response, next: NextFunction) => {
+    if (req.actor && roles.includes(req.actor.role!)) {
       next();
     } else {
       next(createHttpError(403, 'Forbidden: You do not have the required permissions.'));

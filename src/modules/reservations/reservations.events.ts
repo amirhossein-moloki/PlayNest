@@ -26,7 +26,7 @@ const sendBookingStatusSms = async (reservation: Reservation, gamingCenter: Salo
 
   const parameters = [
     { name: 'CUSTOMER_NAME', value: customerName },
-    { name: 'SERVICE_NAME', value: ((reservation.stationSnapshot as any)?.name || 'N/A') },
+    { name: 'SERVICE_NAME', value: ((reservation.stationSnapshot as Record<string, unknown>)?.name as string | undefined || 'N/A') },
     { name: 'DATE', value: dateStr },
     { name: 'TIME', value: timeStr },
     { name: 'SALON_NAME', value: gamingCenter.name },

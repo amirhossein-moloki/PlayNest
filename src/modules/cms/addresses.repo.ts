@@ -15,16 +15,16 @@ export const AddressesRepo = {
     });
   },
 
-  async create(gamingCenterId: string, data: any): Promise<Address> {
+  async create(gamingCenterId: string, data: Record<string, unknown>): Promise<Address> {
     return prisma.address.create({
       data: {
         ...data,
         gamingCenterId,
-      },
+      } as never,
     });
   },
 
-  async update(id: string, gamingCenterId: string, data: any): Promise<Address | null> {
+  async update(id: string, gamingCenterId: string, data: Record<string, unknown>): Promise<Address | null> {
     const result = await prisma.address.updateMany({
       where: { id, gamingCenterId },
       data,

@@ -2,7 +2,7 @@ import request from 'supertest';
 import crypto from 'crypto';
 import app from '../../app';
 import { createTestSalon, createTestService, createTestReservation, createTestUser, createTestPayment } from '../../common/utils/test-utils';
-import { ReservationPaymentState, PaymentStatus, SessionActorType } from '@prisma/client';
+import { ReservationPaymentState, PaymentStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { IdempotencyRepo } from '../../common/repositories/idempotency.repo';
 import { env } from '../../config/env';

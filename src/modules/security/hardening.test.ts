@@ -2,9 +2,11 @@ import request from 'supertest';
 import httpStatus from 'http-status';
 
 // Mock troublesome modules before importing the app
+import { Request, Response, NextFunction } from 'express';
+
 jest.mock('helmet', () => ({
   __esModule: true,
-  default: () => (req: any, res: any, next: any) => next(),
+  default: () => (_req: Request, _res: Response, next: NextFunction) => next(),
 }));
 jest.mock('uuid', () => ({
   v4: () => 'mock-uuid-v4',

@@ -1,6 +1,5 @@
 import { Response } from 'express';
 import { AppRequest } from '../../types/express';
-import { asyncHandler } from '../../common/middleware/asyncHandler';
 import { PaymentsService } from './payments.station';
 
 const initiatePayment = async (req: AppRequest, res: Response) => {

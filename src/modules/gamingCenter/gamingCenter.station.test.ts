@@ -205,7 +205,7 @@ describe('SalonService', () => {
 
       (salonRepository.findAll as jest.Mock).mockResolvedValue(gamingCenters);
 
-      const result = await gamingCenterService.getAllSalons(query as any);
+      const result = await gamingCenterService.getAllSalons(query as never);
 
       expect(salonRepository.findAll).toHaveBeenCalledWith(query);
       expect(result).toEqual(gamingCenters);

@@ -15,16 +15,16 @@ export const LinksRepo = {
     });
   },
 
-  async create(gamingCenterId: string, data: any): Promise<SocialLink> {
+  async create(gamingCenterId: string, data: Record<string, unknown>): Promise<SocialLink> {
     return prisma.socialLink.create({
       data: {
         ...data,
         gamingCenterId,
-      },
+      } as never,
     });
   },
 
-  async update(id: string, gamingCenterId: string, data: any): Promise<SocialLink | null> {
+  async update(id: string, gamingCenterId: string, data: Record<string, unknown>): Promise<SocialLink | null> {
     const result = await prisma.socialLink.updateMany({
       where: { id, gamingCenterId },
       data,

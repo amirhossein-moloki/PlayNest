@@ -3,7 +3,7 @@ import * as staffShiftsService from './staffShifts.station';
 import { UpsertShiftsInput } from './staffShifts.validators';
 
 export const upsertShiftsController = async (
-  req: Request<{ gamingCenterId: string; userId: string }, any, UpsertShiftsInput>, // eslint-disable-line @typescript-eslint/no-explicit-any
+  req: Request<{ gamingCenterId: string; userId: string }, unknown, UpsertShiftsInput>,
   res: Response,
   next: NextFunction
 ) => {
@@ -13,7 +13,7 @@ export const upsertShiftsController = async (
       gamingCenterId,
       userId,
       req.body,
-      (req as any).actor,
+      req.actor!,
       { ip: req.ip, userAgent: req.headers['user-agent'] }
     );
     res.ok(staffShifts);

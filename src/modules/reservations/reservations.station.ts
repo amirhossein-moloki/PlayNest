@@ -450,8 +450,8 @@ export const reservationsService = {
             updateData.totalHours = durationHours;
             // Recalculate totalPrice if station didn't change but startTime did (and we use current snapshot price)
             if (!serviceChanged) {
-              const snapshot = reservation.stationSnapshot as any;
-              updateData.totalPrice = durationHours * (snapshot?.hourlyPrice || 0);
+              const snapshot = reservation.stationSnapshot as Record<string, unknown>;
+              updateData.totalPrice = durationHours * ((snapshot?.hourlyPrice as number) || 0);
             }
           }
         }

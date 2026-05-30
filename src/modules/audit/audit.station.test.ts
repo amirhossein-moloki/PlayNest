@@ -21,7 +21,7 @@ describe('AuditService', () => {
         entityId: 'entity-1',
       };
 
-      mockedAuditRepo.createLog.mockResolvedValue({ id: 'log-1', ...input, createdAt: new Date(), oldData: null, newData: null, ipAddress: null, userAgent: null, customerId: null } as any);
+      mockedAuditRepo.createLog.mockResolvedValue({ id: 'log-1', ...input, createdAt: new Date(), oldData: null, newData: null, ipAddress: null, userAgent: null, customerId: null } as never);
 
       const result = await auditService.recordLog(input);
 

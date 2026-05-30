@@ -1,7 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { env } from '../../config/env';
 
-let loggerMiddleware: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+import { RequestHandler } from 'express';
+
+let loggerMiddleware: RequestHandler;
 
 if (env.NODE_ENV === 'test') {
   // In a test environment, export a mock middleware to avoid pino-http issues with Jest
@@ -15,7 +17,7 @@ if (env.NODE_ENV === 'test') {
 
   loggerMiddleware = pinoHttp({
     logger,
-    genReqId: function (req: any, res: any) {
+    genReqId: function (req: Request, res: Response) {
       const existingId = req.id ?? req.headers['x-request-id'];
       if (existingId) return existingId;
       const id = cuid();
@@ -29,7 +31,7 @@ if (env.NODE_ENV === 'test') {
       responseTime: 'duration',
       reqId: 'requestId',
     },
-    customProps: function (req: any, _res: any) { // eslint-disable-line @typescript-eslint/no-unused-vars
+    customProps: function (req: Request) {
       return {
         actorId: req.actor?.id || null,
         gamingCenterId: req.params?.gamingCenterId || null,
@@ -37,13 +39,13 @@ if (env.NODE_ENV === 'test') {
     },
     // Use serializers to sanitize sensitive fields from the log output.
     serializers: {
-      req(req: any) {
+      req(req: Request) {
         // Sanitize headers and body before they are logged.
         req.headers = sanitizeLog(req.headers);
         req.body = sanitizeLog(req.body);
         return req;
       },
-      res(res: any) {
+      res(res: Response) {
         // Sanitize headers from the response.
         res.headers = sanitizeLog(res.headers);
         return res;

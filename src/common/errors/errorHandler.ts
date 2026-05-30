@@ -84,7 +84,7 @@ function normalizeError(err: any): NormalizedError { // eslint-disable-line @typ
   // 5. http-errors or similar errors with status codes
   if (typeof err?.status === 'number' || typeof err?.statusCode === 'number') {
     const status = err.status ?? err.statusCode;
-    const statusText = (httpStatus as any)[status] as string | undefined;
+    const statusText = (httpStatus as unknown as Record<number, string>)[status] as string | undefined;
     const code = err.code ?? (statusText ? statusText.replace(/\s+/g, '_').toUpperCase() : 'HTTP_ERROR');
 
     return {

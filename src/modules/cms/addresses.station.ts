@@ -8,11 +8,11 @@ export const AddressesService = {
     return AddressesRepo.findBySalonId(gamingCenterId);
   },
 
-  async createAddress(gamingCenterId: string, data: any): Promise<Address> {
+  async createAddress(gamingCenterId: string, data: Record<string, unknown>): Promise<Address> {
     return AddressesRepo.create(gamingCenterId, data);
   },
 
-  async updateAddress(gamingCenterId: string, addressId: string, data: any): Promise<Address> {
+  async updateAddress(gamingCenterId: string, addressId: string, data: Record<string, unknown>): Promise<Address> {
     const address = await AddressesRepo.findById(addressId);
     if (!address || address.gamingCenterId !== gamingCenterId) {
       throw new AppError('Address not found', httpStatus.NOT_FOUND);

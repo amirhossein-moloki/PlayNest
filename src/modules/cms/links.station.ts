@@ -8,11 +8,11 @@ export const LinksService = {
     return LinksRepo.findBySalonId(gamingCenterId);
   },
 
-  async createLink(gamingCenterId: string, data: any): Promise<SocialLink> {
+  async createLink(gamingCenterId: string, data: Record<string, unknown>): Promise<SocialLink> {
     return LinksRepo.create(gamingCenterId, data);
   },
 
-  async updateLink(gamingCenterId: string, linkId: string, data: any): Promise<SocialLink> {
+  async updateLink(gamingCenterId: string, linkId: string, data: Record<string, unknown>): Promise<SocialLink> {
     const link = await LinksRepo.findById(linkId);
     if (!link || link.gamingCenterId !== gamingCenterId) {
       throw new AppError('Link not found', httpStatus.NOT_FOUND);

@@ -76,7 +76,7 @@ describe('UserService', () => {
       const actor = { id: 'actor-1', actorType: SessionActorType.USER };
       const mockUser = { id: 'user-1', ...data, gamingCenterId, isActive: true, createdAt: new Date(), updatedAt: new Date(), passwordHash: 'hash', phoneVerifiedAt: null, isPublic: false, publicName: null, bio: null, avatarUrl: null };
 
-      mockedUserRepo.createUser.mockResolvedValue(mockUser as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      mockedUserRepo.createUser.mockResolvedValue(mockUser as never);
 
       const result = await userService.createStaffMember(gamingCenterId, data, actor);
 
@@ -97,9 +97,9 @@ describe('UserService', () => {
         data: [{ id: 'user-1', fullName: 'Staff 1' }],
         meta: { total: 1, page: 1, limit: 10, totalPages: 1 },
       };
-      mockedUserRepo.listUsersBySalon.mockResolvedValue(mockStaff as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      mockedUserRepo.listUsersBySalon.mockResolvedValue(mockStaff as never);
 
-      const result = await userService.getStaffList(gamingCenterId, query as any);
+      const result = await userService.getStaffList(gamingCenterId, query as never);
 
       expect(result).toEqual(mockStaff);
       expect(mockedUserRepo.listUsersBySalon).toHaveBeenCalledWith(gamingCenterId, query);
@@ -115,8 +115,8 @@ describe('UserService', () => {
       const existingUser = { id: userId, fullName: 'Old Name', gamingCenterId };
       const updatedUser = { id: userId, fullName: 'Updated Name', gamingCenterId };
 
-      mockedUserRepo.findUserById.mockResolvedValueOnce(existingUser as any).mockResolvedValueOnce(updatedUser as any); // eslint-disable-line @typescript-eslint/no-explicit-any
-      mockedUserRepo.updateUser.mockResolvedValue(updatedUser as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      mockedUserRepo.findUserById.mockResolvedValueOnce(existingUser as never).mockResolvedValueOnce(updatedUser as never);
+      mockedUserRepo.updateUser.mockResolvedValue(updatedUser as never);
 
       const result = await userService.updateStaffMember(gamingCenterId, userId, data, actor);
 
@@ -142,8 +142,8 @@ describe('UserService', () => {
       const actor = { id: 'actor-1', actorType: SessionActorType.USER };
       const existingUser = { id: userId, fullName: 'User 1', gamingCenterId };
 
-      mockedUserRepo.findUserById.mockResolvedValue(existingUser as any); // eslint-disable-line @typescript-eslint/no-explicit-any
-      mockedUserRepo.softDeleteUser.mockResolvedValue({} as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      mockedUserRepo.findUserById.mockResolvedValue(existingUser as never);
+      mockedUserRepo.softDeleteUser.mockResolvedValue({} as never);
 
       await userService.deleteStaffMember(gamingCenterId, userId, actor);
 

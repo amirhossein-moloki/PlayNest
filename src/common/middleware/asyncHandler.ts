@@ -16,6 +16,6 @@ type AsyncFunction<T extends Request = Request> = (
  */
 export const asyncHandler = <T extends Request = Request>(
   execution: AsyncFunction<T>
-): RequestHandler<any, any, any, any> => (req: Request, res: Response, next: NextFunction) => {
-  execution(req as T, res, next).catch(next);
-};
+): RequestHandler => (req: Request, res: Response, next: NextFunction) => {
+    execution(req as T, res, next).catch(next);
+  };

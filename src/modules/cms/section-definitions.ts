@@ -21,7 +21,7 @@ export interface SectionConfig {
   defaults: Record<string, unknown>;
 }
 
-export type SectionRenderer = (data: Record<string, any>) => string;
+export type SectionRenderer = (data: Record<string, unknown>) => string;
 
 // Helper for escaping HTML
 export const escapeHtml = (value: string) =>
@@ -37,12 +37,15 @@ const renderButton = (label?: string, url?: string) => {
   return `<a class="btn" href="${escapeHtml(url)}">${escapeHtml(label)}</a>`;
 };
 
-const renderHero = (data: Record<string, any>) => {
+const renderHero = (data: Record<string, unknown>) => {
   const headline = data?.headline ? escapeHtml(String(data.headline)) : 'Untitled hero';
   const subheadline = data?.subheadline ? escapeHtml(String(data.subheadline)) : '';
   const backgroundImageUrl = data?.backgroundImageUrl
     ? escapeHtml(String(data.backgroundImageUrl))
     : '';
+  const primaryCta = data?.primaryCta as Record<string, string> | undefined;
+  const secondaryCta = data?.secondaryCta as Record<string, string> | undefined;
+
   return `
     <section class="section hero" style="${backgroundImageUrl ? `background-image: url('${backgroundImageUrl}');` : ''}">
       <div class="hero-overlay"></div>
@@ -50,15 +53,15 @@ const renderHero = (data: Record<string, any>) => {
         <h2>${headline}</h2>
         <p>${subheadline}</p>
         <div class="hero-actions">
-          ${renderButton(data?.primaryCta?.label, data?.primaryCta?.url)}
-          ${renderButton(data?.secondaryCta?.label, data?.secondaryCta?.url)}
+          ${renderButton(primaryCta?.label, primaryCta?.url)}
+          ${renderButton(secondaryCta?.label, secondaryCta?.url)}
         </div>
       </div>
     </section>
   `;
 };
 
-const renderHighlights = (data: Record<string, any>) => {
+const renderHighlights = (data: Record<string, unknown>) => {
   const title = data?.title ? escapeHtml(String(data.title)) : 'Highlights';
   const items = Array.isArray(data?.items) ? data.items : [];
   return `
@@ -67,12 +70,15 @@ const renderHighlights = (data: Record<string, any>) => {
       <div class="grid three">
         ${items
     .map(
-      (item: Record<string, any>) => `
+      (item: unknown) => {
+        const i = item as Record<string, unknown>;
+        return `
             <div class="card-block">
-              <h3>${escapeHtml(String(item?.title ?? ''))}</h3>
-              <p>${escapeHtml(String(item?.text ?? ''))}</p>
+              <h3>${escapeHtml(String(i?.title ?? ''))}</h3>
+              <p>${escapeHtml(String(i?.text ?? ''))}</p>
             </div>
-          `,
+          `;
+      },
     )
     .join('')}
       </div>
@@ -80,7 +86,7 @@ const renderHighlights = (data: Record<string, any>) => {
   `;
 };
 
-const renderServicesGrid = (data: Record<string, any>) => {
+const renderServicesGrid = (data: Record<string, unknown>) => {
   const title = data?.title ? escapeHtml(String(data.title)) : 'Services';
   const maxItems = Number(data?.maxItems ?? 6);
   const placeholders = Array.from({ length: Math.min(maxItems, 6) }, (_, index) => ({
@@ -106,7 +112,7 @@ const renderServicesGrid = (data: Record<string, any>) => {
   `;
 };
 
-const renderGalleryGrid = (data: Record<string, any>) => {
+const renderGalleryGrid = (data: Record<string, unknown>) => {
   const title = data?.title ? escapeHtml(String(data.title)) : 'Gallery';
   const categories = Array.isArray(data?.categories) ? data.categories : [];
   return `
@@ -114,8 +120,8 @@ const renderGalleryGrid = (data: Record<string, any>) => {
       <h2>${title}</h2>
       <div class="pill-row">
         ${categories
-    .map((c: any) => {
-      const val = typeof c === 'string' ? c : c?.value ?? '';
+    .map((c: unknown) => {
+      const val = typeof c === 'string' ? c : (c as Record<string, string>)?.value ?? '';
       return `<span class="pill">${escapeHtml(String(val))}</span>`;
     })
     .join('')}
@@ -133,7 +139,7 @@ const renderGalleryGrid = (data: Record<string, any>) => {
   `;
 };
 
-const renderTestimonials = (data: Record<string, any>) => {
+const renderTestimonials = (data: Record<string, unknown>) => {
   const title = data?.title ? escapeHtml(String(data.title)) : 'Testimonials';
   const limit = Number(data?.limit ?? 3);
   return `
@@ -155,7 +161,7 @@ const renderTestimonials = (data: Record<string, any>) => {
   `;
 };
 
-const renderFaq = (data: Record<string, any>) => {
+const renderFaq = (data: Record<string, unknown>) => {
   const title = data?.title ? escapeHtml(String(data.title)) : 'FAQs';
   const items = Array.isArray(data?.items) ? data.items : [];
   return `
@@ -164,12 +170,15 @@ const renderFaq = (data: Record<string, any>) => {
       <div class="stack">
         ${items
     .map(
-      (item: Record<string, any>) => `
+      (item: unknown) => {
+        const i = item as Record<string, unknown>;
+        return `
             <div class="card-block">
-              <h3>${escapeHtml(String(item?.q ?? ''))}</h3>
-              <p>${escapeHtml(String(item?.a ?? ''))}</p>
+              <h3>${escapeHtml(String(i?.q ?? ''))}</h3>
+              <p>${escapeHtml(String(i?.a ?? ''))}</p>
             </div>
-          `,
+          `;
+      },
     )
     .join('')}
       </div>
@@ -177,19 +186,19 @@ const renderFaq = (data: Record<string, any>) => {
   `;
 };
 
-const renderCta = (data: Record<string, any>) => {
+const renderCta = (data: Record<string, unknown>) => {
   const title = data?.title ? escapeHtml(String(data.title)) : 'Ready to book?';
   const text = data?.text ? escapeHtml(String(data.text)) : '';
   return `
     <section class="section cta">
       <h2>${title}</h2>
       <p>${text}</p>
-      ${renderButton(data?.buttonLabel, data?.buttonUrl)}
+      ${renderButton(data?.buttonLabel as string | undefined, data?.buttonUrl as string | undefined)}
     </section>
   `;
 };
 
-const renderContactCard = (data: Record<string, any>) => {
+const renderContactCard = (data: Record<string, unknown>) => {
   const title = data?.title ? escapeHtml(String(data.title)) : 'Contact';
   const city = data?.city ? escapeHtml(String(data.city)) : '';
   const workHours = data?.workHours ? escapeHtml(String(data.workHours)) : '';
@@ -204,7 +213,7 @@ const renderContactCard = (data: Record<string, any>) => {
   `;
 };
 
-const renderMap = (data: Record<string, any>) => {
+const renderMap = (data: Record<string, unknown>) => {
   const lat = data?.lat ?? 0;
   const lng = data?.lng ?? 0;
   const zoom = data?.zoom ?? 12;
@@ -220,7 +229,7 @@ const renderMap = (data: Record<string, any>) => {
   `;
 };
 
-const renderRichText = (data: Record<string, any>) => {
+const renderRichText = (data: Record<string, unknown>) => {
   const title = data?.title ? escapeHtml(String(data.title)) : '';
   const blocks = Array.isArray(data?.blocks) ? data.blocks : [];
   return `
@@ -228,8 +237,9 @@ const renderRichText = (data: Record<string, any>) => {
       ${title ? `<h2>${title}</h2>` : ''}
       <div class="stack">
         ${blocks
-    .map((block: Record<string, any>) => {
-      const text = block?.text ?? '';
+    .map((block: unknown) => {
+      const b = block as Record<string, unknown>;
+      const text = b?.text ?? '';
       return `<p>${text}</p>`;
     })
     .join('')}
@@ -238,7 +248,7 @@ const renderRichText = (data: Record<string, any>) => {
   `;
 };
 
-const renderStaffGrid = (data: Record<string, any>) => {
+const renderStaffGrid = (data: Record<string, unknown>) => {
   const title = data?.title ? escapeHtml(String(data.title)) : 'Staff';
   return `
     <section class="section">

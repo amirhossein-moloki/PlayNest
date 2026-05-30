@@ -40,7 +40,7 @@ export const AnalyticsService = {
     ]);
 
     const performance = staffList.map((staff) => {
-      const stats = staffStats.find((s) => s.staffId === staff.id) as any;
+      const stats = staffStats.find((s) => s.staffId === staff.id) as { revenue?: number; completedReservations?: number; totalRating?: number; ratingCount?: number; _sum?: { revenue?: number; completedReservations?: number; totalRating?: number; ratingCount?: number } } | undefined;
       const revenue = stats?.revenue || stats?._sum?.revenue || 0;
       const completedReservations = stats?.completedReservations || stats?._sum?.completedReservations || 0;
       const totalRating = stats?.totalRating || stats?._sum?.totalRating || 0;
@@ -65,7 +65,7 @@ export const AnalyticsService = {
     ]);
 
     const performance = servicesList.map((station) => {
-      const stats = serviceStats.find((s) => s.stationId === station.id) as any;
+      const stats = serviceStats.find((s) => s.stationId === station.id) as { revenue?: number; completedReservations?: number; _sum?: { revenue?: number; completedReservations?: number } } | undefined;
       const revenue = stats?.revenue || stats?._sum?.revenue || 0;
       const completedReservations = stats?.completedReservations || stats?._sum?.completedReservations || 0;
 

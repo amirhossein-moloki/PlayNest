@@ -7,7 +7,7 @@ export const requireRole = (roles: UserRole[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     // In our tests, the actor object is manually set.
     // We'll check the role on that object.
-    const actorRole = (req as any).actor?.role;
+    const actorRole = req.actor?.role;
     if (actorRole && roles.includes(actorRole)) {
       next();
     } else {

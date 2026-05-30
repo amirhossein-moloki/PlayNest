@@ -46,7 +46,7 @@ export const tenantGuardExtension = Prisma.defineExtension({
         const isWrite = ['update', 'updateMany', 'delete', 'deleteMany', 'upsert'].includes(operation);
 
         if (isRead || isWrite) {
-          const where = (args as any).where || {};
+          const where = (args as { where?: Record<string, unknown> }).where || {};
 
           if (TENANT_MODELS.has(model)) {
             if (!where.gamingCenterId && !where.gamingCenter) {
