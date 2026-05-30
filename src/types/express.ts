@@ -8,17 +8,21 @@ declare global {
   namespace Express {
     export interface Request {
       actor?: {
-        id?: string;
+        id: string;
         actorId?: string;
         role?: UserRole;
         gamingCenterId?: string;
-        actorType?: SessionActorType;
+        actorType: SessionActorType;
       };
       gamingCenterId?: string;
       id?: string;
       requestId?: string;
       rawBody?: Buffer;
-      tenant?: { gamingCenterId: string; salonSlug?: string; gamingCenterSlug?: string };
+      tenant?: {
+        gamingCenterId: string;
+        salonSlug?: string;
+        gamingCenterSlug?: string
+      };
       gamingCenterSlug?: string;
       salonSlug?: string;
     }
@@ -46,7 +50,11 @@ export interface AppRequest extends Request {
     gamingCenterId?: string;
     actorType: SessionActorType;
   };
-  tenant: { gamingCenterId: string };
+  tenant: {
+    gamingCenterId: string;
+    salonSlug?: string;
+    gamingCenterSlug?: string;
+  };
   gamingCenterId?: string;
   id?: string;
 }
