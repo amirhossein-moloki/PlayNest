@@ -18,7 +18,7 @@ router.post(
   authMiddleware,
   salonIdMiddleware,
   tenantGuard,
-  idempotencyMiddleware,
+  asyncHandler(idempotencyMiddleware),
   requireRole([UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]),
   validate(InitPaymentValidators),
   asyncHandler<AppRequest>(PaymentsController.initiatePayment)

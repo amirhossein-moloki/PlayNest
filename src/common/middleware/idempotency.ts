@@ -1,11 +1,10 @@
 
-import { NextFunction, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { createHash } from 'crypto';
 import { add } from 'date-fns';
 import httpStatus from 'http-status';
 import { IdempotencyStatus } from '../../types/idempotency';
 
-import { AppRequest } from '../../types/express';
 import { IdempotencyRepo } from '../repositories/idempotency.repo';
 import AppError from '../errors/AppError';
 import logger from '../../config/logger';
@@ -37,7 +36,7 @@ const getRequestHash = (body: any): string => { // eslint-disable-line @typescri
  * This middleware must run AFTER any middleware that resolves gamingCenter identifiers (e.g., salonIdMiddleware).
  */
 export const idempotencyMiddleware = async (
-  req: AppRequest,
+  req: Request,
   res: Response,
   next: NextFunction,
 ) => {

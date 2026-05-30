@@ -17,7 +17,7 @@ router.post(
   ...(env.NODE_ENV !== 'test' ? [publicBookingRateLimiter] : []),
   resolveSalonBySlug,
   validate(createPublicBookingSchema),
-  idempotencyMiddleware,
+  asyncHandler(idempotencyMiddleware),
   asyncHandler<AppRequest>(bookingsController.createPublicBooking)
 );
 
