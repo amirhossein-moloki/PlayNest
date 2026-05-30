@@ -41,24 +41,19 @@ if (env.NODE_ENV === 'test') {
     serializers: {
       req(req: Request) {
         // Sanitize headers and body before they are logged.
-        req.headers = sanitizeLog(req.headers);
-        req.body = sanitizeLog(req.body);
-        return req;
+        return {
+          ...req,
+          headers: sanitizeLog({ ...req.headers }),
+          body: sanitizeLog({ ...req.body }),
+        };
       },
-      res(res: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+      res(res: Response) {
         // Sanitize headers from the response.
-        if (res.headers) {
-          res.headers = sanitizeLog(res.headers);
-        } else if (typeof res.getHeaders === 'function') {
-          const headers = res.getHeaders();
-          // Since getHeaders returns a copy or we can't easily mutate the log record this way
-          // pino-http usually expects us to return the object to be logged.
-          return {
-            ...res,
-            headers: sanitizeLog(headers),
-          };
-        }
-        return res;
+        const headers = typeof res.getHeaders === 'function' ? res.getHeaders() : (res as Record<string, any>).headers; // eslint-disable-line @typescript-eslint/no-explicit-any
+        return {
+          ...res,
+          headers: sanitizeLog({ ...headers }),
+        };
       },
     },
     customLogLevel: function (req: Request, res: Response, err?: Error) {

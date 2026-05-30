@@ -70,30 +70,32 @@ export const createTestReservation = (
   customerProfileId: string,
   stationId: string,
   staffId: string,
-  options?: Partial<Reservation>
+  options?: Partial<Prisma.ReservationUncheckedCreateInput>
 ): Promise<Reservation> => {
+  const data: Prisma.ReservationUncheckedCreateInput = {
+    gamingCenterId,
+    customerAccountId,
+    customerProfileId,
+    stationId,
+    staffId,
+    createdByUserId: staffId,
+    startTime: new Date(),
+    endTime: new Date(Date.now() + 3600000),
+    stationSnapshot: {
+      name: 'Snapshot Station',
+      hourlyPrice: 50000,
+      stationType: GameStationType.PC,
+    } as Prisma.InputJsonObject,
+    totalPrice: 50000,
+    totalHours: 1,
+    status: ReservationStatus.CONFIRMED,
+    source: ReservationSource.WALK_IN,
+    paymentState: ReservationPaymentState.UNPAID,
+    ...options,
+  };
+
   return prisma.reservation.create({
-    data: {
-      gamingCenterId,
-      customerAccountId,
-      customerProfileId,
-      stationId,
-      staffId,
-      createdByUserId: staffId,
-      startTime: new Date(),
-      endTime: new Date(Date.now() + 3600000),
-      stationSnapshot: {
-        name: 'Snapshot Station',
-        hourlyPrice: 50000,
-        stationType: GameStationType.PC,
-      } as Prisma.InputJsonValue,
-      totalPrice: 50000,
-      totalHours: 1,
-      status: ReservationStatus.CONFIRMED,
-      source: ReservationSource.WALK_IN,
-      paymentState: ReservationPaymentState.UNPAID,
-      ...options,
-    },
+    data,
   });
 };
 
