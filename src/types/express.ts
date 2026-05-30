@@ -12,7 +12,7 @@ declare global {
         actorId?: string;
         role?: UserRole;
         gamingCenterId?: string;
-        actorType?: SessionActorType;
+        actorType: SessionActorType;
       };
       gamingCenterId?: string;
       id?: string;
