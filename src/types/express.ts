@@ -7,7 +7,7 @@ declare global {
   /* eslint-disable @typescript-eslint/no-namespace */
   namespace Express {
     export interface Request {
-      actor?: {
+      actor: {
         id: string;
         actorId?: string;
         role?: UserRole;
