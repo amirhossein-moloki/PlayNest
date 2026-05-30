@@ -1,7 +1,5 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { env } from '../../config/env';
-
-import { RequestHandler } from 'express';
 
 let loggerMiddleware: RequestHandler;
 
@@ -46,9 +44,11 @@ if (env.NODE_ENV === 'test') {
         return req;
       },
       res(res: Response) {
-        // Sanitize headers from the response.
-        res.headers = sanitizeLog(res.headers);
-        return res;
+        // Sanitize headers from the response without accessing non-Express response fields.
+        return {
+          statusCode: res.statusCode,
+          headers: sanitizeLog(res.getHeaders()),
+        };
       },
     },
     customLogLevel: function (req: Request, res: Response, err?: Error) {

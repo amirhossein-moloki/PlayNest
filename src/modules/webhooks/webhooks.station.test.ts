@@ -1,3 +1,13 @@
+jest.mock('../../config/redis', () => ({
+  redis: {
+    get: jest.fn(),
+    set: jest.fn(),
+    del: jest.fn(),
+    quit: jest.fn(),
+    on: jest.fn(),
+  },
+}));
+
 import { WebhooksService } from './webhooks.station';
 import { IdempotencyRepo } from '../../common/repositories/idempotency.repo';
 import { PaymentsRepo } from '../payments/payments.repo';
@@ -7,6 +17,9 @@ import httpStatus from 'http-status';
 
 jest.mock('../../common/repositories/idempotency.repo');
 jest.mock('../payments/payments.repo');
+jest.mock('../../jobs/producers/analytics.producer', () => ({
+  queueAnalyticsSync: jest.fn().mockResolvedValue(undefined),
+}));
 
 const mockedIdempotencyRepo = IdempotencyRepo as jest.Mocked<typeof IdempotencyRepo>;
 const mockedPaymentsRepo = PaymentsRepo as jest.Mocked<typeof PaymentsRepo>;

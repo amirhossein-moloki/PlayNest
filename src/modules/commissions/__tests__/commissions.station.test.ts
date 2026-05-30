@@ -48,6 +48,7 @@ describe('Commissions Logic', () => {
 
       expect(CommissionsRepo.updateEarning).toHaveBeenCalledWith(
         earningId,
+        gamingCenterId,
         expect.objectContaining({ status: CommissionStatus.CHARGED }),
         expect.anything()
       );

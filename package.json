@@ -5,12 +5,12 @@
   "scripts": {
     "dev": "tsx src/server.ts",
     "start": "node dist/server.js",
-    "build": "tsc",
+    "build": "tsc --ignoreDeprecations 5.0",
     "lint": "eslint . --ext .ts",
-    "test": "cross-env NODE_ENV=test dotenv -e .env.test -- bash -c 'sudo docker compose up -d db && sleep 2 && sudo -E npx prisma migrate reset --force && jest --runInBand --detectOpenHandles'",
-    "test:unit": "cross-env NODE_ENV=test dotenv -e .env.test -- jest --testPathIgnorePatterns=e2e",
-    "test:e2e": "cross-env NODE_ENV=test dotenv -e .env.test -- jest --testPathPattern=e2e --runInBand",
-    "test:coverage": "cross-env NODE_ENV=test dotenv -e .env.test -- jest --coverage --runInBand",
+    "test": "cross-env NODE_ENV=test dotenv -e .env.test.example -e .env.test -- bash -c 'sudo docker compose up -d db && sleep 2 && sudo -E npx prisma migrate reset --force && jest --runInBand --detectOpenHandles'",
+    "test:unit": "cross-env NODE_ENV=test dotenv -e .env.test.example -e .env.test -- jest --testPathIgnorePatterns=e2e",
+    "test:e2e": "cross-env NODE_ENV=test dotenv -e .env.test.example -e .env.test -- jest --testPathPattern=e2e --runInBand",
+    "test:coverage": "cross-env NODE_ENV=test dotenv -e .env.test.example -e .env.test -- jest --coverage --runInBand",
     "backfill:analytics": "node --import tsx --require dotenv/config ./scripts/backfill-analytics.ts"
   },
   "dependencies": {

@@ -18,12 +18,11 @@ import {
   Prisma
 } from '@prisma/client';
 import { prisma } from '../../config/prisma';
-import { faker } from '@faker-js/faker';
 import jwt from 'jsonwebtoken';
 import { env } from '../../config/env';
 
 export const createTestSalon = (options?: { name?: string; slug?: string; settings?: Record<string, unknown> }): Promise<GamingCenter> => {
-  const { name = 'Test Gaming Center', slug = faker.lorem.slug(), settings } = options || {};
+  const { name = 'Test Gaming Center', slug = `test-gaming-center-${Date.now()}`, settings } = options || {};
   return prisma.gamingCenter.create({
     data: {
       name,
@@ -38,11 +37,11 @@ export const createTestSalon = (options?: { name?: string; slug?: string; settin
 export const createTestGamingCenter = createTestSalon;
 
 export const createTestUser = (options: { gamingCenterId: string; role?: UserRole; phone?: string }): Promise<User> => {
-  const { gamingCenterId, role = UserRole.STAFF, phone = faker.phone.number() } = options;
+  const { gamingCenterId, role = UserRole.STAFF, phone = `+1555${Date.now().toString().slice(-7)}` } = options;
   return prisma.user.create({
     data: {
       gamingCenterId,
-      fullName: faker.person.fullName(),
+      fullName: 'Test User',
       phone,
       role,
     },

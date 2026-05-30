@@ -1,7 +1,7 @@
 import request from 'supertest';
 import app from '../../app';
 import { prisma } from '../../config/prisma';
-import { UserRole } from '@prisma/client';
+import { SessionActorType, UserRole } from '@prisma/client';
 import createHttpError from 'http-errors';
 import { Request, Response, NextFunction } from 'express';
 
@@ -10,9 +10,9 @@ jest.mock('../../common/middleware/auth', () => ({
     if (req.headers.authorization) {
       const token = req.headers.authorization.split(' ')[1];
       if (token === 'mock-manager-token') {
-        req.actor = { id: 'mock-manager-id', role: UserRole.MANAGER, gamingCenterId: req.params.gamingCenterId };
+        req.actor = { id: 'mock-manager-id', role: UserRole.MANAGER, gamingCenterId: req.params.gamingCenterId, actorType: SessionActorType.USER };
       } else if (token === 'mock-staff-token') {
-        req.actor = { id: 'mock-staff-id', role: UserRole.STAFF, gamingCenterId: req.params.gamingCenterId };
+        req.actor = { id: 'mock-staff-id', role: UserRole.STAFF, gamingCenterId: req.params.gamingCenterId, actorType: SessionActorType.USER };
       }
       return next();
     }
