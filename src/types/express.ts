@@ -7,7 +7,7 @@ declare global {
   /* eslint-disable @typescript-eslint/no-namespace */
   namespace Express {
     export interface Request {
-      actor: {
+      actor?: {
         id: string;
         actorId?: string;
         role?: UserRole;
@@ -18,7 +18,11 @@ declare global {
       id?: string;
       requestId?: string;
       rawBody?: Buffer;
-      tenant?: { gamingCenterId: string; salonSlug?: string; gamingCenterSlug?: string };
+      tenant?: {
+        gamingCenterId: string;
+        salonSlug?: string;
+        gamingCenterSlug?: string
+      };
       gamingCenterSlug?: string;
       salonSlug?: string;
     }
@@ -46,7 +50,11 @@ export interface AppRequest extends Request {
     gamingCenterId?: string;
     actorType: SessionActorType;
   };
-  tenant: { gamingCenterId: string };
+  tenant: {
+    gamingCenterId: string;
+    salonSlug?: string;
+    gamingCenterSlug?: string;
+  };
   gamingCenterId?: string;
   id?: string;
 }
