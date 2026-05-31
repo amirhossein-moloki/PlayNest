@@ -1,7 +1,7 @@
-import { describe, it, expect, jest } from '@jest/globals';
+import { describe, it, expect } from '@jest/globals';
 import { prismaMock } from '../../../mocks/prisma';
 import * as PagesRepo from '../../../../src/modules/cms/pages.repo';
-import { PageStatus, PageType } from '@prisma/client';
+import { PageType } from '@prisma/client';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 

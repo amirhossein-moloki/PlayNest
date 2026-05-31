@@ -1,4 +1,4 @@
-import { describe, it, expect, jest } from '@jest/globals';
+import { describe, it, expect } from '@jest/globals';
 import { prismaMock } from '../../../mocks/prisma';
 import * as StationsRepo from '../../../../src/modules/stations/stations.repo';
 import { GameStationType } from '@prisma/client';

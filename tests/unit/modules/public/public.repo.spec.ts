@@ -1,4 +1,4 @@
-import { describe, it, expect, jest } from '@jest/globals';
+import { describe, it, expect } from '@jest/globals';
 import { prismaMock } from '../../../mocks/prisma';
 import * as AddressesPublicRepo from '../../../../src/modules/public/addresses.public.repo';
 import * as LinksPublicRepo from '../../../../src/modules/public/links.public.repo';

@@ -1,4 +1,4 @@
-import { describe, it, expect, jest } from '@jest/globals';
+import { describe, it, expect } from '@jest/globals';
 import { prismaMock } from '../../../mocks/prisma';
 import * as StaffShiftsRepo from '../../../../src/modules/staffShifts/staffShifts.repo';
 
