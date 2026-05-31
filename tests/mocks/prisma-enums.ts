@@ -1,0 +1,9 @@
+export const UserRole = { MANAGER: 'MANAGER', SUPERVISOR: 'SUPERVISOR', STAFF: 'STAFF', TRAINEE: 'TRAINEE' } as const;
+export const ReservationStatus = { PENDING: 'PENDING', CONFIRMED: 'CONFIRMED', IN_PROGRESS: 'IN_PROGRESS', COMPLETED: 'COMPLETED', CANCELED: 'CANCELED', NO_SHOW: 'NO_SHOW' } as const;
+export const SessionActorType = { USER: 'USER', CUSTOMER: 'CUSTOMER' } as const;
+export const OtpPurpose = { LOGIN: 'LOGIN', SIGNUP: 'SIGNUP' } as const;
+export const PaymentStatus = { INITIATED: 'INITIATED', PENDING: 'PENDING', PAID: 'PAID', FAILED: 'FAILED', REFUNDED: 'REFUNDED', VOID: 'VOID', CANCELED: 'CANCELED' } as const;
+export const ReservationPaymentState = { UNPAID: 'UNPAID', PENDING: 'PENDING', PARTIALLY_PAID: 'PARTIALLY_PAID', PAID: 'PAID', REFUNDED: 'REFUNDED', OVERPAID: 'OVERPAID', FAILED: 'FAILED', CANCELED: 'CANCELED' } as const;
+export const ReservationSource = { ONLINE: 'ONLINE', WALK_IN: 'WALK_IN', PHONE: 'PHONE' } as const;
+export const GameStationType = { PC: 'PC', PLAYSTATION: 'PLAYSTATION', XBOX: 'XBOX', SWITCH: 'SWITCH', VR: 'VR' } as const;
+export const PaymentProvider = { MANUAL: 'MANUAL', STRIPE: 'STRIPE', ZARINPAL: 'ZARINPAL' } as const;

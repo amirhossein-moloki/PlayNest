@@ -1,6 +1,6 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url = "file:./test.db"
 }
 
 generator client {
@@ -11,207 +11,62 @@ generator client {
 // Enums
 // =======================
 
-enum UserRole {
-  MANAGER
-  SUPERVISOR
-  STAFF
-  TRAINEE
-}
 
-enum ShiftRole {
-  CASHIER
-  TECH_SUPPORT
-  CLEANER
-  HOST
-  SECURITY
-}
 
-enum ReservationStatus {
-  PENDING
-  CONFIRMED
-  IN_PROGRESS
-  COMPLETED
-  CANCELED
-  NO_SHOW
-}
 
-enum ReservationSource {
-  ONLINE
-  WALK_IN
-  PHONE
-}
 
-enum PaymentMethod {
-  CASH
-  CARD
-  ONLINE
-  GIFT_CARD
-  MEMBERSHIP
-}
 
-enum PaymentStatus {
-  INITIATED
-  PENDING
-  PAID
-  FAILED
-  REFUNDED
-  VOID
-  CANCELED
-}
 
-enum ReservationPaymentState {
-  UNPAID
-  PENDING
-  PARTIALLY_PAID
-  PAID
-  REFUNDED
-  OVERPAID
-  FAILED
-  CANCELED
-}
+
+
+
+
+
+
+
 
 // ---- Site/CMS + SEO ----
-enum PageStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
-}
 
-enum PageType {
-  HOME
-  ABOUT
-  SERVICES
-  GALLERY
-  TEAM
-  CONTACT
-  CUSTOM
-  TOURNAMENT
-  BLOG
-}
 
-enum PageSectionType {
-  HERO
-  RICH_TEXT
-  HIGHLIGHTS
-  SERVICES_GRID
-  STAFF_GRID
-  GALLERY_GRID
-  TESTIMONIALS
-  CONTACT_CARD
-  MAP
-  FAQ
-  CTA
-}
 
-enum MediaType {
-  IMAGE
-  VIDEO
-}
 
-enum MediaPurpose {
-  COVER
-  GALLERY
-  STATION
-  LOGO
-}
 
-enum LinkType {
-  INSTAGRAM
-  WHATSAPP
-  TELEGRAM
-  WEBSITE
-  PHONE
-  GOOGLE_MAP
-}
 
-enum RatingStatus {
-  PUBLISHED
-  HIDDEN
-  DELETED
-}
 
-enum RobotsIndex {
-  INDEX
-  NOINDEX
-}
 
-enum RobotsFollow {
-  FOLLOW
-  NOFOLLOW
-}
+
+
+
+
+
+
+
+
+
 
 // ---- Commission ----
-enum CommissionType {
-  PERCENT
-  FIXED
-}
 
-enum CommissionStatus {
-  PENDING
-  ACCRUED
-  CHARGED
-  WAIVED
-  REFUNDED
-}
 
-enum CommissionPaymentMethod {
-  CASH
-  CARD
-  ONLINE
-  TRANSFER
-}
 
-enum CommissionPaymentStatus {
-  PENDING
-  PAID
-  VOID
-  REFUNDED
-}
+
+
+
+
 
 // ---- OTP / Auth ----
-enum SessionActorType {
-  USER
-  CUSTOMER
-}
 
-enum OtpPurpose {
-  LOGIN
-  SIGNUP
-}
 
-enum OtpChannel {
-  SMS
-  WHATSAPP
-}
 
-enum GameStationType {
-  PC
-  PLAYSTATION
-  XBOX
-  SWITCH
-  VR
-}
 
-enum GamingSessionStatus {
-  ACTIVE
-  PAUSED
-  COMPLETED
-  INTERRUPTED
-  NO_SHOW
-}
 
-enum SkillLevel {
-  BASIC
-  INTERMEDIATE
-  EXPERT
-}
 
-enum WalletTransactionType {
-  REFUND
-  RESERVATION_PAYMENT
-  DEPOSIT
-  MANUAL_ADJUSTMENT
-}
+
+
+
+
+
+
+
 
 // =======================
 // Models
@@ -308,7 +163,7 @@ model User {
   passwordHash    String?
   phoneVerifiedAt DateTime?
 
-  role     UserRole @default(STAFF)
+  role String @default("STAFF")
   isActive Boolean  @default(true)
 
   // Public profile (Team page)
@@ -338,7 +193,7 @@ model User {
 model Session {
   id String @id @default(cuid())
 
-  actorType SessionActorType
+  actorType String
   actorId   String
 
   tokenHash String    @unique
@@ -358,8 +213,8 @@ model PhoneOtp {
   id String @id @default(cuid())
 
   phone   String
-  purpose OtpPurpose
-  channel OtpChannel @default(SMS)
+  purpose String
+  channel String @default("SMS")
 
   codeHash   String
   expiresAt  DateTime
@@ -369,7 +224,7 @@ model PhoneOtp {
   ip        String?
   userAgent String?
 
-  targetActorType SessionActorType?
+  targetActorType String?
   targetActorId   String?
 
   createdAt DateTime @default(now())
@@ -441,7 +296,7 @@ model GameStation {
   gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
   name                 String
-  stationType          GameStationType @default(PC)
+  stationType String @default("PC")
   isVip                Boolean         @default(false)
   hourlyPrice          Float
   minRentHours         Int             @default(1)
@@ -470,7 +325,7 @@ model StaffStationSkill {
   userId    String
   stationId String
 
-  skillLevel SkillLevel @default(BASIC)
+  skillLevel String @default("BASIC")
 
   user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   station GameStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
@@ -492,7 +347,7 @@ model StaffShift {
   dayOfWeek Int
   startTime String
   endTime   String
-  shiftRole ShiftRole @default(HOST)
+  shiftRole String @default("HOST")
   isActive  Boolean   @default(true)
 
   createdAt DateTime @default(now())
@@ -526,29 +381,29 @@ model Reservation {
   createdByUserId String
   createdBy       User   @relation("ReservationCreator", fields: [createdByUserId], references: [id])
 
-  startTime DateTime @db.Timestamptz(6)
-  endTime   DateTime @db.Timestamptz(6)
+  startTime DateTime
+  endTime   DateTime
 
   // Snapshot
-  stationSnapshot Json
+  stationSnapshot String?
 
   totalHours     Float
   totalPrice     Float
   discountAmount Float @default(0)
   voucherCode    String?
-  paymentState   ReservationPaymentState @default(UNPAID)
+  paymentState String @default("UNPAID")
 
-  status ReservationStatus @default(CONFIRMED)
-  source ReservationSource @default(WALK_IN)
+  status String @default("CONFIRMED")
+  source String @default("WALK_IN")
   note   String?
 
-  canceledAt       DateTime? @db.Timestamptz(6)
+  canceledAt       DateTime?
   cancelReason     String?
   canceledByUserId String?
   canceledBy       User?     @relation("ReservationCanceler", fields: [canceledByUserId], references: [id])
 
-  completedAt DateTime? @db.Timestamptz(6)
-  noShowAt    DateTime? @db.Timestamptz(6)
+  completedAt DateTime?
+  noShowAt    DateTime?
 
   payments           Payment[]
   ratings            Rating[]
@@ -572,11 +427,7 @@ model Reservation {
 // Payments
 // -----------------------
 
-enum PaymentProvider {
-  MANUAL
-  STRIPE
-  ZARINPAL
-}
+
 
 model Payment {
   id String @id @default(cuid())
@@ -590,17 +441,17 @@ model Payment {
   amount   Int
   currency String
 
-  provider           PaymentProvider @default(MANUAL)
+  provider String @default("MANUAL")
   providerPaymentId  String?
   providerCheckoutId String?
-  status             PaymentStatus   @default(INITIATED)
+  status String   @default("INITIATED")
   failureReason      String?
-  rawProviderPayload Json?
+  rawProviderPayload String?
   idempotencyKey     String?
 
-  paidAt DateTime? @db.Timestamptz(6)
+  paidAt DateTime?
 
-  method        PaymentMethod @default(ONLINE)
+  method String @default("ONLINE")
   referenceCode String?
 
   createdAt DateTime @default(now())
@@ -639,7 +490,7 @@ model Rating {
   rating  Int
   comment String?
 
-  status RatingStatus @default(PUBLISHED)
+  status String @default("PUBLISHED")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -661,7 +512,7 @@ model CommissionPolicy {
   gamingCenterId String       @unique
   gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
-  type CommissionType @default(PERCENT)
+  type String @default("PERCENT")
 
   // PERCENT: basis points (e.g., 250 = 2.5%)
   percentBps Int?
@@ -693,22 +544,22 @@ model Earning {
   gamingCenterId String
   gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
-  status CommissionStatus @default(PENDING)
+  status String @default("PENDING")
 
   // base used to calculate commission
   baseAmount Int
   currency   String
 
   // snapshot of applied policy
-  type        CommissionType
+  type String
   percentBps  Int?
   fixedAmount Int?
 
   // final commission amount
   commissionAmount Int
 
-  calculatedAt DateTime? @db.Timestamptz(6)
-  chargedAt    DateTime? @db.Timestamptz(6)
+  calculatedAt DateTime?
+  chargedAt    DateTime?
 
   note String?
 
@@ -730,9 +581,9 @@ model EarningPayment {
   amount   Int
   currency String
 
-  status CommissionPaymentStatus  @default(PENDING)
-  method CommissionPaymentMethod?
-  paidAt DateTime?                @db.Timestamptz(6)
+  status String  @default("PENDING")
+  method String?
+  paidAt DateTime?
 
   referenceCode String?
 
@@ -763,8 +614,8 @@ model SiteSettings {
   googleSiteVerification String?
   analyticsTag           String?
 
-  robotsIndex  RobotsIndex  @default(INDEX)
-  robotsFollow RobotsFollow @default(FOLLOW)
+  robotsIndex String  @default("INDEX")
+  robotsFollow String @default("FOLLOW")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -778,10 +629,10 @@ model Page {
 
   slug  String
   title String
-  type  PageType @default(CUSTOM)
+  type String @default("CUSTOM")
 
-  status      PageStatus @default(DRAFT)
-  publishedAt DateTime?  @db.Timestamptz(6)
+  status String @default("DRAFT")
+  publishedAt DateTime?
 
   // SEO per-page
   seoTitle       String?
@@ -791,8 +642,8 @@ model Page {
   ogDescription  String?
   ogImageUrl     String?
 
-  robotsIndex  RobotsIndex  @default(INDEX)
-  robotsFollow RobotsFollow @default(FOLLOW)
+  robotsIndex String  @default("INDEX")
+  robotsFollow String @default("FOLLOW")
 
   structuredDataJson String?
 
@@ -814,7 +665,7 @@ model PageSection {
   pageId String
   page   Page   @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
-  type     PageSectionType
+  type String
   dataJson String // block config JSON (NO HTML)
 
   sortOrder Int     @default(0)
@@ -834,8 +685,8 @@ model Media {
   gamingCenterId String
   gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
-  type    MediaType    @default(IMAGE)
-  purpose MediaPurpose @default(GALLERY)
+  type String    @default("IMAGE")
+  purpose String @default("GALLERY")
 
   url      String
   thumbUrl String?
@@ -862,7 +713,7 @@ model SocialLink {
   gamingCenterId String
   gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
-  type  LinkType
+  type String
   label String?
   value String
 
@@ -893,8 +744,8 @@ model Address {
   addressLine String
   postalCode  String?
 
-  lat Decimal?
-  lng Decimal?
+  lat Float?
+  lng Float?
 
   isPrimary Boolean @default(false)
 
@@ -926,7 +777,7 @@ model PageSlugHistory {
 
 model GamingCenterAnalytics {
   gamingCenterId String
-  date           DateTime @db.Date
+  date           DateTime
 
   totalReservations     Int @default(0)
   completedReservations Int @default(0)
@@ -934,7 +785,7 @@ model GamingCenterAnalytics {
   revenue               Int @default(0)
   realizedCash          Int @default(0)
 
-  peakHours     Json?
+  peakHours String?
   occupancyRate Float @default(0)
 
   createdAt DateTime @default(now())
@@ -946,7 +797,7 @@ model GamingCenterAnalytics {
 model StaffAnalytics {
   gamingCenterId String
   staffId        String
-  date           DateTime @db.Date
+  date           DateTime
 
   completedReservations Int @default(0)
   revenue               Int @default(0)
@@ -965,7 +816,7 @@ model StaffAnalytics {
 model StationAnalytics {
   gamingCenterId String
   stationId      String
-  date           DateTime @db.Date
+  date           DateTime
 
   completedReservations Int @default(0)
   revenue               Int @default(0)
@@ -990,7 +841,7 @@ model WalletTransaction {
 
   amount   Int // can be positive (credit) or negative (debit)
   currency String
-  type     WalletTransactionType
+  type String
 
   reservationId String?
   reservation   Reservation? @relation(fields: [reservationId], references: [id])
@@ -1022,8 +873,8 @@ model AuditLog {
   entity   String // e.g., "Reservation", "Settings"
   entityId String
 
-  oldData Json?
-  newData Json?
+  oldData String?
+  newData String?
 
   ipAddress String?
   userAgent String?
@@ -1051,7 +902,7 @@ model GamingSession {
   endTime   DateTime?
 
   actualHours Float               @default(0)
-  status      GamingSessionStatus @default(ACTIVE)
+  status String @default("ACTIVE")
 
   pausedAt      DateTime?
   pausedMinutes Int       @default(0)
@@ -1085,7 +936,7 @@ model Membership {
   type      String // e.g. GOLD, SILVER, VIP
   expiresAt DateTime?
 
-  benefits Json?
+  benefits String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

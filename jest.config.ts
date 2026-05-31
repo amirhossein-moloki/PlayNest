@@ -6,19 +6,12 @@ const config: Config = {
   roots: ['<rootDir>/src', '<rootDir>/tests'],
   testMatch: ['**/*.spec.ts', '**/*.test.ts'],
   transform: {
-    '^.+\\.tsx?$': 'ts-jest',
+    '^.+\\.tsx?$': ['ts-jest', { isolatedModules: true, diagnostics: false }],
   },
   moduleNameMapper: {
+    '^@prisma/client$': '<rootDir>/tests/mocks/prisma-client-wrapper.ts',
     '^@/(.*)$': '<rootDir>/src/$1',
   },
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/**/*.d.ts',
-    '!src/types/**/*.ts',
-    '!src/config/**/*.ts',
-  ],
-  coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'clover'],
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
 };
 

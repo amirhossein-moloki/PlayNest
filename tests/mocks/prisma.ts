@@ -1,16 +1,14 @@
-import { PrismaClient } from '@prisma/client';
-import { DeepMockProxy, mockDeep, mockReset } from 'jest-mock-extended';
-import { jest, beforeEach } from '@jest/globals';
+import { PrismaClient, Prisma } from '@prisma/client';
 
-import { prisma } from '../../src/config/prisma';
+const basePrisma = new PrismaClient({
+  datasources: { db: { url: 'file:./test.db' } },
+});
+
+// For SQLite integration testing, we use a simple singleton
+export const prisma = basePrisma;
 
 jest.mock('../../src/config/prisma', () => ({
-  __esModule: true,
-  prisma: mockDeep<PrismaClient>(),
+  prisma: basePrisma,
+  connectPrisma: jest.fn(),
+  disconnectPrisma: jest.fn(),
 }));
-
-export const prismaMock = prisma as unknown as DeepMockProxy<PrismaClient>;
-
-beforeEach(() => {
-  mockReset(prismaMock);
-});
