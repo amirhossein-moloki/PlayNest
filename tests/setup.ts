@@ -11,8 +11,8 @@ import { jest } from '@jest/globals';
 jest.mock('../src/config/env', () => ({
   env: {
     NODE_ENV: 'test',
-    JWT_SECRET: 'test-env-jwt-secret',
-    JWT_ACCESS_SECRET: 'test-env-jwt-access-secret',
+    JWT_SECRET: 'test',
+    JWT_ACCESS_SECRET: 'test',
     JWT_ACCESS_EXPIRES_IN: '15m',
     SMSIR_OTP_TEMPLATE_ID: 123456,
     LOG_LEVEL: 'silent',
