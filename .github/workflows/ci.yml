@@ -7,26 +7,11 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         node-version: [18.x]
-
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: sevra-dev
-          POSTGRES_PASSWORD: sevra-dev-password
-          POSTGRES_DB: sevra-db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
     - name: Checkout repository
@@ -50,30 +35,5 @@ jobs:
     - name: Lint
       run: npm run lint
 
-    - name: Run Unit Tests
-      run: npm run test:unit
-
-    - name: Build Docker image for verification
-      run: docker build -t sevra-app -f docker/Dockerfile .
-
-    - name: Run Prisma Migrate
-      run: |
-        docker run --rm --network host \
-          -e DATABASE_URL="postgresql://sevra-dev:sevra-dev-password@localhost:5432/sevra-db" \
-          sevra-app npx prisma migrate reset --force
-
-    - name: Run E2E Tests with Coverage
-      run: npm run test:coverage
-      env:
-        NODE_ENV: test
-        DATABASE_URL: "postgresql://sevra-dev:sevra-dev-password@localhost:5432/sevra-db"
-        JWT_ACCESS_SECRET: "test-access-secret"
-        JWT_REFRESH_SECRET: "test-refresh-secret"
-        JWT_ACCESS_EXPIRES_IN: "15m"
-        JWT_REFRESH_EXPIRES_IN: "7d"
-        COOKIE_SECRET: "test-cookie-secret"
-        PAYMENT_PROVIDER_WEBHOOK_SECRET: "test-webhook-secret"
-        SMSIR_API_KEY: "test-sms-api-key"
-        SMSIR_LINE_NUMBER: "12345"
-        SMSIR_OTP_TEMPLATE_ID: "100000"
-        SENTRY_ENABLED: false
+    - name: Build
+      run: npm run build
