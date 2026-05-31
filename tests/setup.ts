@@ -4,14 +4,15 @@ dotenv.config({ path: '.env.test' });
 
 import { jest } from '@jest/globals';
 
-// @ts-ignore
-global.jest = jest;
+/* eslint-disable @typescript-eslint/no-explicit-any */
+(global as any).jest = jest;
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 jest.mock('../src/config/env', () => ({
   env: {
     NODE_ENV: 'test',
-    JWT_SECRET: 'test-secret',
-    JWT_ACCESS_SECRET: 'access-secret',
+    JWT_SECRET: 'placeholder-secret-for-tests',
+    JWT_ACCESS_SECRET: 'placeholder-access-secret-for-tests',
     JWT_ACCESS_EXPIRES_IN: '15m',
     SMSIR_OTP_TEMPLATE_ID: 123456,
     LOG_LEVEL: 'silent',

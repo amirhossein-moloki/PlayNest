@@ -1,11 +1,11 @@
 import { describe, it, expect, jest } from '@jest/globals';
 import { AuthService } from '../../../../src/modules/auth/auth.station';
 import { AuthRepository } from '../../../../src/modules/auth/auth.repository';
-import argon2 from 'argon2';
 import AppError from '../../../../src/common/errors/AppError';
 import httpStatus from 'http-status';
 import { UserFactory, SessionFactory } from '../../../../tests/factories/user.factory';
 import { queueSms } from '../../../../src/jobs/producers/sms.producer';
+import { User, Session, PhoneOtp, CustomerAccount, GamingCenter } from '@prisma/client';
 
 jest.mock('../../../../src/modules/auth/auth.repository');
 jest.mock('../../../../src/jobs/producers/sms.producer', () => ({
@@ -21,14 +21,16 @@ jest.mock('argon2', () => ({
 const MockedAuthRepository = AuthRepository as jest.Mocked<typeof AuthRepository>;
 const MockedQueueSms = queueSms as jest.MockedFunction<typeof queueSms>;
 
+type UserWithGamingCenter = User & { gamingCenter: GamingCenter };
+
 describe('AuthService', () => {
   describe('loginUser', () => {
     it('should login successfully with valid credentials', async () => {
-      const user = UserFactory.create({ passwordHash: 'hashed_password123' });
-      const session = SessionFactory.create({ actorId: user.id });
+      const user = UserFactory.create({ passwordHash: 'hashed_password123' }) as User;
+      const session = SessionFactory.create({ actorId: user.id }) as Session;
 
-      MockedAuthRepository.findUserByPhone.mockResolvedValue(user as any);
-      MockedAuthRepository.createSession.mockResolvedValue(session as any);
+      MockedAuthRepository.findUserByPhone.mockResolvedValue(user);
+      MockedAuthRepository.createSession.mockResolvedValue(session);
 
       const result = await AuthService.loginUser('09123456789', 'password123', 'gc-id');
 
@@ -45,8 +47,8 @@ describe('AuthService', () => {
     });
 
     it('should throw UNAUTHORIZED if password is invalid', async () => {
-      const user = UserFactory.create({ passwordHash: 'hashed_password123' });
-      MockedAuthRepository.findUserByPhone.mockResolvedValue(user as any);
+      const user = UserFactory.create({ passwordHash: 'hashed_password123' }) as User;
+      MockedAuthRepository.findUserByPhone.mockResolvedValue(user);
 
       await expect(AuthService.loginUser('09123456789', 'wrong-password', 'gc-id'))
         .rejects.toThrow(new AppError('Invalid credentials', httpStatus.UNAUTHORIZED));
@@ -56,9 +58,9 @@ describe('AuthService', () => {
   describe('requestUserOtp', () => {
     it('should request OTP successfully', async () => {
       const phone = '09123456789';
-      const users = [{ id: 'user-1', gamingCenter: { id: 'gc-1', name: 'GC 1' } }];
-      MockedAuthRepository.findUsersWithSalons.mockResolvedValue(users as any);
-      MockedAuthRepository.createOtp.mockResolvedValue({} as any);
+      const users = [{ id: 'user-1', gamingCenter: { id: 'gc-1', name: 'GC 1' } }] as unknown as UserWithGamingCenter[];
+      MockedAuthRepository.findUsersWithSalons.mockResolvedValue(users);
+      MockedAuthRepository.createOtp.mockResolvedValue({} as PhoneOtp);
 
       const result = await AuthService.requestUserOtp(phone);
 
@@ -80,13 +82,13 @@ describe('AuthService', () => {
       const phone = '09123456789';
       const code = '123456';
       const codeHash = 'hashed_123456';
-      const otp = { id: 'otp-id', codeHash };
-      const users = [{ id: 'user-1', gamingCenter: { id: 'gc-1', name: 'GC 1' } }];
+      const otp = { id: 'otp-id', codeHash } as PhoneOtp;
+      const users = [{ id: 'user-1', gamingCenter: { id: 'gc-1', name: 'GC 1' } }] as unknown as UserWithGamingCenter[];
 
-      MockedAuthRepository.findRecentOtp.mockResolvedValue(otp as any);
-      MockedAuthRepository.consumeOtp.mockResolvedValue({} as any);
-      MockedAuthRepository.markUserPhoneVerified.mockResolvedValue({} as any);
-      MockedAuthRepository.findUsersWithSalons.mockResolvedValue(users as any);
+      MockedAuthRepository.findRecentOtp.mockResolvedValue(otp);
+      MockedAuthRepository.consumeOtp.mockResolvedValue({} as PhoneOtp);
+      MockedAuthRepository.markUserPhoneVerified.mockResolvedValue({ count: 1 });
+      MockedAuthRepository.findUsersWithSalons.mockResolvedValue(users);
 
       const result = await AuthService.verifyUserOtp(phone, code);
 
@@ -102,8 +104,8 @@ describe('AuthService', () => {
     });
 
     it('should throw UNAUTHORIZED if OTP code is invalid', async () => {
-      const otp = { id: 'otp-id', codeHash: 'hashed_correct-code' };
-      MockedAuthRepository.findRecentOtp.mockResolvedValue(otp as any);
+      const otp = { id: 'otp-id', codeHash: 'hashed_correct-code' } as PhoneOtp;
+      MockedAuthRepository.findRecentOtp.mockResolvedValue(otp);
 
       await expect(AuthService.verifyUserOtp('09123456789', 'wrong-code'))
         .rejects.toThrow(new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED));
@@ -113,7 +115,7 @@ describe('AuthService', () => {
   describe('requestCustomerOtp', () => {
     it('should request OTP successfully for customer', async () => {
       const phone = '09123456789';
-      MockedAuthRepository.createOtp.mockResolvedValue({} as any);
+      MockedAuthRepository.createOtp.mockResolvedValue({} as PhoneOtp);
 
       const result = await AuthService.requestCustomerOtp(phone);
 
@@ -127,13 +129,13 @@ describe('AuthService', () => {
       const phone = '09123456789';
       const code = '123456';
       const codeHash = 'hashed_123456';
-      const otp = { id: 'otp-id', codeHash };
-      const customer = { id: 'cust-1', phoneVerifiedAt: null };
+      const otp = { id: 'otp-id', codeHash } as PhoneOtp;
+      const customer = { id: 'cust-1', phoneVerifiedAt: null } as CustomerAccount;
 
-      MockedAuthRepository.findRecentOtp.mockResolvedValue(otp as any);
-      MockedAuthRepository.consumeOtp.mockResolvedValue({} as any);
-      MockedAuthRepository.findCustomerByPhone.mockResolvedValue(customer as any);
-      MockedAuthRepository.markCustomerPhoneVerified.mockResolvedValue({} as any);
+      MockedAuthRepository.findRecentOtp.mockResolvedValue(otp);
+      MockedAuthRepository.consumeOtp.mockResolvedValue({} as PhoneOtp);
+      MockedAuthRepository.findCustomerByPhone.mockResolvedValue(customer);
+      MockedAuthRepository.markCustomerPhoneVerified.mockResolvedValue({} as CustomerAccount);
 
       const result = await AuthService.verifyCustomerOtp(phone, code);
 
@@ -146,12 +148,12 @@ describe('AuthService', () => {
     it('should login user with recently verified OTP', async () => {
       const phone = '09123456789';
       const gamingCenterId = 'gc-1';
-      const user = UserFactory.create({ id: 'user-1', phone });
-      const session = SessionFactory.create({ actorId: user.id });
+      const user = UserFactory.create({ id: 'user-1', phone }) as User;
+      const session = SessionFactory.create({ actorId: user.id }) as Session;
 
-      MockedAuthRepository.findRecentConsumedOtp.mockResolvedValue({} as any);
-      MockedAuthRepository.findUserByPhone.mockResolvedValue(user as any);
-      MockedAuthRepository.createSession.mockResolvedValue(session as any);
+      MockedAuthRepository.findRecentConsumedOtp.mockResolvedValue({} as PhoneOtp);
+      MockedAuthRepository.findUserByPhone.mockResolvedValue(user);
+      MockedAuthRepository.createSession.mockResolvedValue(session);
 
       const result = await AuthService.loginUserWithOtp(phone, gamingCenterId);
 
@@ -167,7 +169,7 @@ describe('AuthService', () => {
     });
 
     it('should throw UNAUTHORIZED if user not found after OTP verification', async () => {
-      MockedAuthRepository.findRecentConsumedOtp.mockResolvedValue({} as any);
+      MockedAuthRepository.findRecentConsumedOtp.mockResolvedValue({} as PhoneOtp);
       MockedAuthRepository.findUserByPhone.mockResolvedValue(null);
 
       await expect(AuthService.loginUserWithOtp('09123456789', 'gc-1'))
@@ -178,11 +180,11 @@ describe('AuthService', () => {
   describe('loginCustomer', () => {
     it('should login or register customer successfully', async () => {
       const phone = '09123456789';
-      const customer = { id: 'cust-1', phone, phoneVerifiedAt: new Date() };
-      const session = SessionFactory.create({ actorId: customer.id, actorType: 'CUSTOMER' });
+      const customer = { id: 'cust-1', phone, phoneVerifiedAt: new Date() } as CustomerAccount;
+      const session = SessionFactory.create({ actorId: customer.id, actorType: 'CUSTOMER' }) as Session;
 
-      MockedAuthRepository.findCustomerByPhone.mockResolvedValue(customer as any);
-      MockedAuthRepository.createSession.mockResolvedValue(session as any);
+      MockedAuthRepository.findCustomerByPhone.mockResolvedValue(customer);
+      MockedAuthRepository.createSession.mockResolvedValue(session);
 
       const result = await AuthService.loginCustomer(phone);
 
@@ -192,12 +194,12 @@ describe('AuthService', () => {
 
     it('should create new customer if not exists', async () => {
       const phone = '09123456789';
-      const customer = { id: 'cust-1', phone, phoneVerifiedAt: new Date() };
-      const session = SessionFactory.create({ actorId: customer.id, actorType: 'CUSTOMER' });
+      const customer = { id: 'cust-1', phone, phoneVerifiedAt: new Date() } as CustomerAccount;
+      const session = SessionFactory.create({ actorId: customer.id, actorType: 'CUSTOMER' }) as Session;
 
       MockedAuthRepository.findCustomerByPhone.mockResolvedValue(null);
-      MockedAuthRepository.createCustomer.mockResolvedValue(customer as any);
-      MockedAuthRepository.createSession.mockResolvedValue(session as any);
+      MockedAuthRepository.createCustomer.mockResolvedValue(customer);
+      MockedAuthRepository.createSession.mockResolvedValue(session);
 
       await AuthService.loginCustomer(phone);
 
@@ -208,8 +210,8 @@ describe('AuthService', () => {
   describe('refreshAuthToken', () => {
     it('should refresh token successfully', async () => {
       const refreshToken = 'raw-refresh-token';
-      const session = SessionFactory.create({ expiresAt: new Date(Date.now() + 10000) });
-      MockedAuthRepository.findSessionByToken.mockResolvedValue(session as any);
+      const session = SessionFactory.create({ expiresAt: new Date(Date.now() + 10000) }) as Session;
+      MockedAuthRepository.findSessionByToken.mockResolvedValue(session);
 
       const result = await AuthService.refreshAuthToken(refreshToken);
 
@@ -224,8 +226,8 @@ describe('AuthService', () => {
     });
 
     it('should throw UNAUTHORIZED and revoke session if expired', async () => {
-      const session = SessionFactory.create({ id: 'sess-1', expiresAt: new Date(Date.now() - 10000) });
-      MockedAuthRepository.findSessionByToken.mockResolvedValue(session as any);
+      const session = SessionFactory.create({ id: 'sess-1', expiresAt: new Date(Date.now() - 10000) }) as Session;
+      MockedAuthRepository.findSessionByToken.mockResolvedValue(session);
 
       await expect(AuthService.refreshAuthToken('expired'))
         .rejects.toThrow(new AppError('Refresh token has expired', httpStatus.UNAUTHORIZED));
@@ -236,7 +238,7 @@ describe('AuthService', () => {
   describe('logout', () => {
     it('should revoke the session', async () => {
       const sessionId = 'session-id';
-      MockedAuthRepository.revokeSession.mockResolvedValue({} as any);
+      MockedAuthRepository.revokeSession.mockResolvedValue({} as Session);
 
       const result = await AuthService.logout(sessionId);
 
