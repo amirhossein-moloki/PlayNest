@@ -22,7 +22,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '../../config/env';
 
 export const createTestSalon = (options?: { name?: string; slug?: string; settings?: Record<string, unknown> }): Promise<GamingCenter> => {
-  const { name = 'Test Gaming Center', slug = `test-gaming-center-${Date.now()}`, settings } = options || {};
+  const { name = 'Test Gaming Center', slug = `test-gaming-center-${Date.now()}-${Math.random().toString(36).substring(7)}`, settings } = options || {};
   return prisma.gamingCenter.create({
     data: {
       name,
@@ -37,7 +37,7 @@ export const createTestSalon = (options?: { name?: string; slug?: string; settin
 export const createTestGamingCenter = createTestSalon;
 
 export const createTestUser = (options: { gamingCenterId: string; role?: UserRole; phone?: string }): Promise<User> => {
-  const { gamingCenterId, role = UserRole.STAFF, phone = `+1555${Date.now().toString().slice(-7)}` } = options;
+  const { gamingCenterId, role = UserRole.STAFF, phone = `+1555${Date.now().toString().slice(-7)}${Math.floor(Math.random()*100)}` } = options;
   return prisma.user.create({
     data: {
       gamingCenterId,
@@ -148,4 +148,48 @@ export const generateToken = (payload: { actorId: string; actorType: SessionActo
     },
     env.JWT_ACCESS_SECRET as string
   );
+};
+
+export const cleanupDatabase = async () => {
+  // 1. Level 4 (Dependencies of dependencies)
+  await prisma.gamingSession.deleteMany();
+  await prisma.stationMaintenance.deleteMany();
+  await prisma.rating.deleteMany();
+  await prisma.payment.deleteMany();
+  await prisma.earningPayment.deleteMany();
+  await prisma.earning.deleteMany();
+  await prisma.walletTransaction.deleteMany();
+  await prisma.staffStationSkill.deleteMany();
+  await prisma.staffShift.deleteMany();
+  await prisma.membership.deleteMany();
+  await prisma.pageSection.deleteMany();
+  await prisma.pageSlugHistory.deleteMany();
+  await prisma.auditLog.deleteMany();
+
+  // 2. Level 3 (Middle dependencies)
+  await prisma.reservation.deleteMany();
+  await prisma.customerProfile.deleteMany();
+  await prisma.page.deleteMany();
+
+  // 3. Level 2 (Primary entities that have FKs to GamingCenter)
+  await prisma.session.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.gameStation.deleteMany();
+  await prisma.phoneOtp.deleteMany();
+  await prisma.media.deleteMany();
+  await prisma.socialLink.deleteMany();
+  await prisma.address.deleteMany();
+  await prisma.siteSettings.deleteMany();
+  await prisma.settings.deleteMany();
+  await prisma.commissionPolicy.deleteMany();
+  await prisma.tournament.deleteMany();
+  await prisma.gamingCenterAnalytics.deleteMany();
+  await prisma.staffAnalytics.deleteMany();
+  await prisma.stationAnalytics.deleteMany();
+
+  // 4. Level 1 (Independent entities)
+  await prisma.customerAccount.deleteMany();
+
+  // 5. Level 0 (Root)
+  await prisma.gamingCenter.deleteMany();
 };

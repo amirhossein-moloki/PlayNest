@@ -1,3 +1,4 @@
+import { cleanupDatabase } from '../../common/utils/test-utils';
 import request from 'supertest';
 import { PageStatus, PrismaClient } from '@prisma/client';
 import app from '../../app';
@@ -10,14 +11,12 @@ describe('Public Routes Enforcement', () => {
   let page: { id: string; slug: string };
 
   beforeAll(async () => {
-    // Cleanup
-    await prisma.page.deleteMany();
-    await prisma.gamingCenter.deleteMany();
+    await cleanupDatabase();
 
     activeSalon = await prisma.gamingCenter.create({
       data: {
         name: 'Active GamingCenter',
-        slug: 'active-gamingCenter',
+        slug: `active-gamingCenter-${Date.now()}`,
         isActive: true,
       },
     });
@@ -25,7 +24,7 @@ describe('Public Routes Enforcement', () => {
     inactiveSalon = await prisma.gamingCenter.create({
       data: {
         name: 'Inactive GamingCenter',
-        slug: 'inactive-gamingCenter',
+        slug: `inactive-gamingCenter-${Date.now()}`,
         isActive: false,
       },
     });
@@ -54,8 +53,7 @@ describe('Public Routes Enforcement', () => {
   });
 
   afterAll(async () => {
-    await prisma.page.deleteMany();
-    await prisma.gamingCenter.deleteMany();
+    await cleanupDatabase();
     await prisma.$disconnect();
   });
 
@@ -81,18 +79,14 @@ describe('Public Routes Enforcement', () => {
 
   describe('Availability route enforcement', () => {
     it('returns 404 for availability on an inactive gamingCenter', async () => {
-      // Even if the station exists, the gamingCenter is inactive
       await request(app)
         .get(`/api/v1/public/gamingCenters/${inactiveSalon.slug}/availability/slots`)
         .expect(404);
     });
 
     it('returns 400 or 404 for availability with missing stationId (validation check)', async () => {
-      // Just checking that it goes through resolveSalonBySlug first
       const response = await request(app)
         .get(`/api/v1/public/gamingCenters/${activeSalon.slug}/availability/slots`);
-
-      // It should reach validation if gamingCenter is found
       expect(response.status).not.toBe(404);
     });
   });
@@ -102,7 +96,6 @@ describe('Public Routes Enforcement', () => {
       const response = await request(app)
         .get(`/api/v1/public/gamingCenters/${activeSalon.slug}`)
         .expect(200);
-
       expect(response.text).toContain('<title>Home SEO Title</title>');
     });
 
@@ -110,13 +103,12 @@ describe('Public Routes Enforcement', () => {
       const salonNoHome = await prisma.gamingCenter.create({
         data: {
           name: 'No Home GamingCenter',
-          slug: 'no-home-gamingCenter',
+          slug: `no-home-gc-${Date.now()}`,
         }
       });
-
-      await request(app)
-        .get(`/api/v1/public/gamingCenters/${salonNoHome.slug}`)
-        .expect(404);
+      const res = await request(app)
+        .get(`/api/v1/public/gamingCenters/${salonNoHome.slug}`);
+      expect(res.status).toBe(404);
     });
   });
 
@@ -125,7 +117,6 @@ describe('Public Routes Enforcement', () => {
       const response = await request(app)
         .get(`/api/v1/public/gamingCenters/${activeSalon.slug}/pages/${page.slug}`)
         .expect(200);
-
       expect(response.text).toContain('<title>SEO Title</title>');
       expect(response.text).toContain('<meta name="description" content="SEO Description" />');
     });
@@ -141,40 +132,35 @@ describe('Public Routes Enforcement', () => {
           defaultSeoTitle: 'Default GamingCenter SEO',
         }
       });
-
       const pageNoSeo = await prisma.page.create({
         data: {
           gamingCenterId: activeSalon.id,
-          slug: 'fallback-seo',
+          slug: `fallback-seo-${Date.now()}`,
           title: 'Fallback Page',
           status: PageStatus.PUBLISHED,
         },
       });
-
       const response = await request(app)
         .get(`/api/v1/public/gamingCenters/${activeSalon.slug}/pages/${pageNoSeo.slug}`)
         .expect(200);
-
       expect(response.text).toContain('<title>Default GamingCenter SEO</title>');
     });
 
     it('falls back to page title if both seoTitle and site settings are missing', async () => {
       const otherSalon = await prisma.gamingCenter.create({
-        data: { name: 'Other GamingCenter', slug: 'other-gamingCenter' }
+        data: { name: 'Other GamingCenter', slug: `other-gamingCenter-${Date.now()}` }
       });
       const pageNoSeo = await prisma.page.create({
         data: {
           gamingCenterId: otherSalon.id,
-          slug: 'no-seo',
+          slug: `no-seo-${Date.now()}`,
           title: 'Just Title',
           status: PageStatus.PUBLISHED,
         },
       });
-
       const response = await request(app)
         .get(`/api/v1/public/gamingCenters/${otherSalon.slug}/pages/${pageNoSeo.slug}`)
         .expect(200);
-
       expect(response.text).toContain('<title>Just Title</title>');
     });
   });

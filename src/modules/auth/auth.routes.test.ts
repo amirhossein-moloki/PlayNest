@@ -1,3 +1,4 @@
+import { cleanupDatabase } from '../../common/utils/test-utils';
 import request from 'supertest';
 import app from '../../app';
 import { prisma } from '../../config/prisma';
@@ -6,17 +7,12 @@ import { UserRole } from '@prisma/client';
 
 describe('Auth Routes', () => {
   afterEach(async () => {
-    await prisma.reservation.deleteMany();
-    await prisma.session.deleteMany();
-    await prisma.user.deleteMany();
-    await prisma.customerAccount.deleteMany();
-    await prisma.gameStation.deleteMany();
-    await prisma.gamingCenter.deleteMany();
+    await cleanupDatabase();
   });
 
   describe('POST /auth/login', () => {
     it('should login a user with valid credentials', async () => {
-      const gamingCenter = await prisma.gamingCenter.create({ data: { name: 'Test GamingCenter', slug: 'test-gamingCenter' } });
+      const gamingCenter = await prisma.gamingCenter.create({ data: { name: 'Test GamingCenter', slug: `test-gc-${Date.now()}-${Math.random()}` } });
       await prisma.user.create({
         data: {
           phone: '1234567890',
@@ -57,7 +53,7 @@ describe('Auth Routes', () => {
 
   describe('POST /auth/user/otp/request', () => {
     it('should request an OTP for an existing user', async () => {
-      const gamingCenter = await prisma.gamingCenter.create({ data: { name: 'Test GamingCenter', slug: 'test-gamingCenter' } });
+      const gamingCenter = await prisma.gamingCenter.create({ data: { name: 'Test GamingCenter', slug: `test-gc-${Date.now()}-${Math.random()}` } });
       await prisma.user.create({
         data: {
           phone: '1234567890',
@@ -118,7 +114,7 @@ describe('Auth Routes', () => {
   describe('POST /auth/user/login/otp', () => {
     it('should login a user with a valid OTP', async () => {
       const phone = '1234567890';
-      const gamingCenter = await prisma.gamingCenter.create({ data: { name: 'Test GamingCenter', slug: 'test-gamingCenter' } });
+      const gamingCenter = await prisma.gamingCenter.create({ data: { name: 'Test GamingCenter', slug: `test-gc-${Date.now()}-${Math.random()}` } });
       await prisma.user.create({
         data: {
           phone,
@@ -148,7 +144,7 @@ describe('Auth Routes', () => {
 
     it('should not login a user with an unverified OTP', async () => {
       const phone = '1234567890';
-      const gamingCenter = await prisma.gamingCenter.create({ data: { name: 'Test GamingCenter', slug: 'test-gamingCenter' } });
+      const gamingCenter = await prisma.gamingCenter.create({ data: { name: 'Test GamingCenter', slug: `test-gc-${Date.now()}-${Math.random()}` } });
       await prisma.user.create({
         data: {
           phone,
@@ -168,10 +164,18 @@ describe('Auth Routes', () => {
 
   describe('POST /auth/refresh', () => {
     it('should refresh the access token', async () => {
-      await prisma.customerAccount.create({ data: { phone: '1234567890' } });
+            const phone = '1234567890';
+      await prisma.phoneOtp.create({
+        data: {
+          phone,
+          codeHash: await argon2.hash('123456'),
+          purpose: 'LOGIN',
+          expiresAt: new Date(Date.now() + 1000000),
+        },
+      });
       const loginRes = await request(app)
-        .post('/api/v1/auth/login')
-        .send({ phone: '1234567890', actorType: 'CUSTOMER' });
+        .post('/api/v1/auth/customer/otp/verify')
+        .send({ phone, code: '123456' });
 
       const { refreshToken } = loginRes.body.data.tokens;
 
@@ -187,10 +191,18 @@ describe('Auth Routes', () => {
 
   describe('GET /auth/me', () => {
     it('should return the current user', async () => {
-      await prisma.customerAccount.create({ data: { phone: '1234567890' } });
+            const phone = '1234567890';
+      await prisma.phoneOtp.create({
+        data: {
+          phone,
+          codeHash: await argon2.hash('123456'),
+          purpose: 'LOGIN',
+          expiresAt: new Date(Date.now() + 1000000),
+        },
+      });
       const loginRes = await request(app)
-        .post('/api/v1/auth/login')
-        .send({ phone: '1234567890', actorType: 'CUSTOMER' });
+        .post('/api/v1/auth/customer/otp/verify')
+        .send({ phone, code: '123456' });
 
       const { accessToken } = loginRes.body.data.tokens;
 
@@ -206,10 +218,18 @@ describe('Auth Routes', () => {
 
   describe('POST /auth/logout', () => {
     it('should logout the user', async () => {
-      await prisma.customerAccount.create({ data: { phone: '1234567890' } });
+            const phone = '1234567890';
+      await prisma.phoneOtp.create({
+        data: {
+          phone,
+          codeHash: await argon2.hash('123456'),
+          purpose: 'LOGIN',
+          expiresAt: new Date(Date.now() + 1000000),
+        },
+      });
       const loginRes = await request(app)
-        .post('/api/v1/auth/login')
-        .send({ phone: '1234567890', actorType: 'CUSTOMER' });
+        .post('/api/v1/auth/customer/otp/verify')
+        .send({ phone, code: '123456' });
 
       const { accessToken } = loginRes.body.data.tokens;
 

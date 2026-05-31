@@ -6,6 +6,17 @@ import { UserRole, SessionActorType } from '@prisma/client';
 import { createTestSalon, createTestUser, createTestService, createTestReservation, generateToken } from '../../common/utils/test-utils';
 import { IdempotencyRepo } from '../../common/repositories/idempotency.repo';
 
+
+// Mock fetch for ZarinPal
+global.fetch = jest.fn().mockImplementation(() =>
+  Promise.resolve({
+    json: () => Promise.resolve({
+      data: { authority: 'mock-authority', code: 100 },
+      errors: []
+    }),
+  })
+) as jest.Mock;
+
 describe('Payments Idempotency E2E', () => {
   let gamingCenterId: string;
   let reservationId: string;
