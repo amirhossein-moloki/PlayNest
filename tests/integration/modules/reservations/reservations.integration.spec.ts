@@ -82,7 +82,7 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
 
       const station = { id: stationId, name: 'PS5-1', hourlyPrice: 200, defaultDurationHours: 1, stationType: 'PLAYSTATION', isActive: true };
       const staff = { id: staffId };
-      const staffShift = { id: 'shift-1', startTime: '08:00', endTime: '22:00' };
+      const staffShift = { id: 'shift-1', startTime: '00:00', endTime: '23:59' };
       const customerAccount = { id: 'cust-2' };
       const customerProfile = { id: 'prof-2' };
       const reservation = { id: 'res-2', status: ReservationStatus.CONFIRMED, source: ReservationSource.ONLINE };

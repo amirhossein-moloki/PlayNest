@@ -1,114 +1,174 @@
-# راهنمای APIهای سیستم گیم‌نت (Game Net)
+# راهنمای جامع APIهای سیستم گیم‌نت (Sevra)
 
-این مستند شامل لیست کامل APIهای سیستم به همراه توضیحات عملکردی هر کدام است.
+این مستند شامل لیست کامل نقاط دسترسی (Endpoints)، متدها، پارامترهای ورودی و سطوح دسترسی مورد نیاز برای تعامل با بک‌اند سیستم است. تمامی مسیرها با پیش‌وند `/api/v1` شروع می‌شوند.
 
 ---
 
 ## ۱. احراز هویت (Authentication)
-مدیریت ورود و خروج کاربران و مشتریان.
+تمامی مسیرها زیرمجموعه `/auth` هستند.
 
-| متد | مسیر | توضیحات |
-| :--- | :--- | :--- |
-| POST | `/auth/user/otp/request` | درخواست ارسال کد تأیید برای کارکنان |
-| POST | `/auth/user/otp/verify` | تأیید کد و دریافت توکن ورود کارکنان |
-| POST | `/auth/user/login/otp` | ورود مستقیم کاربر با کد یکبار مصرف |
-| POST | `/auth/customer/otp/request` | درخواست کد تأیید برای مشتریان |
-| POST | `/auth/customer/otp/verify` | تأیید هویت مشتری |
-| POST | `/auth/login` | ورود با موبایل و رمز عبور (ادمین) |
-| POST | `/auth/refresh` | تمدید توکن منقضی شده |
-| POST | `/auth/logout` | خروج از حساب کاربری |
-| GET | `/auth/me` | دریافت اطلاعات پروفایل فعلی |
+| متد | مسیر | توضیحات | پارامترهای Body | دسترسی |
+| :--- | :--- | :--- | :--- | :--- |
+| POST | `/user/otp/request` | درخواست کد OTP برای کارکنان | `phone` | عمومی |
+| POST | `/user/otp/verify` | تایید کد و دریافت توکن | `phone`, `code` | عمومی |
+| POST | `/user/login/otp` | ورود مستقیم کاربر به شعبه با OTP | `phone`, `gamingCenterId` | عمومی |
+| POST | `/customer/otp/request` | درخواست کد OTP برای مشتریان | `phone` | عمومی |
+| POST | `/customer/otp/verify` | تایید هویت مشتری و ورود | `phone`, `code` | عمومی |
+| POST | `/login` | ورود کلاسیک (مخصوص مدیران سیستم) | `phone`, `password`, `gamingCenterId` | عمومی |
+| POST | `/refresh` | تمدید توکن منقضی شده | `refreshToken` | عمومی |
+| POST | `/logout` | خروج از حساب و ابطال توکن | - | کاربر لاگین شده |
+| GET | `/me` | دریافت اطلاعات پروفایل جاری | - | کاربر لاگین شده |
 
 ---
 
-## ۲. مدیریت مراکز بازی (Gaming Centers)
-عملیات مربوط به مدیریت شعبه‌ها.
+## ۲. مدیریت مرکز بازی (Gaming Centers)
+مسیر اصلی: `/gamingCenters`
 
-| متد | مسیر | توضیحات |
-| :--- | :--- | :--- |
-| GET | `/gamingCenters` | لیست تمام مراکز بازی |
-| POST | `/gamingCenters` | ایجاد مرکز جدید (System Admin) |
-| GET | `/gamingCenters/:id` | مشاهده جزئیات یک مرکز |
-| PATCH | `/gamingCenters/:id` | ویرایش اطلاعات مرکز |
-| DELETE | `/gamingCenters/:id` | حذف مرکز از سیستم |
+| متد | مسیر | توضیحات | نقش مورد نیاز |
+| :--- | :--- | :--- | :--- |
+| GET | `/` | لیست تمام مراکز (برای ادمین سیستم) | عمومی / ادمین |
+| POST | `/` | ایجاد مرکز جدید | SYSTEM_ADMIN |
+| GET | `/:id` | جزئیات یک مرکز | عمومی |
+| PATCH | `/:id` | ویرایش اطلاعات مرکز | MANAGER |
+| DELETE | `/:id` | حذف (غیرفعال‌سازی) مرکز | MANAGER |
 
 ---
 
 ## ۳. ایستگاه‌های بازی (Game Stations)
-مدیریت کنسول‌ها و سیستم‌های PC.
+مدیریت کنسول‌ها و سیستم‌های PC. مسیر: `/gamingCenters/:gamingCenterId/stations`
 
-| متد | مسیر | توضیحات |
-| :--- | :--- | :--- |
-| GET | `/gamingCenters/:id/stations` | لیست ایستگاه‌های یک مرکز |
-| POST | `/gamingCenters/:id/stations` | تعریف ایستگاه جدید |
-| GET | `/gamingCenters/:id/stations/:sid` | جزئیات یک ایستگاه |
-| PATCH | `/gamingCenters/:id/stations/:sid` | ویرایش ایستگاه |
-| DELETE | `/gamingCenters/:id/stations/:sid` | حذف ایستگاه |
-| GET | `/public/gamingCenters/:slug/stations` | لیست ایستگاه‌ها برای رزرو عمومی |
-
----
-
-## ۴. رزرواسیون (Reservations)
-هسته اصلی مدیریت نوبت‌ها.
-
-| متد | مسیر | توضیحات |
-| :--- | :--- | :--- |
-| GET | `/gamingCenters/:id/reservations` | لیست تمامی رزروها |
-| POST | `/gamingCenters/:id/reservations` | ثبت رزرو توسط اپراتور |
-| GET | `/gamingCenters/:id/reservations/:rid` | جزئیات یک رزرو |
-| PATCH | `/gamingCenters/:id/reservations/:rid` | ویرایش زمان/ایستگاه رزرو |
-| POST | `/gamingCenters/:id/reservations/:rid/confirm` | تأیید نوبت |
-| POST | `/gamingCenters/:id/reservations/:rid/cancel` | لغو نوبت |
-| POST | `/gamingCenters/:id/reservations/:rid/complete` | اتمام بازی و تسویه |
-| POST | `/gamingCenters/:id/reservations/:rid/no-show` | ثبت عدم حضور |
-| POST | `/public/gamingCenters/:slug/reservations` | رزرو آنلاین توسط مشتری |
+| متد | مسیر | توضیحات | پارامترهای اصلی Body | دسترسی |
+| :--- | :--- | :--- | :--- | :--- |
+| GET | `/` | لیست تمام ایستگاه‌های مرکز | - | STAFF / MANAGER |
+| POST | `/` | تعریف ایستگاه جدید | `name`, `stationType`, `hourlyPrice`, ... | MANAGER |
+| GET | `/:stationId` | جزئیات فنی یک ایستگاه | - | STAFF / MANAGER |
+| PATCH | `/:stationId` | ویرایش تنظیمات ایستگاه | اختیاری: `hourlyPrice`, `isActive`, ... | MANAGER |
+| DELETE | `/:stationId` | حذف ایستگاه | - | MANAGER |
 
 ---
 
-## ۵. پنل مشتری (Customer Panel)
-دسترسی‌های اختصاصی برای مشتریان.
+## ۴. رزرواسیون - پنل مدیریت (Reservations)
+مسیر: `/gamingCenters/:gamingCenterId/reservations`
 
-| متد | مسیر | توضیحات |
-| :--- | :--- | :--- |
-| GET | `/customer/me` | پروفایل مشتری |
-| GET | `/customer/reservations` | سوابق رزرو مشتری |
-| POST | `/customer/reservations/:id/cancel` | لغو رزرو توسط خود مشتری |
-| POST | `/customer/reservations/:id/ratings` | ثبت امتیاز و نظر |
-
----
-
-## ۶. کارکنان و شیفت‌ها (Staff & Shifts)
-| متد | مسیر | توضیحات |
-| :--- | :--- | :--- |
-| GET | `/gamingCenters/:id/staff` | لیست پرسنل |
-| POST | `/gamingCenters/:id/staff` | افزودن کارمند جدید |
-| PUT | `/gamingCenters/:id/staff/:uid/staffShifts` | تنظیم شیفت‌های کاری |
+| متد | مسیر | توضیحات | پارامترهای اصلی Body | دسترسی |
+| :--- | :--- | :--- | :--- | :--- |
+| GET | `/` | لیست و فیلتر رزروها | `page`, `status`, `dateFrom`, ... | STAFF / MANAGER |
+| POST | `/` | ثبت رزرو حضوری توسط اپراتور | `stationId`, `staffId`, `startTime`, `customer` | STAFF / MANAGER |
+| GET | `/:reservationId` | جزئیات کامل یک رزرو | - | STAFF / MANAGER |
+| PATCH | `/:reservationId` | ویرایش زمان یا ایستگاه | `stationId`, `startTime`, ... | MANAGER / SUPERVISOR |
+| POST | `/:reservationId/confirm` | تایید نوبت رزرو شده | - | MANAGER / SUPERVISOR |
+| POST | `/:reservationId/cancel` | لغو رزرو با ذکر دلیل | `reason` | MANAGER / SUPERVISOR |
+| POST | `/:reservationId/complete` | اتمام بازی و تسویه | - | MANAGER / SUPERVISOR |
+| POST | `/:reservationId/no-show` | ثبت عدم حضور مشتری | - | MANAGER / SUPERVISOR |
 
 ---
 
-## ۷. آنالیز و گزارشات (Analytics)
-| متد | مسیر | توضیحات |
-| :--- | :--- | :--- |
-| GET | `/gamingCenters/:id/analytics/summary` | خلاصه عملکرد مرکز |
-| GET | `/gamingCenters/:id/analytics/staff` | گزارش عملکرد پرسنل |
-| GET | `/gamingCenters/:id/analytics/stations` | آمار استفاده از دستگاه‌ها |
-| GET | `/gamingCenters/:id/analytics/revenue-chart` | نمودار درآمد |
+## ۵. رزرو آنلاین و ظرفیت (Public / Online Booking)
+مسیر: `/public/gamingCenters/:salonSlug`
+
+| متد | مسیر | توضیحات | پارامترها | نکات فنی |
+| :--- | :--- | :--- | :--- | :--- |
+| GET | `/stations` | لیست ایستگاه‌های فعال عمومی | - | - |
+| GET | `/availability/slots` | مشاهده زمان‌های خالی | `stationId`, `startDate`, `endDate` | Query Params |
+| POST | `/reservations` | ثبت رزرو آنلاین توسط مشتری | `stationId`, `startTime`, `customer` | نیاز به `idempotency-key` در هدر |
 
 ---
 
-## ۸. مدیریت محتوا (CMS)
-| متد | مسیر | توضیحات |
-| :--- | :--- | :--- |
-| POST | `/gamingCenters/:id/media/upload` | آپلود تصاویر |
-| GET | `/gamingCenters/:id/pages` | مدیریت صفحات استاتیک |
-| PUT | `/gamingCenters/:id/site-settings` | تنظیمات سایت عمومی |
+## ۶. پنل اختصاصی مشتری (Customer Panel)
+مسیر: `/customer` (نیاز به توکن مشتری)
+
+| متد | مسیر | توضیحات | پارامترها |
+| :--- | :--- | :--- | :--- |
+| GET | `/me` | اطلاعات حساب مشتری | - |
+| GET | `/reservations` | تاریخچه رزروهای مشتری | - |
+| GET | `/:reservationId` | جزئیات یک رزرو خاص | - |
+| POST | `/reservations/:reservationId/cancel` | لغو رزرو توسط خود مشتری | `reason` |
+| POST | `/reservations/:reservationId/ratings` | ثبت امتیاز و نظر | `rating` (1-5), `comment` |
 
 ---
 
-## ۹. مالی و سیستمی
-| متد | مسیر | توضیحات |
-| :--- | :--- | :--- |
-| POST | `/gamingCenters/:id/reservations/:rid/payments/init` | ایجاد تراکنش بانکی |
-| POST | `/webhooks/payments/:provider` | دریافت تأییدیه‌های پرداخت |
-| GET | `/health` | وضعیت سلامت سرور |
-| GET | `/gamingCenters/:id/audit-logs` | گزارش تغییرات حساس |
+## ۷. کارکنان و شیفت‌ها (Staff & Shifts)
+مسیر: `/gamingCenters/:gamingCenterId/staff`
+
+| متد | مسیر | توضیحات | پارامترها | دسترسی |
+| :--- | :--- | :--- | :--- | :--- |
+| GET | `/` | لیست پرسنل مرکز | - | تمام کارکنان مرکز |
+| POST | `/` | افزودن کارمند جدید | `fullName`, `phone`, `role` | MANAGER |
+| PUT | `/:userId` | ویرایش پروفایل کارمند | `isActive`, `role`, `fullName` | MANAGER |
+| DELETE | `/:userId` | حذف کارمند | - | MANAGER |
+| PUT | `/:userId/staffShifts` | تنظیم برنامه کاری هفته | آرایه‌ای از شیفت‌ها با `dayOfWeek`, `startTime`, `endTime` | MANAGER |
+
+---
+
+## ۸. مدیریت مشتریان - CRM
+مسیر: `/gamingCenters/:gamingCenterId/customers`
+
+| متد | مسیر | توضیحات | پارامترهای Query/Body |
+| :--- | :--- | :--- | :--- |
+| GET | `/` | جستجو در بانک مشتریان | `search`, `page`, `limit` |
+| GET | `/:customerId` | مشاهده تاریخچه مشتری | - |
+| POST | `/` | ایجاد پروفایل مشتری دستی | `phone`, `fullName` |
+| PATCH | `/:customerId` | ویرایش نوت‌های مشتری | `note`, `displayName` |
+
+---
+
+## ۹. مالی و تحلیل (Analytics & Finance)
+مسیر: `/gamingCenters/:gamingCenterId`
+
+| بخش | متد | مسیر | توضیحات | دسترسی |
+| :--- | :--- | :--- | :--- | :--- |
+| **تحلیل** | GET | `/analytics/summary` | آمار کل عملکرد مرکز | MANAGER |
+| **تحلیل** | GET | `/analytics/revenue-chart` | داده‌های نمودار درآمدی | MANAGER |
+| **تحلیل** | GET | `/analytics/stations` | آمار استفاده از دستگاه‌ها | MANAGER |
+| **تنظیمات** | GET | `/settings` | تنظیمات قوانین رزرو | STAFF / MANAGER |
+| **تنظیمات** | PATCH | `/settings` | به‌روزرسانی ساعات کاری و قوانین | MANAGER |
+| **پورسانت** | GET | `/commissions` | لیست کارمزدهای پلتفرم | MANAGER |
+| **لاگ** | GET | `/audit-logs` | گزارش تغییرات حساس سیستم | MANAGER |
+
+---
+
+## ۱۰. مدیریت محتوا (CMS)
+مسیر: `/gamingCenters/:gamingCenterId` (دسترسی: MANAGER)
+
+| متد | مسیر | توضیحات | کاربرد |
+| :--- | :--- | :--- | :--- |
+| POST | `/media/upload` | آپلود تصویر | `file`, `purpose` (COVER, GALLERY, LOGO) |
+| GET | `/pages` | لیست صفحات استاتیک | مدیریت لندینگ‌ها |
+| POST | `/pages` | ایجاد صفحه جدید | `slug`, `title`, `sections` (JSON) |
+| PUT | `/site-settings` | تنظیمات سئو و عمومی | `seoTitle`, `seoDescription` |
+
+---
+
+## نکات کلیدی برای پیاده‌سازی فرانت‌اند
+
+### ساختار پاسخ (Response Structure)
+تمام پاسخ‌های موفق (Status 2xx):
+```json
+{
+  "success": true,
+  "data": { ... },
+  "meta": {
+    "requestId": "...",
+    "pagination": { "total": 100, "page": 1, ... }
+  }
+}
+```
+
+### ساختار خطا (Error Structure)
+در صورت بروز خطا (Status 4xx/5xx):
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "توضیحات خطا به زبان انسانی",
+    "details": { ... }
+  }
+}
+```
+
+### جلوگیری از تکرار (Idempotency)
+برای درخواست‌های ثبت رزرو آنلاین (`POST /public/.../reservations`)، ارسال هدر `idempotency-key` الزامی است. این کلید باید برای هر تلاش منحصربه‌فرد، یکتا باشد (مثلاً UUID).
+
+### امنیت و جداسازی (Multi-tenancy)
+بسیاری از مسیرها شامل `:gamingCenterId` هستند. سیستم به طور خودکار چک می‌کند که کاربر لاگین شده حتماً به آن مرکز دسترسی داشته باشد (`tenantGuard`).
