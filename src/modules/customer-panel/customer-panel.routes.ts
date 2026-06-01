@@ -21,7 +21,7 @@ router.get('/me', asyncHandler<AppRequest>(CustomerPanelController.getMe));
 
 router.get('/reservations', validate(getCustomerBookingsSchema), asyncHandler<AppRequest>(CustomerPanelController.getMyBookings));
 
-router.get('/reservations/:reservationId', asyncHandler<AppRequest>(CustomerPanelController.getMyBookingDetails));
+router.get('/:reservationId', asyncHandler<AppRequest>(CustomerPanelController.getMyBookingDetails));
 
 router.post(
   '/reservations/:reservationId/cancel',

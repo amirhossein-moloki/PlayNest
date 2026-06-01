@@ -4,32 +4,33 @@ import { authMiddleware } from '../../common/middleware/auth';
 import { requireRole } from '../../common/middleware/requireRole';
 import { tenantGuard } from '../../common/middleware/tenantGuard';
 import { UserRole } from '@prisma/client';
+import { asyncHandler } from '../../common/middleware/asyncHandler';
 
 const router = Router();
 
 // Public routes
-router.get('/', salonController.getAllSalons);
-router.get('/:id', salonController.getSalonById);
+router.get('/', asyncHandler(salonController.getAllSalons));
+router.get('/:id', asyncHandler(salonController.getSalonById));
 
 // Protected routes - Require authentication and specific roles
 router.post(
   '/',
   authMiddleware,
-  salonController.createSalon,
+  asyncHandler(salonController.createSalon),
 );
 router.patch(
   '/:id',
   authMiddleware,
   tenantGuard,
   requireRole([UserRole.MANAGER]),
-  salonController.updateSalon,
+  asyncHandler(salonController.updateSalon),
 );
 router.delete(
   '/:id',
   authMiddleware,
   tenantGuard,
   requireRole([UserRole.MANAGER]),
-  salonController.deleteSalon,
+  asyncHandler(salonController.deleteSalon),
 );
 
 export default router;

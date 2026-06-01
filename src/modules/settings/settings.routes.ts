@@ -10,6 +10,7 @@ import { requireRole } from '../../common/middleware/requireRole';
 import { tenantGuard } from '../../common/middleware/tenantGuard';
 import { UserRole } from '@prisma/client';
 import { privateApiRateLimiter } from '../../common/middleware/rateLimit';
+import { asyncHandler } from '../../common/middleware/asyncHandler';
 
 const router = Router({ mergeParams: true });
 
@@ -19,14 +20,14 @@ router.get(
   '/',
   requireRole([UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]),
   validate(getSettingsSchema),
-  SettingsController.getSettings
+  asyncHandler(SettingsController.getSettings)
 );
 
 router.patch(
   '/',
   requireRole([UserRole.MANAGER]),
   validate(updateSettingsSchema),
-  SettingsController.updateSettings
+  asyncHandler(SettingsController.updateSettings)
 );
 
 export { router as settingsRouter };

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { AuthService } from '../../../../src/modules/auth/auth.station';
 import { AuthRepository } from '../../../../src/modules/auth/auth.repository';

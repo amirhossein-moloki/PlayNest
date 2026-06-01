@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { createStaffMember } from '../../../../src/modules/users/users.station';
 import * as userRepo from '../../../../src/modules/users/users.repo';

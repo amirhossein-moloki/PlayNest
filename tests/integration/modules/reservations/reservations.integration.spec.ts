@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { reservationsService } from '../../../../src/modules/reservations/reservations.station';
 import { ReservationsRepo } from '../../../../src/modules/reservations/reservations.repo';
-import { ReservationStatus, ReservationSource, Prisma } from '@prisma/client';
+import { ReservationStatus, ReservationSource } from '@prisma/client';
 import { eventEmitter, AppEvents } from '../../../../src/common/events/event-emitter';
 
 jest.mock('../../../../src/modules/reservations/reservations.repo');

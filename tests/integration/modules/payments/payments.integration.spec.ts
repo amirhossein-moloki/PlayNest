@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { PaymentsService } from '../../../../src/modules/payments/payments.station';
 import { PaymentsRepo } from '../../../../src/modules/payments/payments.repo';
