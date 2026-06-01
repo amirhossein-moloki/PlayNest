@@ -5,7 +5,7 @@ import * as SettingsRepo from '../../../../src/modules/settings/settings.repo';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 describe('SettingsRepo', () => {
-  const settingsMock = prismaMock.settings as any;
+  const settingsMock = prismaMock.settings /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   it('findBySalonId', async () => {
     settingsMock.findUnique.mockResolvedValue({ id: 's-1' });

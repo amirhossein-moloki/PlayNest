@@ -6,11 +6,11 @@ import * as MediaRepo from '../../../../src/modules/cms/media.repo';
 
 describe('MediaRepo', () => {
   const gamingCenterId = 'gc-1';
-  const mediaMock = prismaMock.media as any;
+  const mediaMock = prismaMock.media /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   it('createMedia', async () => {
     mediaMock.create.mockResolvedValue({ id: 'm-1' });
-    await MediaRepo.createMedia(gamingCenterId, { url: 'url' } as any);
+    await MediaRepo.createMedia(gamingCenterId, { url: 'url' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
     expect(mediaMock.create).toHaveBeenCalled();
   });
 

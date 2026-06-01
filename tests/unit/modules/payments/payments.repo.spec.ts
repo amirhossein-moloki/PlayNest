@@ -25,8 +25,8 @@ describe('PaymentsRepo', () => {
   const reservationId = 'res-1';
   const paymentId = 'pay-1';
 
-  const reservationMock = prismaMock.reservation as any;
-  const paymentMock = prismaMock.payment as any;
+  const reservationMock = prismaMock.reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const paymentMock = prismaMock.payment /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   describe('findBookingForUpdate', () => {
     it('should find a reservation', async () => {
@@ -58,7 +58,7 @@ describe('PaymentsRepo', () => {
       paymentMock.update.mockResolvedValue({ ...mockPayment, status: PaymentStatus.PAID });
       reservationMock.update.mockResolvedValue({ id: reservationId, paymentState: ReservationPaymentState.PAID });
 
-      await PaymentsRepo.handleSuccessfulPayment(prismaMock as any, paymentId);
+      await PaymentsRepo.handleSuccessfulPayment(prismaMock /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any, paymentId);
 
       expect(paymentMock.update).toHaveBeenCalledWith(expect.objectContaining({
         where: { id: paymentId },
@@ -72,7 +72,7 @@ describe('PaymentsRepo', () => {
 
     it('should throw if payment not found', async () => {
       paymentMock.findUnique.mockResolvedValue(null);
-      await expect(PaymentsRepo.handleSuccessfulPayment(prismaMock as any, 'invalid')).rejects.toThrow(
+      await expect(PaymentsRepo.handleSuccessfulPayment(prismaMock /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any, 'invalid')).rejects.toThrow(
         new AppError('Payment not found.', httpStatus.NOT_FOUND)
       );
     });
@@ -83,7 +83,7 @@ describe('PaymentsRepo', () => {
         reservation: { paymentState: ReservationPaymentState.PAID }
       };
       paymentMock.findUnique.mockResolvedValue(mockPayment);
-      await PaymentsRepo.handleSuccessfulPayment(prismaMock as any, paymentId);
+      await PaymentsRepo.handleSuccessfulPayment(prismaMock /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any, paymentId);
       expect(paymentMock.update).not.toHaveBeenCalled();
     });
   });
@@ -101,7 +101,7 @@ describe('PaymentsRepo', () => {
       paymentMock.update.mockResolvedValue({ ...mockPayment, status: PaymentStatus.FAILED });
       reservationMock.update.mockResolvedValue({ id: reservationId, paymentState: ReservationPaymentState.FAILED });
 
-      await PaymentsRepo.handleFailedPayment(prismaMock as any, paymentId);
+      await PaymentsRepo.handleFailedPayment(prismaMock /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any, paymentId);
 
       expect(paymentMock.update).toHaveBeenCalledWith(expect.objectContaining({
         where: { id: paymentId },
@@ -111,22 +111,22 @@ describe('PaymentsRepo', () => {
 
     it('should throw if payment not found', async () => {
       paymentMock.findUnique.mockResolvedValue(null);
-      await expect(PaymentsRepo.handleFailedPayment(prismaMock as any, 'invalid')).rejects.toThrow(
+      await expect(PaymentsRepo.handleFailedPayment(prismaMock /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any, 'invalid')).rejects.toThrow(
         new AppError('Payment not found.', httpStatus.NOT_FOUND)
       );
     });
 
     it('should return early if already in target state', async () => {
       paymentMock.findUnique.mockResolvedValue({ status: PaymentStatus.FAILED });
-      await PaymentsRepo.handleFailedPayment(prismaMock as any, paymentId, PaymentStatus.FAILED);
+      await PaymentsRepo.handleFailedPayment(prismaMock /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any, paymentId, PaymentStatus.FAILED);
       expect(paymentMock.update).not.toHaveBeenCalled();
     });
   });
 
   describe('createPaymentAndUpdateBooking', () => {
     it('should create payment and update reservation in transaction', async () => {
-      const paymentData = { amount: 1000 } as any;
-      (prismaMock as any).$transaction.mockImplementation(async (cb: any) => cb(prismaMock));
+      const paymentData = { amount: 1000 } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+      (prismaMock /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).$transaction.mockImplementation(async (cb: any) => cb(prismaMock));
       paymentMock.create.mockResolvedValue({ id: 'pay-1' });
       reservationMock.update.mockResolvedValue({ id: reservationId });
 

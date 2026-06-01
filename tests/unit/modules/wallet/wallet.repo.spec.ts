@@ -6,10 +6,10 @@ import { PaymentStatus, WalletTransactionType } from '@prisma/client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 describe('WalletRepo', () => {
-  const accountMock = prismaMock.customerAccount as any;
-  const transMock = prismaMock.walletTransaction as any;
-  const paymentMock = prismaMock.payment as any;
-  const resMock = prismaMock.reservation as any;
+  const accountMock = prismaMock.customerAccount /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const transMock = prismaMock.walletTransaction /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const paymentMock = prismaMock.payment /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const resMock = prismaMock.reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   describe('updateBalance', () => {
     it('should increment wallet balance', async () => {

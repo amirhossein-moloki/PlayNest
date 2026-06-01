@@ -30,7 +30,7 @@ describe('Customer Registration/Login Integration (Mocked Repo)', () => {
 
     MockedAuthRepository.findCustomerByPhone.mockResolvedValue(null);
     MockedAuthRepository.createCustomer.mockResolvedValue(newCustomer);
-    MockedAuthRepository.createSession.mockResolvedValue(session as any);
+    MockedAuthRepository.createSession.mockResolvedValue(session /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
     const result = await AuthService.loginCustomer(phone);
 
@@ -53,7 +53,7 @@ describe('Customer Registration/Login Integration (Mocked Repo)', () => {
 
     MockedAuthRepository.findCustomerByPhone.mockResolvedValue(existingUnverifiedCustomer);
     MockedAuthRepository.markCustomerPhoneVerified.mockResolvedValue(verifiedCustomer);
-    MockedAuthRepository.createSession.mockResolvedValue(session as any);
+    MockedAuthRepository.createSession.mockResolvedValue(session /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
     const result = await AuthService.loginCustomer(phone);
 

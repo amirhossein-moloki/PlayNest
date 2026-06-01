@@ -7,7 +7,6 @@ import { UserRole } from '@prisma/client';
 import { validate } from '../../common/middleware/validate';
 import { AnalyticsController } from './analytics.controller';
 import { AnalyticsQuerySchema } from './analytics.validators';
-import { asyncHandler } from '../../common/middleware/asyncHandler';
 
 const router = Router({ mergeParams: true });
 

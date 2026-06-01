@@ -10,20 +10,20 @@ describe('Public Repositories', () => {
   const gamingCenterId = 'gc-1';
 
   it('findPublicAddressesBySalonId', async () => {
-    (prismaMock.address as any).findMany.mockResolvedValue([]);
+    (prismaMock.address /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).findMany.mockResolvedValue([]);
     await AddressesPublicRepo.findPublicAddressesBySalonId(gamingCenterId);
-    expect((prismaMock.address as any).findMany).toHaveBeenCalledWith({ where: { gamingCenterId } });
+    expect((prismaMock.address /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).findMany).toHaveBeenCalledWith({ where: { gamingCenterId } });
   });
 
   it('findPublicLinksBySalonId', async () => {
-    (prismaMock.socialLink as any).findMany.mockResolvedValue([]);
+    (prismaMock.socialLink /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).findMany.mockResolvedValue([]);
     await LinksPublicRepo.findPublicLinksBySalonId(gamingCenterId);
-    expect((prismaMock.socialLink as any).findMany).toHaveBeenCalled();
+    expect((prismaMock.socialLink /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).findMany).toHaveBeenCalled();
   });
 
   it('findPublicMediaBySalonId', async () => {
-    (prismaMock.media as any).findMany.mockResolvedValue([]);
+    (prismaMock.media /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).findMany.mockResolvedValue([]);
     await MediaPublicRepo.findPublicMediaBySalonId(gamingCenterId);
-    expect((prismaMock.media as any).findMany).toHaveBeenCalled();
+    expect((prismaMock.media /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).findMany).toHaveBeenCalled();
   });
 });

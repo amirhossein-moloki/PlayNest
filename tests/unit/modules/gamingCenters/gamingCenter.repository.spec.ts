@@ -5,12 +5,12 @@ import { salonRepository } from '../../../../src/modules/gamingCenter/gamingCent
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 describe('GamingCenterRepository', () => {
-  const gcMock = prismaMock.gamingCenter as any;
+  const gcMock = prismaMock.gamingCenter /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   describe('create', () => {
     it('should create a gaming center', async () => {
       gcMock.create.mockResolvedValue({ id: 'gc-1', name: 'GC 1' });
-      await salonRepository.create({ name: 'GC 1', slug: 'gc-1' } as any);
+      await salonRepository.create({ name: 'GC 1', slug: 'gc-1' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       expect(gcMock.create).toHaveBeenCalled();
     });
   });

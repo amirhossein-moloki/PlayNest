@@ -49,9 +49,9 @@ describe('Authentication API', () => {
     });
 
     it('should return 200 when verifying valid OTP', async () => {
-      MockedAuthRepository.findRecentOtp.mockResolvedValue({ id: 'o1', codeHash: 'hashed' } as any);
-      MockedArgon2.verify.mockResolvedValue(true as any);
-      MockedAuthRepository.findUsersWithSalons.mockResolvedValue([{ gamingCenter: { id: gamingCenterId, name: 'Center' } }] as any);
+      MockedAuthRepository.findRecentOtp.mockResolvedValue({ id: 'o1', codeHash: 'hashed' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedArgon2.verify.mockResolvedValue(true /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedAuthRepository.findUsersWithSalons.mockResolvedValue([{ gamingCenter: { id: gamingCenterId, name: 'Center' } }] /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
       const res = await request(app).post('/api/v1/auth/user/otp/verify').send({ phone, code: '123456' });
       expect(res.status).toBe(httpStatus.OK);
@@ -61,17 +61,17 @@ describe('Authentication API', () => {
 
   describe('Classic Login', () => {
     it('should return 401 for invalid credentials', async () => {
-      MockedAuthRepository.findUserByPhone.mockResolvedValue({ id: userId, passwordHash: 'h' } as any);
-      MockedArgon2.verify.mockResolvedValue(false as any);
+      MockedAuthRepository.findUserByPhone.mockResolvedValue({ id: userId, passwordHash: 'h' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedArgon2.verify.mockResolvedValue(false /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
       const res = await request(app).post('/api/v1/auth/login').send({ phone, password: 'wrong', gamingCenterId });
       expect(res.status).toBe(httpStatus.UNAUTHORIZED);
     });
 
     it('should return 200 and tokens for valid credentials', async () => {
-      MockedAuthRepository.findUserByPhone.mockResolvedValue({ id: userId, passwordHash: 'h' } as any);
-      MockedArgon2.verify.mockResolvedValue(true as any);
-      MockedAuthRepository.createSession.mockResolvedValue({ id: 's1' } as any);
+      MockedAuthRepository.findUserByPhone.mockResolvedValue({ id: userId, passwordHash: 'h' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedArgon2.verify.mockResolvedValue(true /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedAuthRepository.createSession.mockResolvedValue({ id: 's1' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
       const res = await request(app).post('/api/v1/auth/login').send({ phone, password: 'correct', gamingCenterId });
       expect(res.status).toBe(httpStatus.OK);
@@ -83,7 +83,7 @@ describe('Authentication API', () => {
     let token: string;
     beforeEach(() => {
       token = generateAccessToken({ sessionId: 's1', actorId: userId, actorType: 'USER' });
-      (prisma.user.findUnique as any).mockResolvedValue({ id: userId, gamingCenterId, role: 'MANAGER' });
+      (prisma.user.findUnique /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).mockResolvedValue({ id: userId, gamingCenterId, role: 'MANAGER' });
     });
 
     it('GET /auth/me should return actor profile', async () => {
@@ -93,7 +93,7 @@ describe('Authentication API', () => {
     });
 
     it('POST /auth/logout should revoke session', async () => {
-      MockedAuthRepository.revokeSession.mockResolvedValue({ id: 's1' } as any);
+      MockedAuthRepository.revokeSession.mockResolvedValue({ id: 's1' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       const res = await request(app).post('/api/v1/auth/logout').set('Authorization', `Bearer ${token}`);
       expect(res.status).toBe(200);
       expect(MockedAuthRepository.revokeSession).toHaveBeenCalledWith('s1');

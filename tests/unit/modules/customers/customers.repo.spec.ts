@@ -5,8 +5,8 @@ import * as CustomersRepo from '../../../../src/modules/customers/customers.repo
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 describe('CustomersRepo', () => {
-  const profileMock = prismaMock.customerProfile as any;
-  const accountMock = prismaMock.customerAccount as any;
+  const profileMock = prismaMock.customerProfile /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const accountMock = prismaMock.customerAccount /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
   const gamingCenterId = 'gc-1';
 
   describe('findManyProfiles', () => {

@@ -1,7 +1,6 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import request from 'supertest';
 import app from '../../../src/app';
-import { ReservationsRepo } from '../../../src/modules/reservations/reservations.repo';
 import { prisma } from '../../../src/config/prisma';
 import { generateAccessToken } from '../../../src/modules/auth/auth.tokens';
 
@@ -14,8 +13,6 @@ jest.mock('../../../src/config/prisma', () => ({
     session: { findUnique: jest.fn() }
   }
 }));
-
-const MockedReservationsRepo = ReservationsRepo as jest.Mocked<typeof ReservationsRepo>;
 
 describe('Reservation API', () => {
   const gamingCenterId = 'clp6u7o00000108msh9v8k7g5';
@@ -31,13 +28,13 @@ describe('Reservation API', () => {
   });
 
   it('should return 403 for STAFF attempting to confirm a booking', async () => {
-      const token = generateAccessToken({ sessionId: 's1', actorId: userId, actorType: 'USER' });
-      (prisma.user.findUnique as any).mockResolvedValue({ id: userId, gamingCenterId, role: 'STAFF' });
+    const token = generateAccessToken({ sessionId: 's1', actorId: userId, actorType: 'USER' });
+    (prisma.user.findUnique /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).mockResolvedValue({ id: userId, gamingCenterId, role: 'STAFF' });
 
-      const res = await request(app)
-        .post(`/api/v1/gamingCenters/${gamingCenterId}/reservations/res-1/confirm`)
-        .set('Authorization', `Bearer ${token}`);
+    const res = await request(app)
+      .post(`/api/v1/gamingCenters/${gamingCenterId}/reservations/res-1/confirm`)
+      .set('Authorization', `Bearer ${token}`);
 
-      expect(res.status).toBe(403);
+    expect(res.status).toBe(403);
   });
 });

@@ -30,7 +30,7 @@ describe('IdempotencyRepo', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    (redis.get as any).mockResolvedValue(JSON.stringify(mockRecord));
+    (redis.get /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).mockResolvedValue(JSON.stringify(mockRecord));
 
     const result = await IdempotencyRepo.findKey(scope, key);
     expect(result?.key).toBe(key);
@@ -38,7 +38,7 @@ describe('IdempotencyRepo', () => {
   });
 
   it('createKey should set value in redis', async () => {
-    (redis.set as any).mockResolvedValue('OK');
+    (redis.set /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).mockResolvedValue('OK');
     const data = {
       key,
       scope,
@@ -59,8 +59,8 @@ describe('IdempotencyRepo', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    (redis.get as any).mockResolvedValue(JSON.stringify(existing));
-    (redis.set as any).mockResolvedValue('OK');
+    (redis.get /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).mockResolvedValue(JSON.stringify(existing));
+    (redis.set /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).mockResolvedValue('OK');
 
     await IdempotencyRepo.updateKey(scope, key, { status: IdempotencyStatus.COMPLETED });
     expect(redis.set).toHaveBeenCalled();
@@ -72,7 +72,7 @@ describe('IdempotencyRepo', () => {
   });
 
   it('clearAll should remove all keys', async () => {
-    (redis.keys as any).mockResolvedValue(['k1', 'k2']);
+    (redis.keys /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).mockResolvedValue(['k1', 'k2']);
     await IdempotencyRepo.clearAll();
     expect(redis.del).toHaveBeenCalled();
   });

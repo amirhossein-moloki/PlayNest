@@ -7,7 +7,7 @@ import { GameStationType } from '@prisma/client';
 
 describe('StationsRepo', () => {
   const gamingCenterId = 'gc-1';
-  const stationMock = prismaMock.gameStation as any;
+  const stationMock = prismaMock.gameStation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   describe('createStation', () => {
     it('should create a station successfully', async () => {
@@ -15,7 +15,7 @@ describe('StationsRepo', () => {
       const mockStation = { id: 's-1', gamingCenterId, ...data };
       stationMock.create.mockResolvedValue(mockStation);
 
-      const result = await StationsRepo.createStation(gamingCenterId, data as any);
+      const result = await StationsRepo.createStation(gamingCenterId, data /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       expect(result).toEqual(mockStation);
       expect(stationMock.create).toHaveBeenCalledWith({
         data: expect.objectContaining({ name: 'Station 1', gamingCenterId }),

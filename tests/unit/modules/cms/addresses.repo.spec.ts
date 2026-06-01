@@ -6,7 +6,7 @@ import { AddressesRepo } from '../../../../src/modules/cms/addresses.repo';
 
 describe('AddressesRepo', () => {
   const gamingCenterId = 'gc-1';
-  const addressMock = prismaMock.address as any;
+  const addressMock = prismaMock.address /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   it('findBySalonId', async () => {
     addressMock.findMany.mockResolvedValue([]);

@@ -28,9 +28,9 @@ describe('User Registration Integration (Mocked Repo)', () => {
     };
 
     const createdUser = UserFactory.create({ ...input, gamingCenterId });
-    MockedUserRepo.createUser.mockResolvedValue(createdUser as any);
+    MockedUserRepo.createUser.mockResolvedValue(createdUser /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
-    const result = await createStaffMember(gamingCenterId, input as any, actor, context);
+    const result = await createStaffMember(gamingCenterId, input /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any, actor, context);
 
     expect(result).toEqual(createdUser);
     expect(MockedUserRepo.createUser).toHaveBeenCalledWith(gamingCenterId, input);
@@ -57,7 +57,7 @@ describe('User Registration Integration (Mocked Repo)', () => {
     const error = new Error('Unique constraint failed');
     MockedUserRepo.createUser.mockRejectedValue(error);
 
-    await expect(createStaffMember(gamingCenterId, input as any, actor, context))
+    await expect(createStaffMember(gamingCenterId, input /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any, actor, context))
       .rejects.toThrow('Unique constraint failed');
 
     expect(MockedAuditService.recordLog).not.toHaveBeenCalled();
@@ -70,7 +70,7 @@ describe('User Registration Integration (Mocked Repo)', () => {
     const error = new Error('Validation failed');
     MockedUserRepo.createUser.mockRejectedValue(error);
 
-    await expect(createStaffMember(gamingCenterId, {} as any, actor))
+    await expect(createStaffMember(gamingCenterId, {} /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any, actor))
       .rejects.toThrow('Validation failed');
   });
 });

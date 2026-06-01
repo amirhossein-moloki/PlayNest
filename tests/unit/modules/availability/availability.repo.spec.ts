@@ -5,10 +5,10 @@ import { AvailabilityRepo } from '../../../../src/modules/availability/availabil
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 describe('AvailabilityRepo', () => {
-  const stationMock = prismaMock.gameStation as any;
-  const userMock = prismaMock.user as any;
-  const shiftMock = prismaMock.staffShift as any;
-  const resMock = prismaMock.reservation as any;
+  const stationMock = prismaMock.gameStation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const userMock = prismaMock.user /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const shiftMock = prismaMock.staffShift /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const resMock = prismaMock.reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   it('findStationWithGamingCenter', async () => {
     stationMock.findFirst.mockResolvedValue({ id: 's-1' });

@@ -6,12 +6,12 @@ import { RatingStatus } from '@prisma/client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 describe('RatingsRepo', () => {
-  const ratingMock = prismaMock.rating as any;
-  const resMock = prismaMock.reservation as any;
+  const ratingMock = prismaMock.rating /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const resMock = prismaMock.reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   it('createReview', async () => {
     ratingMock.create.mockResolvedValue({ id: 'r-1' });
-    await RatingsRepo.createReview('gc-1', 'ca-1', { reservationId: 'res-1', rating: 5 } as any);
+    await RatingsRepo.createReview('gc-1', 'ca-1', { reservationId: 'res-1', rating: 5 } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
     expect(ratingMock.create).toHaveBeenCalled();
   });
 
