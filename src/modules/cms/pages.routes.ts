@@ -7,13 +7,14 @@ import {
   updatePageSchema,
 } from './pages.validators';
 import * as PagesController from './pages.controller';
+import { asyncHandler } from '../../common/middleware/asyncHandler';
 
 export const cmsPagesRouter = Router({ mergeParams: true });
 
-cmsPagesRouter.get('/', validate(listPagesSchema), PagesController.listPages);
+cmsPagesRouter.get('/', validate(listPagesSchema), asyncHandler(PagesController.listPages));
 
-cmsPagesRouter.get('/:pageId', validate(getPageSchema), PagesController.getPage);
+cmsPagesRouter.get('/:pageId', validate(getPageSchema), asyncHandler(PagesController.getPage));
 
-cmsPagesRouter.post('/', validate(createPageSchema), PagesController.createPage);
+cmsPagesRouter.post('/', validate(createPageSchema), asyncHandler(PagesController.createPage));
 
-cmsPagesRouter.patch('/:pageId', validate(updatePageSchema), PagesController.updatePage);
+cmsPagesRouter.patch('/:pageId', validate(updatePageSchema), asyncHandler(PagesController.updatePage));

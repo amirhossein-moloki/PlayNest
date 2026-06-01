@@ -15,6 +15,7 @@ import {
   privateApiRateLimiter,
   publicApiRateLimiter,
 } from '../../common/middleware/rateLimit';
+import { asyncHandler } from '../../common/middleware/asyncHandler';
 
 // --- Private Router (to be mounted under /api/v1/gamingCenters/:gamingCenterId/ratings) ---
 export const privateReviewsRouter = Router({ mergeParams: true });
@@ -25,7 +26,7 @@ privateReviewsRouter.patch(
   '/:id/status',
   requireRole([UserRole.MANAGER]),
   validate(moderateReviewSchema),
-  ReviewsController.moderateReview
+  asyncHandler(ReviewsController.moderateReview)
 );
 
 // --- Public Router (to be mounted under /api/v1/public/gamingCenters/:salonSlug) ---
@@ -36,11 +37,11 @@ publicReviewsRouter.use(publicApiRateLimiter, resolveSalonBySlug);
 publicReviewsRouter.post(
   '/reservations/:reservationId/ratings',
   validate(submitReviewSchema),
-  ReviewsController.submitReview
+  asyncHandler(ReviewsController.submitReview)
 );
 
 publicReviewsRouter.get(
   '/ratings',
   validate(getReviewsSchema),
-  ReviewsController.getReviews
+  asyncHandler(ReviewsController.getReviews)
 );

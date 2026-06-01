@@ -21,6 +21,7 @@ import {
 import { authMiddleware } from '../../common/middleware/auth';
 import { publicApiRateLimiter } from '../../common/middleware/rateLimit';
 import { env } from '../../config/env';
+import { asyncHandler } from '../../common/middleware/asyncHandler';
 
 const router = Router();
 
@@ -29,21 +30,21 @@ if (env.NODE_ENV !== 'test') {
 }
 
 // --- User OTP Flow ---
-router.post('/user/otp/request', validate(requestOtpSchema), requestUserOtp);
-router.post('/user/otp/verify', validate(verifyOtpSchema), verifyUserOtp);
-router.post('/user/login/otp', validate(loginWithOtpSchema), loginUserWithOtp);
+router.post('/user/otp/request', validate(requestOtpSchema), asyncHandler(requestUserOtp));
+router.post('/user/otp/verify', validate(verifyOtpSchema), asyncHandler(verifyUserOtp));
+router.post('/user/login/otp', validate(loginWithOtpSchema), asyncHandler(loginUserWithOtp));
 
 // --- Customer OTP Flow ---
-router.post('/customer/otp/request', validate(requestOtpSchema), requestCustomerOtp);
-router.post('/customer/otp/verify', validate(verifyOtpSchema), verifyCustomerOtp);
+router.post('/customer/otp/request', validate(requestOtpSchema), asyncHandler(requestCustomerOtp));
+router.post('/customer/otp/verify', validate(verifyOtpSchema), asyncHandler(verifyCustomerOtp));
 
 // --- Classic Login ---
-router.post('/login', validate(loginSchema), login);
-router.post('/refresh', validate(refreshSchema), refresh);
+router.post('/login', validate(loginSchema), asyncHandler(login));
+router.post('/refresh', validate(refreshSchema), asyncHandler(refresh));
 
 
 // --- Protected ---
-router.post('/logout', authMiddleware, logout);
-router.get('/me', authMiddleware, me);
+router.post('/logout', authMiddleware, asyncHandler(logout));
+router.get('/me', authMiddleware, asyncHandler(me));
 
 export default router;

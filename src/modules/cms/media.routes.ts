@@ -8,6 +8,7 @@ import {
 } from './media.validators';
 import * as MediaController from './media.controller';
 import * as MediaUploadController from './media.upload.controller';
+import { asyncHandler } from '../../common/middleware/asyncHandler';
 
 export const cmsMediaRouter = Router({ mergeParams: true });
 
@@ -28,18 +29,18 @@ const upload = multer({
 cmsMediaRouter.post(
   '/',
   validate(createMediaSchema),
-  MediaController.createMedia
+  asyncHandler(MediaController.createMedia)
 );
 
 cmsMediaRouter.post(
   '/upload',
   upload.single('file'),
   validate(uploadMediaSchema),
-  MediaUploadController.uploadMedia
+  asyncHandler(MediaUploadController.uploadMedia)
 );
 
 cmsMediaRouter.patch(
   '/:mediaId',
   validate(updateMediaSchema),
-  MediaController.updateMedia
+  asyncHandler(MediaController.updateMedia)
 );

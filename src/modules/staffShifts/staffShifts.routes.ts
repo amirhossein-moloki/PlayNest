@@ -7,6 +7,7 @@ import { requireRole } from '../../common/middleware/requireRole';
 import { UserRole } from '@prisma/client';
 import { tenantGuard } from '../../common/middleware/tenantGuard';
 import { privateApiRateLimiter } from '../../common/middleware/rateLimit';
+import { asyncHandler } from '../../common/middleware/asyncHandler';
 
 const router = Router({ mergeParams: true });
 
@@ -18,7 +19,7 @@ router.put(
   '/',
   requireRole([UserRole.MANAGER]),
   validate(upsertShiftsSchema),
-  upsertShiftsController
+  asyncHandler(upsertShiftsController)
 );
 
 export default router;

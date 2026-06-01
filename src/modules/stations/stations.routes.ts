@@ -15,6 +15,7 @@ import {
   privateApiRateLimiter,
   publicApiRateLimiter,
 } from '../../common/middleware/rateLimit';
+import { asyncHandler } from '../../common/middleware/asyncHandler';
 
 // --- Private Router (to be mounted under /api/v1/gamingCenters/:gamingCenterId/stations) ---
 export const privateServiceRouter = Router({ mergeParams: true });
@@ -25,34 +26,34 @@ privateServiceRouter.post(
   '/',
   requireRole([UserRole.MANAGER]),
   validate(createStationSchema),
-  ServiceController.createStation
+  asyncHandler(ServiceController.createStation)
 );
 
 privateServiceRouter.get(
   '/',
   requireRole([UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]),
-  ServiceController.getServices
+  asyncHandler(ServiceController.getServices)
 );
 
 privateServiceRouter.get(
   '/:stationId',
   requireRole([UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]),
   validate(serviceIdParamSchema),
-  ServiceController.getStationById
+  asyncHandler(ServiceController.getStationById)
 );
 
 privateServiceRouter.patch(
   '/:stationId',
   requireRole([UserRole.MANAGER]),
   validate(updateStationSchema),
-  ServiceController.updateStation
+  asyncHandler(ServiceController.updateStation)
 );
 
 privateServiceRouter.delete(
   '/:stationId',
   requireRole([UserRole.MANAGER]),
   validate(serviceIdParamSchema),
-  ServiceController.deleteService
+  asyncHandler(ServiceController.deleteService)
 );
 
 // --- Public Router (to be mounted under /api/v1/public/gamingCenters/:salonSlug/stations) ---
@@ -67,5 +68,5 @@ publicServiceRouter.get(
     req.query.isActive = 'true';
     next();
   },
-  ServiceController.getServices
+  asyncHandler(ServiceController.getServices)
 );
