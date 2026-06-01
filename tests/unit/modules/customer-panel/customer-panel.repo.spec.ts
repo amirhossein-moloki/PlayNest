@@ -5,8 +5,8 @@ import { CustomerPanelRepo } from '../../../../src/modules/customer-panel/custom
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 describe('CustomerPanelRepo', () => {
-  const accountMock = prismaMock.customerAccount as any;
-  const resMock = prismaMock.reservation as any;
+  const accountMock = prismaMock.customerAccount /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const resMock = prismaMock.reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   it('findCustomerAccountById', async () => {
     accountMock.findUnique.mockResolvedValue({ id: 'ca-1' });

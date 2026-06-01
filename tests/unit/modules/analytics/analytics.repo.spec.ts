@@ -9,16 +9,16 @@ describe('AnalyticsRepo', () => {
   const startDate = new Date('2023-01-01');
   const endDate = new Date('2023-01-31');
 
-  const gcAnalyticsMock = prismaMock.gamingCenterAnalytics as any;
-  const staffAnalyticsMock = prismaMock.staffAnalytics as any;
-  const stationAnalyticsMock = prismaMock.stationAnalytics as any;
-  const settingsMock = prismaMock.settings as any;
-  const resMock = prismaMock.reservation as any;
-  const paymentMock = prismaMock.payment as any;
-  const userMock = prismaMock.user as any;
-  const stationModelMock = prismaMock.gameStation as any;
-  const profileMock = prismaMock.customerProfile as any;
-  const ratingMock = prismaMock.rating as any;
+  const gcAnalyticsMock = prismaMock.gamingCenterAnalytics /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const staffAnalyticsMock = prismaMock.staffAnalytics /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const stationAnalyticsMock = prismaMock.stationAnalytics /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const settingsMock = prismaMock.settings /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const resMock = prismaMock.reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const paymentMock = prismaMock.payment /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const userMock = prismaMock.user /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const stationModelMock = prismaMock.gameStation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const profileMock = prismaMock.customerProfile /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const ratingMock = prismaMock.rating /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   describe('getSummaryStats', () => {
     it('should return aggregated sum of stats', async () => {
@@ -138,9 +138,9 @@ describe('AnalyticsRepo', () => {
   describe('syncAllStatsForBooking', () => {
     it('should sync all stats for a booking', async () => {
       resMock.findUnique.mockResolvedValue({ id: 'res-1', gamingCenterId, startTime: new Date(), staffId: 'u-1', stationId: 's-1' });
-      jest.spyOn(AnalyticsRepo, 'syncSalonStats').mockResolvedValue(undefined as any);
-      jest.spyOn(AnalyticsRepo, 'syncStaffStats').mockResolvedValue(undefined as any);
-      jest.spyOn(AnalyticsRepo, 'syncServiceStats').mockResolvedValue(undefined as any);
+      jest.spyOn(AnalyticsRepo, 'syncSalonStats').mockResolvedValue(undefined /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      jest.spyOn(AnalyticsRepo, 'syncStaffStats').mockResolvedValue(undefined /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      jest.spyOn(AnalyticsRepo, 'syncServiceStats').mockResolvedValue(undefined /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
       await AnalyticsRepo.syncAllStatsForBooking('res-1');
       expect(AnalyticsRepo.syncSalonStats).toHaveBeenCalled();
@@ -150,8 +150,8 @@ describe('AnalyticsRepo', () => {
   describe('syncAllStatsForPayment', () => {
     it('should sync stats after payment', async () => {
       paymentMock.findUnique.mockResolvedValue({ id: 'pay-1', status: 'PAID', paidAt: new Date(), gamingCenterId, reservationId: 'res-1' });
-      jest.spyOn(AnalyticsRepo, 'syncSalonStats').mockResolvedValue(undefined as any);
-      jest.spyOn(AnalyticsRepo, 'syncAllStatsForBooking').mockResolvedValue(undefined as any);
+      jest.spyOn(AnalyticsRepo, 'syncSalonStats').mockResolvedValue(undefined /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      jest.spyOn(AnalyticsRepo, 'syncAllStatsForBooking').mockResolvedValue(undefined /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
       await AnalyticsRepo.syncAllStatsForPayment('pay-1');
       expect(AnalyticsRepo.syncSalonStats).toHaveBeenCalled();
@@ -162,7 +162,7 @@ describe('AnalyticsRepo', () => {
   describe('syncAllStatsForReview', () => {
     it('should sync staff stats after review', async () => {
       ratingMock.findUnique.mockResolvedValue({ id: 'r-1', gamingCenterId, reservation: { staffId: 'u-1', startTime: new Date() } });
-      jest.spyOn(AnalyticsRepo, 'syncStaffStats').mockResolvedValue(undefined as any);
+      jest.spyOn(AnalyticsRepo, 'syncStaffStats').mockResolvedValue(undefined /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
       await AnalyticsRepo.syncAllStatsForReview('r-1');
       expect(AnalyticsRepo.syncStaffStats).toHaveBeenCalled();

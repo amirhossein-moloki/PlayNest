@@ -9,10 +9,10 @@ describe('AuthRepository', () => {
   const phone = '09123456789';
   const gamingCenterId = 'gc-1';
 
-  const userMock = prismaMock.user as any;
-  const customerMock = prismaMock.customerAccount as any;
-  const otpMock = prismaMock.phoneOtp as any;
-  const sessionMock = prismaMock.session as any;
+  const userMock = prismaMock.user /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const customerMock = prismaMock.customerAccount /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const otpMock = prismaMock.phoneOtp /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const sessionMock = prismaMock.session /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   describe('findUserByPhone', () => {
     it('should find a user by phone and gamingCenterId', async () => {
@@ -74,7 +74,7 @@ describe('AuthRepository', () => {
 
   describe('createOtp', () => {
     it('should create a phone OTP', async () => {
-      const data = { phone, purpose: 'LOGIN' as any, codeHash: 'hash', expiresAt: new Date() };
+      const data = { phone, purpose: 'LOGIN' /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any, codeHash: 'hash', expiresAt: new Date() };
       otpMock.create.mockResolvedValue(data);
 
       const result = await AuthRepository.createOtp(data);
@@ -85,7 +85,7 @@ describe('AuthRepository', () => {
 
   describe('findRecentOtp', () => {
     it('should find the most recent unconsumed and unexpired OTP', async () => {
-      const purpose = 'LOGIN' as any;
+      const purpose = 'LOGIN' /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
       const mockOtp = { id: 'o-1', phone, purpose };
       otpMock.findFirst.mockResolvedValue(mockOtp);
 
@@ -104,7 +104,7 @@ describe('AuthRepository', () => {
 
   describe('findRecentConsumedOtp', () => {
     it('should find a recently consumed OTP', async () => {
-      const purpose = 'LOGIN' as any;
+      const purpose = 'LOGIN' /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
       const window = new Date();
       const mockOtp = { id: 'o-1', phone, purpose };
       otpMock.findFirst.mockResolvedValue(mockOtp);

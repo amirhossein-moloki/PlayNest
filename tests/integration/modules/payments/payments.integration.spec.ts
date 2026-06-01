@@ -8,7 +8,7 @@ import httpStatus from 'http-status';
 jest.mock('../../../../src/modules/payments/payments.repo');
 
 // Mock fetch for ZarinPal API
-const mockFetch = jest.fn() as any;
+const mockFetch = jest.fn() /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 global.fetch = mockFetch;
 
 const MockedPaymentsRepo = PaymentsRepo as jest.Mocked<typeof PaymentsRepo>;
@@ -34,8 +34,8 @@ describe('Payment Flow Integration (Mocked Repo)', () => {
       status: PaymentStatus.INITIATED,
     };
 
-    MockedPaymentsRepo.findBookingForUpdate.mockResolvedValue(reservation as any);
-    MockedPaymentsRepo.createPaymentAndUpdateBooking.mockResolvedValue({ payment } as any);
+    MockedPaymentsRepo.findBookingForUpdate.mockResolvedValue(reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+    MockedPaymentsRepo.createPaymentAndUpdateBooking.mockResolvedValue({ payment } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
     mockFetch.mockResolvedValue({
       json: () => Promise.resolve({
@@ -63,7 +63,7 @@ describe('Payment Flow Integration (Mocked Repo)', () => {
       paymentState: ReservationPaymentState.PAID,
     };
 
-    MockedPaymentsRepo.findBookingForUpdate.mockResolvedValue(reservation as any);
+    MockedPaymentsRepo.findBookingForUpdate.mockResolvedValue(reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
     await expect(PaymentsService.initiatePayment({
       gamingCenterId,
@@ -84,8 +84,8 @@ describe('Payment Flow Integration (Mocked Repo)', () => {
 
     const payment = { id: 'pay-2', status: PaymentStatus.INITIATED };
 
-    MockedPaymentsRepo.findBookingForUpdate.mockResolvedValue(reservation as any);
-    MockedPaymentsRepo.createPaymentAndUpdateBooking.mockResolvedValue({ payment } as any);
+    MockedPaymentsRepo.findBookingForUpdate.mockResolvedValue(reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+    MockedPaymentsRepo.createPaymentAndUpdateBooking.mockResolvedValue({ payment } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
     mockFetch.mockResolvedValue({
       json: () => Promise.resolve({

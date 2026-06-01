@@ -9,14 +9,14 @@ import { ReservationStatus } from '@prisma/client';
 describe('ReservationsRepo', () => {
   const gamingCenterId = 'gc-1';
 
-  const stationMock = prismaMock.gameStation as any;
-  const userMock = prismaMock.user as any;
-  const gcMock = prismaMock.gamingCenter as any;
-  const shiftMock = prismaMock.staffShift as any;
-  const resMock = prismaMock.reservation as any;
-  const accountMock = prismaMock.customerAccount as any;
-  const profileMock = prismaMock.customerProfile as any;
-  const settingsMock = prismaMock.settings as any;
+  const stationMock = prismaMock.gameStation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const userMock = prismaMock.user /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const gcMock = prismaMock.gamingCenter /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const shiftMock = prismaMock.staffShift /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const resMock = prismaMock.reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const accountMock = prismaMock.customerAccount /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const profileMock = prismaMock.customerProfile /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const settingsMock = prismaMock.settings /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   describe('findStation', () => {
     it('should find a station', async () => {
@@ -96,10 +96,10 @@ describe('ReservationsRepo', () => {
 
   describe('transaction', () => {
     it('should use prisma transaction', async () => {
-      (prismaMock as any).$transaction.mockResolvedValue('success');
+      (prismaMock /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).$transaction.mockResolvedValue('success');
       const result = await ReservationsRepo.transaction(async (tx) => 'success');
       expect(result).toBe('success');
-      expect((prismaMock as any).$transaction).toHaveBeenCalled();
+      expect((prismaMock /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).$transaction).toHaveBeenCalled();
     });
   });
 
@@ -130,7 +130,7 @@ describe('ReservationsRepo', () => {
 
     it('createCustomerAccount', async () => {
       accountMock.create.mockResolvedValue({ id: 'c-1' });
-      await ReservationsRepo.createCustomerAccount({ phone: 'phone' } as any);
+      await ReservationsRepo.createCustomerAccount({ phone: 'phone' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       expect(accountMock.create).toHaveBeenCalled();
     });
 
@@ -142,13 +142,13 @@ describe('ReservationsRepo', () => {
 
     it('createCustomerProfile', async () => {
       profileMock.create.mockResolvedValue({ id: 'cp-1' });
-      await ReservationsRepo.createCustomerProfile({ gamingCenterId, customerAccountId: 'ca-1' } as any);
+      await ReservationsRepo.createCustomerProfile({ gamingCenterId, customerAccountId: 'ca-1' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       expect(profileMock.create).toHaveBeenCalled();
     });
 
     it('createReservation', async () => {
       resMock.create.mockResolvedValue({ id: 'res-1' });
-      await ReservationsRepo.createReservation({} as any);
+      await ReservationsRepo.createReservation({} /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       expect(resMock.create).toHaveBeenCalled();
     });
 

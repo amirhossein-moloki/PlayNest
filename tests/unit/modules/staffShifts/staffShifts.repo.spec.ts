@@ -5,7 +5,7 @@ import * as StaffShiftsRepo from '../../../../src/modules/staffShifts/staffShift
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 describe('StaffShiftsRepo', () => {
-  const shiftMock = prismaMock.staffShift as any;
+  const shiftMock = prismaMock.staffShift /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   it('findShiftsByUserId', async () => {
     shiftMock.findMany.mockResolvedValue([]);
@@ -14,8 +14,8 @@ describe('StaffShiftsRepo', () => {
   });
 
   it('upsertShifts', async () => {
-    (prismaMock as any).$transaction.mockResolvedValue([]);
+    (prismaMock /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).$transaction.mockResolvedValue([]);
     await StaffShiftsRepo.upsertShifts('gc-1', 'u-1', [{ dayOfWeek: 1, startTime: '09:00', endTime: '17:00', isActive: true }]);
-    expect((prismaMock as any).$transaction).toHaveBeenCalled();
+    expect((prismaMock /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).$transaction).toHaveBeenCalled();
   });
 });

@@ -6,7 +6,7 @@ import { LinksRepo } from '../../../../src/modules/cms/links.repo';
 
 describe('LinksRepo', () => {
   const gamingCenterId = 'gc-1';
-  const linkMock = prismaMock.socialLink as any;
+  const linkMock = prismaMock.socialLink /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   it('findBySalonId', async () => {
     linkMock.findMany.mockResolvedValue([]);

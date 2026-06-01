@@ -5,11 +5,11 @@ import { AuditRepo } from '../../../../src/modules/audit/audit.repo';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 describe('AuditRepo', () => {
-  const auditMock = prismaMock.auditLog as any;
+  const auditMock = prismaMock.auditLog /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   it('createLog', async () => {
     auditMock.create.mockResolvedValue({ id: 'l-1' });
-    await AuditRepo.createLog({ action: 'test', entity: 'test', entityId: '1' } as any);
+    await AuditRepo.createLog({ action: 'test', entity: 'test', entityId: '1' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
     expect(auditMock.create).toHaveBeenCalled();
   });
 

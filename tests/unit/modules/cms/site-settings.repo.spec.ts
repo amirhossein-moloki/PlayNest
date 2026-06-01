@@ -6,7 +6,7 @@ import * as SiteSettingsRepo from '../../../../src/modules/cms/site-settings.rep
 
 describe('SiteSettingsRepo', () => {
   const gamingCenterId = 'gc-1';
-  const settingsMock = prismaMock.siteSettings as any;
+  const settingsMock = prismaMock.siteSettings /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   it('findSiteSettingsBySalonId', async () => {
     settingsMock.findUnique.mockResolvedValue({ id: 's-1' });

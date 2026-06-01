@@ -7,7 +7,7 @@ import { UserRole } from '@prisma/client';
 
 describe('UsersRepository', () => {
   const gamingCenterId = 'gc-1';
-  const userMock = prismaMock.user as any;
+  const userMock = prismaMock.user /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   describe('createUser', () => {
     it('should create a user successfully', async () => {
