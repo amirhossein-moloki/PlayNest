@@ -12,16 +12,12 @@ if (env.NODE_ENV === 'test') {
   const logger = require('../../config/logger').default; // eslint-disable-line @typescript-eslint/no-var-requires
   const { sanitizeLog } = require('../utils/sanitizer'); // eslint-disable-line @typescript-eslint/no-var-requires
   const cuid = require('cuid'); // eslint-disable-line @typescript-eslint/no-var-requires
+  const { requestContext } = require('../context/request-context'); // eslint-disable-line @typescript-eslint/no-var-requires
+  const { Metrics } = require('../metrics/metrics'); // eslint-disable-line @typescript-eslint/no-var-requires
 
-  loggerMiddleware = pinoHttp({
+  const middleware = pinoHttp({
     logger,
-    genReqId: function (req: Request, res: Response) {
-      const existingId = req.id ?? req.headers['x-request-id'];
-      if (existingId) return existingId;
-      const id = cuid();
-      res.setHeader('X-Request-Id', id);
-      return id;
-    },
+    genReqId: (req: Request) => req.id,
     customAttributeKeys: {
       req: 'request',
       res: 'response',
@@ -60,12 +56,38 @@ if (env.NODE_ENV === 'test') {
       return 'info';
     },
     customSuccessMessage: function (req: Request, res: Response) {
+      const startTime = (req as any).startTime || Date.now(); // eslint-disable-line @typescript-eslint/no-explicit-any
+      const duration = Date.now() - startTime;
+      Metrics.recordApiLatency(req.method, req.url, res.statusCode, duration);
+
       if (res.statusCode === 404) {
         return 'resource not found';
       }
       return `${req.method} ${req.url} completed`;
     },
   });
+
+  loggerMiddleware = (req: Request, res: Response, next: NextFunction) => {
+    (req as any).startTime = Date.now(); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const existingId = req.id ?? req.headers['x-request-id'] ?? req.headers['x-correlation-id'];
+    const requestId = existingId || cuid();
+    const correlationId = req.headers['x-correlation-id'] || requestId;
+
+    if (!req.id) req.id = requestId;
+    res.setHeader('X-Request-Id', requestId);
+    res.setHeader('X-Correlation-Id', correlationId);
+
+    const context = {
+      requestId,
+      correlationId,
+      actorId: req.actor?.id,
+      gamingCenterId: req.params?.gamingCenterId,
+    };
+
+    requestContext.run(context, () => {
+      middleware(req, res, next);
+    });
+  };
 }
 
 export default loggerMiddleware;

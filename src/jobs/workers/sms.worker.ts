@@ -4,19 +4,25 @@ import { env } from '../../config/env';
 import { SmsService } from '../../modules/notifications/sms.station';
 import { SmsJobData } from '../producers/sms.producer';
 import logger from '../../config/logger';
+import { requestContext } from '../../common/context/request-context';
+import { Metrics } from '../../common/metrics/metrics';
 
 export const smsWorker = new Worker(
   SMS_QUEUE_NAME,
   async (job: Job<SmsJobData>) => {
-    const { mobile, templateId, parameters } = job.data;
-    logger.info({ msg: 'Processing SMS job', jobId: job.id, mobile, templateId });
+    const { mobile, templateId, parameters, correlationId } = job.data;
 
-    try {
-      await SmsService.sendTemplateSms(mobile, templateId, parameters);
-    } catch (error) {
-      logger.error({ msg: 'SMS job failed', jobId: job.id, error });
-      throw error;
-    }
+    return requestContext.run({ correlationId, requestId: job.id }, async () => {
+      logger.info({ msg: 'Processing SMS job', jobId: job.id, mobile, templateId });
+
+      try {
+        await SmsService.sendTemplateSms(mobile, templateId, parameters);
+      } catch (error) {
+        Metrics.recordWorkerError(SMS_QUEUE_NAME, error instanceof Error ? error.message : String(error));
+        logger.error({ msg: 'SMS job failed', jobId: job.id, error });
+        throw error;
+      }
+    });
   },
   {
     connection: {

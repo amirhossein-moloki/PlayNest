@@ -6,7 +6,6 @@ import helmet from 'helmet';
 import path from 'path';
 import swaggerUi from 'swagger-ui-express';
 import YAML from 'yamljs';
-import { v4 as uuidv4 } from 'uuid';
 import routes from './routes';
 import { errorHandler } from './common/errors/errorHandler';
 import { responseMiddleware } from './common/middleware/response';
@@ -39,12 +38,6 @@ app.use(helmet({
 app.use('/uploads', express.static('uploads'));
 
 import loggerMiddleware from './common/middleware/logger';
-
-// Assign request ID
-app.use((req, res, next) => {
-  req.id = uuidv4();
-  next();
-});
 
 // Disable pino-http logger in test environment to avoid Jest compatibility issues
 if (env.NODE_ENV !== 'test') {
