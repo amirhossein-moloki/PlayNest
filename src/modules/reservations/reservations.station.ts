@@ -12,6 +12,7 @@ import { WalletService } from '../wallet/wallet.station';
 import { auditService } from '../audit/audit.station';
 import { normalizePhone } from '../../common/utils/phone';
 import { AppEvents, eventEmitter } from '../../common/events/event-emitter';
+import { Metrics } from '../../common/metrics/metrics';
 
 import {
   CancelBookingInput,
@@ -136,6 +137,8 @@ export const reservationsService = {
       gamingCenter: result.gamingCenter,
       customerAccount: result.customerAccount,
     });
+
+    Metrics.recordReservationCreated(true, result.reservation.gamingCenterId);
 
     return result.reservation;
   },
@@ -265,6 +268,7 @@ export const reservationsService = {
 
       return result.reservation;
     } catch (error: unknown) {
+      Metrics.recordReservationCreated(false, salonSlug);
       if (error && typeof error === 'object' && 'code' in error && error.code === '23P01' && 'message' in error && typeof error.message === 'string' && error.message.includes('Booking_no_overlap_active')) {
         throw new AppError('This time slot is already booked.', httpStatus.CONFLICT, {
           code: 'SLOT_NOT_AVAILABLE',

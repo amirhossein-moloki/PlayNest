@@ -1,10 +1,16 @@
 import { analyticsQueue } from '../queues';
+import { getRequestContext } from '../../common/context/request-context';
 
 export interface AnalyticsSyncJobData {
   type: 'BOOKING' | 'PAYMENT' | 'REVIEW';
   entityId: string;
+  correlationId?: string;
 }
 
 export const queueAnalyticsSync = async (data: AnalyticsSyncJobData) => {
-  await analyticsQueue.add('sync-analytics', data);
+  const context = getRequestContext();
+  await analyticsQueue.add('sync-analytics', {
+    ...data,
+    correlationId: context.correlationId,
+  });
 };
