@@ -6,21 +6,21 @@ This document is generated from `prisma/schema.prisma` and is the source of trut
 
 ```mermaid
 erDiagram
-  Salon ||--o{ User : has
-  Salon ||--o{ Service : offers
-  Salon ||--o{ Shift : schedules
-  Salon ||--o{ Booking : owns
-  Salon ||--o{ SalonCustomerProfile : has
-  Salon ||--o| Settings : config
-  Salon ||--o| SalonSiteSettings : site_settings
-  Salon ||--o{ SalonPage : pages
-  Salon ||--o{ SalonMedia : media
-  Salon ||--o{ SalonLink : links
-  Salon ||--o{ SalonAddress : addresses
-  Salon ||--o{ SalonSlugHistory : slug_history
-  Salon ||--o{ Review : reviews
-  Salon ||--o| SalonCommissionPolicy : commission_policy
-  Salon ||--o{ BookingCommission : booking_commissions
+  GamingCenter ||--o{ User : has
+  GamingCenter ||--o{ Service : offers
+  GamingCenter ||--o{ Shift : schedules
+  GamingCenter ||--o{ Booking : owns
+  GamingCenter ||--o{ GamingCenterCustomerProfile : has
+  GamingCenter ||--o| Settings : config
+  GamingCenter ||--o| GamingCenterSiteSettings : site_settings
+  GamingCenter ||--o{ GamingCenterPage : pages
+  GamingCenter ||--o{ GamingCenterMedia : media
+  GamingCenter ||--o{ GamingCenterLink : links
+  GamingCenter ||--o{ GamingCenterAddress : addresses
+  GamingCenter ||--o{ GamingCenterSlugHistory : slug_history
+  GamingCenter ||--o{ Review : reviews
+  GamingCenter ||--o| GamingCenterCommissionPolicy : commission_policy
+  GamingCenter ||--o{ BookingCommission : booking_commissions
 
   User ||--o{ Shift : schedules
   User ||--o{ Booking : staff_bookings
@@ -32,11 +32,11 @@ erDiagram
   Service ||--o{ Review : reviews
   Service ||--o{ UserService : staff_services
 
-  CustomerAccount ||--o{ SalonCustomerProfile : profiles
+  CustomerAccount ||--o{ GamingCenterCustomerProfile : profiles
   CustomerAccount ||--o{ Booking : bookings
   CustomerAccount ||--o{ Review : reviews
 
-  SalonCustomerProfile ||--o{ Booking : bookings
+  GamingCenterCustomerProfile ||--o{ Booking : bookings
 
   Booking ||--o{ Payment : payments
   Booking ||--o{ Review : reviews
@@ -44,8 +44,8 @@ erDiagram
 
   BookingCommission ||--o{ CommissionPayment : payments
 
-  SalonPage ||--o{ SalonPageSection : sections
-  SalonPage ||--o{ SalonPageSlugHistory : slug_history
+  GamingCenterPage ||--o{ GamingCenterPageSection : sections
+  GamingCenterPage ||--o{ GamingCenterPageSlugHistory : slug_history
 ```
 
 ## Enums
@@ -78,7 +78,7 @@ erDiagram
 
 ## Models
 
-### Salon
+### GamingCenter
 
 - Fields: `id`, `name`, `isActive`, `slug` (unique), `description`, `seoTitle`, `seoDescription`, `createdAt`, `updatedAt`
 - Relations: `users`, `services`, `bookings`, `shifts`, `settings`, `customers`, `siteSettings`, `pages`, `media`, `links`, `addresses`, `slugHistory`, `reviews`, `commissionPolicy`, `bookingCommissions`, `Payment`
@@ -86,15 +86,15 @@ erDiagram
 
 ### Settings
 
-- Fields: `salonId` (unique), `preventOverlaps`, `timeZone`, `workStartTime`, `workEndTime`, `allowOnlineBooking`, `onlineBookingAutoConfirm`, timestamps
-- Relation: `salon`
+- Fields: `gamingCenterId` (unique), `preventOverlaps`, `timeZone`, `workStartTime`, `workEndTime`, `allowOnlineBooking`, `onlineBookingAutoConfirm`, timestamps
+- Relation: `gamingCenter`
 
 ### User
 
-- Fields: `salonId`, `fullName`, `phone`, `passwordHash`, `phoneVerifiedAt`, `role`, `isActive`, public profile fields, timestamps
-- Relations: `salon`, `shifts`, bookings relations (staff/creator/canceler), `userServices`
-- Unique: `@@unique([salonId, phone])`
-- Indexes: `@@index([salonId, role])`, `@@index([salonId, isActive])`, `@@index([salonId, isPublic])`
+- Fields: `gamingCenterId`, `fullName`, `phone`, `passwordHash`, `phoneVerifiedAt`, `role`, `isActive`, public profile fields, timestamps
+- Relations: `gamingCenter`, `shifts`, bookings relations (staff/creator/canceler), `userServices`
+- Unique: `@@unique([gamingCenterId, phone])`
+- Indexes: `@@index([gamingCenterId, role])`, `@@index([gamingCenterId, isActive])`, `@@index([gamingCenterId, isPublic])`
 
 ### Session
 
@@ -112,18 +112,18 @@ erDiagram
 - Relations: `profiles`, `bookings`, `reviews`
 - Indexes: `@@index([phone])`
 
-### SalonCustomerProfile
+### GamingCenterCustomerProfile
 
-- Fields: `salonId`, `customerAccountId`, `displayName`, `note`, timestamps
-- Relations: `salon`, `customerAccount` (onDelete: Cascade), `bookings`
-- Unique: `@@unique([salonId, customerAccountId])`
-- Indexes: `@@index([salonId, displayName])`, `@@index([customerAccountId])`
+- Fields: `gamingCenterId`, `customerAccountId`, `displayName`, `note`, timestamps
+- Relations: `gamingCenter`, `customerAccount` (onDelete: Cascade), `bookings`
+- Unique: `@@unique([gamingCenterId, customerAccountId])`
+- Indexes: `@@index([gamingCenterId, displayName])`, `@@index([customerAccountId])`
 
 ### Service
 
-- Fields: `salonId`, `name`, `durationMinutes`, `price`, `currency`, `isActive`, timestamps
-- Relations: `salon`, `bookings`, `reviews`, `userServices`
-- Indexes: `@@index([salonId, isActive])`, `@@index([salonId, name])`
+- Fields: `gamingCenterId`, `name`, `durationMinutes`, `price`, `currency`, `isActive`, timestamps
+- Relations: `gamingCenter`, `bookings`, `reviews`, `userServices`
+- Indexes: `@@index([gamingCenterId, isActive])`, `@@index([gamingCenterId, name])`
 
 ### UserService (Join)
 
@@ -133,42 +133,42 @@ erDiagram
 
 ### Shift
 
-- Fields: `salonId`, `userId`, `dayOfWeek`, `startTime`, `endTime`, `isActive`, timestamps
-- Relations: `salon`, `user`
-- Unique: `@@unique([salonId, userId, dayOfWeek])`
-- Indexes: `@@index([salonId, dayOfWeek])`
+- Fields: `gamingCenterId`, `userId`, `dayOfWeek`, `startTime`, `endTime`, `isActive`, timestamps
+- Relations: `gamingCenter`, `user`
+- Unique: `@@unique([gamingCenterId, userId, dayOfWeek])`
+- Indexes: `@@index([gamingCenterId, dayOfWeek])`
 
 ### Booking
 
-- Fields: `salonId`, `customerProfileId`, `customerAccountId`, `serviceId`, `staffId`, `createdByUserId`, `startAt`, `endAt`, snapshots, `amountDueSnapshot`, `paymentState`, `status`, `source`, `note`, cancel fields, completion fields, timestamps
-- Relations: `salon`, `customerProfile`, `customerAccount`, `service`, `staff`, `createdBy`, `canceledBy`, `payments`, `reviews`, `commission`
-- Indexes: `@@index([salonId, startAt])`, `@@index([salonId, staffId, startAt])`, `@@index([salonId, status, startAt])`, `@@index([salonId, staffId, status, startAt, endAt])`, `@@index([customerAccountId, startAt])`, `@@index([customerProfileId, startAt])`, `@@index([salonId, paymentState, startAt])`
+- Fields: `gamingCenterId`, `customerProfileId`, `customerAccountId`, `serviceId`, `staffId`, `createdByUserId`, `startAt`, `endAt`, snapshots, `amountDueSnapshot`, `paymentState`, `status`, `source`, `note`, cancel fields, completion fields, timestamps
+- Relations: `gamingCenter`, `customerProfile`, `customerAccount`, `service`, `staff`, `createdBy`, `canceledBy`, `payments`, `reviews`, `commission`
+- Indexes: `@@index([gamingCenterId, startAt])`, `@@index([gamingCenterId, staffId, startAt])`, `@@index([gamingCenterId, status, startAt])`, `@@index([gamingCenterId, staffId, status, startAt, endAt])`, `@@index([customerAccountId, startAt])`, `@@index([customerProfileId, startAt])`, `@@index([gamingCenterId, paymentState, startAt])`
 
 ### Payment
 
-- Fields: `salonId`, `bookingId`, `amount`, `currency`, `provider`, `providerPaymentId`, `providerCheckoutId`, `status`, `failureReason`, `rawProviderPayload`, `idempotencyKey`, `paidAt`, `method`, `referenceCode`, timestamps
-- Relations: `salon` (onDelete: Cascade), `booking` (onDelete: Cascade)
-- Unique: `@@unique([provider, providerPaymentId])`, `@@unique([salonId, idempotencyKey])`
+- Fields: `gamingCenterId`, `bookingId`, `amount`, `currency`, `provider`, `providerPaymentId`, `providerCheckoutId`, `status`, `failureReason`, `rawProviderPayload`, `idempotencyKey`, `paidAt`, `method`, `referenceCode`, timestamps
+- Relations: `gamingCenter` (onDelete: Cascade), `booking` (onDelete: Cascade)
+- Unique: `@@unique([provider, providerPaymentId])`, `@@unique([gamingCenterId, idempotencyKey])`
 - Indexes: `@@index([bookingId, paidAt])`, `@@index([status, paidAt])`
 
 ### Review
 
-- Fields: `salonId`, `customerAccountId`, `bookingId`, `target`, `serviceId`, `rating`, `comment`, `status`, timestamps
-- Relations: `salon`, `customerAccount`, `booking` (onDelete: Cascade), `service`
+- Fields: `gamingCenterId`, `customerAccountId`, `bookingId`, `target`, `serviceId`, `rating`, `comment`, `status`, timestamps
+- Relations: `gamingCenter`, `customerAccount`, `booking` (onDelete: Cascade), `service`
 - Unique: `@@unique([bookingId, target, serviceId])`
-- Indexes: `@@index([salonId, status, createdAt])`, `@@index([serviceId, status, createdAt])`, `@@index([bookingId])`, `@@index([customerAccountId, createdAt])`
+- Indexes: `@@index([gamingCenterId, status, createdAt])`, `@@index([serviceId, status, createdAt])`, `@@index([bookingId])`, `@@index([customerAccountId, createdAt])`
 
-### SalonCommissionPolicy
+### GamingCenterCommissionPolicy
 
-- Fields: `salonId` (unique), `type`, `percentBps`, `fixedAmount`, `currency`, `applyToOnlineOnly`, `minimumFeeAmount`, `isActive`, timestamps
-- Relation: `salon`
-- Indexes: `@@index([salonId, isActive])`
+- Fields: `gamingCenterId` (unique), `type`, `percentBps`, `fixedAmount`, `currency`, `applyToOnlineOnly`, `minimumFeeAmount`, `isActive`, timestamps
+- Relation: `gamingCenter`
+- Indexes: `@@index([gamingCenterId, isActive])`
 
 ### BookingCommission
 
-- Fields: `bookingId` (unique), `salonId`, `status`, `baseAmount`, `currency`, `type`, `percentBps`, `fixedAmount`, `commissionAmount`, `calculatedAt`, `chargedAt`, `note`, timestamps
-- Relations: `booking` (onDelete: Cascade), `salon`, `payments`
-- Indexes: `@@index([salonId, status, createdAt])`, `@@index([chargedAt])`
+- Fields: `bookingId` (unique), `gamingCenterId`, `status`, `baseAmount`, `currency`, `type`, `percentBps`, `fixedAmount`, `commissionAmount`, `calculatedAt`, `chargedAt`, `note`, timestamps
+- Relations: `booking` (onDelete: Cascade), `gamingCenter`, `payments`
+- Indexes: `@@index([gamingCenterId, status, createdAt])`, `@@index([chargedAt])`
 
 ### CommissionPayment
 
@@ -176,50 +176,50 @@ erDiagram
 - Relation: `commission` (onDelete: Cascade)
 - Indexes: `@@index([commissionId, paidAt])`, `@@index([status, paidAt])`
 
-### SalonSiteSettings
+### GamingCenterSiteSettings
 
-- Fields: `salonId` (unique), `logoUrl`, `faviconUrl`, default SEO/OG fields, `googleSiteVerification`, `analyticsTag`, `robotsIndex`, `robotsFollow`, timestamps
-- Relation: `salon`
+- Fields: `gamingCenterId` (unique), `logoUrl`, `faviconUrl`, default SEO/OG fields, `googleSiteVerification`, `analyticsTag`, `robotsIndex`, `robotsFollow`, timestamps
+- Relation: `gamingCenter`
 
-### SalonPage
+### GamingCenterPage
 
-- Fields: `salonId`, `slug`, `title`, `type`, `status`, `publishedAt`, SEO fields, `canonicalPath`, `robotsIndex`, `robotsFollow`, `structuredDataJson`, timestamps
-- Relations: `salon`, `sections`, `slugHistory`
-- Unique: `@@unique([salonId, slug])`
-- Indexes: `@@index([salonId, status])`, `@@index([salonId, type])`, `@@index([salonId, publishedAt])`
+- Fields: `gamingCenterId`, `slug`, `title`, `type`, `status`, `publishedAt`, SEO fields, `canonicalPath`, `robotsIndex`, `robotsFollow`, `structuredDataJson`, timestamps
+- Relations: `gamingCenter`, `sections`, `slugHistory`
+- Unique: `@@unique([gamingCenterId, slug])`
+- Indexes: `@@index([gamingCenterId, status])`, `@@index([gamingCenterId, type])`, `@@index([gamingCenterId, publishedAt])`
 
-### SalonPageSection
+### GamingCenterPageSection
 
 - Fields: `pageId`, `type`, `dataJson`, `sortOrder`, `isEnabled`, timestamps
 - Relation: `page` (onDelete: Cascade)
 - Indexes: `@@index([pageId, sortOrder])`, `@@index([pageId, isEnabled])`, `@@index([pageId, type])`
 
-### SalonMedia
+### GamingCenterMedia
 
-- Fields: `salonId`, `type`, `purpose`, `url`, `thumbUrl`, `altText`, `category`, `caption`, `sortOrder`, `isActive`, timestamps
-- Relation: `salon`
-- Indexes: `@@index([salonId, purpose, isActive, sortOrder])`, `@@index([salonId, category])`
+- Fields: `gamingCenterId`, `type`, `purpose`, `url`, `thumbUrl`, `altText`, `category`, `caption`, `sortOrder`, `isActive`, timestamps
+- Relation: `gamingCenter`
+- Indexes: `@@index([gamingCenterId, purpose, isActive, sortOrder])`, `@@index([gamingCenterId, category])`
 
-### SalonLink
+### GamingCenterLink
 
-- Fields: `salonId`, `type`, `label`, `value`, `isPrimary`, `isActive`, timestamps
-- Relation: `salon`
-- Indexes: `@@index([salonId, type])`, `@@index([salonId, isPrimary])`, `@@index([salonId, isActive])`
+- Fields: `gamingCenterId`, `type`, `label`, `value`, `isPrimary`, `isActive`, timestamps
+- Relation: `gamingCenter`
+- Indexes: `@@index([gamingCenterId, type])`, `@@index([gamingCenterId, isPrimary])`, `@@index([gamingCenterId, isActive])`
 
-### SalonAddress
+### GamingCenterAddress
 
-- Fields: `salonId`, `title`, `province`, `city`, `district`, `addressLine`, `postalCode`, `lat`, `lng`, `isPrimary`, timestamps
-- Relation: `salon`
-- Indexes: `@@index([salonId])`, `@@index([salonId, isPrimary])`, `@@index([province])`, `@@index([city])`
+- Fields: `gamingCenterId`, `title`, `province`, `city`, `district`, `addressLine`, `postalCode`, `lat`, `lng`, `isPrimary`, timestamps
+- Relation: `gamingCenter`
+- Indexes: `@@index([gamingCenterId])`, `@@index([gamingCenterId, isPrimary])`, `@@index([province])`, `@@index([city])`
 
-### SalonSlugHistory
+### GamingCenterSlugHistory
 
-- Fields: `salonId`, `oldSlug`, `createdAt`
-- Relation: `salon` (onDelete: Cascade)
+- Fields: `gamingCenterId`, `oldSlug`, `createdAt`
+- Relation: `gamingCenter` (onDelete: Cascade)
 - Unique: `@@unique([oldSlug])`
-- Indexes: `@@index([salonId, createdAt])`
+- Indexes: `@@index([gamingCenterId, createdAt])`
 
-### SalonPageSlugHistory
+### GamingCenterPageSlugHistory
 
 - Fields: `pageId`, `oldSlug`, `createdAt`
 - Relation: `page` (onDelete: Cascade)
@@ -230,7 +230,7 @@ erDiagram
 ### OTP
 
 - OTPs are stored in `PhoneOtp` with `purpose`, `channel`, hashed `codeHash`, expiration, and `consumedAt` fields.
-- OTP verification is used for user login and salon selection (see `auth.service.ts`).
+- OTP verification is used for user login and gamingCenter selection (see `auth.service.ts`).
 
 ### Sessions
 
@@ -244,12 +244,12 @@ erDiagram
 
 ### CMS / SEO
 
-- `SalonPage` + `SalonPageSection` power page builder with `dataJson` blobs.
-- Site-wide SEO defaults are stored in `SalonSiteSettings`, while per-page SEO is stored on `SalonPage`.
+- `GamingCenterPage` + `GamingCenterPageSection` power page builder with `dataJson` blobs.
+- Site-wide SEO defaults are stored in `GamingCenterSiteSettings`, while per-page SEO is stored on `GamingCenterPage`.
 
 ### Commission
 
-- Commission configuration lives in `SalonCommissionPolicy`.
+- Commission configuration lives in `GamingCenterCommissionPolicy`.
 - Commission per booking is stored in `BookingCommission` and payments in `CommissionPayment`.
 
 ## Known Gaps / TODO
@@ -267,7 +267,7 @@ erDiagram
 - **Database Level (Future)**: In high-concurrency production environments, using PostgreSQL *Exclusion Constraints* (via `gist` index on time ranges) is recommended to prevent race conditions at the database level.
 
 ### Analytics Summary Tables
-- The system uses summary tables (`SalonAnalytics`, `StaffAnalytics`, `ServiceAnalytics`) for high-performance dashboard queries.
+- The system uses summary tables (`GamingCenterAnalytics`, `StaffAnalytics`, `ServiceAnalytics`) for high-performance dashboard queries.
 - These tables are synchronized whenever bookings are created, updated, or completed, and whenever payments or reviews are recorded.
 
 ## Source of Truth

@@ -46,7 +46,7 @@ export async function findPageById(gamingCenterId: string, pageId: string) {
   });
 }
 
-export async function listPagesBySalon(gamingCenterId: string, filters: PageFilters) {
+export async function listPagesByGamingCenter(gamingCenterId: string, filters: PageFilters) {
   const { status, type, limit, offset } = filters;
 
   const whereClause = {

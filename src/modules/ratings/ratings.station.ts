@@ -5,9 +5,9 @@ import { SubmitReviewInput } from './ratings.types';
 import { RatingStatus, ReservationStatus } from '@prisma/client';
 import { queueAnalyticsSync } from '../../jobs/producers/analytics.producer';
 
-export async function submitReview(salonSlug: string, input: SubmitReviewInput) {
+export async function submitReview(gamingCenterSlug: string, input: SubmitReviewInput) {
   // 1. Verify reservation exists and belongs to the gamingCenter (by slug)
-  const reservation = await reviewsRepo.findBookingForReview(input.reservationId, salonSlug);
+  const reservation = await reviewsRepo.findBookingForReview(input.reservationId, gamingCenterSlug);
 
   if (!reservation) {
     throw new AppError('Reservation not found', httpStatus.NOT_FOUND);
@@ -28,8 +28,8 @@ export async function submitReview(salonSlug: string, input: SubmitReviewInput) 
   return rating;
 }
 
-export async function getPublishedReviews(salonSlug: string) {
-  return reviewsRepo.findPublishedReviewsBySalonSlug(salonSlug);
+export async function getPublishedReviews(gamingCenterSlug: string) {
+  return reviewsRepo.findPublishedReviewsByGamingCenterSlug(gamingCenterSlug);
 }
 
 export async function moderateReview(gamingCenterId: string, reviewId: string, status: RatingStatus) {

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createSalonSchema, updateSalonSchema } from './gamingCenter.validation';
+import { createGamingCenterSchema, updateGamingCenterSchema } from './gamingCenter.validation';
 
-export type CreateSalonInput = z.infer<typeof createSalonSchema>;
-export type UpdateSalonInput = z.infer<typeof updateSalonSchema>;
+export type CreateGamingCenterInput = z.infer<typeof createGamingCenterSchema>;
+export type UpdateGamingCenterInput = z.infer<typeof updateGamingCenterSchema>;

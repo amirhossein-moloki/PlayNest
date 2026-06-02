@@ -9,7 +9,7 @@ import {
 import { authMiddleware } from '../../common/middleware/auth';
 import { requireRole } from '../../common/middleware/requireRole';
 import { tenantGuard } from '../../common/middleware/tenantGuard';
-import { resolveSalonBySlug } from '../../common/middleware/resolveSalonBySlug';
+import { resolveGamingCenterBySlug } from '../../common/middleware/resolveGamingCenterBySlug';
 import { UserRole } from '@prisma/client';
 import {
   privateApiRateLimiter,
@@ -29,10 +29,10 @@ privateReviewsRouter.patch(
   asyncHandler(ReviewsController.moderateReview)
 );
 
-// --- Public Router (to be mounted under /api/v1/public/gamingCenters/:salonSlug) ---
+// --- Public Router (to be mounted under /api/v1/public/gamingCenters/:gamingCenterSlug) ---
 export const publicReviewsRouter = Router({ mergeParams: true });
 
-publicReviewsRouter.use(publicApiRateLimiter, resolveSalonBySlug);
+publicReviewsRouter.use(publicApiRateLimiter, resolveGamingCenterBySlug);
 
 publicReviewsRouter.post(
   '/reservations/:reservationId/ratings',

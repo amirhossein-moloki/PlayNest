@@ -36,12 +36,12 @@ const prisma = new PrismaClient();
  * -----------------------------
  */
 const CONFIG = {
-  salonsCount: 10,
+  gamingCentersCount: 10,
   totalUsers: 131,
   totalCustomers: 50,
 
   // پیشنهاد حرفه‌ای: هر سالن 20 سرویس داشته باشد (واقعی‌تر)
-  servicesPerSalon: true,
+  servicesPerGamingCenter: true,
   servicesCount: 20,
 
   // دیتای عملیاتی سایت
@@ -50,7 +50,7 @@ const CONFIG = {
   seedBookings: true,
 
   // اگر seedBookings=true:
-  bookingsPerSalon: 45, // ~450 booking کل
+  bookingsPerGamingCenter: 45, // ~450 booking کل
   maxAttemptsToAvoidOverlap: 25,
 
   tehranUtcOffsetMinutes: 210, // +03:30
@@ -210,31 +210,31 @@ async function clearAll() {
   await prisma.shift.deleteMany();
   await prisma.session.deleteMany();
 
-  await prisma.salonPageSection.deleteMany();
-  await prisma.salonPageSlugHistory.deleteMany();
-  await prisma.salonPage.deleteMany();
-  await prisma.salonMedia.deleteMany();
-  await prisma.salonLink.deleteMany();
-  await prisma.salonAddress.deleteMany();
-  await prisma.salonSlugHistory.deleteMany();
-  await prisma.salonSiteSettings.deleteMany();
-  await prisma.salonCommissionPolicy.deleteMany();
+  await prisma.gamingCenterPageSection.deleteMany();
+  await prisma.gamingCenterPageSlugHistory.deleteMany();
+  await prisma.gamingCenterPage.deleteMany();
+  await prisma.gamingCenterMedia.deleteMany();
+  await prisma.gamingCenterLink.deleteMany();
+  await prisma.gamingCenterAddress.deleteMany();
+  await prisma.gamingCenterSlugHistory.deleteMany();
+  await prisma.gamingCenterSiteSettings.deleteMany();
+  await prisma.gamingCenterCommissionPolicy.deleteMany();
   await prisma.settings.deleteMany();
 
-  await prisma.salonCustomerProfile.deleteMany();
+  await prisma.gamingCenterCustomerProfile.deleteMany();
   await prisma.customerAccount.deleteMany();
 
   await prisma.user.deleteMany();
   await prisma.service.deleteMany();
-  await prisma.salon.deleteMany();
+  await prisma.gamingCenter.deleteMany();
 }
 
-function buildStructuredDataLocalBusiness(salonName: string, city: IranCity, slug: string) {
+function buildStructuredDataLocalBusiness(gamingCenterName: string, city: IranCity, slug: string) {
   // JSON-LD مناسب SEO / LocalBusiness
   const obj = {
     '@context': 'https://schema.org',
-    '@type': 'BeautySalon',
-    name: salonName,
+    '@type': 'BeautyGamingCenter',
+    name: gamingCenterName,
     areaServed: city.city,
     address: {
       '@type': 'PostalAddress',
@@ -262,7 +262,7 @@ async function main() {
    * -----------------
    */
   console.log('🏢 ساخت سالن‌ها + تنظیمات سایت/SEO ...');
-  const salons: {
+  const gamingCenters: {
     id: string;
     name: string;
     slug: string;
@@ -273,12 +273,12 @@ async function main() {
     commissionMinFee: number;
   }[] = [];
 
-  for (let i = 0; i < CONFIG.salonsCount; i++) {
+  for (let i = 0; i < CONFIG.gamingCentersCount; i++) {
     const city = IRAN_CITIES[i % IRAN_CITIES.length];
     const prefix = SALON_NAME_PREFIX[i % SALON_NAME_PREFIX.length];
     const suffix = SALON_NAME_SUFFIX[i % SALON_NAME_SUFFIX.length];
-    const salonName = `سالن زیبایی ${prefix} ${suffix} ${city.city}`;
-    const slug = `salon-${city.citySlug}-${i + 1}`;
+    const gamingCenterName = `سالن زیبایی ${prefix} ${suffix} ${city.city}`;
+    const slug = `gamingCenter-${city.citySlug}-${i + 1}`;
 
     const allowOnlineBooking = i % 2 === 0;
     const onlineBookingAutoConfirm = i % 3 === 0;
@@ -286,12 +286,12 @@ async function main() {
     const commissionPercentBps = 250; // 2.5%
     const commissionMinFee = 10_000;
 
-    const created = await prisma.salon.create({
+    const created = await prisma.gamingCenter.create({
       data: {
-        name: salonName,
+        name: gamingCenterName,
         slug,
         description: `ارائه خدمات تخصصی مو، پوست و ناخن در ${city.city}.`,
-        seoTitle: `${salonName} | رزرو آنلاین`,
+        seoTitle: `${gamingCenterName} | رزرو آنلاین`,
         seoDescription: `رزرو آنلاین و حضوری خدمات زیبایی در ${city.city}.`,
 
         settings: {
@@ -309,7 +309,7 @@ async function main() {
           create: {
             logoUrl: `https://picsum.photos/seed/${slug}-logo/400/400`,
             faviconUrl: `https://picsum.photos/seed/${slug}-fav/128/128`,
-            defaultSeoTitle: `${salonName} | وبسایت رسمی`,
+            defaultSeoTitle: `${gamingCenterName} | وبسایت رسمی`,
             defaultSeoDescription: `خدمات آرایشی و زیبایی در ${city.city}`,
             defaultOgImageUrl: `https://picsum.photos/seed/${slug}-og/1200/630`,
             googleSiteVerification: `ir-${i}-${randInt(10000, 99999)}`,
@@ -347,7 +347,7 @@ async function main() {
 
         links: {
           create: [
-            { type: LinkType.INSTAGRAM, label: 'اینستاگرام', value: `https://instagram.com/${slugifyLatin(salonName.replace(/\s+/g, '_'))}`, isPrimary: true, isActive: true },
+            { type: LinkType.INSTAGRAM, label: 'اینستاگرام', value: `https://instagram.com/${slugifyLatin(gamingCenterName.replace(/\s+/g, '_'))}`, isPrimary: true, isActive: true },
             { type: LinkType.WHATSAPP, label: 'واتساپ', value: makeIranMobileUnique(9_000_000 + i), isPrimary: false, isActive: true },
             { type: LinkType.PHONE, label: 'تماس', value: makeIranLandline(city.areaCode), isPrimary: false, isActive: true },
             { type: LinkType.GOOGLE_MAP, label: 'لوکیشن', value: `https://maps.google.com/?q=${city.lat},${city.lng}`, isPrimary: false, isActive: true },
@@ -357,8 +357,8 @@ async function main() {
 
         media: {
           create: [
-            { type: MediaType.IMAGE, purpose: MediaPurpose.LOGO, url: `https://picsum.photos/seed/${slug}-logo2/800/800`, altText: `لوگو ${salonName}`, category: 'سالن', caption: 'لوگو رسمی', sortOrder: 0, isActive: true },
-            { type: MediaType.IMAGE, purpose: MediaPurpose.COVER, url: `https://picsum.photos/seed/${slug}-cover/1600/800`, altText: `کاور ${salonName}`, category: 'سالن', caption: 'تصویر کاور', sortOrder: 1, isActive: true },
+            { type: MediaType.IMAGE, purpose: MediaPurpose.LOGO, url: `https://picsum.photos/seed/${slug}-logo2/800/800`, altText: `لوگو ${gamingCenterName}`, category: 'سالن', caption: 'لوگو رسمی', sortOrder: 0, isActive: true },
+            { type: MediaType.IMAGE, purpose: MediaPurpose.COVER, url: `https://picsum.photos/seed/${slug}-cover/1600/800`, altText: `کاور ${gamingCenterName}`, category: 'سالن', caption: 'تصویر کاور', sortOrder: 1, isActive: true },
             { type: MediaType.IMAGE, purpose: MediaPurpose.GALLERY, url: `https://picsum.photos/seed/${slug}-gal-1/1200/900`, altText: 'محیط سالن', category: 'سالن', caption: 'فضای داخلی', sortOrder: 2, isActive: true },
             { type: MediaType.IMAGE, purpose: MediaPurpose.BEFORE_AFTER, url: `https://picsum.photos/seed/${slug}-ba-1/1200/900`, altText: 'قبل و بعد خدمات مو', category: 'مو', caption: 'نمونه قبل/بعد', sortOrder: 3, isActive: true },
             { type: MediaType.IMAGE, purpose: MediaPurpose.GALLERY, url: `https://picsum.photos/seed/${slug}-gal-2/1200/900`, altText: 'نمونه کار ناخن', category: 'ناخن', caption: 'نمونه طراحی', sortOrder: 4, isActive: true },
@@ -368,9 +368,9 @@ async function main() {
     });
 
     // Slug history (برای تست 301)
-    await prisma.salonSlugHistory.create({
+    await prisma.gamingCenterSlugHistory.create({
       data: {
-        salonId: created.id,
+        gamingCenterId: created.id,
         oldSlug: `${created.slug}-old`,
       },
     });
@@ -486,12 +486,12 @@ async function main() {
         type: PageType.HOME,
         status: PageStatus.PUBLISHED,
         publishedAt: new Date(),
-        seoTitle: `${salonName} | صفحه اصلی`,
+        seoTitle: `${gamingCenterName} | صفحه اصلی`,
         seoDescription: `رزرو خدمات زیبایی در ${city.city}`,
-        structuredDataJson: buildStructuredDataLocalBusiness(salonName, city, slug),
+        structuredDataJson: buildStructuredDataLocalBusiness(gamingCenterName, city, slug),
         sections: {
           create: [
-            commonSections.hero(salonName),
+            commonSections.hero(gamingCenterName),
             commonSections.highlights(),
             commonSections.servicesGrid(),
             commonSections.galleryGrid(),
@@ -506,7 +506,7 @@ async function main() {
         type: PageType.ABOUT,
         status: PageStatus.PUBLISHED,
         publishedAt: new Date(),
-        seoTitle: `${salonName} | درباره ما`,
+        seoTitle: `${gamingCenterName} | درباره ما`,
         sections: { create: [commonSections.richTextAbout(), commonSections.highlights(), commonSections.faq()] },
       },
       {
@@ -515,7 +515,7 @@ async function main() {
         type: PageType.SERVICES,
         status: PageStatus.PUBLISHED,
         publishedAt: new Date(),
-        seoTitle: `${salonName} | خدمات`,
+        seoTitle: `${gamingCenterName} | خدمات`,
         sections: { create: [commonSections.servicesGrid(), commonSections.faq(), commonSections.cta()] },
       },
       {
@@ -547,7 +547,7 @@ async function main() {
         title: 'قوانین و مقررات',
         type: PageType.CUSTOM,
         status: PageStatus.DRAFT,
-        seoTitle: `${salonName} | قوانین`,
+        seoTitle: `${gamingCenterName} | قوانین`,
         robotsIndex: RobotsIndex.NOINDEX,
         robotsFollow: RobotsFollow.NOFOLLOW,
         sections: {
@@ -570,15 +570,15 @@ async function main() {
     ];
 
     for (const p of pagesToCreate) {
-      const page = await prisma.salonPage.create({
+      const page = await prisma.gamingCenterPage.create({
         data: {
-          salonId: created.id,
+          gamingCenterId: created.id,
           ...p,
         } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
       });
 
       // page slug history
-      await prisma.salonPageSlugHistory.create({
+      await prisma.gamingCenterPageSlugHistory.create({
         data: {
           pageId: page.id,
           oldSlug: `${page.slug}-old`,
@@ -586,9 +586,9 @@ async function main() {
       });
     }
 
-    salons.push({
+    gamingCenters.push({
       id: created.id,
-      name: salonName,
+      name: gamingCenterName,
       slug,
       city,
       allowOnlineBooking,
@@ -604,11 +604,11 @@ async function main() {
    * ----------------
    */
   console.log('🧴 ساخت سرویس‌ها (ایران‌محور) ...');
-  if (CONFIG.servicesPerSalon) {
-    for (const s of salons) {
+  if (CONFIG.servicesPerGamingCenter) {
+    for (const s of gamingCenters) {
       await prisma.service.createMany({
         data: SERVICES_IRAN.slice(0, CONFIG.servicesCount).map((svc) => ({
-          salonId: s.id,
+          gamingCenterId: s.id,
           name: svc.name,
           durationMinutes: svc.durationMinutes,
           price: svc.price,
@@ -619,11 +619,11 @@ async function main() {
     }
   } else {
     for (let i = 0; i < CONFIG.servicesCount; i++) {
-      const salon = salons[i % salons.length];
+      const gamingCenter = gamingCenters[i % gamingCenters.length];
       const svc = SERVICES_IRAN[i];
       await prisma.service.create({
         data: {
-          salonId: salon.id,
+          gamingCenterId: gamingCenter.id,
           name: svc.name,
           durationMinutes: svc.durationMinutes,
           price: svc.price,
@@ -642,7 +642,7 @@ async function main() {
   console.log('👤 ساخت کاربران پنل (131) ...');
   const users: {
     id: string;
-    salonId: string;
+    gamingCenterId: string;
     role: UserRole;
     isActive: boolean;
   }[] = [];
@@ -650,19 +650,19 @@ async function main() {
   // توزیع دقیق و تمیز:
   // هر سالن: 1 مدیر + 2 پذیرش = 30
   // باقی (101) پرسنل -> 10 تا برای هر سالن (100) + 1 اضافه برای سالن اول
-  const staffCountsPerSalon = salons.map((_, idx) => (idx === 0 ? 11 : 10)); // جمع 101
+  const staffCountsPerGamingCenter = gamingCenters.map((_, idx) => (idx === 0 ? 11 : 10)); // جمع 101
 
   let phoneCounter = 1_000_000;
 
-  for (let i = 0; i < salons.length; i++) {
-    const salon = salons[i];
+  for (let i = 0; i < gamingCenters.length; i++) {
+    const gamingCenter = gamingCenters[i];
 
     // MANAGER
     {
       const fullName = `${pick(FIRST_NAMES_M)} ${pick(LAST_NAMES)}`;
       const manager = await prisma.user.create({
         data: {
-          salonId: salon.id,
+          gamingCenterId: gamingCenter.id,
           fullName,
           phone: makeIranMobileUnique(phoneCounter++),
           passwordHash: passwordHashDummy(),
@@ -672,10 +672,10 @@ async function main() {
           isPublic: true,
           publicName: fullName,
           bio: 'مدیر سالن | هماهنگی تیم و کنترل کیفیت خدمات',
-          avatarUrl: `https://picsum.photos/seed/${salon.slug}-manager/320/320`,
+          avatarUrl: `https://picsum.photos/seed/${gamingCenter.slug}-manager/320/320`,
         },
       });
-      users.push({ id: manager.id, salonId: salon.id, role: manager.role, isActive: manager.isActive });
+      users.push({ id: manager.id, gamingCenterId: gamingCenter.id, role: manager.role, isActive: manager.isActive });
 
       if (CONFIG.seedSessions) {
         await prisma.session.create({
@@ -695,7 +695,7 @@ async function main() {
       const fullName = `${pick(FIRST_NAMES_F)} ${pick(LAST_NAMES)}`;
       const receptionist = await prisma.user.create({
         data: {
-          salonId: salon.id,
+          gamingCenterId: gamingCenter.id,
           fullName,
           phone: makeIranMobileUnique(phoneCounter++),
           passwordHash: passwordHashDummy(),
@@ -705,7 +705,7 @@ async function main() {
           isPublic: false,
         },
       });
-      users.push({ id: receptionist.id, salonId: salon.id, role: receptionist.role, isActive: receptionist.isActive });
+      users.push({ id: receptionist.id, gamingCenterId: gamingCenter.id, role: receptionist.role, isActive: receptionist.isActive });
 
       if (CONFIG.seedSessions && chance(0.7)) {
         await prisma.session.create({
@@ -721,7 +721,7 @@ async function main() {
     }
 
     // STAFF
-    const staffCount = staffCountsPerSalon[i];
+    const staffCount = staffCountsPerGamingCenter[i];
     for (let sIdx = 0; sIdx < staffCount; sIdx++) {
       const fullName = `${pick([...FIRST_NAMES_F, ...FIRST_NAMES_M])} ${pick(LAST_NAMES)}`;
       const isActive = chance(0.92);
@@ -729,7 +729,7 @@ async function main() {
 
       const staff = await prisma.user.create({
         data: {
-          salonId: salon.id,
+          gamingCenterId: gamingCenter.id,
           fullName,
           phone: makeIranMobileUnique(phoneCounter++),
           passwordHash: passwordHashDummy(),
@@ -739,11 +739,11 @@ async function main() {
           isPublic,
           publicName: isPublic ? fullName : null,
           bio: isPublic ? 'متخصص خدمات زیبایی | مشاوره و اجرای خدمات مطابق سلیقه مشتری' : null,
-          avatarUrl: isPublic ? `https://picsum.photos/seed/${salon.slug}-staff-${sIdx}/320/320` : null,
+          avatarUrl: isPublic ? `https://picsum.photos/seed/${gamingCenter.slug}-staff-${sIdx}/320/320` : null,
         },
       });
 
-      users.push({ id: staff.id, salonId: salon.id, role: staff.role, isActive: staff.isActive });
+      users.push({ id: staff.id, gamingCenterId: gamingCenter.id, role: staff.role, isActive: staff.isActive });
 
       if (CONFIG.seedSessions && chance(0.25)) {
         await prisma.session.create({
@@ -776,7 +776,7 @@ async function main() {
 
         await prisma.shift.create({
           data: {
-            salonId: u.salonId,
+            gamingCenterId: u.gamingCenterId,
             userId: u.id,
             dayOfWeek,
             startTime: start,
@@ -794,28 +794,28 @@ async function main() {
    * ----------------
    */
   console.log('🧩 اتصال مهارت پرسنل به سرویس‌ها (با پوشش کامل هر سرویس) ...');
-  for (const salon of salons) {
-    const salonServices = await prisma.service.findMany({ where: { salonId: salon.id } });
-    const salonStaff = users.filter((u) => u.salonId === salon.id && u.role === UserRole.STAFF && u.isActive);
+  for (const gamingCenter of gamingCenters) {
+    const gamingCenterServices = await prisma.service.findMany({ where: { gamingCenterId: gamingCenter.id } });
+    const gamingCenterStaff = users.filter((u) => u.gamingCenterId === gamingCenter.id && u.role === UserRole.STAFF && u.isActive);
 
     // اگر سالن خیلی کم staff داشته باشد (نباید اتفاق بیفتد)، رد می‌کنیم
-    if (salonStaff.length === 0) continue;
+    if (gamingCenterStaff.length === 0) continue;
 
     const userServicesData: { userId: string; serviceId: string }[] = [];
 
     // 1) تضمین: هر سرویس حداقل 2 نفر متخصص داشته باشد
-    for (const svc of salonServices) {
-      const specialistsCount = Math.min(2 + (chance(0.35) ? 1 : 0), salonStaff.length);
-      const chosen = shuffle(salonStaff).slice(0, specialistsCount);
+    for (const svc of gamingCenterServices) {
+      const specialistsCount = Math.min(2 + (chance(0.35) ? 1 : 0), gamingCenterStaff.length);
+      const chosen = shuffle(gamingCenterStaff).slice(0, specialistsCount);
       for (const st of chosen) {
         userServicesData.push({ userId: st.id, serviceId: svc.id });
       }
     }
 
     // 2) برای هر staff چند سرویس اضافه (واقعی‌تر)
-    for (const st of salonStaff) {
-      const extraCount = randInt(4, Math.min(10, salonServices.length));
-      const chosen = shuffle(salonServices).slice(0, extraCount);
+    for (const st of gamingCenterStaff) {
+      const extraCount = randInt(4, Math.min(10, gamingCenterServices.length));
+      const chosen = shuffle(gamingCenterServices).slice(0, extraCount);
       for (const svc of chosen) {
         userServicesData.push({ userId: st.id, serviceId: svc.id });
       }
@@ -834,7 +834,7 @@ async function main() {
    */
   console.log('👥 ساخت مشتری‌ها (50) + CRM پروفایل‌ها ...');
   const customers: { id: string; phone: string; fullName: string }[] = [];
-  const profileMap = new Map<string, string>(); // key: salonId:customerAccountId -> profileId
+  const profileMap = new Map<string, string>(); // key: gamingCenterId:customerAccountId -> profileId
 
   for (let i = 0; i < CONFIG.totalCustomers; i++) {
     const fullName = `${pick([...FIRST_NAMES_F, ...FIRST_NAMES_M])} ${pick(LAST_NAMES)}`;
@@ -847,12 +847,12 @@ async function main() {
 
     // 1 تا 3 پروفایل بین سالن‌ها
     const profilesCount = chance(0.7) ? 1 : chance(0.85) ? 2 : 3;
-    const chosenSalons = shuffle(salons).slice(0, profilesCount);
+    const chosenGamingCenters = shuffle(gamingCenters).slice(0, profilesCount);
 
-    for (const s of chosenSalons) {
-      const prof = await prisma.salonCustomerProfile.create({
+    for (const s of chosenGamingCenters) {
+      const prof = await prisma.gamingCenterCustomerProfile.create({
         data: {
-          salonId: s.id,
+          gamingCenterId: s.id,
           customerAccountId: ca.id,
           displayName: fullName,
           note: chance(0.25) ? 'مشتری وفادار | ترجیحاً صبح‌ها' : null,
@@ -873,17 +873,17 @@ async function main() {
     // برای جلوگیری از همپوشانی (واقع‌گرایانه‌تر)
     const staffCalendar = new Map<string, { startMs: number; endMs: number }[]>(); // key: staffId:YYYY-MM-DD
 
-    for (const salon of salons) {
-      const salonServices = await prisma.service.findMany({ where: { salonId: salon.id, isActive: true } });
-      const salonStaff = users.filter((u) => u.salonId === salon.id && u.role === UserRole.STAFF && u.isActive);
-      const salonReceptionists = users.filter((u) => u.salonId === salon.id && u.role !== UserRole.STAFF && u.isActive);
-      const manager = users.find((u) => u.salonId === salon.id && u.role === UserRole.MANAGER);
+    for (const gamingCenter of gamingCenters) {
+      const gamingCenterServices = await prisma.service.findMany({ where: { gamingCenterId: gamingCenter.id, isActive: true } });
+      const gamingCenterStaff = users.filter((u) => u.gamingCenterId === gamingCenter.id && u.role === UserRole.STAFF && u.isActive);
+      const gamingCenterReceptionists = users.filter((u) => u.gamingCenterId === gamingCenter.id && u.role !== UserRole.STAFF && u.isActive);
+      const manager = users.find((u) => u.gamingCenterId === gamingCenter.id && u.role === UserRole.MANAGER);
 
-      if (salonServices.length === 0 || salonStaff.length === 0 || !manager) continue;
+      if (gamingCenterServices.length === 0 || gamingCenterStaff.length === 0 || !manager) continue;
 
       // Map سرویس -> staffهای قابل اجرا
       const userServices = await prisma.userService.findMany({
-        where: { userId: { in: salonStaff.map((x) => x.id) }, serviceId: { in: salonServices.map((x) => x.id) } },
+        where: { userId: { in: gamingCenterStaff.map((x) => x.id) }, serviceId: { in: gamingCenterServices.map((x) => x.id) } },
       });
       const staffByService = new Map<string, string[]>();
       for (const us of userServices) {
@@ -892,31 +892,31 @@ async function main() {
         staffByService.set(us.serviceId, arr);
       }
 
-      for (let i = 0; i < CONFIG.bookingsPerSalon; i++) {
+      for (let i = 0; i < CONFIG.bookingsPerGamingCenter; i++) {
         // مشتری رندوم
         const customer = pick(customers);
 
         // اگر پروفایل این مشتری در این سالن وجود نداشت، بساز
-        let profileId = profileMap.get(`${salon.id}:${customer.id}`);
+        let profileId = profileMap.get(`${gamingCenter.id}:${customer.id}`);
         if (!profileId) {
-          const prof = await prisma.salonCustomerProfile.create({
+          const prof = await prisma.gamingCenterCustomerProfile.create({
             data: {
-              salonId: salon.id,
+              gamingCenterId: gamingCenter.id,
               customerAccountId: customer.id,
               displayName: customer.fullName,
               note: chance(0.15) ? 'ثبت خودکار پروفایل از اولین رزرو' : null,
             },
           });
           profileId = prof.id;
-          profileMap.set(`${salon.id}:${customer.id}`, prof.id);
+          profileMap.set(`${gamingCenter.id}:${customer.id}`, prof.id);
         }
 
         // سرویس
-        const service = pick(salonServices);
+        const service = pick(gamingCenterServices);
 
         // staff مناسب سرویس
         const possibleStaff = staffByService.get(service.id) ?? [];
-        const staffId = (possibleStaff.length > 0 ? pick(possibleStaff) : pick(salonStaff).id);
+        const staffId = (possibleStaff.length > 0 ? pick(possibleStaff) : pick(gamingCenterStaff).id);
 
         // زمان رزرو (از 90 روز قبل تا 14 روز آینده)
         const dayOffset = randInt(-90, +14);
@@ -954,7 +954,7 @@ async function main() {
 
         // تعیین source
         const source =
-          salon.allowOnlineBooking && chance(0.35) ? BookingSource.ONLINE : BookingSource.IN_PERSON;
+          gamingCenter.allowOnlineBooking && chance(0.35) ? BookingSource.ONLINE : BookingSource.IN_PERSON;
 
         // تعیین status
         let status: BookingStatus;
@@ -962,13 +962,13 @@ async function main() {
           status = chance(0.80) ? BookingStatus.DONE : chance(0.25) ? BookingStatus.CANCELED : BookingStatus.NO_SHOW;
         } else {
           // آینده
-          if (source === BookingSource.ONLINE && !salon.onlineBookingAutoConfirm && chance(0.35)) status = BookingStatus.PENDING;
+          if (source === BookingSource.ONLINE && !gamingCenter.onlineBookingAutoConfirm && chance(0.35)) status = BookingStatus.PENDING;
           else status = BookingStatus.CONFIRMED;
         }
 
         // createdBy
         const createdByUserId =
-          source === BookingSource.ONLINE ? manager.id : pick(salonReceptionists).id;
+          source === BookingSource.ONLINE ? manager.id : pick(gamingCenterReceptionists).id;
 
         // Snapshot fields
         const amountDue = service.price;
@@ -1045,7 +1045,7 @@ async function main() {
         if (status === BookingStatus.CANCELED) {
           canceledAt = new Date(startAt.getTime() - randInt(10, 240) * 60_000);
           cancelReason = pick(CANCEL_REASONS);
-          canceledByUserId = pick(salonReceptionists).id;
+          canceledByUserId = pick(gamingCenterReceptionists).id;
 
           // اگر پرداخت داشتیم، ریفاند هم بسازیم
           if (paymentsPlan.length > 0 && paymentsPlan.some((p) => p.status === PaymentStatus.PAID)) {
@@ -1088,7 +1088,7 @@ async function main() {
 
         const booking = await prisma.booking.create({
           data: {
-            salonId: salon.id,
+            gamingCenterId: gamingCenter.id,
             customerProfileId: profileId!,
             customerAccountId: customer.id,
             serviceId: service.id,
@@ -1123,7 +1123,7 @@ async function main() {
         for (const p of paymentsPlan) {
           await prisma.payment.create({
             data: {
-              salonId: salon.id,
+              gamingCenterId: gamingCenter.id,
               bookingId: booking.id,
               amount: p.amount,
               currency: 'IRT',
@@ -1144,7 +1144,7 @@ async function main() {
           // SALON review (یکی)
           await prisma.review.create({
             data: {
-              salonId: salon.id,
+              gamingCenterId: gamingCenter.id,
               customerAccountId: customer.id,
               bookingId: booking.id,
               target: ReviewTarget.SALON,
@@ -1159,7 +1159,7 @@ async function main() {
           if (chance(0.55)) {
             await prisma.review.create({
               data: {
-                salonId: salon.id,
+                gamingCenterId: gamingCenter.id,
                 customerAccountId: customer.id,
                 bookingId: booking.id,
                 target: ReviewTarget.SERVICE,
@@ -1179,8 +1179,8 @@ async function main() {
             const baseAmount = amountDue;
 
             // PERCENT: commission = base * bps / 10000
-            let commissionAmount = Math.round((baseAmount * salon.commissionPercentBps) / 10000);
-            if (commissionAmount < salon.commissionMinFee) commissionAmount = salon.commissionMinFee;
+            let commissionAmount = Math.round((baseAmount * gamingCenter.commissionPercentBps) / 10000);
+            if (commissionAmount < gamingCenter.commissionMinFee) commissionAmount = gamingCenter.commissionMinFee;
 
             const commissionStatus =
               status === BookingStatus.DONE
@@ -1190,13 +1190,13 @@ async function main() {
             const commission = await prisma.bookingCommission.create({
               data: {
                 bookingId: booking.id,
-                salonId: salon.id,
+                gamingCenterId: gamingCenter.id,
                 status: commissionStatus,
                 baseAmount,
                 currency: 'IRT',
 
                 type: CommissionType.PERCENT,
-                percentBps: salon.commissionPercentBps,
+                percentBps: gamingCenter.commissionPercentBps,
                 fixedAmount: null,
 
                 commissionAmount,
@@ -1225,18 +1225,18 @@ async function main() {
           // اگر کنسل شد، کارمزد را WAIVED (برای تست وضعیت)
           if (status === BookingStatus.CANCELED && chance(0.4)) {
             const baseAmount = amountDue;
-            let commissionAmount = Math.round((baseAmount * salon.commissionPercentBps) / 10000);
-            if (commissionAmount < salon.commissionMinFee) commissionAmount = salon.commissionMinFee;
+            let commissionAmount = Math.round((baseAmount * gamingCenter.commissionPercentBps) / 10000);
+            if (commissionAmount < gamingCenter.commissionMinFee) commissionAmount = gamingCenter.commissionMinFee;
 
             await prisma.bookingCommission.create({
               data: {
                 bookingId: booking.id,
-                salonId: salon.id,
+                gamingCenterId: gamingCenter.id,
                 status: CommissionStatus.WAIVED,
                 baseAmount,
                 currency: 'IRT',
                 type: CommissionType.PERCENT,
-                percentBps: salon.commissionPercentBps,
+                percentBps: gamingCenter.commissionPercentBps,
                 fixedAmount: null,
                 commissionAmount,
                 calculatedAt: new Date(),
@@ -1247,15 +1247,15 @@ async function main() {
           }
         }
       } // end bookings loop
-    } // end salon loop
+    } // end gamingCenter loop
   }
 
   console.log('✅ Seed حرفه‌ای و کامل ایران‌محور انجام شد.');
-  console.log(`Salons: ${salons.length}`);
+  console.log(`GamingCenters: ${gamingCenters.length}`);
   console.log(`Users: ${users.length}`);
   console.log(`Customers: ${customers.length}`);
-  console.log(`Services: ${CONFIG.servicesPerSalon ? salons.length * CONFIG.servicesCount : CONFIG.servicesCount}`);
-  if (CONFIG.seedBookings) console.log(`Bookings: ~${CONFIG.salonsCount * CONFIG.bookingsPerSalon}`);
+  console.log(`Services: ${CONFIG.servicesPerGamingCenter ? gamingCenters.length * CONFIG.servicesCount : CONFIG.servicesCount}`);
+  if (CONFIG.seedBookings) console.log(`Bookings: ~${CONFIG.gamingCentersCount * CONFIG.bookingsPerGamingCenter}`);
 }
 
 main()

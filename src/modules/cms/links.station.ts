@@ -5,7 +5,7 @@ import httpStatus from 'http-status';
 
 export const LinksService = {
   async getLinks(gamingCenterId: string): Promise<SocialLink[]> {
-    return LinksRepo.findBySalonId(gamingCenterId);
+    return LinksRepo.findByGamingCenterId(gamingCenterId);
   },
 
   async createLink(gamingCenterId: string, data: Record<string, unknown>): Promise<SocialLink> {

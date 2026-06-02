@@ -17,7 +17,7 @@ const sanitizeUpdateData = (
 });
 
 export async function getSiteSettings(gamingCenterId: string) {
-  return SiteSettingsRepo.findSiteSettingsBySalonId(gamingCenterId);
+  return SiteSettingsRepo.findSiteSettingsByGamingCenterId(gamingCenterId);
 }
 
 export async function upsertSiteSettings(

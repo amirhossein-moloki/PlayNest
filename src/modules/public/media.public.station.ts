@@ -1,5 +1,5 @@
 import * as PublicMediaRepo from './media.public.repo';
 
-export async function getPublicMediaBySalon(gamingCenterId: string) {
-  return PublicMediaRepo.findPublicMediaBySalonId(gamingCenterId);
+export async function getPublicMediaByGamingCenter(gamingCenterId: string) {
+  return PublicMediaRepo.findPublicMediaByGamingCenterId(gamingCenterId);
 }

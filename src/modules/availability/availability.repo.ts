@@ -1,11 +1,11 @@
 import { prisma } from '../../config/prisma';
 
 export const AvailabilityRepo = {
-  async findStationWithGamingCenter(stationId: string, salonSlug: string) {
+  async findStationWithGamingCenter(stationId: string, gamingCenterSlug: string) {
     return prisma.gameStation.findFirst({
       where: {
         id: stationId,
-        gamingCenter: { slug: salonSlug },
+        gamingCenter: { slug: gamingCenterSlug },
       },
       include: {
         gamingCenter: {

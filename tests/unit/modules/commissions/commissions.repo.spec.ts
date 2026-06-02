@@ -12,9 +12,9 @@ describe('CommissionsRepo', () => {
   const resMock = prismaMock.reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   describe('Policy operations', () => {
-    it('findPolicyBySalonId', async () => {
+    it('findPolicyByGamingCenterId', async () => {
       policyMock.findUnique.mockResolvedValue({ id: 'pol-1' });
-      await CommissionsRepo.findPolicyBySalonId('gc-1');
+      await CommissionsRepo.findPolicyByGamingCenterId('gc-1');
       expect(policyMock.findUnique).toHaveBeenCalledWith({ where: { gamingCenterId: 'gc-1' } });
     });
 

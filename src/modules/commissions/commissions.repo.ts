@@ -4,7 +4,7 @@ import { prisma } from '../../config/prisma';
 
 export const CommissionsRepo = {
   // Policy operations
-  async findPolicyBySalonId(gamingCenterId: string, tx?: Prisma.TransactionClient) {
+  async findPolicyByGamingCenterId(gamingCenterId: string, tx?: Prisma.TransactionClient) {
     const client = tx || prisma;
     return client.commissionPolicy.findUnique({
       where: { gamingCenterId },

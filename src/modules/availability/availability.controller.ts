@@ -8,10 +8,10 @@ export const getAvailability = async (
   next: NextFunction
 ) => {
   try {
-    const { salonSlug } = req.params;
+    const { gamingCenterSlug } = req.params;
     const query = req.query as unknown as GetAvailabilityQuery;
 
-    const slots = await getAvailableSlots({ ...query, salonSlug });
+    const slots = await getAvailableSlots({ ...query, gamingCenterSlug });
 
     res.ok(slots);
   } catch (error) {

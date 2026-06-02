@@ -1,18 +1,18 @@
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
-import { salonRepository } from './gamingCenter.repository';
-import { CreateSalonInput, UpdateSalonInput } from './gamingCenter.types';
-import { ListSalonsQuery } from './gamingCenter.validation';
+import { gamingCenterRepository } from './gamingCenter.repository';
+import { CreateGamingCenterInput, UpdateGamingCenterInput } from './gamingCenter.types';
+import { ListGamingCentersQuery } from './gamingCenter.validation';
 import { SessionActorType } from '@prisma/client';
 import { auditService } from '../audit/audit.station';
 
 export const gamingCenterService = {
-  async createSalon(data: CreateSalonInput, actor?: { id: string; actorType: SessionActorType }, context?: { ip?: string; userAgent?: string }) {
-    const existingSalon = await salonRepository.findBySlug(data.slug);
-    if (existingSalon) {
+  async createGamingCenter(data: CreateGamingCenterInput, actor?: { id: string; actorType: SessionActorType }, context?: { ip?: string; userAgent?: string }) {
+    const existingGamingCenter = await gamingCenterRepository.findBySlug(data.slug);
+    if (existingGamingCenter) {
       throw new AppError('A gamingCenter with this slug already exists', httpStatus.CONFLICT);
     }
-    const gamingCenter = await salonRepository.create(data);
+    const gamingCenter = await gamingCenterRepository.create(data);
 
     if (actor) {
       await auditService.log(
@@ -28,60 +28,60 @@ export const gamingCenterService = {
     return gamingCenter;
   },
 
-  async getSalonById(id: string) {
-    const gamingCenter = await salonRepository.findById(id);
+  async getGamingCenterById(id: string) {
+    const gamingCenter = await gamingCenterRepository.findById(id);
     if (!gamingCenter) {
       throw new AppError('GamingCenter not found', httpStatus.NOT_FOUND);
     }
     return gamingCenter;
   },
 
-  async getAllSalons(query: ListSalonsQuery) {
-    return salonRepository.findAll(query);
+  async getAllGamingCenters(query: ListGamingCentersQuery) {
+    return gamingCenterRepository.findAll(query);
   },
 
-  async updateSalon(
+  async updateGamingCenter(
     id: string,
-    data: UpdateSalonInput,
+    data: UpdateGamingCenterInput,
     actor: { id: string; actorType: SessionActorType },
     context?: { ip?: string; userAgent?: string }
   ) {
-    const gamingCenter = await salonRepository.findById(id);
+    const gamingCenter = await gamingCenterRepository.findById(id);
     if (!gamingCenter) {
       throw new AppError('GamingCenter not found', httpStatus.NOT_FOUND);
     }
 
     if (data.slug && data.slug !== gamingCenter.slug) {
-      const existingSalon = await salonRepository.findBySlug(data.slug);
-      if (existingSalon) {
+      const existingGamingCenter = await gamingCenterRepository.findBySlug(data.slug);
+      if (existingGamingCenter) {
         throw new AppError('A gamingCenter with this slug already exists', httpStatus.CONFLICT);
       }
     }
 
-    const updatedSalon = await salonRepository.update(id, data);
+    const updatedGamingCenter = await gamingCenterRepository.update(id, data);
 
     await auditService.log(
       id,
       actor,
       'SALON_UPDATE',
       { name: 'GamingCenter', id },
-      { old: gamingCenter, new: updatedSalon },
+      { old: gamingCenter, new: updatedGamingCenter },
       context
     );
 
-    return updatedSalon;
+    return updatedGamingCenter;
   },
 
-  async deleteSalon(
+  async deleteGamingCenter(
     id: string,
     actor: { id: string; actorType: SessionActorType },
     context?: { ip?: string; userAgent?: string }
   ) {
-    const gamingCenter = await salonRepository.findById(id);
+    const gamingCenter = await gamingCenterRepository.findById(id);
     if (!gamingCenter) {
       throw new AppError('GamingCenter not found', httpStatus.NOT_FOUND);
     }
-    const result = await salonRepository.softDelete(id);
+    const result = await gamingCenterRepository.softDelete(id);
 
     await auditService.log(
       id,

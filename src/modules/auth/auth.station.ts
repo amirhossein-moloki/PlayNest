@@ -75,7 +75,7 @@ export const AuthService = {
   },
 
   async requestUserOtp(phone: string) {
-    const users = await AuthRepository.findUsersWithSalons(phone);
+    const users = await AuthRepository.findUsersWithGamingCenters(phone);
     if (users.length === 0) {
       throw new AppError('No user found with this phone number.', httpStatus.NOT_FOUND);
     }
@@ -113,7 +113,7 @@ export const AuthService = {
     await AuthRepository.consumeOtp(otp.id);
     await AuthRepository.markUserPhoneVerified(phone);
 
-    const users = await AuthRepository.findUsersWithSalons(phone);
+    const users = await AuthRepository.findUsersWithGamingCenters(phone);
 
     const gamingCenters = users.map(user => ({
       id: user.gamingCenter.id,

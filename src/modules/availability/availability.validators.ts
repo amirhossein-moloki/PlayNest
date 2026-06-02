@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const getAvailabilitySchema = z.object({
   params: z.object({
-    salonSlug: z.string(),
+    gamingCenterSlug: z.string(),
   }),
   query: z.object({
     stationId: z.string().cuid({ message: 'Invalid station ID format' }),

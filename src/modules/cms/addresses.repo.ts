@@ -2,7 +2,7 @@ import { Address } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
 export const AddressesRepo = {
-  async findBySalonId(gamingCenterId: string): Promise<Address[]> {
+  async findByGamingCenterId(gamingCenterId: string): Promise<Address[]> {
     return prisma.address.findMany({
       where: { gamingCenterId },
       orderBy: { createdAt: 'desc' },

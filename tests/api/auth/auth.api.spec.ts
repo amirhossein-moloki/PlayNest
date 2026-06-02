@@ -34,7 +34,7 @@ describe('Authentication API', () => {
 
   describe('OTP Flow', () => {
     it('should return 404 when requesting OTP for non-existent user', async () => {
-      MockedAuthRepository.findUsersWithSalons.mockResolvedValue([]);
+      MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue([]);
       const res = await request(app).post('/api/v1/auth/user/otp/request').send({ phone });
       expect(res.status).toBe(httpStatus.NOT_FOUND);
       expect(res.body.success).toBe(false);
@@ -51,7 +51,7 @@ describe('Authentication API', () => {
     it('should return 200 when verifying valid OTP', async () => {
       MockedAuthRepository.findRecentOtp.mockResolvedValue({ id: 'o1', codeHash: 'hashed' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       MockedArgon2.verify.mockResolvedValue(true /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedAuthRepository.findUsersWithSalons.mockResolvedValue([{ gamingCenter: { id: gamingCenterId, name: 'Center' } }] /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue([{ gamingCenter: { id: gamingCenterId, name: 'Center' } }] /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
       const res = await request(app).post('/api/v1/auth/user/otp/verify').send({ phone, code: '123456' });
       expect(res.status).toBe(httpStatus.OK);

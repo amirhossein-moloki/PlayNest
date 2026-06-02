@@ -13,10 +13,10 @@ const store = new RedisStore({
 
 // Custom key generator for public routes to limit requests per IP and per gamingCenter slug.
 const publicApiKeyGenerator = (req: Request): string => {
-  const { salonSlug } = req.params;
+  const { gamingCenterSlug } = req.params;
   const ip = req.ip || 'unknown';
-  if (salonSlug && ip) {
-    return `${ip}:${salonSlug}`;
+  if (gamingCenterSlug && ip) {
+    return `${ip}:${gamingCenterSlug}`;
   }
   return ip;
 };

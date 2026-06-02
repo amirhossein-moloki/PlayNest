@@ -1,5 +1,5 @@
 import * as PublicLinksRepo from './links.public.repo';
 
-export async function getPublicLinksBySalon(gamingCenterId: string) {
-  return PublicLinksRepo.findPublicLinksBySalonId(gamingCenterId);
+export async function getPublicLinksByGamingCenter(gamingCenterId: string) {
+  return PublicLinksRepo.findPublicLinksByGamingCenterId(gamingCenterId);
 }

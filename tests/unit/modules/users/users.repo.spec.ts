@@ -84,7 +84,7 @@ describe('UsersRepository', () => {
     });
   });
 
-  describe('listUsersBySalon', () => {
+  describe('listUsersByGamingCenter', () => {
     it('should return paginated users with default filters', async () => {
       const mockUsers = [{ id: 'u-1' }, { id: 'u-2' }];
       const mockCount = 2;
@@ -93,7 +93,7 @@ describe('UsersRepository', () => {
       userMock.count.mockResolvedValue(mockCount);
 
       const query = { page: 1, limit: 10 };
-      const result = await UsersRepo.listUsersBySalon(gamingCenterId, query);
+      const result = await UsersRepo.listUsersByGamingCenter(gamingCenterId, query);
 
       expect(result.data).toEqual(mockUsers);
       expect(result.meta.total).toBe(mockCount);
@@ -108,7 +108,7 @@ describe('UsersRepository', () => {
       userMock.findMany.mockResolvedValue([]);
       userMock.count.mockResolvedValue(0);
 
-      await UsersRepo.listUsersBySalon(gamingCenterId, { page: 1, limit: 10, isActive: false });
+      await UsersRepo.listUsersByGamingCenter(gamingCenterId, { page: 1, limit: 10, isActive: false });
 
       expect(userMock.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: expect.objectContaining({ isActive: false }),
@@ -119,7 +119,7 @@ describe('UsersRepository', () => {
       userMock.findMany.mockResolvedValue([]);
       userMock.count.mockResolvedValue(0);
 
-      await UsersRepo.listUsersBySalon(gamingCenterId, { page: 1, limit: 10, isPublic: true });
+      await UsersRepo.listUsersByGamingCenter(gamingCenterId, { page: 1, limit: 10, isPublic: true });
 
       expect(userMock.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: expect.objectContaining({ isPublic: true }),
@@ -131,7 +131,7 @@ describe('UsersRepository', () => {
       userMock.count.mockResolvedValue(0);
 
       const query = { page: 1, limit: 10, search: 'John' };
-      await UsersRepo.listUsersBySalon(gamingCenterId, query);
+      await UsersRepo.listUsersByGamingCenter(gamingCenterId, query);
 
       expect(userMock.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: expect.objectContaining({
@@ -148,7 +148,7 @@ describe('UsersRepository', () => {
       userMock.count.mockResolvedValue(0);
 
       const query = { page: 1, limit: 10, role: UserRole.MANAGER };
-      await UsersRepo.listUsersBySalon(gamingCenterId, query);
+      await UsersRepo.listUsersByGamingCenter(gamingCenterId, query);
 
       expect(userMock.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: expect.objectContaining({ role: UserRole.MANAGER }),
@@ -160,7 +160,7 @@ describe('UsersRepository', () => {
       userMock.count.mockResolvedValue(0);
 
       const query = { page: 1, limit: 10, stationId: 'station-1' };
-      await UsersRepo.listUsersBySalon(gamingCenterId, query);
+      await UsersRepo.listUsersByGamingCenter(gamingCenterId, query);
 
       expect(userMock.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: expect.objectContaining({
@@ -176,7 +176,7 @@ describe('UsersRepository', () => {
       userMock.count.mockResolvedValue(0);
 
       const query = { page: 1, limit: 10, sortBy: 'fullName', sortOrder: 'desc' as const };
-      await UsersRepo.listUsersBySalon(gamingCenterId, query);
+      await UsersRepo.listUsersByGamingCenter(gamingCenterId, query);
 
       expect(userMock.findMany).toHaveBeenCalledWith(expect.objectContaining({
         orderBy: { fullName: 'desc' },

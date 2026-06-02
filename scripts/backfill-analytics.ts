@@ -27,7 +27,7 @@ async function backfill() {
     for (const dateStr of dates) {
       const date = new Date(dateStr);
       console.log(`Syncing stats for GamingCenter: ${gamingCenterId} on Date: ${dateStr}`);
-      await AnalyticsRepo.syncSalonStats(gamingCenterId, date);
+      await AnalyticsRepo.syncGamingCenterStats(gamingCenterId, date);
 
       // Sync for each staff on that date
       const staffReservations = await prisma.reservation.groupBy({
@@ -90,7 +90,7 @@ async function backfill() {
 
   for (const [gamingCenterId, dates] of uniquePaymentPairs.entries()) {
     for (const dateStr of dates) {
-      await AnalyticsRepo.syncSalonStats(gamingCenterId, new Date(dateStr));
+      await AnalyticsRepo.syncGamingCenterStats(gamingCenterId, new Date(dateStr));
     }
   }
 

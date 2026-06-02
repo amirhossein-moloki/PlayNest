@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
-export async function findSiteSettingsBySalonId(gamingCenterId: string) {
+export async function findSiteSettingsByGamingCenterId(gamingCenterId: string) {
   return prisma.siteSettings.findUnique({
     where: { gamingCenterId },
   });

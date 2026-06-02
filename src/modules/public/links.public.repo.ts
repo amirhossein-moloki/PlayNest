@@ -1,6 +1,6 @@
 import { prisma } from '../../config/prisma';
 
-export async function findPublicLinksBySalonId(gamingCenterId: string) {
+export async function findPublicLinksByGamingCenterId(gamingCenterId: string) {
   return prisma.socialLink.findMany({
     where: {
       gamingCenterId,

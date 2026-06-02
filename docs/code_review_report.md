@@ -1,12 +1,12 @@
-# Code Review Report - Sevra Project
+# Code Review Report - Playenest Project
 
-This report provides a comprehensive evaluation of the Sevra project's code quality, architecture, and engineering standards.
+This report provides a comprehensive evaluation of the Playenest project's code quality, architecture, and engineering standards.
 
 ---
 
 ## 1. Project Structure & Architecture Analysis
 
-The Sevra project is a multi-tenant booking system built with Node.js, Express, and TypeScript.
+The Playenest project is a multi-tenant booking system built with Node.js, Express, and TypeScript.
 
 - **Architecture:** Follows a **Layered Architecture** with a clear **Repository Pattern**. Layers are well-separated (Controller -> Service -> Repository).
 - **Data Layer:** Uses Prisma ORM with PostgreSQL, ensuring high type-safety.
@@ -59,4 +59,4 @@ The Sevra project is a multi-tenant booking system built with Node.js, Express, 
 
 ## 5. Conclusion
 
-Sevra is a well-engineered project with a solid foundation. Its modular design and use of modern tools (Prisma, Redis, Zod) make it robust and scalable. Implementing the suggested refinements will further enhance its maintainability and long-term stability.
+Playenest is a well-engineered project with a solid foundation. Its modular design and use of modern tools (Prisma, Redis, Zod) make it robust and scalable. Implementing the suggested refinements will further enhance its maintainability and long-term stability.

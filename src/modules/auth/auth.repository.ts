@@ -62,7 +62,7 @@ export const AuthRepository = {
     });
   },
 
-  async findUsersWithSalons(phone: string) {
+  async findUsersWithGamingCenters(phone: string) {
     return prisma.user.findMany({
       where: { phone },
       include: { gamingCenter: true },

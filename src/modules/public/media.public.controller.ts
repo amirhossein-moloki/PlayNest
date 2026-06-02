@@ -3,18 +3,18 @@ import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import * as PublicMediaService from './media.public.station';
 
-type PublicSalonRequest = Request & {
+type PublicGamingCenterRequest = Request & {
   tenant?: { gamingCenterId: string; gamingCenterSlug?: string };
 };
 
-export async function getPublicMedia(req: PublicSalonRequest, res: Response) {
+export async function getPublicMedia(req: PublicGamingCenterRequest, res: Response) {
   const gamingCenterId = req.tenant?.gamingCenterId;
 
   if (!gamingCenterId) {
     throw new AppError('GamingCenter context is missing from the request.', httpStatus.BAD_REQUEST);
   }
 
-  const media = await PublicMediaService.getPublicMediaBySalon(gamingCenterId);
+  const media = await PublicMediaService.getPublicMediaByGamingCenter(gamingCenterId);
   res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=300');
   res.ok(media);
 }

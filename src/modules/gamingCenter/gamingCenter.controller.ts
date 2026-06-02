@@ -1,12 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { gamingCenterService } from './gamingCenter.station';
-import { createSalonSchema, updateSalonSchema, listSalonsSchema } from './gamingCenter.validation';
+import { createGamingCenterSchema, updateGamingCenterSchema, listGamingCentersSchema } from './gamingCenter.validation';
 
-export const salonController = {
-  async createSalon(req: Request, res: Response, next: NextFunction) {
+export const gamingCenterController = {
+  async createGamingCenter(req: Request, res: Response, next: NextFunction) {
     try {
-      const validatedData = createSalonSchema.parse(req.body);
-      const gamingCenter = await gamingCenterService.createSalon(
+      const validatedData = createGamingCenterSchema.parse(req.body);
+      const gamingCenter = await gamingCenterService.createGamingCenter(
         validatedData,
         req.actor!,
         { ip: req.ip, userAgent: req.headers['user-agent'] }
@@ -17,46 +17,46 @@ export const salonController = {
     }
   },
 
-  async getSalonById(req: Request, res: Response, next: NextFunction) {
+  async getGamingCenterById(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const gamingCenter = await gamingCenterService.getSalonById(id);
+      const gamingCenter = await gamingCenterService.getGamingCenterById(id);
       res.ok(gamingCenter);
     } catch (error) {
       next(error);
     }
   },
 
-  async getAllSalons(req: Request, res: Response, next: NextFunction) {
+  async getAllGamingCenters(req: Request, res: Response, next: NextFunction) {
     try {
-      const validatedQuery = listSalonsSchema.parse(req.query);
-      const gamingCenters = await gamingCenterService.getAllSalons(validatedQuery);
+      const validatedQuery = listGamingCentersSchema.parse(req.query);
+      const gamingCenters = await gamingCenterService.getAllGamingCenters(validatedQuery);
       res.ok(gamingCenters);
     } catch (error) {
       next(error);
     }
   },
 
-  async updateSalon(req: Request, res: Response, next: NextFunction) {
+  async updateGamingCenter(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const validatedData = updateSalonSchema.parse(req.body);
-      const updatedSalon = await gamingCenterService.updateSalon(
+      const validatedData = updateGamingCenterSchema.parse(req.body);
+      const updatedGamingCenter = await gamingCenterService.updateGamingCenter(
         id,
         validatedData,
         req.actor!,
         { ip: req.ip, userAgent: req.headers['user-agent'] }
       );
-      res.ok(updatedSalon);
+      res.ok(updatedGamingCenter);
     } catch (error) {
       next(error);
     }
   },
 
-  async deleteSalon(req: Request, res: Response, next: NextFunction) {
+  async deleteGamingCenter(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      await gamingCenterService.deleteSalon(
+      await gamingCenterService.deleteGamingCenter(
         id,
         req.actor!,
         { ip: req.ip, userAgent: req.headers['user-agent'] }

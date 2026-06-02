@@ -12,7 +12,7 @@ const MockedEventEmitter = eventEmitter as jest.Mocked<typeof eventEmitter>;
 
 describe('Reservation Creation Integration (Mocked Repo)', () => {
   const gamingCenterId = 'gc-1';
-  const salonSlug = 'test-center';
+  const gamingCenterSlug = 'test-center';
   const staffId = 'staff-1';
   const stationId = 'station-1';
 
@@ -72,7 +72,7 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
 
       const gamingCenter = {
         id: gamingCenterId,
-        slug: salonSlug,
+        slug: gamingCenterSlug,
         settings: {
           allowOnlineBooking: true,
           onlineBookingAutoConfirm: true,
@@ -96,7 +96,7 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
       MockedReservationsRepo.findCustomerProfile.mockResolvedValue(customerProfile /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       MockedReservationsRepo.createReservation.mockResolvedValue(reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
-      const result = await reservationsService.createPublicBooking(salonSlug, input);
+      const result = await reservationsService.createPublicBooking(gamingCenterSlug, input);
 
       expect(result).toEqual(reservation);
       expect(MockedReservationsRepo.createReservation).toHaveBeenCalledWith(expect.objectContaining({
@@ -112,7 +112,7 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
       };
       MockedReservationsRepo.findGamingCenterBySlugWithSettings.mockResolvedValue(gamingCenter /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
-      await expect(reservationsService.createPublicBooking(salonSlug, {
+      await expect(reservationsService.createPublicBooking(gamingCenterSlug, {
         startTime: new Date(Date.now() + 3600000).toISOString(),
       } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any)).rejects.toThrow('Online reservation is disabled.');
     });
@@ -139,7 +139,7 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
       MockedReservationsRepo.findStaffShift.mockResolvedValue(staffShift /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       MockedReservationsRepo.findOverlappingReservation.mockResolvedValue({ id: 'existing-res' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
-      await expect(reservationsService.createPublicBooking(salonSlug, input))
+      await expect(reservationsService.createPublicBooking(gamingCenterSlug, input))
         .rejects.toThrow('Selected time is not available.');
     });
   });

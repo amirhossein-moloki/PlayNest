@@ -15,9 +15,9 @@ describe('RatingsRepo', () => {
     expect(ratingMock.create).toHaveBeenCalled();
   });
 
-  it('findPublishedReviewsBySalonSlug', async () => {
+  it('findPublishedReviewsByGamingCenterSlug', async () => {
     ratingMock.findMany.mockResolvedValue([]);
-    await RatingsRepo.findPublishedReviewsBySalonSlug('slug');
+    await RatingsRepo.findPublishedReviewsByGamingCenterSlug('slug');
     expect(ratingMock.findMany).toHaveBeenCalled();
   });
 

@@ -5,7 +5,7 @@ import httpStatus from 'http-status';
 
 export const AddressesService = {
   async getAddresses(gamingCenterId: string): Promise<Address[]> {
-    return AddressesRepo.findBySalonId(gamingCenterId);
+    return AddressesRepo.findByGamingCenterId(gamingCenterId);
   },
 
   async createAddress(gamingCenterId: string, data: Record<string, unknown>): Promise<Address> {

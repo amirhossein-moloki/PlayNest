@@ -7,15 +7,15 @@ import * as SettingsRepo from '../../../../src/modules/settings/settings.repo';
 describe('SettingsRepo', () => {
   const settingsMock = prismaMock.settings /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
-  it('findBySalonId', async () => {
+  it('findByGamingCenterId', async () => {
     settingsMock.findUnique.mockResolvedValue({ id: 's-1' });
-    await SettingsRepo.findBySalonId('gc-1');
+    await SettingsRepo.findByGamingCenterId('gc-1');
     expect(settingsMock.findUnique).toHaveBeenCalled();
   });
 
-  it('updateBySalonId', async () => {
+  it('updateByGamingCenterId', async () => {
     settingsMock.upsert.mockResolvedValue({ id: 's-1' });
-    await SettingsRepo.updateBySalonId('gc-1', { timeZone: 'UTC' });
+    await SettingsRepo.updateByGamingCenterId('gc-1', { timeZone: 'UTC' });
     expect(settingsMock.upsert).toHaveBeenCalled();
   });
 });

@@ -8,9 +8,9 @@ describe('AddressesRepo', () => {
   const gamingCenterId = 'gc-1';
   const addressMock = prismaMock.address /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
-  it('findBySalonId', async () => {
+  it('findByGamingCenterId', async () => {
     addressMock.findMany.mockResolvedValue([]);
-    await AddressesRepo.findBySalonId(gamingCenterId);
+    await AddressesRepo.findByGamingCenterId(gamingCenterId);
     expect(addressMock.findMany).toHaveBeenCalled();
   });
 

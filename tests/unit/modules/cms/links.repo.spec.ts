@@ -8,9 +8,9 @@ describe('LinksRepo', () => {
   const gamingCenterId = 'gc-1';
   const linkMock = prismaMock.socialLink /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
-  it('findBySalonId', async () => {
+  it('findByGamingCenterId', async () => {
     linkMock.findMany.mockResolvedValue([]);
-    await LinksRepo.findBySalonId(gamingCenterId);
+    await LinksRepo.findByGamingCenterId(gamingCenterId);
     expect(linkMock.findMany).toHaveBeenCalled();
   });
 

@@ -1,7 +1,7 @@
 # E2E Testing Guide
 
 ## 1. Introduction
-This guide explains how to run and maintain End-to-End (E2E) tests for the Sevra application.
+This guide explains how to run and maintain End-to-End (E2E) tests for the Playenest application.
 
 ## 2. Test Structure
 Tests are located in `tests/e2e/` and split into:

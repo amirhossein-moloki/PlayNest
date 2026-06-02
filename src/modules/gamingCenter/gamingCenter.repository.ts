@@ -1,11 +1,11 @@
 import { prisma } from '../../config/prisma';
-import { CreateSalonInput, UpdateSalonInput } from './gamingCenter.types';
+import { CreateGamingCenterInput, UpdateGamingCenterInput } from './gamingCenter.types';
 import { Prisma } from '@prisma/client';
-import { ListSalonsQuery } from './gamingCenter.validation';
+import { ListGamingCentersQuery } from './gamingCenter.validation';
 import { getPaginationParams, formatPaginatedResult } from '../../common/utils/pagination';
 
-export const salonRepository = {
-  async create(data: CreateSalonInput) {
+export const gamingCenterRepository = {
+  async create(data: CreateGamingCenterInput) {
     return prisma.gamingCenter.create({
       data: data as Prisma.GamingCenterCreateInput,
     });
@@ -23,7 +23,7 @@ export const salonRepository = {
     });
   },
 
-  async findAll(query: ListSalonsQuery) {
+  async findAll(query: ListGamingCentersQuery) {
     const { page, limit, search, isActive, sortBy, sortOrder, city, game } = query;
     const { skip, take } = getPaginationParams(page, limit);
 
@@ -68,7 +68,7 @@ export const salonRepository = {
     return formatPaginatedResult(data, total, page, limit);
   },
 
-  async update(id: string, data: UpdateSalonInput) {
+  async update(id: string, data: UpdateGamingCenterInput) {
     return prisma.gamingCenter.update({
       where: { id },
       data,

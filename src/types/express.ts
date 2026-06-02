@@ -20,11 +20,11 @@ declare global {
       rawBody?: Buffer;
       tenant?: {
         gamingCenterId: string;
-        salonSlug?: string;
+        gamingCenterSlug?: string;
         gamingCenterSlug?: string
       };
       gamingCenterSlug?: string;
-      salonSlug?: string;
+      gamingCenterSlug?: string;
     }
 
     export interface Response {
@@ -52,7 +52,7 @@ export interface AppRequest extends Request {
   };
   tenant: {
     gamingCenterId: string;
-    salonSlug?: string;
+    gamingCenterSlug?: string;
     gamingCenterSlug?: string;
   };
   gamingCenterId?: string;

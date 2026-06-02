@@ -11,7 +11,7 @@ const MockedAvailabilityRepo = AvailabilityRepo as jest.Mocked<typeof Availabili
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 describe('AvailabilityStationService', () => {
-  const salonSlug = 'my-salon';
+  const gamingCenterSlug = 'my-gamingCenter';
   const stationId = 'st-1';
   const gamingCenterId = 'gc-1';
 
@@ -22,7 +22,7 @@ describe('AvailabilityStationService', () => {
   describe('getAvailableSlots', () => {
     it('should throw NOT_FOUND if station not found', async () => {
       MockedAvailabilityRepo.findStationWithGamingCenter.mockResolvedValue(null);
-      await expect(getAvailableSlots({ salonSlug, stationId, startDate: new Date(), endDate: new Date() }))
+      await expect(getAvailableSlots({ gamingCenterSlug, stationId, startDate: new Date(), endDate: new Date() }))
         .rejects.toThrow(new AppError('GameStation not found in this gamingCenter.', httpStatus.NOT_FOUND));
     });
 
@@ -38,7 +38,7 @@ describe('AvailabilityStationService', () => {
       MockedAvailabilityRepo.findShifts.mockResolvedValue([shift] as any);
       MockedAvailabilityRepo.findBookings.mockResolvedValue([]);
 
-      const result = await getAvailableSlots({ salonSlug, stationId, startDate, endDate });
+      const result = await getAvailableSlots({ gamingCenterSlug, stationId, startDate, endDate });
       expect(result.length).toBeGreaterThan(0);
     });
   });

@@ -143,10 +143,10 @@ export const reservationsService = {
     return result.reservation;
   },
 
-  async createPublicBooking(salonSlug: string, input: CreatePublicBookingInput) {
+  async createPublicBooking(gamingCenterSlug: string, input: CreatePublicBookingInput) {
     try {
       const result = await ReservationsRepo.transaction(async (tx) => {
-        const gamingCenter = await ReservationsRepo.findGamingCenterBySlugWithSettings(salonSlug, tx);
+        const gamingCenter = await ReservationsRepo.findGamingCenterBySlugWithSettings(gamingCenterSlug, tx);
 
         if (!gamingCenter) {
           throw new AppError('GamingCenter not found.', httpStatus.NOT_FOUND);
@@ -268,7 +268,7 @@ export const reservationsService = {
 
       return result.reservation;
     } catch (error: unknown) {
-      Metrics.recordReservationCreated(false, salonSlug);
+      Metrics.recordReservationCreated(false, gamingCenterSlug);
       if (error && typeof error === 'object' && 'code' in error && error.code === '23P01' && 'message' in error && typeof error.message === 'string' && error.message.includes('Booking_no_overlap_active')) {
         throw new AppError('This time slot is already booked.', httpStatus.CONFLICT, {
           code: 'SLOT_NOT_AVAILABLE',

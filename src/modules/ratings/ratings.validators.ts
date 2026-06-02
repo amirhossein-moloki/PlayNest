@@ -9,7 +9,7 @@ export const submitReviewSchema = z.object({
     comment: z.string().optional(),
   }),
   params: z.object({
-    salonSlug: z.string(),
+    gamingCenterSlug: z.string(),
   }),
 });
 
@@ -25,6 +25,6 @@ export const moderateReviewSchema = z.object({
 
 export const getReviewsSchema = z.object({
   params: z.object({
-    salonSlug: z.string(),
+    gamingCenterSlug: z.string(),
   }),
 });

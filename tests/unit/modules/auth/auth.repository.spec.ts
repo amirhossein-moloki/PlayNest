@@ -134,12 +134,12 @@ describe('AuthRepository', () => {
     });
   });
 
-  describe('findUsersWithSalons', () => {
+  describe('findUsersWithGamingCenters', () => {
     it('should find users and include their gaming centers', async () => {
       const mockUsers = [{ id: 'u-1', gamingCenter: { id: 'gc-1' } }];
       userMock.findMany.mockResolvedValue(mockUsers);
 
-      const result = await AuthRepository.findUsersWithSalons(phone);
+      const result = await AuthRepository.findUsersWithGamingCenters(phone);
       expect(result).toEqual(mockUsers);
       expect(userMock.findMany).toHaveBeenCalledWith({
         where: { phone },

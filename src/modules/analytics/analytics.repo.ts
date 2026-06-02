@@ -103,7 +103,7 @@ export const AnalyticsRepo = {
     });
   },
 
-  async syncSalonStats(gamingCenterId: string, date: Date) {
+  async syncGamingCenterStats(gamingCenterId: string, date: Date) {
     const settings = await prisma.settings.findUnique({ where: { gamingCenterId } });
     const timeZone = settings?.timeZone || 'UTC';
     const dateStr = formatInTimeZone(date, timeZone, 'yyyy-MM-dd');
@@ -260,7 +260,7 @@ export const AnalyticsRepo = {
 
   async syncSpecificStats(gamingCenterId: string, date: Date, staffId: string, stationId: string) {
     await Promise.all([
-      this.syncSalonStats(gamingCenterId, date),
+      this.syncGamingCenterStats(gamingCenterId, date),
       this.syncStaffStats(gamingCenterId, staffId, date),
       this.syncServiceStats(gamingCenterId, stationId, date),
     ]);
@@ -275,7 +275,7 @@ export const AnalyticsRepo = {
 
     // Payment realizedCash is based on paidAt
     if (payment.status === 'PAID' && payment.paidAt) {
-      await this.syncSalonStats(payment.gamingCenterId, payment.paidAt);
+      await this.syncGamingCenterStats(payment.gamingCenterId, payment.paidAt);
     }
 
     // Also sync the reservation's date stats just in case

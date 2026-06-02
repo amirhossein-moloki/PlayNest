@@ -63,7 +63,7 @@ describe('ReservationsStationService', () => {
   });
 
   describe('createPublicBooking', () => {
-    const salonSlug = 'my-salon';
+    const gamingCenterSlug = 'my-gamingCenter';
     const input = {
       stationId,
       staffId,
@@ -89,7 +89,7 @@ describe('ReservationsStationService', () => {
       MockedReservationsRepo.findCustomerProfile.mockResolvedValue(customerProfile as any);
       MockedReservationsRepo.createReservation.mockResolvedValue(reservation as any);
 
-      const result = await reservationsService.createPublicBooking(salonSlug, input);
+      const result = await reservationsService.createPublicBooking(gamingCenterSlug, input);
 
       expect(result).toEqual(reservation);
     });

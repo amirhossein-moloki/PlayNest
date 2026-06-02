@@ -8,9 +8,9 @@ describe('SiteSettingsRepo', () => {
   const gamingCenterId = 'gc-1';
   const settingsMock = prismaMock.siteSettings /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
-  it('findSiteSettingsBySalonId', async () => {
+  it('findSiteSettingsByGamingCenterId', async () => {
     settingsMock.findUnique.mockResolvedValue({ id: 's-1' });
-    await SiteSettingsRepo.findSiteSettingsBySalonId(gamingCenterId);
+    await SiteSettingsRepo.findSiteSettingsByGamingCenterId(gamingCenterId);
     expect(settingsMock.findUnique).toHaveBeenCalled();
   });
 

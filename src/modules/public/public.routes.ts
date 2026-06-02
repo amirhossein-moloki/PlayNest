@@ -1,15 +1,15 @@
 import { Router } from 'express';
 import { publicApiRateLimiter } from '../../common/middleware/rateLimit';
-import { resolveSalonBySlug } from '../../common/middleware/resolveSalonBySlug';
+import { resolveGamingCenterBySlug } from '../../common/middleware/resolveGamingCenterBySlug';
 import { getPublicAddresses } from './addresses.public.controller';
 import { getPublicLinks } from './links.public.controller';
 import { getPublicMedia } from './media.public.controller';
 import {
   getPublicPage,
-  getPublicSalonHome,
+  getPublicGamingCenterHome,
 } from './pages.public.controller';
 
-export const publicSalonRouter = Router({ mergeParams: true });
+export const publicGamingCenterRouter = Router({ mergeParams: true });
 export const publicPagesRouter = Router({ mergeParams: true });
 export const publicMediaRouter = Router({ mergeParams: true });
 export const publicLinksRouter = Router({ mergeParams: true });
@@ -18,34 +18,34 @@ export const publicAddressesRouter = Router({ mergeParams: true });
 publicPagesRouter.get(
   '/:pageSlug',
   publicApiRateLimiter,
-  resolveSalonBySlug,
+  resolveGamingCenterBySlug,
   getPublicPage
 );
 
 publicMediaRouter.get(
   '/',
   publicApiRateLimiter,
-  resolveSalonBySlug,
+  resolveGamingCenterBySlug,
   getPublicMedia
 );
 
 publicLinksRouter.get(
   '/',
   publicApiRateLimiter,
-  resolveSalonBySlug,
+  resolveGamingCenterBySlug,
   getPublicLinks
 );
 
 publicAddressesRouter.get(
   '/',
   publicApiRateLimiter,
-  resolveSalonBySlug,
+  resolveGamingCenterBySlug,
   getPublicAddresses
 );
 
-publicSalonRouter.get(
+publicGamingCenterRouter.get(
   '/',
   publicApiRateLimiter,
-  resolveSalonBySlug,
-  getPublicSalonHome
+  resolveGamingCenterBySlug,
+  getPublicGamingCenterHome
 );

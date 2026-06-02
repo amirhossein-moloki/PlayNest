@@ -22,12 +22,12 @@ type TimeSlot = {
 const SLOT_INTERVAL_MINUTES = 15;
 
 export const getAvailableSlots = async (
-  query: GetAvailabilityQuery & { salonSlug: string }
+  query: GetAvailabilityQuery & { gamingCenterSlug: string }
 ): Promise<TimeSlot[]> => {
-  const { salonSlug, stationId, staffId, startDate, endDate } = query;
+  const { gamingCenterSlug, stationId, staffId, startDate, endDate } = query;
 
   // 1. Fetch GameStation and GamingCenter info
-  const station = await AvailabilityRepo.findStationWithGamingCenter(stationId, salonSlug);
+  const station = await AvailabilityRepo.findStationWithGamingCenter(stationId, gamingCenterSlug);
 
   if (!station) {
     throw new AppError('GameStation not found in this gamingCenter.', httpStatus.NOT_FOUND);

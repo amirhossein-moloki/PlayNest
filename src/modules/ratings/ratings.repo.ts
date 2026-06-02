@@ -16,10 +16,10 @@ export async function createReview(gamingCenterId: string, customerAccountId: st
   });
 }
 
-export async function findPublishedReviewsBySalonSlug(salonSlug: string) {
+export async function findPublishedReviewsByGamingCenterSlug(gamingCenterSlug: string) {
   return prisma.rating.findMany({
     where: {
-      gamingCenter: { slug: salonSlug },
+      gamingCenter: { slug: gamingCenterSlug },
       status: RatingStatus.PUBLISHED,
     },
     include: {
@@ -54,11 +54,11 @@ export async function findReviewById(reviewId: string, gamingCenterId: string) {
   });
 }
 
-export async function findBookingForReview(reservationId: string, salonSlug: string) {
+export async function findBookingForReview(reservationId: string, gamingCenterSlug: string) {
   return prisma.reservation.findFirst({
     where: {
       id: reservationId,
-      gamingCenter: { slug: salonSlug },
+      gamingCenter: { slug: gamingCenterSlug },
     },
   });
 }

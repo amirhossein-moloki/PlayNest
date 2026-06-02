@@ -1,7 +1,7 @@
 # Testing Architecture Design
 
 ## Overview
-This document outlines the testing infrastructure for the Sevra project. The goal is to provide a scalable, fast, and maintainable testing foundation that supports unit, integration, API, and E2E testing.
+This document outlines the testing infrastructure for the Playenest project. The goal is to provide a scalable, fast, and maintainable testing foundation that supports unit, integration, API, and E2E testing.
 
 ## Testing Stack
 - **Test Runner:** Jest

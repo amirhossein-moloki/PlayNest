@@ -1,4 +1,4 @@
-# Engineering Audit & Security Hardening Report: Project Sevra
+# Engineering Audit & Security Hardening Report: Project Playenest
 
 ## 1. Executive Summary
 
@@ -134,7 +134,7 @@ async updateReservation(id: string, gamingCenterId: string, data: Prisma.Reserva
 
 ## 9. Final Verdict
 
-The Sevra project is **Production-Ready**. The recent hardening efforts have addressed the most significant security and architectural risks.
+The Playenest project is **Production-Ready**. The recent hardening efforts have addressed the most significant security and architectural risks.
 
 ### Remaining Technical Debt:
 - Upgrade deprecated dependencies (`cuid`, `multer` 1.x) to their modern counterparts (`cuid2`, `multer` 2.x/busboy).

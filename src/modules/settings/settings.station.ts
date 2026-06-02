@@ -4,7 +4,7 @@ import * as settingsRepo from './settings.repo';
 import { UpdateSettingsInput } from './settings.types';
 
 export async function getSettings(gamingCenterId: string) {
-  const settings = await settingsRepo.findBySalonId(gamingCenterId);
+  const settings = await settingsRepo.findByGamingCenterId(gamingCenterId);
   if (!settings) {
     // Should normally be created when gamingCenter is created, but handle if missing
     return {
@@ -23,8 +23,8 @@ export async function updateSettings(
   actor: { id: string; actorType: SessionActorType },
   context?: { ip?: string; userAgent?: string }
 ) {
-  const oldSettings = await settingsRepo.findBySalonId(gamingCenterId);
-  const updatedSettings = await settingsRepo.updateBySalonId(gamingCenterId, input);
+  const oldSettings = await settingsRepo.findByGamingCenterId(gamingCenterId);
+  const updatedSettings = await settingsRepo.updateByGamingCenterId(gamingCenterId, input);
 
   await auditService.log(
     gamingCenterId,

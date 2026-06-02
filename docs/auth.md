@@ -7,7 +7,7 @@ This document describes authentication based strictly on the current implementat
 سیستم ورود ما برای دو گروه مختلف طراحی شده: **کارمندان سالن (Users)** و **مشتریان (Customers)**.
 
 ### ۱. ورود کارمندان سالن
-کارمندان برای ورود به پنل خودشان به سه چیز نیاز دارند: شماره تلفن، رمز عبور، و شناسه سالن (Salon ID). سیستم چک می‌کند که آیا رمز عبور با شماره تلفن این شخص در همان سالن مطابقت دارد یا نه.
+کارمندان برای ورود به پنل خودشان به سه چیز نیاز دارند: شماره تلفن، رمز عبور، و شناسه سالن (GamingCenter ID). سیستم چک می‌کند که آیا رمز عبور با شماره تلفن این شخص در همان سالن مطابقت دارد یا نه.
 
 ### ۲. ورود مشتریان
 مشتریان برای ورود فقط به شماره تلفن نیاز دارند. سیستم چک می‌کند که آیا مشتری با این شماره تلفن قبلاً ثبت‌نام کرده است یا نه. اگر اولین بار باشد، سیستم به صورت خودکار یک حساب کاربری برای او ایجاد می‌کند.
@@ -40,7 +40,7 @@ A `Session` row is created at login time:
 
 ### User login with password
 
-1. POST `/auth/login` with `actorType=USER`, `phone`, `password`, and `salonId`.
+1. POST `/auth/login` with `actorType=USER`, `phone`, `password`, and `gamingCenterId`.
 2. Server verifies password hash (`argon2.verify`).
 3. A `Session` is created and the client receives:
    - `accessToken` (JWT)
@@ -51,8 +51,8 @@ A `Session` row is created at login time:
 1. **Request OTP**: POST `/auth/user/otp/request` with `phone`.
    - Creates a `PhoneOtp` with `purpose=LOGIN`, `expiresAt` (2 minutes), `codeHash` (argon2 hash), and sends SMS.
 2. **Verify OTP**: POST `/auth/user/otp/verify` with `phone` + `code`.
-   - If valid, sets `consumedAt` and returns a list of salons tied to that phone.
-3. **Complete login**: POST `/auth/user/login/otp` with `phone` + `salonId`.
+   - If valid, sets `consumedAt` and returns a list of gamingCenters tied to that phone.
+3. **Complete login**: POST `/auth/user/login/otp` with `phone` + `gamingCenterId`.
    - Requires a `PhoneOtp` that was consumed in the last 5 minutes.
    - Creates a `Session` and returns tokens.
 
@@ -75,7 +75,7 @@ A `Session` row is created at login time:
 ## Authorization & Tenant Isolation
 
 - `authMiddleware` verifies the JWT and loads the actor (`User` or `CustomerAccount`).
-- `tenantGuard` enforces that the actor’s `salonId` matches the `:salonId` path parameter on tenant routes.
+- `tenantGuard` enforces that the actor’s `gamingCenterId` matches the `:gamingCenterId` path parameter on tenant routes.
 - `requireRole` restricts operations to specific `UserRole` values for staff endpoints.
 
 ## OTP & Security Details

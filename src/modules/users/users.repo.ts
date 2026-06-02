@@ -25,7 +25,7 @@ export const softDeleteUser = async (gamingCenterId: string, userId: string) => 
   });
 };
 
-export const listUsersBySalon = async (gamingCenterId: string, query: ListUsersQuery) => {
+export const listUsersByGamingCenter = async (gamingCenterId: string, query: ListUsersQuery) => {
   const { page, limit, search, isActive, sortBy, sortOrder, role, isPublic, stationId } = query;
   const { skip, take } = getPaginationParams(page, limit);
 

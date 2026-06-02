@@ -69,7 +69,7 @@ export const createPublicBookingSchema = z.object({
     'idempotency-key': z.string().min(16).max(128),
   }),
   params: z.object({
-    salonSlug: z.string(),
+    gamingCenterSlug: z.string(),
   }),
   body: z.object({
     stationId: z.string().cuid(CUID_MESSAGE),

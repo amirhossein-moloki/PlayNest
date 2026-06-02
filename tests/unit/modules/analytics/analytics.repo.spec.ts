@@ -100,14 +100,14 @@ describe('AnalyticsRepo', () => {
     });
   });
 
-  describe('syncSalonStats', () => {
-    it('should sync and upsert salon stats', async () => {
+  describe('syncGamingCenterStats', () => {
+    it('should sync and upsert gamingCenter stats', async () => {
       settingsMock.findUnique.mockResolvedValue({ timeZone: 'UTC' });
       resMock.groupBy.mockResolvedValue([]);
       paymentMock.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
       gcAnalyticsMock.upsert.mockResolvedValue({});
 
-      await AnalyticsRepo.syncSalonStats(gamingCenterId, new Date());
+      await AnalyticsRepo.syncGamingCenterStats(gamingCenterId, new Date());
       expect(gcAnalyticsMock.upsert).toHaveBeenCalled();
     });
   });
@@ -138,23 +138,23 @@ describe('AnalyticsRepo', () => {
   describe('syncAllStatsForBooking', () => {
     it('should sync all stats for a booking', async () => {
       resMock.findUnique.mockResolvedValue({ id: 'res-1', gamingCenterId, startTime: new Date(), staffId: 'u-1', stationId: 's-1' });
-      jest.spyOn(AnalyticsRepo, 'syncSalonStats').mockResolvedValue(undefined /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      jest.spyOn(AnalyticsRepo, 'syncGamingCenterStats').mockResolvedValue(undefined /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       jest.spyOn(AnalyticsRepo, 'syncStaffStats').mockResolvedValue(undefined /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       jest.spyOn(AnalyticsRepo, 'syncServiceStats').mockResolvedValue(undefined /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
       await AnalyticsRepo.syncAllStatsForBooking('res-1');
-      expect(AnalyticsRepo.syncSalonStats).toHaveBeenCalled();
+      expect(AnalyticsRepo.syncGamingCenterStats).toHaveBeenCalled();
     });
   });
 
   describe('syncAllStatsForPayment', () => {
     it('should sync stats after payment', async () => {
       paymentMock.findUnique.mockResolvedValue({ id: 'pay-1', status: 'PAID', paidAt: new Date(), gamingCenterId, reservationId: 'res-1' });
-      jest.spyOn(AnalyticsRepo, 'syncSalonStats').mockResolvedValue(undefined /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      jest.spyOn(AnalyticsRepo, 'syncGamingCenterStats').mockResolvedValue(undefined /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       jest.spyOn(AnalyticsRepo, 'syncAllStatsForBooking').mockResolvedValue(undefined /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
       await AnalyticsRepo.syncAllStatsForPayment('pay-1');
-      expect(AnalyticsRepo.syncSalonStats).toHaveBeenCalled();
+      expect(AnalyticsRepo.syncGamingCenterStats).toHaveBeenCalled();
       expect(AnalyticsRepo.syncAllStatsForBooking).toHaveBeenCalledWith('res-1');
     });
   });

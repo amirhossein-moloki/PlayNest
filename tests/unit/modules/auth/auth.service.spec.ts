@@ -61,7 +61,7 @@ describe('AuthService', () => {
   describe('requestUserOtp', () => {
     it('should request OTP successfully', async () => {
       const users = [{ id: 'u-1', gamingCenter: { id: 'gc-1', name: 'g' } }] as unknown as UserWithGamingCenter[];
-      MockedAuthRepository.findUsersWithSalons.mockResolvedValue(users);
+      MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue(users);
       MockedAuthRepository.createOtp.mockResolvedValue({} as PhoneOtp);
 
       const result = await AuthService.requestUserOtp(T_P);
@@ -72,7 +72,7 @@ describe('AuthService', () => {
     });
 
     it('should throw NOT_FOUND if no user associated with phone', async () => {
-      MockedAuthRepository.findUsersWithSalons.mockResolvedValue([]);
+      MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue([]);
 
       await expect(AuthService.requestUserOtp(T_P))
         .rejects.toThrow(new AppError('No user found with this phone number.', httpStatus.NOT_FOUND));
@@ -89,7 +89,7 @@ describe('AuthService', () => {
       MockedAuthRepository.findRecentOtp.mockResolvedValue(otp);
       MockedAuthRepository.consumeOtp.mockResolvedValue({} as PhoneOtp);
       MockedAuthRepository.markUserPhoneVerified.mockResolvedValue({ count: 1 });
-      MockedAuthRepository.findUsersWithSalons.mockResolvedValue(users);
+      MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue(users);
 
       const result = await AuthService.verifyUserOtp(T_P, code);
 

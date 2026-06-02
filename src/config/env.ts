@@ -22,7 +22,7 @@ const corsOriginTransform = (v: unknown) => {
 const EnvSchema = z.object({
   // App
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  APP_NAME: z.string().default('sevra'),
+  APP_NAME: z.string().default('playenest'),
   PORT: z.coerce.number().int().positive().default(3000),
   LOG_LEVEL: z.string().default('info'),
 

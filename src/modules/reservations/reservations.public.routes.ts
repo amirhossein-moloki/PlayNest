@@ -4,7 +4,7 @@ import * as bookingsController from './reservations.controller';
 import { createPublicBookingSchema } from './reservations.validators';
 import { idempotencyMiddleware } from '../../common/middleware/idempotency';
 import { publicBookingRateLimiter } from '../../common/middleware/rateLimit';
-import { resolveSalonBySlug } from '../../common/middleware/resolveSalonBySlug';
+import { resolveGamingCenterBySlug } from '../../common/middleware/resolveGamingCenterBySlug';
 import { env } from '../../config/env';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
 import { AppRequest } from '../../types/express';
@@ -15,7 +15,7 @@ const router = Router({ mergeParams: true });
 router.post(
   '/',
   ...(env.NODE_ENV !== 'test' ? [publicBookingRateLimiter] : []),
-  resolveSalonBySlug,
+  resolveGamingCenterBySlug,
   validate(createPublicBookingSchema),
   asyncHandler(idempotencyMiddleware),
   asyncHandler<AppRequest>(bookingsController.createPublicBooking)

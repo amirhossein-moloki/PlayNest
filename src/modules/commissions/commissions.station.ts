@@ -8,7 +8,7 @@ import { auditService } from '../audit/audit.station';
 
 export const commissionsService = {
   async getPolicy(gamingCenterId: string) {
-    const policy = await CommissionsRepo.findPolicyBySalonId(gamingCenterId);
+    const policy = await CommissionsRepo.findPolicyByGamingCenterId(gamingCenterId);
     if (!policy) {
       throw new AppError('Commission policy not found for this gamingCenter.', httpStatus.NOT_FOUND);
     }
@@ -21,7 +21,7 @@ export const commissionsService = {
     actor: { id: string; actorType: SessionActorType },
     context?: { ip?: string; userAgent?: string }
   ) {
-    const existingPolicy = await CommissionsRepo.findPolicyBySalonId(gamingCenterId);
+    const existingPolicy = await CommissionsRepo.findPolicyByGamingCenterId(gamingCenterId);
 
     const data: Prisma.CommissionPolicyCreateInput = {
       type: input.type,
@@ -57,7 +57,7 @@ export const commissionsService = {
       if (reservation.earning) return reservation.earning; // Already calculated
 
       // 2. Fetch policy
-      const policy = await CommissionsRepo.findPolicyBySalonId(reservation.gamingCenterId, tx);
+      const policy = await CommissionsRepo.findPolicyByGamingCenterId(reservation.gamingCenterId, tx);
 
       if (!policy || !policy.isActive) return null;
 

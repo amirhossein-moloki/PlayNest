@@ -9,7 +9,7 @@ import {
 import { authMiddleware } from '../../common/middleware/auth';
 import { requireRole } from '../../common/middleware/requireRole';
 import { tenantGuard } from '../../common/middleware/tenantGuard';
-import { resolveSalonBySlug } from '../../common/middleware/resolveSalonBySlug';
+import { resolveGamingCenterBySlug } from '../../common/middleware/resolveGamingCenterBySlug';
 import { UserRole } from '@prisma/client';
 import {
   privateApiRateLimiter,
@@ -56,13 +56,13 @@ privateServiceRouter.delete(
   asyncHandler(ServiceController.deleteService)
 );
 
-// --- Public Router (to be mounted under /api/v1/public/gamingCenters/:salonSlug/stations) ---
+// --- Public Router (to be mounted under /api/v1/public/gamingCenters/:gamingCenterSlug/stations) ---
 export const publicServiceRouter = Router({ mergeParams: true });
 
 publicServiceRouter.get(
   '/',
   publicApiRateLimiter,
-  resolveSalonBySlug,
+  resolveGamingCenterBySlug,
   (req: Request, res: Response, next: NextFunction) => {
     // For public-facing routes, we should only show active stations.
     req.query.isActive = 'true';

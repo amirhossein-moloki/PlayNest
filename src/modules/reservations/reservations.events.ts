@@ -5,9 +5,9 @@ import { Reservation, GamingCenter, Settings, ReservationStatus } from '@prisma/
 import { formatInTimeZone } from 'date-fns-tz';
 import { env } from '../../config/env';
 
-type SalonWithSettings = GamingCenter & { settings?: Settings | null };
+type GamingCenterWithSettings = GamingCenter & { settings?: Settings | null };
 
-const sendBookingStatusSms = async (reservation: Reservation, gamingCenter: SalonWithSettings, customerPhone: string, customerName: string) => {
+const sendBookingStatusSms = async (reservation: Reservation, gamingCenter: GamingCenterWithSettings, customerPhone: string, customerName: string) => {
   let templateId: number | undefined;
 
   if (reservation.status === ReservationStatus.CONFIRMED) {

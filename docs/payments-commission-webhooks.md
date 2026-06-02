@@ -4,14 +4,14 @@
 
 ### Data Model
 
-- `Payment` belongs to `Booking` and `Salon`.
+- `Payment` belongs to `Booking` and `GamingCenter`.
 - Key fields: `provider`, `status`, `amount`, `currency`, `providerPaymentId`, `providerCheckoutId`, `idempotencyKey`.
 - `PaymentStatus` enum: `INITIATED`, `PENDING`, `PAID`, `FAILED`, `REFUNDED`, `VOID`, `CANCELED`.
 - `PaymentProvider` enum: `MANUAL`, `STRIPE`, `ZARINPAL`.
 
 ### Payment Initiation Flow
 
-Route: `POST /api/v1/salons/:salonId/bookings/:bookingId/payments/init`
+Route: `POST /api/v1/gamingCenters/:gamingCenterId/bookings/:bookingId/payments/init`
 
 1. Auth + role checks are enforced (`MANAGER`, `RECEPTIONIST`, `STAFF`).
 2. `idempotencyMiddleware` requires `Idempotency-Key` header and stores request status in Redis.
@@ -49,7 +49,7 @@ The state machine logic is centralized in `src/modules/payments/payments.state.t
 
 ### Data Model
 
-- `SalonCommissionPolicy` stores the policy per salon (PERCENT or FIXED).
+- `GamingCenterCommissionPolicy` stores the policy per gamingCenter (PERCENT or FIXED).
 - `BookingCommission` records the commission for a specific booking.
 - `CommissionPayment` tracks payments against a commission.
 

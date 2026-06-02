@@ -4,9 +4,9 @@ services:
     image: postgres:15
     restart: always
     environment:
-      POSTGRES_USER: sevra-dev
-      POSTGRES_PASSWORD: sevra-dev-password
-      POSTGRES_DB: sevra-db
+      POSTGRES_USER: playenest-dev
+      POSTGRES_PASSWORD: playenest-dev-password
+      POSTGRES_DB: playenest-db
     ports:
       - '5432:5432'
     volumes:

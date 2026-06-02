@@ -6,7 +6,7 @@ import { getAvailabilitySchema } from './availability.validators';
 const router = Router({ mergeParams: true });
 
 // Note: The full path will be determined by how this router is mounted.
-// We expect something like /public/gamingCenters/:salonSlug/availability
+// We expect something like /public/gamingCenters/:gamingCenterSlug/availability
 router.get('/slots', validate(getAvailabilitySchema), getAvailability);
 
 export default router;

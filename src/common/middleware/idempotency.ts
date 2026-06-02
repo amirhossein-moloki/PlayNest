@@ -33,7 +33,7 @@ const getRequestHash = (body: any): string => { // eslint-disable-line @typescri
 /**
  * Idempotency middleware to prevent duplicate requests.
  *
- * This middleware must run AFTER any middleware that resolves gamingCenter identifiers (e.g., salonIdMiddleware).
+ * This middleware must run AFTER any middleware that resolves gamingCenter identifiers (e.g., gamingCenterIdMiddleware).
  */
 export const idempotencyMiddleware = async (
   req: Request,

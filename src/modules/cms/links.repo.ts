@@ -2,7 +2,7 @@ import { SocialLink } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
 export const LinksRepo = {
-  async findBySalonId(gamingCenterId: string): Promise<SocialLink[]> {
+  async findByGamingCenterId(gamingCenterId: string): Promise<SocialLink[]> {
     return prisma.socialLink.findMany({
       where: { gamingCenterId },
       orderBy: { createdAt: 'desc' },

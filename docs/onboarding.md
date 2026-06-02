@@ -17,7 +17,7 @@ npm install
 `src/config/env.ts` validates required configuration. The following variables are required unless noted:
 
 - `NODE_ENV` (default: `development`)
-- `APP_NAME` (default: `sevra`)
+- `APP_NAME` (default: `playenest`)
 - `PORT` (default: `3000`)
 - `LOG_LEVEL` (default: `info`)
 - `JWT_ACCESS_SECRET`

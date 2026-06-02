@@ -35,10 +35,10 @@ describe('PagesRepo', () => {
     });
   });
 
-  describe('listPagesBySalon', () => {
+  describe('listPagesByGamingCenter', () => {
     it('should return total and pages in transaction', async () => {
       (prismaMock /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).$transaction.mockResolvedValue([5, []]);
-      const result = await PagesRepo.listPagesBySalon(gamingCenterId, { limit: 10, offset: 0 });
+      const result = await PagesRepo.listPagesByGamingCenter(gamingCenterId, { limit: 10, offset: 0 });
       expect(result.total).toBe(5);
       expect((prismaMock /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).$transaction).toHaveBeenCalled();
     });

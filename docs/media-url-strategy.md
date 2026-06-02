@@ -2,7 +2,7 @@
 
 ## Overview
 
-The backend stores media files via a storage adapter (local disk or S3). Media records (`SalonMedia`) store:
+The backend stores media files via a storage adapter (local disk or S3). Media records (`GamingCenterMedia`) store:
 
 - `url`: the original asset URL.
 - `thumbUrl`: a thumbnail URL for images (generated on upload).
@@ -20,7 +20,7 @@ The frontend should treat these URLs as opaque strings and **not** attempt to bu
 Example:
 
 ```
-http://localhost:3000/media/salons/{salonId}/media/original/{uuid}.jpg
+http://localhost:3000/media/gamingCenters/{gamingCenterId}/media/original/{uuid}.jpg
 ```
 
 ### S3 storage

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { baseFilterSchema } from '../../common/validators/query.validators';
 
-export const createSalonSchema = z.object({
+export const createGamingCenterSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters long'),
   slug: z
     .string()
@@ -14,7 +14,7 @@ export const createSalonSchema = z.object({
   games: z.array(z.string()).optional().default([]),
 });
 
-export const updateSalonSchema = z.object({
+export const updateGamingCenterSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters long').optional(),
   slug: z
     .string()
@@ -28,9 +28,9 @@ export const updateSalonSchema = z.object({
   games: z.array(z.string()).optional(),
 });
 
-export const listSalonsSchema = baseFilterSchema.extend({
+export const listGamingCentersSchema = baseFilterSchema.extend({
   city: z.string().optional(),
   game: z.string().optional(),
 });
 
-export type ListSalonsQuery = z.infer<typeof listSalonsSchema>;
+export type ListGamingCentersQuery = z.infer<typeof listGamingCentersSchema>;

@@ -1,13 +1,13 @@
-# Sevra Documentation Map
+# Playenest Documentation Map
 
-This folder contains documentation generated directly from the current Sevra codebase. Each document includes a **Source of Truth** section that points to the exact files used.
+This folder contains documentation generated directly from the current Playenest codebase. Each document includes a **Source of Truth** section that points to the exact files used.
 
 ## Contents
 
 - [Architecture](architecture.md)
 - [Database](database.md)
-- [PRD (English)](sevra-prd.md)
-- [PRD (Persian)](MVP-Salon-Platform-FA.md)
+- [PRD (English)](playenest-prd.md)
+- [PRD (Persian)](MVP-GamingCenter-Platform-FA.md)
 - [API Reference](api.md)
 - [API List (Persian)](API_LIST.md)
 - [Authentication](auth.md)

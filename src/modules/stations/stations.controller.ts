@@ -7,7 +7,7 @@ import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 
 // Local type extension for Request
-interface RequestWithSalon extends Request {
+interface RequestWithGamingCenter extends Request {
   gamingCenter?: GamingCenter;
 }
 
@@ -32,22 +32,22 @@ export async function createStation(
  * Handle request to get all stations for a gamingCenter.
  */
 export async function getServices(
-  req: RequestWithSalon,
+  req: RequestWithGamingCenter,
   res: Response,
   next: NextFunction
 ) {
   try {
     const { gamingCenterId } = req.params;
 
-    const targetSalonId = gamingCenterId || req.gamingCenter?.id;
-    if (!targetSalonId) {
+    const targetGamingCenterId = gamingCenterId || req.gamingCenter?.id;
+    if (!targetGamingCenterId) {
       return next(new AppError('GamingCenter ID or slug is required.', httpStatus.BAD_REQUEST));
     }
 
     const validatedQuery = listServicesSchema.parse(req.query);
 
     const stations = await stationLogic.getStationsForGamingCenter(
-      targetSalonId,
+      targetGamingCenterId,
       validatedQuery
     );
     res.ok(stations);

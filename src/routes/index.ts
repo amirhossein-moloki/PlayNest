@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import healthRouter from './health.routes';
 import authRouter from '../modules/auth/auth.routes';
-import salonRouter from '../modules/gamingCenter/gamingCenter.routes';
+import gamingCenterRouter from '../modules/gamingCenter/gamingCenter.routes';
 
 // Import the new station routers
 import {
@@ -20,7 +20,7 @@ import {
   publicLinksRouter,
   publicMediaRouter,
   publicPagesRouter,
-  publicSalonRouter,
+  publicGamingCenterRouter,
 } from '../modules/public/public.routes';
 import { paymentsRoutes } from '../modules/payments/payments.routes';
 import { webhooksRoutes } from '../modules/webhooks/webhooks.routes';
@@ -33,7 +33,7 @@ import { settingsRouter } from '../modules/settings/settings.routes';
 import { commissionsRoutes } from '../modules/commissions/commissions.routes';
 import auditRoutes from '../modules/audit/audit.routes';
 import { analyticsRoutes } from '../modules/analytics/analytics.routes';
-import { resolveSalonBySlug } from '../common/middleware/resolveSalonBySlug';
+import { resolveGamingCenterBySlug } from '../common/middleware/resolveGamingCenterBySlug';
 import { customerPanelRouter } from '../modules/customer-panel/customer-panel.routes';
 
 const router = Router();
@@ -41,14 +41,14 @@ const router = Router();
 // --- Existing Routes ---
 router.use('/health', healthRouter);
 router.use('/auth', authRouter);
-router.use('/gamingCenters', salonRouter);
+router.use('/gamingCenters', gamingCenterRouter);
 
 // --- GameStation Module Routes ---
 // Mount the private router under the gamingCenter-specific path
 router.use('/gamingCenters/:gamingCenterId/stations', privateServiceRouter);
 
 // Mount the public router under the public gamingCenter path
-router.use('/public/gamingCenters/:salonSlug/stations', publicServiceRouter);
+router.use('/public/gamingCenters/:gamingCenterSlug/stations', publicServiceRouter);
 
 // --- Staff Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/staff', staffRouter);
@@ -59,14 +59,14 @@ router.use('/gamingCenters/:gamingCenterId/staff/:userId/staffShifts', shiftsRou
 
 // --- Availability Module Routes ---
 router.use(
-  '/public/gamingCenters/:salonSlug/availability',
-  resolveSalonBySlug,
+  '/public/gamingCenters/:gamingCenterSlug/availability',
+  resolveGamingCenterBySlug,
   availabilityRouter
 );
 
 // --- Bookings Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/reservations', bookingsRoutes);
-router.use('/public/gamingCenters/:salonSlug/reservations', publicBookingsRoutes);
+router.use('/public/gamingCenters/:gamingCenterSlug/reservations', publicBookingsRoutes);
 
 // --- Customers Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/customers', customersRouter);
@@ -75,8 +75,8 @@ router.use('/gamingCenters/:gamingCenterId/customers', customersRouter);
 router.use('/gamingCenters/:gamingCenterId/ratings', privateReviewsRouter);
 
 // Public GamingCenter Root & Reviews
-router.use('/public/gamingCenters/:salonSlug', publicSalonRouter);
-router.use('/public/gamingCenters/:salonSlug', publicReviewsRouter);
+router.use('/public/gamingCenters/:gamingCenterSlug', publicGamingCenterRouter);
+router.use('/public/gamingCenters/:gamingCenterSlug', publicReviewsRouter);
 
 // --- Settings Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/settings', settingsRouter);
@@ -103,10 +103,10 @@ router.use('/gamingCenters/:gamingCenterId', cmsRouter);
 router.use('/admin', cmsAdminUiRouter);
 
 // --- Public CMS Routes ---
-router.use('/public/gamingCenters/:salonSlug/pages', publicPagesRouter);
-router.use('/public/gamingCenters/:salonSlug/media', publicMediaRouter);
-router.use('/public/gamingCenters/:salonSlug/links', publicLinksRouter);
-router.use('/public/gamingCenters/:salonSlug/addresses', publicAddressesRouter);
+router.use('/public/gamingCenters/:gamingCenterSlug/pages', publicPagesRouter);
+router.use('/public/gamingCenters/:gamingCenterSlug/media', publicMediaRouter);
+router.use('/public/gamingCenters/:gamingCenterSlug/links', publicLinksRouter);
+router.use('/public/gamingCenters/:gamingCenterSlug/addresses', publicAddressesRouter);
 
 // --- Webhooks Module ---
 router.use(webhooksRoutes);

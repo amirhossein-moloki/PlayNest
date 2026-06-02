@@ -31,7 +31,7 @@ export const createStaffMember = async (
 };
 
 export const getStaffList = async (gamingCenterId: string, query: ListUsersQuery) => {
-  const staff = await userRepo.listUsersBySalon(gamingCenterId, query);
+  const staff = await userRepo.listUsersByGamingCenter(gamingCenterId, query);
   return staff;
 };
 

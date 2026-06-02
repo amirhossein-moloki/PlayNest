@@ -12,12 +12,12 @@ This document is generated from route files in `src/routes/index.ts` and `src/mo
 
 ### Timezone
 - All dates are sent and received in **ISO 8601** format in **UTC**.
-- Salon-specific local time is handled by the application using `Settings.timeZone`.
+- GamingCenter-specific local time is handled by the application using `Settings.timeZone`.
 
 ### Idempotency
 - Required for sensitive operations: **Public Bookings** and **Payments**.
 - Header: `Idempotency-Key: <string>` (16-128 chars).
-- Scope: Key + Salon + Path.
+- Scope: Key + GamingCenter + Path.
 - TTL: 24 hours.
 
 ## Response Envelope
@@ -70,14 +70,14 @@ Example request:
 - **Body** (`verifyOtpSchema`)
   - `phone` (string, min length 10)
   - `code` (string, length 6)
-- **Response**: `{ "success": true, "data": { "salons": [{ "id": "...", "name": "..." }] } }`
+- **Response**: `{ "success": true, "data": { "gamingCenters": [{ "id": "...", "name": "..." }] } }`
 
 ### POST `/auth/user/login/otp`
 
 - **Auth**: public
 - **Body** (`loginWithOtpSchema`)
   - `phone` (string)
-  - `salonId` (string, CUID)
+  - `gamingCenterId` (string, CUID)
 - **Response**: `{ "success": true, "data": { "user": "...", "tokens": "..." } }`
 
 ### POST `/auth/login`
@@ -87,7 +87,7 @@ Example request:
   - `phone` (string)
   - `password` (string, required when `actorType=USER`)
   - `actorType` (`USER` or `CUSTOMER`)
-  - `salonId` (required when `actorType=USER`)
+  - `gamingCenterId` (required when `actorType=USER`)
 - **Response**: `{ "success": true, "data": { "user": "...", "tokens": "..." } }`
 
 ### POST `/auth/refresh`
@@ -114,74 +114,74 @@ Example request:
 - **Auth**: public
 - **Response**: `{ "success": true, "data": { "status": "ok" } }`
 
-## Salons
+## GamingCenters
 
-### GET `/salons`
+### GET `/gamingCenters`
 
 - **Auth**: public
 - **Response**: `{ "success": true, "data": [ ... ] }`
 
-### GET `/salons/:id`
+### GET `/gamingCenters/:id`
 
 - **Auth**: public
 - **Response**: `{ "success": true, "data": { "...": "..." } }`
 
-### POST `/salons`
+### POST `/gamingCenters`
 
 - **Auth**: required
 - **Response**: `{ "success": true, "data": { "...": "..." } }`
 
-### PATCH `/salons/:id`
+### PATCH `/gamingCenters/:id`
 
 - **Auth**: required
 - **Roles**: `MANAGER`
-- **Tenant guard**: salon ID must match the authenticated user.
+- **Tenant guard**: gamingCenter ID must match the authenticated user.
 - **Response**: `{ "success": true, "data": { "...": "..." } }`
 
-### DELETE `/salons/:id`
+### DELETE `/gamingCenters/:id`
 
 - **Auth**: required
 - **Roles**: `MANAGER`
-- **Tenant guard**: salon ID must match the authenticated user.
+- **Tenant guard**: gamingCenter ID must match the authenticated user.
 - **Response**: `{ "success": true, "data": { "...": "..." } }`
 
 ## Services
 
-### POST `/salons/:salonId/services`
+### POST `/gamingCenters/:gamingCenterId/services`
 
 - **Auth**: required
 - **Roles**: `MANAGER`
 - **Body** (`createServiceSchema`): `name`, `durationMinutes`, `price`, `currency`, `isActive?`
 - **Response**: `{ "success": true, "data": { "...": "..." } }`
 
-### GET `/salons/:salonId/services`
+### GET `/gamingCenters/:gamingCenterId/services`
 
 - **Auth**: required
 - **Roles**: `MANAGER`, `RECEPTIONIST`, `STAFF`
 - **Response**: `{ "success": true, "data": [ ... ] }`
 
-### GET `/salons/:salonId/services/:serviceId`
+### GET `/gamingCenters/:gamingCenterId/services/:serviceId`
 
 - **Auth**: required
 - **Roles**: `MANAGER`, `RECEPTIONIST`, `STAFF`
 - **Params**: `serviceId` (CUID)
 - **Response**: `{ "success": true, "data": { "...": "..." } }`
 
-### PATCH `/salons/:salonId/services/:serviceId`
+### PATCH `/gamingCenters/:gamingCenterId/services/:serviceId`
 
 - **Auth**: required
 - **Roles**: `MANAGER`
 - **Body** (`updateServiceSchema`): any of `name`, `durationMinutes`, `price`, `currency`, `isActive`
 - **Response**: `{ "success": true, "data": { "...": "..." } }`
 
-### DELETE `/salons/:salonId/services/:serviceId`
+### DELETE `/gamingCenters/:gamingCenterId/services/:serviceId`
 
 - **Auth**: required
 - **Roles**: `MANAGER`
 - **Params**: `serviceId` (CUID)
 - **Response**: `204 No Content`
 
-### GET `/public/salons/:salonSlug/services`
+### GET `/public/gamingCenters/:gamingCenterSlug/services`
 
 - **Auth**: public
 - **Behavior**: forcibly sets `isActive=true` before querying.
@@ -189,31 +189,31 @@ Example request:
 
 ## Staff / Users
 
-### POST `/salons/:salonId/staff`
+### POST `/gamingCenters/:gamingCenterId/staff`
 
 - **Auth**: required
 - **Roles**: `MANAGER`
 - **Body** (`createUserSchema`): `fullName`, `phone` (Iranian format `09xxxxxxxxx`), `role`, optional public profile fields.
 - **Response**: `{ "success": true, "data": { "...": "..." } }`
 
-### GET `/salons/:salonId/staff`
+### GET `/gamingCenters/:gamingCenterId/staff`
 
 - **Auth**: required
 - **Response**: `{ "success": true, "data": [ ... ] }`
 
-### GET `/salons/:salonId/staff/:userId`
+### GET `/gamingCenters/:gamingCenterId/staff/:userId`
 
 - **Auth**: required
 - **Response**: `{ "success": true, "data": { "...": "..." } }`
 
-### PUT `/salons/:salonId/staff/:userId`
+### PUT `/gamingCenters/:gamingCenterId/staff/:userId`
 
 - **Auth**: required
 - **Roles**: `MANAGER`
 - **Body** (`updateUserSchema`): fields such as `fullName`, `role`, `isActive`, public profile fields.
 - **Response**: `{ "success": true, "data": { "...": "..." } }`
 
-### DELETE `/salons/:salonId/staff/:userId`
+### DELETE `/gamingCenters/:gamingCenterId/staff/:userId`
 
 - **Auth**: required
 - **Roles**: `MANAGER`
@@ -221,7 +221,7 @@ Example request:
 
 ## Shifts
 
-### PUT `/salons/:salonId/staff/:userId/shifts`
+### PUT `/gamingCenters/:gamingCenterId/staff/:userId/shifts`
 
 - **Auth**: required
 - **Roles**: `MANAGER`
@@ -234,7 +234,7 @@ Example request:
 
 ## Availability (Public)
 
-### GET `/public/salons/:salonSlug/availability/slots`
+### GET `/public/gamingCenters/:gamingCenterSlug/availability/slots`
 
 - **Auth**: public
 - **Query** (`getAvailabilityQuerySchema`):
@@ -260,54 +260,54 @@ Example response:
 
 ## Bookings (Private)
 
-### POST `/salons/:salonId/bookings`
+### POST `/gamingCenters/:gamingCenterId/bookings`
 
 - **Auth**: required
 - **Roles**: `MANAGER`, `RECEPTIONIST`
 - **Body** (`createBookingSchema`): `customer`, `serviceId`, `staffId`, `startAt`, `note?`
 - **Response**: `{ "success": true, "data": { "...": "..." } }`
 
-### GET `/salons/:salonId/bookings`
+### GET `/gamingCenters/:gamingCenterId/bookings`
 
 - **Auth**: required
 - **Roles**: `MANAGER`, `RECEPTIONIST`, `STAFF`
 - **Query** (`listBookingsQuerySchema`): `page`, `pageSize`, `sortBy`, `sortOrder`, `status`, `staffId`, `customerProfileId`, `dateFrom`, `dateTo`
 - **Response**: `{ "success": true, "data": [ ... ], "meta": { "page": 1, "pageSize": 20, "total": 0 } }`
 
-### GET `/salons/:salonId/bookings/:bookingId`
+### GET `/gamingCenters/:gamingCenterId/bookings/:bookingId`
 
 - **Auth**: required
 - **Roles**: `MANAGER`, `RECEPTIONIST`, `STAFF`
 - **Params**: `bookingId` (CUID)
 - **Response**: `{ "success": true, "data": { "...": "..." } }`
 
-### PATCH `/salons/:salonId/bookings/:bookingId`
+### PATCH `/gamingCenters/:gamingCenterId/bookings/:bookingId`
 
 - **Auth**: required
 - **Roles**: `MANAGER`, `RECEPTIONIST`
 - **Body** (`updateBookingSchema`): any of `serviceId`, `staffId`, `startAt`, `note`
 - **Response**: `{ "success": true, "data": { "...": "..." } }`
 
-### POST `/salons/:salonId/bookings/:bookingId/confirm`
+### POST `/gamingCenters/:gamingCenterId/bookings/:bookingId/confirm`
 
 - **Auth**: required
 - **Roles**: `MANAGER`, `RECEPTIONIST`
 - **Response**: `{ "success": true, "data": { "...": "..." } }`
 
-### POST `/salons/:salonId/bookings/:bookingId/cancel`
+### POST `/gamingCenters/:gamingCenterId/bookings/:bookingId/cancel`
 
 - **Auth**: required
 - **Roles**: `MANAGER`, `RECEPTIONIST`
 - **Body** (`cancelBookingSchema`): `reason?`
 - **Response**: `{ "success": true, "data": { "...": "..." } }`
 
-### POST `/salons/:salonId/bookings/:bookingId/complete`
+### POST `/gamingCenters/:gamingCenterId/bookings/:bookingId/complete`
 
 - **Auth**: required
 - **Roles**: `MANAGER`, `RECEPTIONIST`
 - **Response**: `{ "success": true, "data": { "...": "..." } }`
 
-### POST `/salons/:salonId/bookings/:bookingId/no-show`
+### POST `/gamingCenters/:gamingCenterId/bookings/:bookingId/no-show`
 
 - **Auth**: required
 - **Roles**: `MANAGER`, `RECEPTIONIST`
@@ -315,7 +315,7 @@ Example response:
 
 ## Bookings (Public)
 
-### POST `/public/salons/:salonSlug/bookings`
+### POST `/public/gamingCenters/:gamingCenterSlug/bookings`
 
 - **Auth**: public
 - **Headers**: `Idempotency-Key` (16-128 chars)
@@ -328,7 +328,7 @@ Example response:
 
 ## Payments
 
-### POST `/salons/:salonId/bookings/:bookingId/payments/init`
+### POST `/gamingCenters/:gamingCenterId/bookings/:bookingId/payments/init`
 
 - **Auth**: required
 - **Roles**: `MANAGER`, `RECEPTIONIST`, `STAFF`
@@ -353,19 +353,19 @@ All CMS routes require auth + `MANAGER` role + tenant guard.
 
 ### Pages
 
-- **GET** `/salons/:salonId/pages`
+- **GET** `/gamingCenters/:gamingCenterId/pages`
   - Query: `status?`, `type?`, `limit?`, `offset?`
-- **GET** `/salons/:salonId/pages/:pageId`
-- **POST** `/salons/:salonId/pages`
+- **GET** `/gamingCenters/:gamingCenterId/pages/:pageId`
+- **POST** `/gamingCenters/:gamingCenterId/pages`
   - Body: page metadata + `sections[]` (see `createPageSchema`)
-- **PATCH** `/salons/:salonId/pages/:pageId`
+- **PATCH** `/gamingCenters/:gamingCenterId/pages/:pageId`
   - Body: any editable page fields
 
 ### Media
 
-- **POST** `/salons/:salonId/media`
+- **POST** `/gamingCenters/:gamingCenterId/media`
   - Body: media metadata (see `createMediaSchema`)
-- **PATCH** `/salons/:salonId/media/:mediaId`
+- **PATCH** `/gamingCenters/:gamingCenterId/media/:mediaId`
   - Body: partial media update (see `updateMediaSchema`)
 
 ### Links
@@ -378,35 +378,35 @@ All CMS routes require auth + `MANAGER` role + tenant guard.
 
 ### Site Settings
 
-- **GET** `/salons/:salonId/site-settings`
-- **PUT** `/salons/:salonId/site-settings`
+- **GET** `/gamingCenters/:gamingCenterId/site-settings`
+- **PUT** `/gamingCenters/:gamingCenterId/site-settings`
   - Body: partial SEO/site settings update (see `updateSiteSettingsSchema`)
 
 ## CMS Admin UI
 
-### GET `/admin/salons/:salonId/pages`
+### GET `/admin/gamingCenters/:gamingCenterId/pages`
 
 - Returns a static HTML admin UI for CMS pages.
 - Not protected by auth in the route itself.
 
 ## Public CMS
 
-### GET `/public/salons/:salonSlug/pages/:pageSlug`
+### GET `/public/gamingCenters/:gamingCenterSlug/pages/:pageSlug`
 
 - Returns HTML for the requested page.
 - Supports `ETag` and `If-Modified-Since` for caching.
-- Redirects (301) if the slug exists in `SalonPageSlugHistory`.
+- Redirects (301) if the slug exists in `GamingCenterPageSlugHistory`.
 
-### GET `/public/salons/:salonSlug/media`
+### GET `/public/gamingCenters/:gamingCenterSlug/media`
 
 - Returns JSON: `{ success: true, data: media[] }`
 - Adds `Cache-Control: public, max-age=300, stale-while-revalidate=300`
 
-### GET `/public/salons/:salonSlug/links`
+### GET `/public/gamingCenters/:gamingCenterSlug/links`
 
 - Returns JSON: `{ success: true, data: links[] }`
 
-### GET `/public/salons/:salonSlug/addresses`
+### GET `/public/gamingCenters/:gamingCenterSlug/addresses`
 
 - Returns JSON: `{ success: true, data: addresses[] }`
 

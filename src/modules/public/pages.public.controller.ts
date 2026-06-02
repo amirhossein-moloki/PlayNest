@@ -9,7 +9,7 @@ type PublicPageRequest = Request<{ gamingCenterSlug: string; pageSlug?: string }
   tenant?: { gamingCenterId: string; gamingCenterSlug?: string };
 };
 
-export async function getPublicSalonHome(req: PublicPageRequest, res: Response) {
+export async function getPublicGamingCenterHome(req: PublicPageRequest, res: Response) {
   const { gamingCenterSlug } = req.params;
   let tenant = req.tenant;
 

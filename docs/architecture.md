@@ -33,18 +33,18 @@
 | --- | --- | --- |
 | Health | `/health` | `src/routes/health.routes.ts` |
 | Auth | `/auth` | `src/modules/auth/auth.routes.ts`, `auth.controller.ts`, `auth.service.ts`, `auth.validators.ts` |
-| Salons | `/salons` | `src/modules/salon/salon.routes.ts`, `salon.controller.ts`, `salon.service.ts` |
-| Services (private) | `/salons/:salonId/services` | `src/modules/services/services.routes.ts`, `services.controller.ts`, `services.validators.ts` |
-| Services (public) | `/public/salons/:salonSlug/services` | `src/modules/services/services.routes.ts`, `services.controller.ts` |
-| Staff / Users | `/salons/:salonId/staff` | `src/modules/users/users.routes.ts`, `users.controller.ts`, `users.validators.ts` |
-| Shifts | `/salons/:salonId/staff/:userId/shifts` | `src/modules/shifts/shifts.routes.ts`, `shifts.controller.ts`, `shifts.validators.ts` |
-| Availability (public) | `/public/salons/:salonSlug/availability` | `src/modules/availability/availability.routes.ts`, `availability.controller.ts`, `availability.validators.ts` |
-| Bookings (private) | `/salons/:salonId/bookings` | `src/modules/bookings/bookings.routes.ts`, `bookings.controller.ts`, `bookings.validators.ts` |
-| Bookings (public) | `/public/salons/:salonSlug/bookings` | `src/modules/bookings/bookings.public.routes.ts`, `bookings.validators.ts` |
-| Payments | `/salons/:salonId/bookings` | `src/modules/payments/payments.routes.ts`, `payments.controller.ts`, `payments.service.ts`, `payments.validators.ts` |
-| CMS (private) | `/salons/:salonId` | `src/modules/cms/cms.routes.ts`, `pages.routes.ts`, `media.routes.ts`, `links.routes.ts`, `addresses.routes.ts`, `site-settings.routes.ts` |
+| GamingCenters | `/gamingCenters` | `src/modules/gamingCenter/gamingCenter.routes.ts`, `gamingCenter.controller.ts`, `gamingCenter.service.ts` |
+| Services (private) | `/gamingCenters/:gamingCenterId/services` | `src/modules/services/services.routes.ts`, `services.controller.ts`, `services.validators.ts` |
+| Services (public) | `/public/gamingCenters/:gamingCenterSlug/services` | `src/modules/services/services.routes.ts`, `services.controller.ts` |
+| Staff / Users | `/gamingCenters/:gamingCenterId/staff` | `src/modules/users/users.routes.ts`, `users.controller.ts`, `users.validators.ts` |
+| Shifts | `/gamingCenters/:gamingCenterId/staff/:userId/shifts` | `src/modules/shifts/shifts.routes.ts`, `shifts.controller.ts`, `shifts.validators.ts` |
+| Availability (public) | `/public/gamingCenters/:gamingCenterSlug/availability` | `src/modules/availability/availability.routes.ts`, `availability.controller.ts`, `availability.validators.ts` |
+| Bookings (private) | `/gamingCenters/:gamingCenterId/bookings` | `src/modules/bookings/bookings.routes.ts`, `bookings.controller.ts`, `bookings.validators.ts` |
+| Bookings (public) | `/public/gamingCenters/:gamingCenterSlug/bookings` | `src/modules/bookings/bookings.public.routes.ts`, `bookings.validators.ts` |
+| Payments | `/gamingCenters/:gamingCenterId/bookings` | `src/modules/payments/payments.routes.ts`, `payments.controller.ts`, `payments.service.ts`, `payments.validators.ts` |
+| CMS (private) | `/gamingCenters/:gamingCenterId` | `src/modules/cms/cms.routes.ts`, `pages.routes.ts`, `media.routes.ts`, `links.routes.ts`, `addresses.routes.ts`, `site-settings.routes.ts` |
 | CMS Admin UI | `/admin` | `src/modules/cms/admin-ui.routes.ts` |
-| Public CMS | `/public/salons/:salonSlug/pages` / `media` / `links` / `addresses` | `src/modules/public/public.routes.ts` and `src/modules/public/*.public.controller.ts` |
+| Public CMS | `/public/gamingCenters/:gamingCenterSlug/pages` / `media` / `links` / `addresses` | `src/modules/public/public.routes.ts` and `src/modules/public/*.public.controller.ts` |
 | Webhooks | `/api/v1/webhooks` | `src/modules/webhooks/webhooks.routes.ts`, `webhooks.controller.ts`, `middleware/verifyPaymentWebhookSignature.ts` |
 
 ## Technical Optimizations
@@ -59,7 +59,7 @@
 - Shared across multiple instances for scalable protection against brute-force and DDoS attacks.
 
 ### Analytics Summary Tables
-- To ensure sub-200ms dashboard performance, metrics are pre-calculated into `SalonAnalytics`, `StaffAnalytics`, and `ServiceAnalytics` tables.
+- To ensure sub-200ms dashboard performance, metrics are pre-calculated into `GamingCenterAnalytics`, `StaffAnalytics`, and `ServiceAnalytics` tables.
 - Synchronization occurs automatically during booking state changes or financial transactions.
 
 ### Wallet & Refunds

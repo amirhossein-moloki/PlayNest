@@ -35,7 +35,7 @@ export async function listPages(
   gamingCenterId: string,
   filters: { status?: PageStatus; type?: PageType; limit: number; offset: number }
 ) {
-  return PagesRepo.listPagesBySalon(gamingCenterId, {
+  return PagesRepo.listPagesByGamingCenter(gamingCenterId, {
     status: filters.status,
     type: filters.type,
     limit: filters.limit,

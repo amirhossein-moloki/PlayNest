@@ -6,23 +6,23 @@ This document covers the CMS models and routes in the current codebase.
 
 ### Page Builder
 
-- `SalonPage` stores page metadata, SEO fields, and status.
-- `SalonPageSection` stores structured JSON content in `dataJson` (validated per `PageSectionType`).
-- `SalonPageSlugHistory` records old slugs for 301 redirects.
+- `GamingCenterPage` stores page metadata, SEO fields, and status.
+- `GamingCenterPageSection` stores structured JSON content in `dataJson` (validated per `PageSectionType`).
+- `GamingCenterPageSlugHistory` records old slugs for 301 redirects.
 
 ### Media / Links / Addresses
 
-- `SalonMedia` stores assets with `purpose` (e.g., `LOGO`, `GALLERY`) and optional SEO `altText`.
-- `SalonLink` stores social/contact links.
-- `SalonAddress` stores address information and geo coordinates.
+- `GamingCenterMedia` stores assets with `purpose` (e.g., `LOGO`, `GALLERY`) and optional SEO `altText`.
+- `GamingCenterLink` stores social/contact links.
+- `GamingCenterAddress` stores address information and geo coordinates.
 
 ### Site-wide SEO
 
-- `SalonSiteSettings` holds defaults such as `defaultSeoTitle`, `defaultOgImageUrl`, robots settings, and analytics fields.
+- `GamingCenterSiteSettings` holds defaults such as `defaultSeoTitle`, `defaultOgImageUrl`, robots settings, and analytics fields.
 
 ## Private CMS Routes (Manager Only)
 
-Mounted under `/api/v1/salons/:salonId`.
+Mounted under `/api/v1/gamingCenters/:gamingCenterId`.
 
 ### Pages
 
@@ -54,17 +54,17 @@ Key validation details (`pages.validators.ts`):
 
 ## CMS Admin UI (HTML)
 
-- `GET /api/v1/admin/salons/:salonId/pages` returns a static HTML admin interface.
+- `GET /api/v1/admin/gamingCenters/:gamingCenterId/pages` returns a static HTML admin interface.
 - No auth middleware is applied in the route definition.
 
 ## Public CMS Routes
 
-Mounted under `/api/v1/public/salons/:salonSlug`.
+Mounted under `/api/v1/public/gamingCenters/:gamingCenterSlug`.
 
 - `GET /pages/:pageSlug`
   - Returns HTML for published pages.
   - Uses `ETag`/`Last-Modified` and handles 304 responses.
-  - Redirects (301) if slug exists in `SalonPageSlugHistory`.
+  - Redirects (301) if slug exists in `GamingCenterPageSlugHistory`.
 - `GET /media`
   - Returns JSON `{ data: media[] }`.
   - Adds `Cache-Control` with 5 minute TTL and stale-while-revalidate.
