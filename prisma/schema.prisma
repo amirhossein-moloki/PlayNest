@@ -233,6 +233,7 @@ model GamingCenter {
   hourlyRate     Float   @default(0)
   vipHourlyRate  Float?
   hasFoodService Boolean @default(false)
+  games          String[] @default([])
 
   users        User[]
   stations     GameStation[]

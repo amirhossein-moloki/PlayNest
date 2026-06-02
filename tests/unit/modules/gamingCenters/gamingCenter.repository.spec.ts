@@ -31,14 +31,15 @@ describe('GamingCenterRepository', () => {
       expect(gcMock.findMany).toHaveBeenCalled();
     });
 
-    it('should apply filters and city', async () => {
+    it('should apply filters, city and game', async () => {
       gcMock.findMany.mockResolvedValue([]);
       gcMock.count.mockResolvedValue(0);
-      await salonRepository.findAll({ page: 1, limit: 10, search: 'GC', city: 'Tehran' });
+      await salonRepository.findAll({ page: 1, limit: 10, search: 'GC', city: 'Tehran', game: 'FIFA 24' });
       expect(gcMock.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: expect.objectContaining({
           OR: expect.any(Array),
-          addresses: expect.objectContaining({ some: { city: expect.objectContaining({ contains: 'Tehran' }) } })
+          addresses: expect.objectContaining({ some: { city: expect.objectContaining({ contains: 'Tehran' }) } }),
+          games: { has: 'FIFA 24' }
         })
       }));
     });

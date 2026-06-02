@@ -11,6 +11,7 @@ export const createSalonSchema = z.object({
       'Slug can only contain lowercase letters, numbers, and hyphens',
     ),
   ownerId: z.string().min(1, 'Owner ID is required'),
+  games: z.array(z.string()).optional().default([]),
 });
 
 export const updateSalonSchema = z.object({
@@ -24,10 +25,12 @@ export const updateSalonSchema = z.object({
     )
     .optional(),
   isActive: z.boolean().optional(),
+  games: z.array(z.string()).optional(),
 });
 
 export const listSalonsSchema = baseFilterSchema.extend({
   city: z.string().optional(),
+  game: z.string().optional(),
 });
 
 export type ListSalonsQuery = z.infer<typeof listSalonsSchema>;
