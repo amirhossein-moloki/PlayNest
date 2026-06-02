@@ -24,7 +24,7 @@ export const salonRepository = {
   },
 
   async findAll(query: ListSalonsQuery) {
-    const { page, limit, search, isActive, sortBy, sortOrder, city } = query;
+    const { page, limit, search, isActive, sortBy, sortOrder, city, game } = query;
     const { skip, take } = getPaginationParams(page, limit);
 
     const where: Prisma.GamingCenterWhereInput = {
@@ -43,6 +43,12 @@ export const salonRepository = {
         some: {
           city: { contains: city, mode: 'insensitive' },
         },
+      };
+    }
+
+    if (game) {
+      where.games = {
+        has: game,
       };
     }
 
