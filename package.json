@@ -10,7 +10,11 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "backfill:analytics": "node --import tsx --require dotenv/config ./scripts/backfill-analytics.ts"
+    "backfill:analytics": "node --import tsx --require dotenv/config ./scripts/backfill-analytics.ts",
+    "db:seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@sentry/node": "^10.38.0",
