@@ -58,25 +58,31 @@ cp .env.example .env
 ```
 *(Make sure to update `DATABASE_URL` and `REDIS_URL` if they differ from the defaults).*
 
-### 4. Database & Infrastructure
-The easiest way to start the required services is using Docker:
+### 4. Running with Docker (Recommended)
+The easiest way to start the entire stack (App, DB, and Redis) is using Docker Compose:
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
+This will build the app image, run migrations, and start all services. The API will be available at `http://localhost:3000`.
 
-Then, initialize the database schema and generate the Prisma client:
+### 5. Manual Setup (Development)
+If you prefer to run the app locally and only use Docker for infrastructure:
 ```bash
+# Start DB and Redis
+docker compose up -d db redis
+
+# Initialize database
 npx prisma migrate dev
 npx prisma generate
 ```
 
-### 5. Seeding Data (Optional)
-To populate the database with professional test data (Tabriz Gaming Centers dataset):
+### 6. Seeding Data (Optional)
+To populate the database with professional test data:
 ```bash
 npm run db:seed
 ```
 
-### 6. Running the Application
+### 7. Running the Application
 ```bash
 # Development mode
 npm run dev
@@ -124,11 +130,13 @@ Detailed documentation is available in the `docs/` folder:
 پروژه **Playenest** یک سیستم جامع مدیریت گیم‌نت است که شامل مدیریت سیستم رزرو، مدیریت ایستگاه‌ها (PC/Console)، مدیریت شیفت کارکنان و درگاه پرداخت است.
 
 **نحوه اجرا:**
-۱. نصب پکیج‌ها: `npm install`
-۲. تنظیم فایل `.env`: `cp .env.example .env`
-۳. اجرای دیتابیس و ردیس: `docker compose up -d`
-۴. بروزرسانی دیتابیس: `npx prisma migrate dev`
-۵. اجرای پروژه در حالت توسعه: `npm run dev`
+۱. اجرای کل پروژه با داکر: `docker compose up -d --build`
+۲. (اختیاری) اجرای دستی:
+   - نصب پکیج‌ها: `npm install`
+   - تنظیم فایل `.env`: `cp .env.example .env`
+   - اجرای زیرساخت: `docker compose up -d db redis`
+   - بروزرسانی دیتابیس: `npx prisma migrate dev`
+   - اجرای پروژه: `npm run dev`
 
 ---
 *Built with ❤️ for the Gaming Community.*

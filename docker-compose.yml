@@ -20,6 +20,40 @@ services:
     volumes:
       - redis_data:/data
 
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    restart: always
+    ports:
+      - '3000:3000'
+    depends_on:
+      - db
+      - redis
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://playenest-dev:playenest-dev-password@db:5432/playenest-db
+      - REDIS_URL=redis://redis:6379
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-your-super-secret-access-jwt-key-at-least-32-chars}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-your-super-secret-refresh-jwt-key-at-least-32-chars}
+      - JWT_ACCESS_EXPIRES_IN=15m
+      - JWT_REFRESH_EXPIRES_IN=7d
+      - COOKIE_SECRET=${COOKIE_SECRET:-your-cookie-secret-at-least-10-chars}
+      - RATE_LIMIT_ENABLED=true
+      - RATE_LIMIT_STORE=redis
+      - MEDIA_STORAGE_DRIVER=local
+      - MEDIA_PUBLIC_BASE_URL=http://localhost:3000
+      - MEDIA_LOCAL_ROOT=storage
+      - MEDIA_LOCAL_PUBLIC_PATH=/media
+      - RUN_SEED=true
+      - POSTGRES_USER=playenest-dev
+      - POSTGRES_PASSWORD=playenest-dev-password
+      - POSTGRES_DB=playenest-db
+    command: >
+      sh -c "./scripts/wait-for-db.sh db
+      \"./scripts/migrate.sh && node dist/server.js\""
+
 volumes:
   postgres_data:
   redis_data:
