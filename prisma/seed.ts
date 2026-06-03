@@ -27,10 +27,10 @@ const prisma = new PrismaClient();
  * -----------------------------
  */
 const CONFIG = {
-  gamingCentersCount: 5,
-  totalCustomers: 40,
-  stationsPerCenter: 15,
-  bookingsPerCenter: 30,
+  gamingCentersCount: 10,
+  totalCustomers: 60,
+  stationsPerCenter: 12,
+  bookingsPerCenter: 25,
 };
 
 type IranCity = {
@@ -44,15 +44,145 @@ type IranCity = {
 };
 
 const IRAN_CITIES: IranCity[] = [
+  { province: 'آذربایجان شرقی', city: 'تبریز', citySlug: 'tabriz', areaCode: '041', lat: '38.0800', lng: '46.2900', districts: ['کوچه‌باغ', 'خیابان امام', 'زعفرانیه', 'ائل‌گلی', 'ساری‌زمین', 'شریعتی', 'شمس', 'بیلان‌کوه', 'نیمه‌راه', 'قره‌آغاج'] },
   { province: 'تهران', city: 'تهران', citySlug: 'tehran', areaCode: '021', lat: '35.6892', lng: '51.3890', districts: ['ونک', 'پاسداران', 'صادقیه', 'تهرانپارس', 'سعادت‌آباد', 'فرشته', 'نارمک'] },
   { province: 'اصفهان', city: 'اصفهان', citySlug: 'isfahan', areaCode: '031', lat: '32.6539', lng: '51.6660', districts: ['چهارباغ', 'مرداویج', 'شیخ صدوق', 'خانه اصفهان'] },
-  { province: 'خراسان رضوی', city: 'مشهد', citySlug: 'mashhad', areaCode: '051', lat: '36.2605', lng: '59.6168', districts: ['سجاد', 'احمدآباد', 'وکیل‌آباد', 'طرقبه'] },
-  { province: 'فارس', city: 'شیراز', citySlug: 'shiraz', areaCode: '071', lat: '29.5918', lng: '52.5837', districts: ['معالی‌آباد', 'قصرالدشت', 'عفیف‌آباد'] },
-  { province: 'البرز', city: 'کرج', citySlug: 'karaj', areaCode: '026', lat: '35.8400', lng: '50.9391', districts: ['عظیمیه', 'گوهردشت', 'مهرشهر'] },
 ];
 
-const CENTER_NAMES = ['ولتاژ', 'پیکسل', 'ماتریکس', 'اینفینیتی', 'سایبر', 'نوآ', 'رادیکال', 'گیم‌لند', 'آرنا', 'تایتان'];
-const CENTER_SUFFIXES = ['گیم‌سنتر', 'باشگاه بازی', 'مجتمع گیمینگ', 'مرکز تفریحی'];
+const TABRIZ_CENTERS = [
+  {
+    name: 'Kingsland Game Net',
+    slug: 'kingsland-game-net',
+    district: 'کوچه‌باغ',
+    address: 'تبریز، کوچه‌باغ',
+    lat: 38.0810,
+    lng: 46.2890,
+    phone: '0417660896',
+    opening_time: '10:00',
+    closing_time: '23:59',
+    hourly_rate: 60000,
+    vip_hourly_rate: 90000,
+    has_food_service: true,
+    games: ['CS2', 'Valorant', 'Dota2', 'FIFA 24', 'PUBG', 'Fortnite']
+  },
+  {
+    name: 'KIYAN Game Palace',
+    slug: 'kiyan-game-palace',
+    district: 'خیابان امام',
+    address: 'تبریز، خیابان امام خمینی',
+    phone: '0419725707',
+    lat: 38.0732,
+    lng: 46.2971,
+    hourly_rate: 65000,
+    vip_hourly_rate: 95000,
+    has_food_service: false,
+    games: ['CS2', 'Valorant', 'Warzone', 'Tekken 8', 'FIFA 24']
+  },
+  {
+    name: 'Game Net Puzzle',
+    slug: 'game-net-puzzle',
+    district: 'زعفرانیه',
+    address: 'تبریز، زعفرانیه',
+    phone: '04133309846',
+    lat: 38.0581,
+    lng: 46.2832,
+    hourly_rate: 55000,
+    vip_hourly_rate: 85000,
+    has_food_service: false,
+    games: ['LoL', 'CS2', 'Valorant', 'PUBG', 'Apex Legends']
+  },
+  {
+    name: 'AtariiClub',
+    slug: 'atariiclub',
+    district: 'ائل‌گلی',
+    address: 'تبریز، ائل‌گلی',
+    phone: '0412044240',
+    lat: 38.0945,
+    lng: 46.3201,
+    hourly_rate: 70000,
+    vip_hourly_rate: 100000,
+    has_food_service: false,
+    games: ['FIFA 24', 'eFootball', 'Tekken 8', 'MK1']
+  },
+  {
+    name: 'Tunnel Game Net',
+    slug: 'tunnel-game-net',
+    district: 'ساری‌زمین',
+    address: 'تبریز، ساری‌زمین',
+    phone: '04133374298',
+    lat: 38.0602,
+    lng: 46.2711,
+    hourly_rate: 50000,
+    vip_hourly_rate: 80000,
+    has_food_service: false,
+    games: ['CS2', 'Valorant', 'PUBG', 'GTA V']
+  },
+  {
+    name: 'Mr Game',
+    slug: 'mr-game',
+    district: 'شریعتی',
+    address: 'تبریز، خیابان شریعتی',
+    phone: '0413300000',
+    lat: 38.0722,
+    lng: 46.3110,
+    hourly_rate: 60000,
+    vip_hourly_rate: 90000,
+    has_food_service: false,
+    games: ['CS2', 'Warzone', 'Fortnite', 'LoL']
+  },
+  {
+    name: 'Game Net Paradise',
+    slug: 'game-net-paradise',
+    district: 'شمس',
+    address: 'تبریز، شمس تبریزی',
+    phone: '0413301111',
+    lat: 38.0833,
+    lng: 46.3002,
+    hourly_rate: 62000,
+    vip_hourly_rate: 92000,
+    has_food_service: false,
+    games: ['Valorant', 'CS2', 'FIFA 24', 'PUBG']
+  },
+  {
+    name: 'Game Net Pardis',
+    slug: 'game-net-pardis',
+    district: 'بیلان‌کوه',
+    address: 'تبریز، بیلان‌کوه',
+    phone: '0413302222',
+    lat: 38.0677,
+    lng: 46.2951,
+    hourly_rate: 58000,
+    vip_hourly_rate: 88000,
+    has_food_service: false,
+    games: ['CS2', 'Dota2', 'Apex Legends', 'Valorant']
+  },
+  {
+    name: 'Game Net Modern',
+    slug: 'game-net-modern',
+    district: 'نیمه‌راه',
+    address: 'تبریز، نیمه‌راه',
+    phone: '0413303333',
+    lat: 38.0709,
+    lng: 46.2798,
+    hourly_rate: 60000,
+    vip_hourly_rate: 90000,
+    has_food_service: false,
+    games: ['CS2', 'FIFA 24', 'PUBG', 'Warzone']
+  },
+  {
+    name: 'Hero Game Net',
+    slug: 'hero-game-net',
+    district: 'قره‌آغاج',
+    address: 'تبریز، قره‌آغاج',
+    phone: '0413304444',
+    lat: 38.0559,
+    lng: 46.2664,
+    hourly_rate: 65000,
+    vip_hourly_rate: 95000,
+    has_food_service: false,
+    games: ['CS2', 'Valorant', 'MK1', 'Fortnite']
+  }
+];
 
 const FIRST_NAMES_M = ['امیر', 'محمد', 'علی', 'رضا', 'مهدی', 'حسین', 'آرمان', 'سامان', 'پوریا', 'نیما', 'ارشیا', 'سپهر'];
 const FIRST_NAMES_F = ['سارا', 'نسترن', 'مریم', 'الناز', 'تینا', 'غزل', 'نیلوفر', 'ساغر', 'رویا', 'بهار'];
@@ -72,14 +202,6 @@ function randInt(min: number, max: number) {
 }
 function chance(p: number) {
   return Math.random() < p;
-}
-function shuffle<T>(arr: T[]) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = randInt(0, i);
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 }
 function slugify(input: string) {
   return input
@@ -124,34 +246,29 @@ async function clearAll() {
   await prisma.phoneOtp.deleteMany();
 }
 
-function makeIranMobileUnique(counter: number) {
-  return `0912${String(counter).padStart(7, '0')}`.slice(0, 11);
-}
-
 async function main() {
   await clearAll();
 
   console.log('🏢 Seeding Gaming Centers...');
   const centerIds: string[] = [];
-  for (let i = 0; i < CONFIG.gamingCentersCount; i++) {
-    const city = IRAN_CITIES[i % IRAN_CITIES.length];
-    const name = `${pick(CENTER_NAMES)} ${pick(CENTER_SUFFIXES)} ${city.city}`;
-    const slug = `center-${i + 1}`;
+  const tabriz = IRAN_CITIES[0];
 
+  for (let i = 0; i < TABRIZ_CENTERS.length; i++) {
+    const data = TABRIZ_CENTERS[i];
     const center = await prisma.gamingCenter.create({
       data: {
-        name,
-        slug,
+        name: data.name,
+        slug: data.slug,
         isActive: true,
-        description: `بزرگترین و مجهزترین مرکز بازی در ${city.city} با سیستم‌های بروز و محیطی دوستانه.`,
-        pcCount: randInt(10, 30),
-        consoleCount: randInt(5, 15),
-        openingTime: '10:00',
-        closingTime: '23:59',
-        hourlyRate: 50000,
-        vipHourlyRate: 80000,
-        hasFoodService: true,
-        games: shuffle(POPULAR_GAMES).slice(0, 10),
+        description: `بزرگترین و مجهزترین مرکز بازی در ${tabriz.city} با سیستم‌های بروز و محیطی دوستانه.`,
+        pcCount: 8,
+        consoleCount: 4,
+        openingTime: data.opening_time || '10:00',
+        closingTime: data.closing_time || '23:59',
+        hourlyRate: data.hourly_rate,
+        vipHourlyRate: data.vip_hourly_rate,
+        hasFoodService: data.has_food_service,
+        games: data.games,
         settings: {
           create: {
             preventOverlaps: true,
@@ -163,8 +280,8 @@ async function main() {
         },
         siteSettings: {
           create: {
-            defaultSeoTitle: `${name} | رزرو آنلاین سیستم`,
-            defaultSeoDescription: `رزرو آنلاین سیستم‌های گیمینگ و کنسول در ${name}`,
+            defaultSeoTitle: `${data.name} | رزرو آنلاین سیستم`,
+            defaultSeoDescription: `رزرو آنلاین سیستم‌های گیمینگ و کنسول در ${data.name}`,
             robotsIndex: RobotsIndex.INDEX,
             robotsFollow: RobotsFollow.FOLLOW,
           }
@@ -178,17 +295,19 @@ async function main() {
         },
         addresses: {
           create: {
-            city: city.city,
-            province: city.province,
-            district: pick(city.districts),
-            addressLine: `خیابان ${pick(city.districts)}، پلاک ${randInt(1, 100)}`,
+            city: tabriz.city,
+            province: tabriz.province,
+            district: data.district,
+            addressLine: data.address,
+            lat: data.lat,
+            lng: data.lng,
             isPrimary: true,
           }
         },
         links: {
           create: [
-            { type: LinkType.INSTAGRAM, label: 'اینستاگرام', value: `@${slugify(name)}` },
-            { type: LinkType.PHONE, label: 'تلفن', value: `${city.areaCode}${randInt(11111111, 99999999)}` },
+            { type: LinkType.INSTAGRAM, label: 'اینستاگرام', value: `@${slugify(data.name)}` },
+            { type: LinkType.PHONE, label: 'تلفن', value: data.phone },
           ]
         }
       }
@@ -207,7 +326,7 @@ async function main() {
       data: {
         gamingCenterId: centerId,
         fullName: `${pick(FIRST_NAMES_M)} ${pick(LAST_NAMES)}`,
-        phone: makeIranMobileUnique(randInt(1000000, 1999999)),
+        phone: `0912${randInt(1000000, 1999999)}`,
         role: UserRole.MANAGER,
         isActive: true,
         passwordHash: 'dummy_hash',
@@ -216,12 +335,13 @@ async function main() {
     managerIdByCenter[centerId] = manager.id;
 
     // 3 Staff
+    const shiftRoles = [ShiftRole.CASHIER, ShiftRole.HOST, ShiftRole.TECH_SUPPORT];
     for (let j = 0; j < 3; j++) {
       const staff = await prisma.user.create({
         data: {
           gamingCenterId: centerId,
           fullName: `${pick(FIRST_NAMES_M)} ${pick(LAST_NAMES)}`,
-          phone: makeIranMobileUnique(randInt(2000000, 3999999)),
+          phone: `0912${randInt(2000000, 3999999)}`,
           role: UserRole.STAFF,
           isActive: true,
           passwordHash: 'dummy_hash',
@@ -238,7 +358,8 @@ async function main() {
             dayOfWeek: day,
             startTime: '10:00',
             endTime: '22:00',
-            shiftRole: pick([ShiftRole.CASHIER, ShiftRole.HOST, ShiftRole.TECH_SUPPORT]),
+            shiftRole: shiftRoles[j],
+            isActive: true,
           }
         });
       }
@@ -252,15 +373,27 @@ async function main() {
     const center = await prisma.gamingCenter.findUnique({ where: { id: centerId } });
     if (!center) continue;
 
-    for (let i = 0; i < CONFIG.stationsPerCenter; i++) {
-      const isVip = chance(0.2);
+    // Total 12 stations: 8 PC, 4 PS5
+    // 20% VIP rule: 12 * 0.2 = 2.4 -> 2 or 3 VIP stations.
+    // Let's make 2 VIP (one PC, one PS5) or just flag them based on index.
+    for (let i = 0; i < 12; i++) {
+      const isPc = i < 8;
+      const stationIndex = isPc ? i + 1 : i - 7;
+      const name = isPc ? `PC-${stationIndex}` : `PS5-${stationIndex}`;
+
+      // 20% chance for VIP or specific indices to ensure ~20%
+      const isVip = (i === 0 || i === 8); // PC-1 and PS5-1 as VIP
+
+      const basePrice = center.hourlyRate;
+      const vipPrice = center.vipHourlyRate || (basePrice * 1.3);
+
       const station = await prisma.gameStation.create({
         data: {
           gamingCenterId: centerId,
-          name: i < 10 ? `PC-${i + 1}` : `PS5-${i - 9}`,
-          stationType: i < 10 ? GameStationType.PC : GameStationType.PLAYSTATION,
+          name,
+          stationType: isPc ? GameStationType.PC : GameStationType.PLAYSTATION,
           isVip,
-          hourlyPrice: isVip ? (center.vipHourlyRate || 80000) : center.hourlyRate,
+          hourlyPrice: isVip ? vipPrice : basePrice,
           isActive: true,
         }
       });
@@ -274,8 +407,8 @@ async function main() {
     const account = await prisma.customerAccount.create({
       data: {
         fullName: `${pick([...FIRST_NAMES_M, ...FIRST_NAMES_F])} ${pick(LAST_NAMES)}`,
-        phone: makeIranMobileUnique(randInt(7000000, 8999999)),
-        walletBalance: randInt(0, 200000),
+        phone: `0912${randInt(7000000, 8999999)}`,
+        walletBalance: randInt(0, 300000),
       }
     });
     customerAccountIds.push(account.id);
@@ -309,7 +442,7 @@ async function main() {
       startTime.setHours(randInt(10, 20), pick([0, 30]), 0, 0);
       startTime.setDate(startTime.getDate() + randInt(-7, 7));
 
-      const hours = randInt(1, 4);
+      const hours = randInt(1, 3);
       const endTime = new Date(startTime.getTime() + hours * 3600000);
       const totalPrice = station.hourlyPrice * hours;
 
@@ -342,7 +475,7 @@ async function main() {
             reservationId: reservation.id,
             amount: totalPrice,
             currency: 'IRT',
-            method: pick([PaymentMethod.CASH, PaymentMethod.CARD]),
+            method: PaymentMethod.CASH,
             status: PaymentStatus.PAID,
             paidAt: startTime,
           }
@@ -357,7 +490,7 @@ async function main() {
               reservationId: reservation.id,
               stationId: station.id,
               rating: randInt(4, 5),
-              comment: 'عالی بود، سیستم‌ها خیلی قوی بودن.',
+              comment: 'سیستم‌ها عالی بودن',
             }
           });
         }
@@ -411,12 +544,12 @@ async function main() {
           create: [
             {
               type: PageSectionType.HERO,
-              dataJson: JSON.stringify({ title: `خوش آمدید به ${center.name}`, subtitle: 'بهترین تجربه گیمینگ' }),
+              dataJson: JSON.stringify({ title: 'بهترین گیم‌سنتر تبریز', subtitle: 'رزرو آنلاین سیستم‌های گیمینگ' }),
               sortOrder: 0,
             },
             {
               type: PageSectionType.FAQ,
-              dataJson: JSON.stringify({ questions: [{ q: 'آیا رزرو آنلاین اجباری است؟', a: 'خیر، ولی اولویت با رزرو آنلاین است.' }] }),
+              dataJson: JSON.stringify({ questions: [{ q: 'رزرو آنلاین اجباری است؟', a: 'خیر، اختیاری است' }] }),
               sortOrder: 1,
             }
           ]
