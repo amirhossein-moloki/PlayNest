@@ -139,4 +139,4 @@ Detailed documentation is available in the `docs/` folder:
    - اجرای پروژه: `npm run dev`
 
 ---
-*Built with ❤️ for the Gaming Community.*
+
