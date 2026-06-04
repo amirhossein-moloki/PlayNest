@@ -9,8 +9,16 @@ RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var
 COPY package*.json ./
 COPY prisma ./prisma/
 
-RUN npm ci
-RUN npx prisma generate
+# Configure npm for better resilience against network issues
+RUN npm config set fetch-retry-maxtimeout 600000 && \
+    npm config set fetch-retry-mintimeout 100000 && \
+    npm config set fetch-retries 10
+
+# Use cache mount for npm and multiple retries for npm ci and prisma generate
+# to handle transient network failures and speed up builds
+RUN --mount=type=cache,target=/root/.npm \
+    (npm ci || (sleep 5 && npm ci) || (sleep 10 && npm ci)) && \
+    (npx prisma generate || (sleep 5 && npx prisma generate))
 
 COPY . .
 
