@@ -49,9 +49,7 @@ services:
       - POSTGRES_USER=playenest-dev
       - POSTGRES_PASSWORD=playenest-dev-password
       - POSTGRES_DB=playenest-db
-    command: >
-      sh -c "./scripts/wait-for-db.sh db
-      \"./scripts/migrate.sh && node dist/server.js\""
+    command: ["./scripts/wait-for-db.sh", "db", "sh", "-c", "./scripts/migrate.sh && node dist/server.js"]
 
 volumes:
   postgres_data:
