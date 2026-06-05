@@ -76,8 +76,7 @@ export const confirmBooking = async (
 ) => {
   const reservation = await reservationsService.confirmBooking(
     req.params.reservationId,
-    req.tenant.gamingCenterId,
-    req.actor as { id: string; role: UserRole }
+    req.tenant.gamingCenterId
   );
   res.ok(reservation);
 };

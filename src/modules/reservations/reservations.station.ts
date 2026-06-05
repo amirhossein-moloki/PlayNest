@@ -493,7 +493,7 @@ export const reservationsService = {
     }
   },
 
-  async confirmBooking(reservationId: string, gamingCenterId: string, actor: { id: string, role: UserRole }) {
+  async confirmBooking(reservationId: string, gamingCenterId: string) {
     const reservation = await findAndValidateReservation(reservationId, gamingCenterId);
 
     if (reservation.status !== ReservationStatus.PENDING) {
