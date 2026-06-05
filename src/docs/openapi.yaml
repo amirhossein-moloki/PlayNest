@@ -2,7 +2,8 @@ openapi: 3.0.0
 info:
   title: Playenest API
   description: API Documentation for Playenest Gamenet Management System
-  version: 1.0.0
+  version: v1.0-LOCKED
+  x-api-contract-version: v1.0-LOCKED
   contact:
     name: Playenest Support
     email: support@playenest.com
