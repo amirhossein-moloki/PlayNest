@@ -3,8 +3,6 @@ import { reservationsService } from '../../../../src/modules/reservations/reserv
 import { ReservationsRepo } from '../../../../src/modules/reservations/reservations.repo';
 import { GamingSessionsService } from '../../../../src/modules/gamingSessions/gamingSessions.station';
 import { ReservationStatus, SessionActorType, UserRole } from '@prisma/client';
-import AppError from '../../../../src/common/errors/AppError';
-import httpStatus from 'http-status';
 
 jest.mock('../../../../src/modules/reservations/reservations.repo');
 jest.mock('../../../../src/modules/gamingSessions/gamingSessions.station');
