@@ -32,11 +32,7 @@ export const GamingSessionsService = {
   },
 
   async resumeSession(reservationId: string, tx?: Prisma.TransactionClient): Promise<GamingSession> {
-    const client = tx || (await GamingSessionsRepo.findSessionById('dummy')).constructor; // This is a bit hacky, but GamingSessionsRepo should ideally handle it
-    // Actually, let's just find the session
-    const session = await (tx || anyPrisma).gamingSession.findFirst({
-      where: { reservationId, status: GamingSessionStatus.PAUSED }
-    });
+    const session = await GamingSessionsRepo.findPausedSessionByReservationId(reservationId, tx);
 
     if (!session) {
       throw new AppError('No paused session found for this reservation.', httpStatus.NOT_FOUND);
@@ -55,12 +51,7 @@ export const GamingSessionsService = {
   },
 
   async endSession(reservationId: string, tx?: Prisma.TransactionClient): Promise<GamingSession> {
-    const session = await (tx || anyPrisma).gamingSession.findFirst({
-      where: {
-        reservationId,
-        status: { in: [GamingSessionStatus.ACTIVE, GamingSessionStatus.PAUSED] },
-      },
-    });
+    const session = await GamingSessionsRepo.findActiveOrPausedSessionByReservationId(reservationId, tx);
 
     if (!session) {
       throw new AppError('No active or paused session found for this reservation.', httpStatus.NOT_FOUND);
@@ -84,5 +75,3 @@ export const GamingSessionsService = {
     }, tx);
   }
 };
-
-const anyPrisma = require('../../config/prisma').prisma;
