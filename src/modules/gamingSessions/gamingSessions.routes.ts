@@ -21,4 +21,16 @@ router.post(
   GamingSessionsController.endSession
 );
 
+router.post(
+  '/pause',
+  requireRole([UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]),
+  GamingSessionsController.pauseSession
+);
+
+router.post(
+  '/resume',
+  requireRole([UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]),
+  GamingSessionsController.resumeSession
+);
+
 export const gamingSessionsRoutes = router;

@@ -18,7 +18,21 @@ export const endSession = asyncHandler(async (req: AppRequest, res: Response) =>
   res.ok(session);
 });
 
+export const pauseSession = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { reservationId } = req.params;
+  const session = await GamingSessionsService.pauseSession(reservationId);
+  res.ok(session);
+});
+
+export const resumeSession = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { reservationId } = req.params;
+  const session = await GamingSessionsService.resumeSession(reservationId);
+  res.ok(session);
+});
+
 export const GamingSessionsController = {
   startSession,
+  pauseSession,
+  resumeSession,
   endSession,
 };

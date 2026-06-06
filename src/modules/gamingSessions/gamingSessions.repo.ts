@@ -17,6 +17,26 @@ export const GamingSessionsRepo = {
     });
   },
 
+  async findPausedSessionByReservationId(reservationId: string, tx?: Prisma.TransactionClient): Promise<GamingSession | null> {
+    const client = tx || prisma;
+    return client.gamingSession.findFirst({
+      where: {
+        reservationId,
+        status: GamingSessionStatus.PAUSED,
+      },
+    });
+  },
+
+  async findActiveOrPausedSessionByReservationId(reservationId: string, tx?: Prisma.TransactionClient): Promise<GamingSession | null> {
+    const client = tx || prisma;
+    return client.gamingSession.findFirst({
+      where: {
+        reservationId,
+        status: { in: [GamingSessionStatus.ACTIVE, GamingSessionStatus.PAUSED] },
+      },
+    });
+  },
+
   async updateSession(sessionId: string, data: Prisma.GamingSessionUpdateInput, tx?: Prisma.TransactionClient): Promise<GamingSession> {
     const client = tx || prisma;
     return client.gamingSession.update({

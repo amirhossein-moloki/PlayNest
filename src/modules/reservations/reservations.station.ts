@@ -14,6 +14,7 @@ import { auditService } from '../audit/audit.station';
 import { normalizePhone } from '../../common/utils/phone';
 import { AppEvents, eventEmitter } from '../../common/events/event-emitter';
 import { Metrics } from '../../common/metrics/metrics';
+import { ReservationStateMachine } from './reservations.state-machine';
 
 import {
   CancelBookingInput,
@@ -496,9 +497,7 @@ export const reservationsService = {
   async confirmBooking(reservationId: string, gamingCenterId: string) {
     const reservation = await findAndValidateReservation(reservationId, gamingCenterId);
 
-    if (reservation.status !== ReservationStatus.PENDING) {
-      throw new AppError('Invalid state transition: Reservation cannot be confirmed.', httpStatus.CONFLICT);
-    }
+    ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.CONFIRMED);
 
     const updatedBooking = await ReservationsRepo.updateReservationWithInclude(
       reservationId,
@@ -532,9 +531,7 @@ export const reservationsService = {
   ) {
     const reservation = await findAndValidateReservation(reservationId, gamingCenterId);
 
-    if (!([ReservationStatus.PENDING, ReservationStatus.CONFIRMED] as ReservationStatus[]).includes(reservation.status)) {
-      throw new AppError('Invalid state transition: Reservation cannot be canceled.', httpStatus.CONFLICT);
-    }
+    ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.CANCELED);
 
     const updatedBooking = await ReservationsRepo.transaction(async (tx) => {
       const result = await ReservationsRepo.updateReservationWithInclude(
@@ -593,9 +590,7 @@ export const reservationsService = {
         throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
       }
 
-      if (reservation.status !== ReservationStatus.CONFIRMED) {
-        throw new AppError('Invalid state transition: Only confirmed reservations can be started.', httpStatus.CONFLICT);
-      }
+      ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.IN_PROGRESS);
 
       const updatedBooking = await ReservationsRepo.updateReservation(reservationId, gamingCenterId, {
         status: ReservationStatus.IN_PROGRESS,
@@ -628,9 +623,7 @@ export const reservationsService = {
   ) {
     const reservation = await findAndValidateReservation(reservationId, gamingCenterId);
 
-    if (!([ReservationStatus.CONFIRMED, ReservationStatus.IN_PROGRESS] as ReservationStatus[]).includes(reservation.status)) {
-      throw new AppError('Invalid state transition: Reservation cannot be completed.', httpStatus.CONFLICT);
-    }
+    ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.COMPLETED);
 
     const updatedBooking = await ReservationsRepo.transaction(async (tx) => {
       const updated = await ReservationsRepo.updateReservation(reservationId, gamingCenterId, {
@@ -676,9 +669,7 @@ export const reservationsService = {
   ) {
     const reservation = await findAndValidateReservation(reservationId, gamingCenterId);
 
-    if (reservation.status !== ReservationStatus.CONFIRMED) {
-      throw new AppError('Invalid state transition: Reservation cannot be marked as no-show.', httpStatus.CONFLICT);
-    }
+    ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.NO_SHOW);
 
     const updatedBooking = await ReservationsRepo.updateReservation(reservationId, gamingCenterId, {
       status: ReservationStatus.NO_SHOW,

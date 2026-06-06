@@ -3,8 +3,6 @@ import { reservationsService } from '../../../../src/modules/reservations/reserv
 import { ReservationsRepo } from '../../../../src/modules/reservations/reservations.repo';
 import { GamingSessionsService } from '../../../../src/modules/gamingSessions/gamingSessions.station';
 import { ReservationStatus, SessionActorType, UserRole } from '@prisma/client';
-import AppError from '../../../../src/common/errors/AppError';
-import httpStatus from 'http-status';
 
 jest.mock('../../../../src/modules/reservations/reservations.repo');
 jest.mock('../../../../src/modules/gamingSessions/gamingSessions.station');
@@ -50,7 +48,7 @@ describe('Reservations State Machine', () => {
       MockedReservationsRepo.findReservationById.mockResolvedValue(reservation as any);
 
       await expect(reservationsService.startBooking(reservationId, gamingCenterId, actor))
-        .rejects.toThrow(new AppError('Invalid state transition: Only confirmed reservations can be started.', httpStatus.CONFLICT));
+        .rejects.toThrow('Invalid state transition from PENDING to IN_PROGRESS');
     });
   });
 

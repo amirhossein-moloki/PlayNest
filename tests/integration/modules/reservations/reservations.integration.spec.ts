@@ -66,7 +66,7 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
       const input = {
         stationId,
         staffId,
-        startTime: '2026-06-06T10:00:00Z',
+        startTime: '2027-06-06T10:00:00Z',
         customer: { fullName: 'Jane Doe', phone: '09998887766' },
       };
 
@@ -113,7 +113,7 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
       MockedReservationsRepo.findGamingCenterBySlugWithSettings.mockResolvedValue(gamingCenter /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
       await expect(reservationsService.createPublicBooking(gamingCenterSlug, {
-        startTime: '2026-06-06T10:00:00Z',
+        startTime: '2027-06-06T10:00:00Z',
       } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any)).rejects.toThrow('Online reservation is disabled.');
     });
 
@@ -121,7 +121,7 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
       const input = {
         stationId,
         staffId,
-        startTime: '2026-06-06T10:00:00Z',
+        startTime: '2027-06-06T10:00:00Z',
         customer: { fullName: 'Jane Doe', phone: '09998887766' },
       };
 
