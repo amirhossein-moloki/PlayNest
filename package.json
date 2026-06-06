@@ -7,6 +7,7 @@
     "start": "node dist/server.js",
     "build": "tsc --ignoreDeprecations 5.0",
     "lint": "eslint . --ext .ts",
+    "api:validate": "npx @stoplight/spectral-cli lint src/docs/openapi.yaml",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",

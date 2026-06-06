@@ -10,7 +10,7 @@ const MockedAvailabilityRepo = AvailabilityRepo as jest.Mocked<typeof Availabili
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-describe('AvailabilityStationService', () => {
+describe('AvailabilitystationStation', () => {
   const gamingCenterSlug = 'my-gamingCenter';
   const stationId = 'st-1';
   const gamingCenterId = 'gc-1';
@@ -36,7 +36,7 @@ describe('AvailabilityStationService', () => {
       MockedAvailabilityRepo.findStationWithGamingCenter.mockResolvedValue(station as any);
       MockedAvailabilityRepo.findStaffList.mockResolvedValue([staff] as any);
       MockedAvailabilityRepo.findShifts.mockResolvedValue([shift] as any);
-      MockedAvailabilityRepo.findBookings.mockResolvedValue([]);
+      MockedAvailabilityRepo.findReservation.mockResolvedValue([]);
 
       const result = await getAvailableSlots({ gamingCenterSlug, stationId, startDate, endDate });
       expect(result.length).toBeGreaterThan(0);
@@ -48,10 +48,10 @@ describe('AvailabilityStationService', () => {
     const staffShift = { startTime: '09:00', endTime: '12:00' };
     const day = new Date('2023-01-02');
     const timeZone = 'UTC';
-    const serviceDuration = 60;
+    const stationDuration = 60;
 
-    it('should return slots when there are no bookings', () => {
-      const slots = internal_calculateStaffSlotsForDay(staff, staffShift, day, timeZone, [], serviceDuration);
+    it('should return slots when there are no reservations', () => {
+      const slots = internal_calculateStaffSlotsForDay(staff, staffShift, day, timeZone, [], stationDuration);
       expect(slots.length).toBe(9);
     });
   });

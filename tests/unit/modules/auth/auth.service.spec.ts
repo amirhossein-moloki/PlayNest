@@ -1,5 +1,5 @@
 import { describe, it, expect, jest } from '@jest/globals';
-import { AuthService } from '../../../../src/modules/auth/auth.station';
+import { authService } from '../../../../src/modules/auth/auth.station';
 import { AuthRepository } from '../../../../src/modules/auth/auth.repository';
 import AppError from '../../../../src/common/errors/AppError';
 import httpStatus from 'http-status';
@@ -26,7 +26,7 @@ type UserWithGamingCenter = User & { gamingCenter: GamingCenter };
 const T_P = '09000000000';
 const T_V = 't';
 
-describe('AuthService', () => {
+describe('authService', () => {
   describe('loginUser', () => {
     it('should login successfully with valid credentials', async () => {
       const user = UserFactory.create({ passwordHash: `h_${T_V}` }) as User;
@@ -35,7 +35,7 @@ describe('AuthService', () => {
       MockedAuthRepository.findUserByPhone.mockResolvedValue(user);
       MockedAuthRepository.createSession.mockResolvedValue(session);
 
-      const result = await AuthService.loginUser(T_P, T_V, 'gc-1');
+      const result = await authService.loginUser(T_P, T_V, 'gc-1');
 
       expect(result.user).toEqual(user);
       expect(result.tokens).toHaveProperty('accessToken');
@@ -45,7 +45,7 @@ describe('AuthService', () => {
     it('should throw UNAUTHORIZED if user not found', async () => {
       MockedAuthRepository.findUserByPhone.mockResolvedValue(null);
 
-      await expect(AuthService.loginUser(T_P, T_V, 'gc-1'))
+      await expect(authService.loginUser(T_P, T_V, 'gc-1'))
         .rejects.toThrow(new AppError('Invalid credentials', httpStatus.UNAUTHORIZED));
     });
 
@@ -53,7 +53,7 @@ describe('AuthService', () => {
       const user = UserFactory.create({ passwordHash: `h_${T_V}` }) as User;
       MockedAuthRepository.findUserByPhone.mockResolvedValue(user);
 
-      await expect(AuthService.loginUser(T_P, 'w', 'gc-1'))
+      await expect(authService.loginUser(T_P, 'w', 'gc-1'))
         .rejects.toThrow(new AppError('Invalid credentials', httpStatus.UNAUTHORIZED));
     });
   });
@@ -64,7 +64,7 @@ describe('AuthService', () => {
       MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue(users);
       MockedAuthRepository.createOtp.mockResolvedValue({} as PhoneOtp);
 
-      const result = await AuthService.requestUserOtp(T_P);
+      const result = await authService.requestUserOtp(T_P);
 
       expect(result.message).toContain(`OTP sent to ${T_P}`);
       expect(MockedAuthRepository.createOtp).toHaveBeenCalled();
@@ -74,7 +74,7 @@ describe('AuthService', () => {
     it('should throw NOT_FOUND if no user associated with phone', async () => {
       MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue([]);
 
-      await expect(AuthService.requestUserOtp(T_P))
+      await expect(authService.requestUserOtp(T_P))
         .rejects.toThrow(new AppError('No user found with this phone number.', httpStatus.NOT_FOUND));
     });
   });
@@ -91,7 +91,7 @@ describe('AuthService', () => {
       MockedAuthRepository.markUserPhoneVerified.mockResolvedValue({ count: 1 });
       MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue(users);
 
-      const result = await AuthService.verifyUserOtp(T_P, code);
+      const result = await authService.verifyUserOtp(T_P, code);
 
       expect(result.gamingCenters).toEqual([{ id: 'gc-1', name: 'g' }]);
       expect(MockedAuthRepository.consumeOtp).toHaveBeenCalledWith(otp.id);
@@ -100,7 +100,7 @@ describe('AuthService', () => {
     it('should throw UNAUTHORIZED if OTP not found', async () => {
       MockedAuthRepository.findRecentOtp.mockResolvedValue(null);
 
-      await expect(AuthService.verifyUserOtp(T_P, '123456'))
+      await expect(authService.verifyUserOtp(T_P, '123456'))
         .rejects.toThrow(new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED));
     });
 
@@ -108,7 +108,7 @@ describe('AuthService', () => {
       const otp = { id: 'o-1', codeHash: 'h_v' } as PhoneOtp;
       MockedAuthRepository.findRecentOtp.mockResolvedValue(otp);
 
-      await expect(AuthService.verifyUserOtp(T_P, 'w'))
+      await expect(authService.verifyUserOtp(T_P, 'w'))
         .rejects.toThrow(new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED));
     });
   });
@@ -117,7 +117,7 @@ describe('AuthService', () => {
     it('should request OTP successfully for customer', async () => {
       MockedAuthRepository.createOtp.mockResolvedValue({} as PhoneOtp);
 
-      const result = await AuthService.requestCustomerOtp(T_P);
+      const result = await authService.requestCustomerOtp(T_P);
 
       expect(result.message).toContain(`OTP sent to ${T_P}`);
       expect(MockedAuthRepository.createOtp).toHaveBeenCalled();
@@ -136,7 +136,7 @@ describe('AuthService', () => {
       MockedAuthRepository.findCustomerByPhone.mockResolvedValue(customer);
       MockedAuthRepository.markCustomerPhoneVerified.mockResolvedValue({} as CustomerAccount);
 
-      const result = await AuthService.verifyCustomerOtp(T_P, code);
+      const result = await authService.verifyCustomerOtp(T_P, code);
 
       expect(result.message).toBe('OTP verified successfully.');
       expect(MockedAuthRepository.markCustomerPhoneVerified).toHaveBeenCalledWith(customer.id);
@@ -152,7 +152,7 @@ describe('AuthService', () => {
       MockedAuthRepository.findUserByPhone.mockResolvedValue(user);
       MockedAuthRepository.createSession.mockResolvedValue(session);
 
-      const result = await AuthService.loginUserWithOtp(T_P, 'gc-1');
+      const result = await authService.loginUserWithOtp(T_P, 'gc-1');
 
       expect(result.user).toEqual(user);
       expect(result.tokens).toHaveProperty('accessToken');
@@ -161,7 +161,7 @@ describe('AuthService', () => {
     it('should throw UNAUTHORIZED if no recent OTP found', async () => {
       MockedAuthRepository.findRecentConsumedOtp.mockResolvedValue(null);
 
-      await expect(AuthService.loginUserWithOtp(T_P, 'gc-1'))
+      await expect(authService.loginUserWithOtp(T_P, 'gc-1'))
         .rejects.toThrow(new AppError('No recent OTP verification found. Please verify again.', httpStatus.UNAUTHORIZED));
     });
 
@@ -169,7 +169,7 @@ describe('AuthService', () => {
       MockedAuthRepository.findRecentConsumedOtp.mockResolvedValue({} as PhoneOtp);
       MockedAuthRepository.findUserByPhone.mockResolvedValue(null);
 
-      await expect(AuthService.loginUserWithOtp(T_P, 'gc-1'))
+      await expect(authService.loginUserWithOtp(T_P, 'gc-1'))
         .rejects.toThrow(new AppError('Invalid credentials for the selected gamingCenter.', httpStatus.UNAUTHORIZED));
     });
   });
@@ -182,7 +182,7 @@ describe('AuthService', () => {
       MockedAuthRepository.findCustomerByPhone.mockResolvedValue(customer);
       MockedAuthRepository.createSession.mockResolvedValue(session);
 
-      const result = await AuthService.loginCustomer(T_P);
+      const result = await authService.loginCustomer(T_P);
 
       expect(result.customer).toEqual(customer);
       expect(result.tokens).toHaveProperty('accessToken');
@@ -196,7 +196,7 @@ describe('AuthService', () => {
       MockedAuthRepository.createCustomer.mockResolvedValue(customer);
       MockedAuthRepository.createSession.mockResolvedValue(session);
 
-      await AuthService.loginCustomer(T_P);
+      await authService.loginCustomer(T_P);
 
       expect(MockedAuthRepository.createCustomer).toHaveBeenCalledWith(T_P, expect.any(Date));
     });
@@ -208,7 +208,7 @@ describe('AuthService', () => {
       const session = SessionFactory.create({ expiresAt: new Date(Date.now() + 10000) }) as Session;
       MockedAuthRepository.findSessionByToken.mockResolvedValue(session);
 
-      const result = await AuthService.refreshAuthToken(r);
+      const result = await authService.refreshAuthToken(r);
 
       expect(result).toHaveProperty('accessToken');
     });
@@ -216,7 +216,7 @@ describe('AuthService', () => {
     it('should throw UNAUTHORIZED if session not found', async () => {
       MockedAuthRepository.findSessionByToken.mockResolvedValue(null);
 
-      await expect(AuthService.refreshAuthToken('i'))
+      await expect(authService.refreshAuthToken('i'))
         .rejects.toThrow(new AppError('Session is invalid or has been revoked', httpStatus.UNAUTHORIZED));
     });
 
@@ -224,7 +224,7 @@ describe('AuthService', () => {
       const session = SessionFactory.create({ id: 's-1', expiresAt: new Date(Date.now() - 10000) }) as Session;
       MockedAuthRepository.findSessionByToken.mockResolvedValue(session);
 
-      await expect(AuthService.refreshAuthToken('e'))
+      await expect(authService.refreshAuthToken('e'))
         .rejects.toThrow(new AppError('Refresh token has expired', httpStatus.UNAUTHORIZED));
       expect(MockedAuthRepository.revokeSession).toHaveBeenCalledWith(session.id);
     });
@@ -235,7 +235,7 @@ describe('AuthService', () => {
       const sId = 's-1';
       MockedAuthRepository.revokeSession.mockResolvedValue({} as Session);
 
-      const result = await AuthService.logout(sId);
+      const result = await authService.logout(sId);
 
       expect(MockedAuthRepository.revokeSession).toHaveBeenCalledWith(sId);
       expect(result.message).toBe('Logged out successfully');

@@ -53,7 +53,7 @@ export const publicApiRateLimiter = env.NODE_ENV === 'test'
 /**
  * Strictest rate limiter for the public reservation creation endpoint.
  */
-export const publicBookingRateLimiter = env.NODE_ENV === 'test'
+export const publicReservationRateLimiter = env.NODE_ENV === 'test'
   ? mockMiddleware
   : rateLimit({
     windowMs: 15 * 60 * 1000,

@@ -1,55 +1,55 @@
 import { Request, Response } from 'express';
-import { AuthService } from './auth.station';
+import { authService } from './auth.station';
 
 export const login = async (req: Request, res: Response) => {
   const { phone, password, gamingCenterId } = req.body;
 
-  const result = await AuthService.loginUser(phone, password, gamingCenterId);
+  const result = await authService.loginUser(phone, password, gamingCenterId);
 
   res.ok(result);
 };
 
 export const requestUserOtp = async (req: Request, res: Response) => {
   const { phone } = req.body;
-  const result = await AuthService.requestUserOtp(phone);
+  const result = await authService.requestUserOtp(phone);
   res.ok(result);
 };
 
 export const verifyUserOtp = async (req: Request, res: Response) => {
   const { phone, code } = req.body;
-  const result = await AuthService.verifyUserOtp(phone, code);
+  const result = await authService.verifyUserOtp(phone, code);
   res.ok(result);
 };
 
 export const requestCustomerOtp = async (req: Request, res: Response) => {
   const { phone } = req.body;
-  const result = await AuthService.requestCustomerOtp(phone);
+  const result = await authService.requestCustomerOtp(phone);
   res.ok(result);
 };
 
 export const verifyCustomerOtp = async (req: Request, res: Response) => {
   const { phone, code } = req.body;
-  await AuthService.verifyCustomerOtp(phone, code);
-  const result = await AuthService.loginCustomer(phone);
+  await authService.verifyCustomerOtp(phone, code);
+  const result = await authService.loginCustomer(phone);
   res.ok(result);
 };
 
 export const loginUserWithOtp = async (req: Request, res: Response) => {
   const { phone, gamingCenterId } = req.body;
-  const result = await AuthService.loginUserWithOtp(phone, gamingCenterId);
+  const result = await authService.loginUserWithOtp(phone, gamingCenterId);
   res.ok(result);
 };
 
 export const refresh = async (req: Request, res: Response) => {
   const { refreshToken } = req.body;
-  const result = await AuthService.refreshAuthToken(refreshToken);
+  const result = await authService.refreshAuthToken(refreshToken);
   res.ok(result);
 };
 
 export const logout = async (req: Request, res: Response) => {
   // Assuming session ID is available on req.actor after authentication middleware
   const sessionId = (req as any).actor?.sessionId; // eslint-disable-line @typescript-eslint/no-explicit-any
-  const result = await AuthService.logout(sessionId);
+  const result = await authService.logout(sessionId);
   res.ok(result);
 };
 

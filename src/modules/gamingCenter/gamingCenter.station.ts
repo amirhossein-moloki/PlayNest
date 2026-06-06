@@ -6,7 +6,7 @@ import { ListGamingCentersQuery } from './gamingCenter.validation';
 import { SessionActorType } from '@prisma/client';
 import { auditService } from '../audit/audit.station';
 
-export const gamingCenterService = {
+export const gamingCenterStation = {
   async createGamingCenter(data: CreateGamingCenterInput, actor?: { id: string; actorType: SessionActorType }, context?: { ip?: string; userAgent?: string }) {
     const existingGamingCenter = await gamingCenterRepository.findBySlug(data.slug);
     if (existingGamingCenter) {

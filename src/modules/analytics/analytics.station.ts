@@ -2,7 +2,7 @@
 import { AnalyticsRepo } from './analytics.repo';
 import { format } from 'date-fns';
 
-export const AnalyticsService = {
+export const AnalyticsStation = {
   async getSummary(gamingCenterId: string, startDate: Date, endDate: Date) {
     const [stats, newCustomers] = await Promise.all([
       AnalyticsRepo.getSummaryStats(gamingCenterId, startDate, endDate),
@@ -19,16 +19,16 @@ export const AnalyticsService = {
         ? (completedReservations / (totalReservations - canceledReservations || 1)) * 100
         : 0;
 
-    const averageBookingValue = completedReservations > 0 ? totalRevenue / completedReservations : 0;
+    const averageReservationValue = completedReservations > 0 ? totalRevenue / completedReservations : 0;
 
     return {
       totalRevenue,
       realizedCash: stats?.realizedCash || 0,
-      totalBookings: totalReservations,
-      completedBookings: completedReservations,
-      canceledBookings: canceledReservations,
+      totalReservations: totalReservations,
+      completedReservations: completedReservations,
+      canceledReservations: canceledReservations,
       completionRate: Math.round(completionRate * 100) / 100,
-      averageBookingValue: Math.round(averageBookingValue),
+      averageReservationValue: Math.round(averageReservationValue),
       newCustomers,
     };
   },
@@ -49,7 +49,7 @@ export const AnalyticsService = {
       return {
         staffId: staff.id,
         staffName: staff.fullName,
-        bookingsCount: completedReservations,
+        reservationCount: completedReservations,
         revenue,
         averageRating: ratingCount > 0 ? Math.round((totalRating / ratingCount) * 10) / 10 : 0,
       };
@@ -59,20 +59,20 @@ export const AnalyticsService = {
   },
 
   async getStationPerformance(gamingCenterId: string, startDate: Date, endDate: Date) {
-    const [serviceStats, servicesList] = await Promise.all([
+    const [stationStats, stationsList] = await Promise.all([
       AnalyticsRepo.getStationPerformanceStats(gamingCenterId, startDate, endDate),
       AnalyticsRepo.getStationDetails(gamingCenterId),
     ]);
 
-    const performance = servicesList.map((station) => {
-      const stats = serviceStats.find((s) => s.stationId === station.id) as { revenue?: number; completedReservations?: number; _sum?: { revenue?: number; completedReservations?: number } } | undefined;
+    const performance = stationsList.map((station) => {
+      const stats = stationStats.find((s) => s.stationId === station.id) as { revenue?: number; completedReservations?: number; _sum?: { revenue?: number; completedReservations?: number } } | undefined;
       const revenue = stats?.revenue || stats?._sum?.revenue || 0;
       const completedReservations = stats?.completedReservations || stats?._sum?.completedReservations || 0;
 
       return {
         stationId: station.id,
-        serviceName: station.name,
-        bookingsCount: completedReservations,
+        stationName: station.name,
+        reservationCount: completedReservations,
         revenue,
       };
     });

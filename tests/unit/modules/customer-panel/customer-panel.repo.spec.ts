@@ -14,15 +14,15 @@ describe('CustomerPanelRepo', () => {
     expect(accountMock.findUnique).toHaveBeenCalled();
   });
 
-  it('findManyReservations', async () => {
+  it('findManyReservation', async () => {
     resMock.findMany.mockResolvedValue([]);
-    await CustomerPanelRepo.findManyReservations({}, 0, 10);
+    await CustomerPanelRepo.findManyReservation({}, 0, 10);
     expect(resMock.findMany).toHaveBeenCalled();
   });
 
-  it('countReservations', async () => {
+  it('countReservation', async () => {
     resMock.count.mockResolvedValue(0);
-    await CustomerPanelRepo.countReservations({});
+    await CustomerPanelRepo.countReservation({});
     expect(resMock.count).toHaveBeenCalled();
   });
 

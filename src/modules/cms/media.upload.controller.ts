@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
-import * as UploadService from '../../common/services/upload.station';
-import * as MediaService from './media.station';
+import * as uploadStation from '../../common/stations/upload.station';
+import * as MediaStation from './media.station';
 
 export async function uploadMedia(
   req: Request<{ gamingCenterId: string }>,
@@ -18,11 +18,11 @@ export async function uploadMedia(
     }
 
     // Process image: save original and generate thumbnail
-    const { url, thumbUrl } = await UploadService.processAndStoreImage(file);
+    const { url, thumbUrl } = await uploadStation.processAndStoreImage(file);
 
     // Create database record using existing station logic
     // We pass the generated URLs to the station
-    const media = await MediaService.createMedia(gamingCenterId, {
+    const media = await MediaStation.createMedia(gamingCenterId, {
       ...req.body,
       url,
       thumbUrl,

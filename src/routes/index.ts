@@ -7,12 +7,12 @@ import gamingCenterRouter from '../modules/gamingCenter/gamingCenter.routes';
 import {
   privateStationRouter,
   publicStationRouter,
-} from '../modules/stations/stations.routes';
+} from '../modules/station/station.routes';
 import staffRouter from '../modules/users/users.routes';
 import shiftsRouter from '../modules/staffShifts/staffShifts.routes';
 import availabilityRouter from '../modules/availability/availability.routes';
-import bookingsRoutes from '../modules/reservations/reservations.routes';
-import publicBookingsRoutes from '../modules/reservations/reservations.public.routes';
+import reservationRoutes from '../modules/reservation/reservation.routes';
+import publicReservationRoutes from '../modules/reservation/reservation.public.routes';
 import { cmsRouter } from '../modules/cms/cms.routes';
 import { cmsAdminUiRouter } from '../modules/cms/admin-ui.routes';
 import {
@@ -65,9 +65,9 @@ router.use(
   availabilityRouter
 );
 
-// --- Bookings Module Routes ---
-router.use('/gamingCenters/:gamingCenterId/reservations', bookingsRoutes);
-router.use('/public/gamingCenters/:gamingCenterSlug/reservations', publicBookingsRoutes);
+// --- Reservation Module Routes ---
+router.use('/gamingCenters/:gamingCenterId/reservation', reservationRoutes);
+router.use('/public/gamingCenters/:gamingCenterSlug/reservation', publicReservationRoutes);
 
 // --- Customers Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/customers', customersRouter);
@@ -95,10 +95,10 @@ router.use('/customer', customerPanelRouter);
 router.use('/gamingCenters/:gamingCenterId/analytics', analyticsRoutes);
 
 // --- Gaming Sessions Module Routes ---
-router.use('/gamingCenters/:gamingCenterId/reservations/:reservationId/sessions', gamingSessionsRoutes);
+router.use('/gamingCenters/:gamingCenterId/reservation/:reservationId/sessions', gamingSessionsRoutes);
 
 // --- Payments Module Routes ---
-router.use('/gamingCenters/:gamingCenterId/reservations', paymentsRoutes); // This will be scoped within the reservation
+router.use('/gamingCenters/:gamingCenterId/reservation', paymentsRoutes); // This will be scoped within the reservation
 
 // --- CMS Module Routes ---
 router.use('/gamingCenters/:gamingCenterId', cmsRouter);

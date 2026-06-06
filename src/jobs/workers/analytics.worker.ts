@@ -17,8 +17,8 @@ export const analyticsWorker = new Worker(
 
       try {
         switch (type) {
-        case 'BOOKING':
-          await AnalyticsRepo.syncAllStatsForBooking(entityId);
+        case 'RESERVATION':
+          await AnalyticsRepo.syncAllStatsForReservation(entityId);
           break;
         case 'PAYMENT':
           await AnalyticsRepo.syncAllStatsForPayment(entityId);

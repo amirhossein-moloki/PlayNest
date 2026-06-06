@@ -1,5 +1,5 @@
 import { Response, NextFunction } from 'express';
-import * as userService from './users.station';
+import * as userStation from './users.station';
 import { AppRequest } from '../../types/express';
 import { listUsersSchema } from './users.validators';
 
@@ -10,7 +10,7 @@ export const createUserController = async (
 ) => {
   try {
     const { gamingCenterId } = req.params;
-    const newUser = await userService.createStaffMember(
+    const newUser = await userStation.createStaffMember(
       gamingCenterId,
       req.body,
       req.actor,
@@ -29,7 +29,7 @@ export const deleteUserController = async (
 ) => {
   try {
     const { gamingCenterId, userId } = req.params;
-    await userService.deleteStaffMember(
+    await userStation.deleteStaffMember(
       gamingCenterId,
       userId,
       req.actor,
@@ -49,7 +49,7 @@ export const getUsersController = async (
   try {
     const { gamingCenterId } = req.params;
     const validatedQuery = listUsersSchema.parse(req.query);
-    const staff = await userService.getStaffList(gamingCenterId, validatedQuery);
+    const staff = await userStation.getStaffList(gamingCenterId, validatedQuery);
     res.ok(staff);
   } catch (error) {
     next(error);
@@ -63,7 +63,7 @@ export const getUserController = async (
 ) => {
   try {
     const { gamingCenterId, userId } = req.params;
-    const user = await userService.getStaffMember(gamingCenterId, userId);
+    const user = await userStation.getStaffMember(gamingCenterId, userId);
     res.ok(user);
   } catch (error) {
     next(error);
@@ -77,7 +77,7 @@ export const updateUserController = async (
 ) => {
   try {
     const { gamingCenterId, userId } = req.params;
-    const updatedUser = await userService.updateStaffMember(
+    const updatedUser = await userStation.updateStaffMember(
       gamingCenterId,
       userId,
       req.body,

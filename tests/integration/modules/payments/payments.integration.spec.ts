@@ -1,5 +1,5 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { PaymentsService } from '../../../../src/modules/payments/payments.station';
+import { PaymentsStation } from '../../../../src/modules/payments/payments.station';
 import { PaymentsRepo } from '../../../../src/modules/payments/payments.repo';
 import { ReservationPaymentState, PaymentStatus } from '@prisma/client';
 import AppError from '../../../../src/common/errors/AppError';
@@ -34,8 +34,8 @@ describe('Payment Flow Integration (Mocked Repo)', () => {
       status: PaymentStatus.INITIATED,
     };
 
-    MockedPaymentsRepo.findBookingForUpdate.mockResolvedValue(reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-    MockedPaymentsRepo.createPaymentAndUpdateBooking.mockResolvedValue({ payment } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+    MockedPaymentsRepo.findReservationForUpdate.mockResolvedValue(reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+    MockedPaymentsRepo.createPaymentAndUpdateReservation.mockResolvedValue({ payment } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
     mockFetch.mockResolvedValue({
       json: () => Promise.resolve({
@@ -44,7 +44,7 @@ describe('Payment Flow Integration (Mocked Repo)', () => {
       }),
     });
 
-    const result = await PaymentsService.initiatePayment({
+    const result = await PaymentsStation.initiatePayment({
       gamingCenterId,
       reservationId,
       idempotencyKey: 'key-1',
@@ -63,15 +63,15 @@ describe('Payment Flow Integration (Mocked Repo)', () => {
       paymentState: ReservationPaymentState.PAID,
     };
 
-    MockedPaymentsRepo.findBookingForUpdate.mockResolvedValue(reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+    MockedPaymentsRepo.findReservationForUpdate.mockResolvedValue(reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
-    await expect(PaymentsService.initiatePayment({
+    await expect(PaymentsStation.initiatePayment({
       gamingCenterId,
       reservationId,
       idempotencyKey: 'key-2',
     })).rejects.toThrow(new AppError('Reservation is already paid.', httpStatus.CONFLICT));
 
-    expect(MockedPaymentsRepo.createPaymentAndUpdateBooking).not.toHaveBeenCalled();
+    expect(MockedPaymentsRepo.createPaymentAndUpdateReservation).not.toHaveBeenCalled();
   });
 
   it('should handle payment provider failure', async () => {
@@ -84,8 +84,8 @@ describe('Payment Flow Integration (Mocked Repo)', () => {
 
     const payment = { id: 'pay-2', status: PaymentStatus.INITIATED };
 
-    MockedPaymentsRepo.findBookingForUpdate.mockResolvedValue(reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-    MockedPaymentsRepo.createPaymentAndUpdateBooking.mockResolvedValue({ payment } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+    MockedPaymentsRepo.findReservationForUpdate.mockResolvedValue(reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+    MockedPaymentsRepo.createPaymentAndUpdateReservation.mockResolvedValue({ payment } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
     mockFetch.mockResolvedValue({
       json: () => Promise.resolve({
@@ -94,7 +94,7 @@ describe('Payment Flow Integration (Mocked Repo)', () => {
       }),
     });
 
-    await expect(PaymentsService.initiatePayment({
+    await expect(PaymentsStation.initiatePayment({
       gamingCenterId,
       reservationId,
       idempotencyKey: 'key-3',

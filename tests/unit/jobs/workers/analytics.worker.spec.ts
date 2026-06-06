@@ -20,15 +20,15 @@ describe('AnalyticsWorker', () => {
     handler = (Worker as jest.MockedClass<typeof Worker>).mock.calls[0][1];
   });
 
-  it('should process BOOKING sync job successfully', async () => {
+  it('should process RESERVATION sync job successfully', async () => {
     const job = {
       id: 'job-1',
-      data: { type: 'BOOKING', entityId: 'res-1' },
+      data: { type: 'RESERVATION', entityId: 'res-1' },
     };
 
-    MockedAnalyticsRepo.syncAllStatsForBooking.mockResolvedValue({} as any);
+    MockedAnalyticsRepo.syncAllStatsForReservation.mockResolvedValue({} as any);
     await handler(job as Job);
-    expect(MockedAnalyticsRepo.syncAllStatsForBooking).toHaveBeenCalledWith('res-1');
+    expect(MockedAnalyticsRepo.syncAllStatsForReservation).toHaveBeenCalledWith('res-1');
   });
 
   it('should process PAYMENT sync job successfully', async () => {
@@ -56,10 +56,10 @@ describe('AnalyticsWorker', () => {
   it('should throw error if sync fails', async () => {
     const job = {
       id: 'job-1',
-      data: { type: 'BOOKING', entityId: 'res-1' },
+      data: { type: 'RESERVATION', entityId: 'res-1' },
     };
 
-    MockedAnalyticsRepo.syncAllStatsForBooking.mockRejectedValue(new Error('Sync fail'));
+    MockedAnalyticsRepo.syncAllStatsForReservation.mockRejectedValue(new Error('Sync fail'));
     await expect(handler(job as Job)).rejects.toThrow('Sync fail');
   });
 });

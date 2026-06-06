@@ -33,9 +33,9 @@ describe('RatingsRepo', () => {
     expect(ratingMock.findFirst).toHaveBeenCalled();
   });
 
-  it('findBookingForReview', async () => {
+  it('findReservationForReview', async () => {
     resMock.findFirst.mockResolvedValue({ id: 'res-1' });
-    await RatingsRepo.findBookingForReview('res-1', 'slug');
+    await RatingsRepo.findReservationForReview('res-1', 'slug');
     expect(resMock.findFirst).toHaveBeenCalled();
   });
 });

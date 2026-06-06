@@ -2,27 +2,27 @@
 import { addMinutes, isBefore } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { Reservation, ReservationSource, ReservationStatus, Prisma, SessionActorType, UserRole, OtpPurpose } from '@prisma/client';
-import { ReservationsRepo } from './reservations.repo';
+import { ReservationRepo } from './reservation.repo';
 import { AuthRepository } from '../auth/auth.repository';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { getZonedStartAndEnd } from '../../common/utils/date';
-import { GamingSessionsService } from '../gamingSessions/gamingSessions.station';
-import { commissionsService } from '../commissions/commissions.station';
-import { WalletService } from '../wallet/wallet.station';
+import { gamingSessionsStation } from '../gamingSessions/gamingSessions.station';
+import { commissionsStation } from '../commissions/commissions.station';
+import { walletService } from '../wallet/wallet.station';
 import { auditService } from '../audit/audit.station';
 import { normalizePhone } from '../../common/utils/phone';
 import { AppEvents, eventEmitter } from '../../common/events/event-emitter';
 import { Metrics } from '../../common/metrics/metrics';
-import { ReservationStateMachine } from './reservations.state-machine';
+import { ReservationStateMachine } from './reservation.state-machine';
 
 import {
-  CancelBookingInput,
-  CreateBookingInput,
-  CreatePublicBookingInput,
-  ListBookingsQuery,
-  UpdateBookingInput,
-} from './reservations.validators';
+  CancelReservationInput,
+  CreateReservationInput,
+  CreatePublicReservationInput,
+  ListReservationQuery,
+  UpdateReservationInput,
+} from './reservation.dto';
 
 
 
@@ -32,7 +32,7 @@ const findAndValidateReservation = async (
   reservationId: string,
   gamingCenterId: string
 ): Promise<Reservation> => {
-  const reservation = await ReservationsRepo.findReservationById(reservationId, gamingCenterId);
+  const reservation = await ReservationRepo.findReservationById(reservationId, gamingCenterId);
   if (!reservation) {
     throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
   }
@@ -45,19 +45,19 @@ const findOrCreateCustomerProfile = async (
   customer: { fullName: string; phone: string; email?: string }
 ) => {
   const normalizedPhone = normalizePhone(customer.phone);
-  let customerAccount = await ReservationsRepo.findCustomerAccountByPhone(normalizedPhone, tx);
+  let customerAccount = await ReservationRepo.findCustomerAccountByPhone(normalizedPhone, tx);
 
   if (!customerAccount) {
-    customerAccount = await ReservationsRepo.createCustomerAccount(
+    customerAccount = await ReservationRepo.createCustomerAccount(
       { phone: normalizedPhone, fullName: customer.fullName },
       tx
     );
   }
 
-  let customerProfile = await ReservationsRepo.findCustomerProfile(gamingCenterId, customerAccount.id, tx);
+  let customerProfile = await ReservationRepo.findCustomerProfile(gamingCenterId, customerAccount.id, tx);
 
   if (!customerProfile) {
-    customerProfile = await ReservationsRepo.createCustomerProfile(
+    customerProfile = await ReservationRepo.createCustomerProfile(
       {
         gamingCenterId,
         customerAccountId: customerAccount.id,
@@ -70,20 +70,20 @@ const findOrCreateCustomerProfile = async (
   return { customerAccount, customerProfile };
 };
 
-export const reservationsService = {
-  async createBooking(input: CreateBookingInput & { gamingCenterId: string; createdByUserId: string; }) {
-    const result = await ReservationsRepo.transaction(async (tx) => {
+export const reservationStation = {
+  async createReservation(input: CreateReservationInput & { gamingCenterId: string; createdByUserId: string; }) {
+    const result = await ReservationRepo.transaction(async (tx) => {
       const { gamingCenterId, stationId, staffId, customer, startTime: startAtString, createdByUserId, note } = input;
       const startTime = new Date(startAtString);
 
       // 1. Fetch GameStation and Customer Profile details
-      const station = await ReservationsRepo.findStation(stationId, gamingCenterId, true, tx);
+      const station = await ReservationRepo.findStation(stationId, gamingCenterId, true, tx);
 
       if (!station) {
         throw new AppError('GameStation not found or is not active.', httpStatus.NOT_FOUND);
       }
 
-      const staff = await ReservationsRepo.findStaff(staffId, gamingCenterId, stationId, undefined, tx);
+      const staff = await ReservationRepo.findStaff(staffId, gamingCenterId, stationId, undefined, tx);
 
       if (!staff) {
         throw new AppError(
@@ -98,7 +98,7 @@ export const reservationsService = {
         customer as { fullName: string; phone: string; email?: string }
       );
 
-      const gamingCenter = await ReservationsRepo.findGamingCenterWithSettings(gamingCenterId, tx);
+      const gamingCenter = await ReservationRepo.findGamingCenterWithSettings(gamingCenterId, tx);
 
       if (!gamingCenter) {
         throw new AppError('GamingCenter not found.', httpStatus.NOT_FOUND);
@@ -108,7 +108,7 @@ export const reservationsService = {
       const durationHours = station.defaultDurationHours;
       const endTime = addMinutes(startTime, durationHours * 60);
 
-      const reservation = await ReservationsRepo.createReservation({
+      const reservation = await ReservationRepo.createReservation({
         gamingCenterId,
         stationId,
         staffId,
@@ -134,7 +134,7 @@ export const reservationsService = {
     });
 
     // Emit event
-    eventEmitter.emit(AppEvents.BOOKING_CREATED, {
+    eventEmitter.emit(AppEvents.RESERVATION_CREATED, {
       reservation: result.reservation,
       gamingCenter: result.gamingCenter,
       customerAccount: result.customerAccount,
@@ -145,10 +145,10 @@ export const reservationsService = {
     return result.reservation;
   },
 
-  async createPublicBooking(gamingCenterSlug: string, input: CreatePublicBookingInput) {
+  async createPublicReservation(gamingCenterSlug: string, input: CreatePublicReservationInput) {
     try {
-      const result = await ReservationsRepo.transaction(async (tx) => {
-        const gamingCenter = await ReservationsRepo.findGamingCenterBySlugWithSettings(gamingCenterSlug, tx);
+      const result = await ReservationRepo.transaction(async (tx) => {
+        const gamingCenter = await ReservationRepo.findGamingCenterBySlugWithSettings(gamingCenterSlug, tx);
 
         if (!gamingCenter) {
           throw new AppError('GamingCenter not found.', httpStatus.NOT_FOUND);
@@ -156,14 +156,14 @@ export const reservationsService = {
 
         if (!gamingCenter.settings?.allowOnlineBooking) {
           throw new AppError('Online reservation is disabled.', httpStatus.FORBIDDEN, {
-            code: 'ONLINE_BOOKING_DISABLED',
+            code: 'ONLINE_RESERVATION_DISABLED',
           });
         }
 
         const startTime = new Date(input.startTime);
         if (isBefore(startTime, new Date())) {
           throw new AppError('Reservation start time must be in the future.', httpStatus.BAD_REQUEST, {
-            code: 'BOOKING_START_TIME_IN_PAST',
+            code: 'RESERVATION_START_TIME_IN_PAST',
           });
         }
 
@@ -180,13 +180,13 @@ export const reservationsService = {
           }
         }
 
-        const station = await ReservationsRepo.findStation(input.stationId, gamingCenter.id, true, tx);
+        const station = await ReservationRepo.findStation(input.stationId, gamingCenter.id, true, tx);
 
         if (!station) {
           throw new AppError('GameStation not found or is not active.', httpStatus.NOT_FOUND);
         }
 
-        const staff = await ReservationsRepo.findStaff(input.staffId, gamingCenter.id, input.stationId, true, tx);
+        const staff = await ReservationRepo.findStaff(input.staffId, gamingCenter.id, input.stationId, true, tx);
 
         if (!staff) {
           throw new AppError(
@@ -200,7 +200,7 @@ export const reservationsService = {
         const timeZone = gamingCenter.settings?.timeZone || 'UTC';
         const zonedStartAt = toZonedTime(startTime, timeZone);
 
-        const staffShift = await ReservationsRepo.findStaffShift(gamingCenter.id, staff.id, zonedStartAt.getDay(), tx);
+        const staffShift = await ReservationRepo.findStaffShift(gamingCenter.id, staff.id, zonedStartAt.getDay(), tx);
 
         if (!staffShift || !staffShift.startTime || !staffShift.endTime) {
           throw new AppError('Selected time is not available.', httpStatus.CONFLICT, {
@@ -217,9 +217,9 @@ export const reservationsService = {
           });
         }
 
-        const overlappingBooking = await ReservationsRepo.findOverlappingReservation(gamingCenter.id, staff.id, startTime, endTime, undefined, tx);
+        const overlappingReservation = await ReservationRepo.findOverlappingReservation(gamingCenter.id, staff.id, startTime, endTime, undefined, tx);
 
-        if (overlappingBooking) {
+        if (overlappingReservation) {
           throw new AppError('Selected time is not available.', httpStatus.CONFLICT, {
             code: 'SLOT_NOT_AVAILABLE',
           });
@@ -235,7 +235,7 @@ export const reservationsService = {
           ? ReservationStatus.CONFIRMED
           : ReservationStatus.PENDING;
 
-        const reservation = await ReservationsRepo.createReservation({
+        const reservation = await ReservationRepo.createReservation({
           gamingCenterId: gamingCenter.id,
           stationId: station.id,
           staffId: staff.id,
@@ -262,7 +262,7 @@ export const reservationsService = {
       });
 
       // Emit event
-      eventEmitter.emit(AppEvents.BOOKING_CREATED, {
+      eventEmitter.emit(AppEvents.RESERVATION_CREATED, {
         reservation: result.reservation,
         gamingCenter: result.gamingCenter,
         customerAccount: result.customerAccount,
@@ -271,7 +271,7 @@ export const reservationsService = {
       return result.reservation;
     } catch (error: unknown) {
       Metrics.recordReservationCreated(false, gamingCenterSlug);
-      if (error && typeof error === 'object' && 'code' in error && error.code === '23P01' && 'message' in error && typeof error.message === 'string' && error.message.includes('Booking_no_overlap_active')) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === '23P01' && 'message' in error && typeof error.message === 'string' && error.message.includes('Reservation_no_overlap_active')) {
         throw new AppError('This time slot is already booked.', httpStatus.CONFLICT, {
           code: 'SLOT_NOT_AVAILABLE',
         });
@@ -280,7 +280,7 @@ export const reservationsService = {
     }
   },
 
-  async getBookings(gamingCenterId: string, query: ListBookingsQuery, actor: { id: string, role: UserRole }) {
+  async getReservation(gamingCenterId: string, query: ListReservationQuery, actor: { id: string, role: UserRole }) {
     const { page = 1, pageSize = 20, sortBy = 'startTime', sortOrder = 'asc', status, staffId, customerProfileId, dateFrom, dateTo } = query;
     const where: Prisma.ReservationWhereInput = {
       gamingCenterId,
@@ -297,25 +297,25 @@ export const reservationsService = {
       where.staffId = actor.id;
     }
 
-    const [reservations, totalItems] = await ReservationsRepo.transaction(async (tx) => {
-      const b = await ReservationsRepo.findManyReservations(
+    const [reservation, totalItems] = await ReservationRepo.transaction(async (tx) => {
+      const b = await ReservationRepo.findManyReservation(
         where,
         (page - 1) * pageSize,
         pageSize,
         { [sortBy]: sortOrder },
         tx
       );
-      const c = await ReservationsRepo.countReservations(where, tx);
+      const c = await ReservationRepo.countReservation(where, tx);
       return [b, c] as const;
     });
 
     return {
-      data: reservations,
+      data: reservation,
       meta: { page, pageSize, totalItems, totalPages: Math.ceil(totalItems / pageSize) },
     };
   },
 
-  async getBookingById(reservationId: string, gamingCenterId: string, actor: { id: string, role: UserRole }) {
+  async getReservationById(reservationId: string, gamingCenterId: string, actor: { id: string, role: UserRole }) {
     const reservation = await findAndValidateReservation(reservationId, gamingCenterId);
 
     if (actor.role === 'STAFF' && reservation.staffId !== actor.id) {
@@ -325,16 +325,16 @@ export const reservationsService = {
     return reservation;
   },
 
-  async updateBooking(
+  async updateReservation(
     reservationId: string,
     gamingCenterId: string,
-    data: UpdateBookingInput,
+    data: UpdateReservationInput,
     actor: { id: string; actorType: SessionActorType },
     context?: { ip?: string; userAgent?: string }
   ) {
     try {
-      return await ReservationsRepo.transaction(async (tx) => {
-        const reservation = await ReservationsRepo.findReservationById(reservationId, gamingCenterId, tx);
+      return await ReservationRepo.transaction(async (tx) => {
+        const reservation = await ReservationRepo.findReservationById(reservationId, gamingCenterId, tx);
         if (!reservation) {
           throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
         }
@@ -345,31 +345,31 @@ export const reservationsService = {
           });
         }
 
-        const serviceChanged = !!data.stationId && data.stationId !== reservation.stationId;
+        const stationChanged = !!data.stationId && data.stationId !== reservation.stationId;
         const staffChanged = !!data.staffId && data.staffId !== reservation.staffId;
         const startAtChanged = !!data.startTime;
-        const hasTimeChange = serviceChanged || staffChanged || startAtChanged;
+        const hasTimeChange = stationChanged || staffChanged || startAtChanged;
 
-        const effectiveStationId = serviceChanged ? data.stationId! : reservation.stationId;
+        const effectiveStationId = stationChanged ? data.stationId! : reservation.stationId;
         const effectiveStaffId = staffChanged ? data.staffId! : reservation.staffId;
 
         let effectiveStation = null;
-        if (serviceChanged) {
-          effectiveStation = await ReservationsRepo.findStation(effectiveStationId, gamingCenterId, true, tx);
+        if (stationChanged) {
+          effectiveStation = await ReservationRepo.findStation(effectiveStationId, gamingCenterId, true, tx);
 
           if (!effectiveStation) {
             throw new AppError('GameStation not found or is not active.', httpStatus.NOT_FOUND);
           }
         } else if (hasTimeChange) {
-          effectiveStation = await ReservationsRepo.findStation(effectiveStationId, gamingCenterId, undefined, tx);
+          effectiveStation = await ReservationRepo.findStation(effectiveStationId, gamingCenterId, undefined, tx);
 
           if (!effectiveStation) {
             throw new AppError('GameStation not found.', httpStatus.NOT_FOUND);
           }
         }
 
-        if ((staffChanged || serviceChanged) && effectiveStaffId) {
-          const staff = await ReservationsRepo.findStaff(effectiveStaffId!, gamingCenterId, effectiveStationId, undefined, tx);
+        if ((staffChanged || stationChanged) && effectiveStaffId) {
+          const staff = await ReservationRepo.findStaff(effectiveStaffId!, gamingCenterId, effectiveStationId, undefined, tx);
 
           if (!staff || !staff.id) {
             throw new AppError(
@@ -381,7 +381,7 @@ export const reservationsService = {
 
         const updateData: Prisma.ReservationUncheckedUpdateInput = {};
 
-        if (serviceChanged && effectiveStation) {
+        if (stationChanged && effectiveStation) {
           updateData.stationId = effectiveStationId;
           const durationHours = effectiveStation.defaultDurationHours;
           updateData.stationSnapshot = {
@@ -402,7 +402,7 @@ export const reservationsService = {
         }
 
         if (hasTimeChange) {
-          const settings = await ReservationsRepo.findSettings(gamingCenterId, tx);
+          const settings = await ReservationRepo.findSettings(gamingCenterId, tx);
           const timeZone = settings?.timeZone || 'UTC';
 
           const newStartAt = data.startTime ? new Date(data.startTime) : reservation.startTime;
@@ -412,7 +412,7 @@ export const reservationsService = {
           const newEndAt = addMinutes(newStartAt, durationHours * 60);
           const zonedNewStartAt = toZonedTime(newStartAt, timeZone);
 
-          const staffShift = effectiveStaffId ? await ReservationsRepo.findStaffShift(gamingCenterId, effectiveStaffId!, zonedNewStartAt.getDay(), tx) : null;
+          const staffShift = effectiveStaffId ? await ReservationRepo.findStaffShift(gamingCenterId, effectiveStaffId!, zonedNewStartAt.getDay(), tx) : null;
 
           if (!staffShift || !staffShift.startTime || !staffShift.endTime) {
             throw new AppError('Selected time is not available.', httpStatus.CONFLICT, {
@@ -431,7 +431,7 @@ export const reservationsService = {
 
           const preventOverlaps = settings?.preventOverlaps ?? true;
           if (preventOverlaps && effectiveStaffId) {
-            const overlappingBooking = await ReservationsRepo.findOverlappingReservation(
+            const overlappingReservation = await ReservationRepo.findOverlappingReservation(
               gamingCenterId,
               effectiveStaffId,
               newStartAt,
@@ -440,7 +440,7 @@ export const reservationsService = {
               tx
             );
 
-            if (overlappingBooking) {
+            if (overlappingReservation) {
               throw new AppError('Reservation overlaps with another for the same staff member.', httpStatus.CONFLICT, {
                 code: 'OVERLAP_CONFLICT',
               });
@@ -451,41 +451,41 @@ export const reservationsService = {
             updateData.startTime = newStartAt;
           }
 
-          if (serviceChanged || data.startTime) {
+          if (stationChanged || data.startTime) {
             updateData.endTime = newEndAt;
             updateData.totalHours = durationHours;
             // Recalculate totalPrice if station didn't change but startTime did (and we use current snapshot price)
-            if (!serviceChanged) {
+            if (!stationChanged) {
               const snapshot = reservation.stationSnapshot as Record<string, unknown>;
               updateData.totalPrice = durationHours * ((snapshot?.hourlyPrice as number) || 0);
             }
           }
         }
 
-        const updatedBooking = await ReservationsRepo.updateReservation(reservationId, gamingCenterId, updateData, tx);
+        const updatedReservation = await ReservationRepo.updateReservation(reservationId, gamingCenterId, updateData, tx);
 
-        if (!updatedBooking) {
+        if (!updatedReservation) {
           throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
         }
 
         await auditService.log(
           gamingCenterId,
           actor,
-          'BOOKING_UPDATE',
+          'RESERVATION_UPDATE',
           { name: 'Reservation', id: reservationId },
-          { old: reservation, new: updatedBooking },
+          { old: reservation, new: updatedReservation },
           context
         );
 
-        return { updatedBooking, oldBooking: reservation };
+        return { updatedReservation, oldReservation: reservation };
       }, {
         isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
-      }).then(({ updatedBooking, oldBooking }) => {
-        eventEmitter.emit(AppEvents.BOOKING_UPDATED, { updatedBooking, oldBooking });
-        return updatedBooking;
+      }).then(({ updatedReservation, oldReservation }) => {
+        eventEmitter.emit(AppEvents.RESERVATION_UPDATED, { updatedReservation, oldReservation });
+        return updatedReservation;
       });
     } catch (error: unknown) {
-      if (error && typeof error === 'object' && 'code' in error && error.code === '23P01' && 'message' in error && typeof error.message === 'string' && error.message.includes('Booking_no_overlap_active')) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === '23P01' && 'message' in error && typeof error.message === 'string' && error.message.includes('Reservation_no_overlap_active')) {
         throw new AppError('Reservation overlaps with another for the same staff member.', httpStatus.CONFLICT, {
           code: 'OVERLAP_CONFLICT',
         });
@@ -494,12 +494,12 @@ export const reservationsService = {
     }
   },
 
-  async confirmBooking(reservationId: string, gamingCenterId: string) {
+  async confirmReservation(reservationId: string, gamingCenterId: string) {
     const reservation = await findAndValidateReservation(reservationId, gamingCenterId);
 
     ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.CONFIRMED);
 
-    const updatedBooking = await ReservationsRepo.updateReservationWithInclude(
+    const updatedReservation = await ReservationRepo.updateReservationWithInclude(
       reservationId,
       gamingCenterId,
       { status: ReservationStatus.CONFIRMED },
@@ -509,32 +509,32 @@ export const reservationsService = {
       }
     );
 
-    if (!updatedBooking) {
+    if (!updatedReservation) {
       throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
     }
 
-    eventEmitter.emit(AppEvents.BOOKING_CONFIRMED, {
-      reservation: updatedBooking,
-      gamingCenter: updatedBooking.gamingCenter,
-      customerAccount: updatedBooking.customerAccount,
+    eventEmitter.emit(AppEvents.RESERVATION_CONFIRMED, {
+      reservation: updatedReservation,
+      gamingCenter: updatedReservation.gamingCenter,
+      customerAccount: updatedReservation.customerAccount,
     });
 
-    return updatedBooking;
+    return updatedReservation;
   },
 
-  async cancelBooking(
+  async cancelReservation(
     reservationId: string,
     gamingCenterId: string,
     actor: { id: string; role: UserRole; actorType: SessionActorType },
-    data: CancelBookingInput,
+    data: CancelReservationInput,
     context?: { ip?: string; userAgent?: string }
   ) {
     const reservation = await findAndValidateReservation(reservationId, gamingCenterId);
 
     ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.CANCELED);
 
-    const updatedBooking = await ReservationsRepo.transaction(async (tx) => {
-      const result = await ReservationsRepo.updateReservationWithInclude(
+    const updatedReservation = await ReservationRepo.transaction(async (tx) => {
+      const result = await ReservationRepo.updateReservationWithInclude(
         reservationId,
         gamingCenterId,
         {
@@ -555,67 +555,67 @@ export const reservationsService = {
       }
 
       // Trigger refund if there are successful payments
-      await WalletService.refundBookingToWallet(reservationId, tx);
+      await walletService.refundReservationToWallet(reservationId, tx);
 
       return result;
     });
 
-    eventEmitter.emit(AppEvents.BOOKING_CANCELED, {
-      reservation: updatedBooking,
-      gamingCenter: updatedBooking.gamingCenter,
-      customerAccount: updatedBooking.customerAccount,
+    eventEmitter.emit(AppEvents.RESERVATION_CANCELED, {
+      reservation: updatedReservation,
+      gamingCenter: updatedReservation.gamingCenter,
+      customerAccount: updatedReservation.customerAccount,
     });
 
     await auditService.log(
       gamingCenterId,
       actor,
-      'BOOKING_CANCEL',
+      'RESERVATION_CANCEL',
       { name: 'Reservation', id: reservationId },
-      { old: reservation, new: updatedBooking },
+      { old: reservation, new: updatedReservation },
       context
     );
 
-    return updatedBooking;
+    return updatedReservation;
   },
 
-  async startBooking(
+  async startReservation(
     reservationId: string,
     gamingCenterId: string,
     actor: { id: string; role: UserRole; actorType: SessionActorType },
     context?: { ip?: string; userAgent?: string }
   ) {
-    return ReservationsRepo.transaction(async (tx) => {
-      const reservation = await ReservationsRepo.findReservationById(reservationId, gamingCenterId, tx);
+    return ReservationRepo.transaction(async (tx) => {
+      const reservation = await ReservationRepo.findReservationById(reservationId, gamingCenterId, tx);
       if (!reservation) {
         throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
       }
 
       ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.IN_PROGRESS);
 
-      const updatedBooking = await ReservationsRepo.updateReservation(reservationId, gamingCenterId, {
+      const updatedReservation = await ReservationRepo.updateReservation(reservationId, gamingCenterId, {
         status: ReservationStatus.IN_PROGRESS,
       }, tx);
 
-      if (!updatedBooking) {
+      if (!updatedReservation) {
         throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
       }
 
-      await GamingSessionsService.startSession(reservationId, reservation.stationId, tx);
+      await gamingSessionsStation.startSession(reservationId, reservation.stationId, tx);
 
       await auditService.log(
         gamingCenterId,
         actor,
-        'BOOKING_START',
+        'RESERVATION_START',
         { name: 'Reservation', id: reservationId },
-        { old: reservation, new: updatedBooking },
+        { old: reservation, new: updatedReservation },
         context
       );
 
-      return updatedBooking;
+      return updatedReservation;
     });
   },
 
-  async completeBooking(
+  async completeReservation(
     reservationId: string,
     gamingCenterId: string,
     actor: { id: string; role: UserRole; actorType: SessionActorType },
@@ -625,8 +625,8 @@ export const reservationsService = {
 
     ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.COMPLETED);
 
-    const updatedBooking = await ReservationsRepo.transaction(async (tx) => {
-      const updated = await ReservationsRepo.updateReservation(reservationId, gamingCenterId, {
+    const updatedReservation = await ReservationRepo.transaction(async (tx) => {
+      const updated = await ReservationRepo.updateReservation(reservationId, gamingCenterId, {
         status: ReservationStatus.COMPLETED,
         completedAt: new Date(),
       }, tx);
@@ -636,7 +636,7 @@ export const reservationsService = {
       }
 
       if (reservation.status === ReservationStatus.IN_PROGRESS) {
-        await GamingSessionsService.endSession(reservationId, tx);
+        await gamingSessionsStation.endSession(reservationId, tx);
       }
 
       return updated;
@@ -645,20 +645,20 @@ export const reservationsService = {
     await auditService.log(
       gamingCenterId,
       actor,
-      'BOOKING_COMPLETE',
+      'RESERVATION_COMPLETE',
       { name: 'Reservation', id: reservationId },
-      { old: reservation, new: updatedBooking },
+      { old: reservation, new: updatedReservation },
       context
     );
 
-    eventEmitter.emit(AppEvents.BOOKING_COMPLETED, { reservation: updatedBooking });
+    eventEmitter.emit(AppEvents.RESERVATION_COMPLETED, { reservation: updatedReservation });
 
     // Trigger commission calculation
-    await commissionsService.calculateCommission(reservationId).catch((err) => {
+    await commissionsStation.calculateCommission(reservationId).catch((err) => {
       console.error('Failed to calculate commission for reservation:', reservationId, err);
     });
 
-    return updatedBooking;
+    return updatedReservation;
   },
 
   async markAsNoShow(
@@ -671,26 +671,26 @@ export const reservationsService = {
 
     ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.NO_SHOW);
 
-    const updatedBooking = await ReservationsRepo.updateReservation(reservationId, gamingCenterId, {
+    const updatedReservation = await ReservationRepo.updateReservation(reservationId, gamingCenterId, {
       status: ReservationStatus.NO_SHOW,
       noShowAt: new Date(),
     });
 
-    if (!updatedBooking) {
+    if (!updatedReservation) {
       throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
     }
 
     await auditService.log(
       gamingCenterId,
       actor,
-      'BOOKING_NOSHOW',
+      'RESERVATION_NOSHOW',
       { name: 'Reservation', id: reservationId },
-      { old: reservation, new: updatedBooking },
+      { old: reservation, new: updatedReservation },
       context
     );
 
-    eventEmitter.emit(AppEvents.BOOKING_NOSHOW, { reservation: updatedBooking });
+    eventEmitter.emit(AppEvents.RESERVATION_NOSHOW, { reservation: updatedReservation });
 
-    return updatedBooking;
+    return updatedReservation;
   },
 };

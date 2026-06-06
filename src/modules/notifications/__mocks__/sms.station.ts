@@ -1,7 +1,7 @@
 
 // src/modules/notifications/__mocks__/sms.station.ts
 
-export class SmsService {
+export class SmsStation {
   constructor() {
     // Mock constructor doesn't need API keys
   }
@@ -14,4 +14,4 @@ export class SmsService {
 }
 
 // Optional: Export a singleton instance if that's how it's used elsewhere
-export const smsService = new SmsService();
+export const smsStation = new SmsStation();

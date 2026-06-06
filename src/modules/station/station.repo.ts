@@ -1,7 +1,7 @@
 import { prisma } from '../../config/prisma';
-import { CreateStationInput, UpdateStationInput } from './stations.types';
+import { CreateStationInput, UpdateStationInput } from './station.types';
 import { Prisma } from '@prisma/client';
-import { ListStationsQuery } from './stations.validators';
+import { ListStationsQuery } from './station.validator';
 import { getPaginationParams, formatPaginatedResult } from '../../common/utils/pagination';
 
 /**

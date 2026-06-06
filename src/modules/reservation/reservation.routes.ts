@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { validate } from '../../common/middleware/validate';
-import * as bookingsController from './reservations.controller';
+import * as reservationController from './reservation.controller';
 import {
-  createBookingSchema,
-  updateBookingSchema,
-  cancelBookingSchema,
-  listBookingsQuerySchema,
-} from './reservations.validators';
+  createReservationSchema,
+  updateReservationSchema,
+  cancelReservationSchema,
+  listReservationQuerySchema,
+} from './reservation.dto';
 import { authMiddleware } from '../../common/middleware/auth';
 import { requireRole } from '../../common/middleware/requireRole';
 import { UserRole } from '@prisma/client';
@@ -31,16 +31,16 @@ const M_R_S = [UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]; // All ro
 router.post(
   '/',
   requireRole(M_R),
-  validate(createBookingSchema),
-  asyncHandler<AppRequest>(bookingsController.createBooking)
+  validate(createReservationSchema),
+  asyncHandler<AppRequest>(reservationController.createReservation)
 );
 
-// 2. List Bookings
+// 2. List Reservation
 router.get(
   '/',
   requireRole(M_R_S),
-  validate(listBookingsQuerySchema),
-  asyncHandler<AppRequest>(bookingsController.getBookings)
+  validate(listReservationQuerySchema),
+  asyncHandler<AppRequest>(reservationController.getReservation)
 );
 
 // 3. Get Reservation by ID
@@ -48,15 +48,15 @@ router.get(
   '/:reservationId',
   requireRole(M_R_S),
   validate(idParamSchema('reservationId')),
-  asyncHandler<AppRequest>(bookingsController.getBookingById)
+  asyncHandler<AppRequest>(reservationController.getReservationById)
 );
 
 // 4. Update Reservation Details
 router.patch(
   '/:reservationId',
   requireRole(M_R),
-  validate(updateBookingSchema),
-  asyncHandler<AppRequest>(bookingsController.updateBooking)
+  validate(updateReservationSchema),
+  asyncHandler<AppRequest>(reservationController.updateReservation)
 );
 
 // 5. Confirm Reservation
@@ -64,15 +64,15 @@ router.post(
   '/:reservationId/confirm',
   requireRole(M_R),
   validate(idParamSchema('reservationId')),
-  asyncHandler<AppRequest>(bookingsController.confirmBooking)
+  asyncHandler<AppRequest>(reservationController.confirmReservation)
 );
 
 // 6. Cancel Reservation
 router.post(
   '/:reservationId/cancel',
   requireRole(M_R),
-  validate(cancelBookingSchema),
-  asyncHandler<AppRequest>(bookingsController.cancelBooking)
+  validate(cancelReservationSchema),
+  asyncHandler<AppRequest>(reservationController.cancelReservation)
 );
 
 // 7. Start Reservation
@@ -80,7 +80,7 @@ router.post(
   '/:reservationId/start',
   requireRole(M_R),
   validate(idParamSchema('reservationId')),
-  asyncHandler<AppRequest>(bookingsController.startBooking)
+  asyncHandler<AppRequest>(reservationController.startReservation)
 );
 
 // 8. Complete Reservation
@@ -88,7 +88,7 @@ router.post(
   '/:reservationId/complete',
   requireRole(M_R),
   validate(idParamSchema('reservationId')),
-  asyncHandler<AppRequest>(bookingsController.completeBooking)
+  asyncHandler<AppRequest>(reservationController.completeReservation)
 );
 
 // 9. Mark as No-Show
@@ -96,7 +96,7 @@ router.post(
   '/:reservationId/no-show',
   requireRole(M_R),
   validate(idParamSchema('reservationId')),
-  asyncHandler<AppRequest>(bookingsController.markAsNoShow)
+  asyncHandler<AppRequest>(reservationController.markAsNoShow)
 );
 
 export default router;

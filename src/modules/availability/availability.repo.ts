@@ -43,7 +43,7 @@ export const AvailabilityRepo = {
     });
   },
 
-  async findBookings(gamingCenterId: string, staffIds: string[], startDate: Date, endDate: Date) {
+  async findReservation(gamingCenterId: string, staffIds: string[], startDate: Date, endDate: Date) {
     return prisma.reservation.findMany({
       where: {
         gamingCenterId,

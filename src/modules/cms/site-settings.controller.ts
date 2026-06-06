@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import * as SiteSettingsService from './site-settings.station';
+import * as SiteSettingsStation from './site-settings.station';
 import { UpdateSiteSettingsInput } from './site-settings.validators';
 
 export async function getSiteSettings(
@@ -7,7 +7,7 @@ export async function getSiteSettings(
   res: Response
 ) {
   const { gamingCenterId } = req.params;
-  const settings = await SiteSettingsService.getSiteSettings(gamingCenterId);
+  const settings = await SiteSettingsStation.getSiteSettings(gamingCenterId);
   res.ok(settings);
 }
 
@@ -16,7 +16,7 @@ export async function upsertSiteSettings(
   res: Response
 ) {
   const { gamingCenterId } = req.params;
-  const settings = await SiteSettingsService.upsertSiteSettings(
+  const settings = await SiteSettingsStation.upsertSiteSettings(
     gamingCenterId,
     req.body
   );

@@ -5,8 +5,8 @@ import { SessionActorType } from '@prisma/client';
 import * as CustomerPanelController from './customer-panel.controller';
 import { validate } from '../../common/middleware/validate';
 import {
-  getCustomerBookingsSchema,
-  customerCancelBookingSchema,
+  getCustomerReservationSchema,
+  customerCancelReservationSchema,
   customerSubmitReviewSchema,
 } from './customer-panel.validators';
 import { privateApiRateLimiter } from '../../common/middleware/rateLimit';
@@ -19,18 +19,18 @@ router.use(privateApiRateLimiter, authMiddleware, requireActorType(SessionActorT
 
 router.get('/me', asyncHandler<AppRequest>(CustomerPanelController.getMe));
 
-router.get('/reservations', validate(getCustomerBookingsSchema), asyncHandler<AppRequest>(CustomerPanelController.getMyBookings));
+router.get('/reservation', validate(getCustomerReservationSchema), asyncHandler<AppRequest>(CustomerPanelController.getMyReservation));
 
-router.get('/:reservationId', asyncHandler<AppRequest>(CustomerPanelController.getMyBookingDetails));
+router.get('/:reservationId', asyncHandler<AppRequest>(CustomerPanelController.getMyReservationDetails));
 
 router.post(
-  '/reservations/:reservationId/cancel',
-  validate(customerCancelBookingSchema),
-  asyncHandler<AppRequest>(CustomerPanelController.cancelMyBooking)
+  '/reservation/:reservationId/cancel',
+  validate(customerCancelReservationSchema),
+  asyncHandler<AppRequest>(CustomerPanelController.cancelMyReservation)
 );
 
 router.post(
-  '/reservations/:reservationId/ratings',
+  '/reservation/:reservationId/ratings',
   validate(customerSubmitReviewSchema),
   asyncHandler<AppRequest>(CustomerPanelController.submitMyReview)
 );

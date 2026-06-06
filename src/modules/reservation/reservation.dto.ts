@@ -8,7 +8,7 @@ const CUID_MESSAGE = 'Invalid CUID';
 // Panel Schemas
 // =================================
 
-export const createBookingSchema = z.object({
+export const createReservationSchema = z.object({
   body: z.object({
     stationId: z.string().cuid(CUID_MESSAGE),
     staffId: z.string().cuid(CUID_MESSAGE),
@@ -22,7 +22,7 @@ export const createBookingSchema = z.object({
   }),
 });
 
-export const updateBookingSchema = z.object({
+export const updateReservationSchema = z.object({
   params: z.object({
     reservationId: z.string().cuid(CUID_MESSAGE),
   }),
@@ -36,7 +36,7 @@ export const updateBookingSchema = z.object({
   }),
 });
 
-export const cancelBookingSchema = z.object({
+export const cancelReservationSchema = z.object({
   params: z.object({
     reservationId: z.string().cuid(CUID_MESSAGE),
   }),
@@ -45,7 +45,7 @@ export const cancelBookingSchema = z.object({
   }),
 });
 
-export const listBookingsQuerySchema = z.object({
+export const listReservationQuerySchema = z.object({
   query: z.object({
     page: z.preprocess(Number, z.number().int().min(1)).optional(),
     pageSize: z.preprocess(Number, z.number().int().min(1).max(100)).optional(),
@@ -64,7 +64,7 @@ export const listBookingsQuerySchema = z.object({
 // Public Schemas
 // =================================
 
-export const createPublicBookingSchema = z.object({
+export const createPublicReservationSchema = z.object({
   headers: z.object({
     'idempotency-key': z.string().min(16).max(128),
   }),
@@ -86,8 +86,8 @@ export const createPublicBookingSchema = z.object({
 
 
 // = a single source of truth for types
-export type CreateBookingInput = z.infer<typeof createBookingSchema>['body'];
-export type UpdateBookingInput = z.infer<typeof updateBookingSchema>['body'];
-export type CancelBookingInput = z.infer<typeof cancelBookingSchema>['body'];
-export type ListBookingsQuery = z.infer<typeof listBookingsQuerySchema>['query'];
-export type CreatePublicBookingInput = z.infer<typeof createPublicBookingSchema>['body'];
+export type CreateReservationInput = z.infer<typeof createReservationSchema>['body'];
+export type UpdateReservationInput = z.infer<typeof updateReservationSchema>['body'];
+export type CancelReservationInput = z.infer<typeof cancelReservationSchema>['body'];
+export type ListReservationQuery = z.infer<typeof listReservationQuerySchema>['query'];
+export type CreatePublicReservationInput = z.infer<typeof createPublicReservationSchema>['body'];

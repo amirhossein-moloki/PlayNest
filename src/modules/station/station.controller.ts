@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
-import * as stationLogic from './stations.station';
-import { CreateStationInput, UpdateStationInput } from './stations.types';
-import { listStationsSchema } from './stations.validators';
+import * as stationLogic from './station.station';
+import { CreateStationInput, UpdateStationInput } from './station.types';
+import { listStationsSchema } from './station.validator';
 import { GamingCenter } from '@prisma/client';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';

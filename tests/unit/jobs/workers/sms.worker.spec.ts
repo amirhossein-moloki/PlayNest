@@ -1,15 +1,15 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { Worker, Job } from 'bullmq';
-import { SmsService } from '../../../../src/modules/notifications/sms.station';
+import { SmsStation } from '../../../../src/modules/notifications/sms.station';
 
 jest.mock('../../../../src/modules/notifications/sms.station', () => ({
-  SmsService: {
+  SmsStation: {
     sendTemplateSms: jest.fn()
   }
 }));
 jest.mock('bullmq');
 
-const MockedSmsService = SmsService as jest.Mocked<typeof SmsService>;
+const MockedSmsStation = SmsStation as jest.Mocked<typeof SmsStation>;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -35,11 +35,11 @@ describe('SmsWorker', () => {
       },
     };
 
-    MockedSmsService.sendTemplateSms.mockResolvedValue({} as any);
+    MockedSmsStation.sendTemplateSms.mockResolvedValue({} as any);
 
     await handler(job as Job);
 
-    expect(MockedSmsService.sendTemplateSms).toHaveBeenCalledWith('09123456789', 123, job.data.parameters);
+    expect(MockedSmsStation.sendTemplateSms).toHaveBeenCalledWith('09123456789', 123, job.data.parameters);
   });
 
   it('should throw error if sendTemplateSms fails', async () => {
@@ -48,7 +48,7 @@ describe('SmsWorker', () => {
       data: { mobile: '09123456789', templateId: 123, parameters: [] },
     };
 
-    MockedSmsService.sendTemplateSms.mockRejectedValue(new Error('SMS fail'));
+    MockedSmsStation.sendTemplateSms.mockRejectedValue(new Error('SMS fail'));
 
     await expect(handler(job as Job)).rejects.toThrow('SMS fail');
   });

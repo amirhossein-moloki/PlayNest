@@ -30,7 +30,7 @@ jest.mock('../../src/jobs/producers/sms.producer');
 jest.mock('../../src/common/middleware/rateLimit', () => ({
   publicApiRateLimiter: (req: any, res: any, next: any) => next(),
   privateApiRateLimiter: (req: any, res: any, next: any) => next(),
-  publicBookingRateLimiter: (req: any, res: any, next: any) => next(),
+  publicReservationRateLimiter: (req: any, res: any, next: any) => next(),
 }));
 
 describe('Priority User Journeys (E2E Logic)', () => {

@@ -19,7 +19,7 @@ const paymentTransitions: Record<PaymentStatus, PaymentStatus[]> = {
 /**
  * Defines the state machine for ReservationPaymentState.
  */
-const bookingTransitions: Record<ReservationPaymentState, ReservationPaymentState[]> = {
+const reservationTransitions: Record<ReservationPaymentState, ReservationPaymentState[]> = {
   [ReservationPaymentState.UNPAID]: [ReservationPaymentState.PENDING, ReservationPaymentState.PAID],
   [ReservationPaymentState.PENDING]: [ReservationPaymentState.PAID, ReservationPaymentState.FAILED, ReservationPaymentState.CANCELED],
   [ReservationPaymentState.PARTIALLY_PAID]: [ReservationPaymentState.PAID, ReservationPaymentState.REFUNDED, ReservationPaymentState.OVERPAID],
@@ -45,8 +45,8 @@ export function validatePaymentTransition(from: PaymentStatus, to: PaymentStatus
  * Validates a transition for the ReservationPaymentState.
  * @throws {AppError} if the transition is invalid.
  */
-export function validateBookingTransition(from: ReservationPaymentState, to: ReservationPaymentState): void {
-  const allowedTransitions = bookingTransitions[from];
+export function validateReservationTransition(from: ReservationPaymentState, to: ReservationPaymentState): void {
+  const allowedTransitions = reservationTransitions[from];
   if (!allowedTransitions || !allowedTransitions.includes(to)) {
     throw new AppError(`Invalid reservation payment state transition from ${from} to ${to}.`, httpStatus.CONFLICT);
   }

@@ -3,7 +3,7 @@ import { LinksRepo } from './links.repo';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 
-export const LinksService = {
+export const LinksStation = {
   async getLinks(gamingCenterId: string): Promise<SocialLink[]> {
     return LinksRepo.findByGamingCenterId(gamingCenterId);
   },

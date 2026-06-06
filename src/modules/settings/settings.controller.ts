@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
-import * as settingsService from './settings.station';
+import * as settingsStation from './settings.station';
 
 export async function getSettings(req: Request, res: Response, next: NextFunction) {
   try {
     const { gamingCenterId } = req.params;
-    const settings = await settingsService.getSettings(gamingCenterId);
+    const settings = await settingsStation.getSettings(gamingCenterId);
     res.ok(settings);
   } catch (error) {
     next(error);
@@ -14,7 +14,7 @@ export async function getSettings(req: Request, res: Response, next: NextFunctio
 export async function updateSettings(req: Request, res: Response, next: NextFunction) {
   try {
     const { gamingCenterId } = req.params;
-    const settings = await settingsService.updateSettings(
+    const settings = await settingsStation.updateSettings(
       gamingCenterId,
       req.body,
       (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any

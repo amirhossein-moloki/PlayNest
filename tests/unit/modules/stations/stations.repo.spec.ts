@@ -1,11 +1,11 @@
 import { describe, it, expect } from '@jest/globals';
 import { prismaMock } from '../../../mocks/prisma';
-import * as StationsRepo from '../../../../src/modules/stations/stations.repo';
+import * as StationRepo from '../../../../src/modules/station/station.repo';
 import { GameStationType } from '@prisma/client';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-describe('StationsRepo', () => {
+describe('StationRepo', () => {
   const gamingCenterId = 'gc-1';
   const stationMock = prismaMock.gameStation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
@@ -15,7 +15,7 @@ describe('StationsRepo', () => {
       const mockStation = { id: 's-1', gamingCenterId, ...data };
       stationMock.create.mockResolvedValue(mockStation);
 
-      const result = await StationsRepo.createStation(gamingCenterId, data /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      const result = await StationRepo.createStation(gamingCenterId, data /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       expect(result).toEqual(mockStation);
       expect(stationMock.create).toHaveBeenCalledWith({
         data: expect.objectContaining({ name: 'Station 1', gamingCenterId }),
@@ -28,7 +28,7 @@ describe('StationsRepo', () => {
       const mockStation = { id: 's-1', gamingCenterId, name: 'Station 1' };
       stationMock.findFirst.mockResolvedValue(mockStation);
 
-      const result = await StationsRepo.findStationById('s-1', gamingCenterId);
+      const result = await StationRepo.findStationById('s-1', gamingCenterId);
       expect(result).toEqual(mockStation);
       expect(stationMock.findFirst).toHaveBeenCalledWith({
         where: { id: 's-1', gamingCenterId },
@@ -37,11 +37,11 @@ describe('StationsRepo', () => {
   });
 
   describe('findStationsByGamingCenterId', () => {
-    it('should return paginated stations', async () => {
+    it('should return paginated station', async () => {
       stationMock.findMany.mockResolvedValue([{ id: 's-1' }]);
       stationMock.count.mockResolvedValue(1);
 
-      const result = await StationsRepo.findStationsByGamingCenterId(gamingCenterId, { page: 1, limit: 10 });
+      const result = await StationRepo.findStationsByGamingCenterId(gamingCenterId, { page: 1, limit: 10 });
       expect(result.data).toHaveLength(1);
       expect(result.meta.total).toBe(1);
     });
@@ -50,7 +50,7 @@ describe('StationsRepo', () => {
       stationMock.findMany.mockResolvedValue([]);
       stationMock.count.mockResolvedValue(0);
 
-      await StationsRepo.findStationsByGamingCenterId(gamingCenterId, {
+      await StationRepo.findStationsByGamingCenterId(gamingCenterId, {
         page: 1,
         limit: 10,
         search: 'Pro',
@@ -74,7 +74,7 @@ describe('StationsRepo', () => {
       stationMock.findMany.mockResolvedValue([]);
       stationMock.count.mockResolvedValue(0);
 
-      await StationsRepo.findStationsByGamingCenterId(gamingCenterId, { page: 1, limit: 10, isActive: false });
+      await StationRepo.findStationsByGamingCenterId(gamingCenterId, { page: 1, limit: 10, isActive: false });
       expect(stationMock.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: expect.objectContaining({ isActive: false }),
       }));
@@ -84,7 +84,7 @@ describe('StationsRepo', () => {
       stationMock.findMany.mockResolvedValue([]);
       stationMock.count.mockResolvedValue(0);
 
-      await StationsRepo.findStationsByGamingCenterId(gamingCenterId, { page: 1, limit: 10, sortBy: 'name', sortOrder: 'asc' });
+      await StationRepo.findStationsByGamingCenterId(gamingCenterId, { page: 1, limit: 10, sortBy: 'name', sortOrder: 'asc' });
       expect(stationMock.findMany).toHaveBeenCalledWith(expect.objectContaining({
         orderBy: { name: 'asc' },
       }));
@@ -96,7 +96,7 @@ describe('StationsRepo', () => {
       stationMock.updateMany.mockResolvedValue({ count: 1 });
       stationMock.findFirst.mockResolvedValue({ id: 's-1', name: 'Updated' });
 
-      const result = await StationsRepo.updateStation('s-1', gamingCenterId, { name: 'Updated' });
+      const result = await StationRepo.updateStation('s-1', gamingCenterId, { name: 'Updated' });
       expect(result.name).toBe('Updated');
       expect(stationMock.updateMany).toHaveBeenCalled();
     });
@@ -107,7 +107,7 @@ describe('StationsRepo', () => {
       stationMock.updateMany.mockResolvedValue({ count: 1 });
       stationMock.findFirst.mockResolvedValue({ id: 's-1', isActive: false });
 
-      const result = await StationsRepo.deactivateStation('s-1', gamingCenterId);
+      const result = await StationRepo.deactivateStation('s-1', gamingCenterId);
       expect(result.isActive).toBe(false);
       expect(stationMock.updateMany).toHaveBeenCalledWith(expect.objectContaining({
         data: { isActive: false }

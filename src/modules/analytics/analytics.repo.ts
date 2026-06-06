@@ -87,7 +87,7 @@ export const AnalyticsRepo = {
     });
   },
 
-  async getBookingsWithReviews(gamingCenterId: string, startDate: Date, endDate: Date) {
+  async getReservationWithReviews(gamingCenterId: string, startDate: Date, endDate: Date) {
     return prisma.reservation.findMany({
       where: {
         gamingCenterId,
@@ -110,7 +110,7 @@ export const AnalyticsRepo = {
     const dayStart = fromZonedTime(`${dateStr} 00:00:00`, timeZone);
     const dayEnd = fromZonedTime(`${dateStr} 23:59:59.999`, timeZone);
 
-    const [bookingStats, realizedCashStats] = await Promise.all([
+    const [reservationStats, realizedCashStats] = await Promise.all([
       prisma.reservation.groupBy({
         by: ['status'],
         where: { gamingCenterId, startTime: { gte: dayStart, lte: dayEnd } },
@@ -123,9 +123,9 @@ export const AnalyticsRepo = {
       }),
     ]);
 
-    const totalReservations = bookingStats.reduce((sum, s) => sum + s._count._all, 0);
-    const completedStats = bookingStats.find((s) => s.status === 'COMPLETED');
-    const canceledStats = bookingStats.find((s) => s.status === 'CANCELED');
+    const totalReservations = reservationStats.reduce((sum, s) => sum + s._count._all, 0);
+    const completedStats = reservationStats.find((s) => s.status === 'COMPLETED');
+    const canceledStats = reservationStats.find((s) => s.status === 'CANCELED');
 
     await prisma.gamingCenterAnalytics.upsert({
       where: { gamingCenterId_date: { gamingCenterId, date: new Date(dateStr) } },
@@ -156,7 +156,7 @@ export const AnalyticsRepo = {
     const dayStart = fromZonedTime(`${dateStr} 00:00:00`, timeZone);
     const dayEnd = fromZonedTime(`${dateStr} 23:59:59.999`, timeZone);
 
-    const [bookingStats, reviewStats] = await Promise.all([
+    const [reservationStats, reviewStats] = await Promise.all([
       prisma.reservation.aggregate({
         where: {
           gamingCenterId,
@@ -193,14 +193,14 @@ export const AnalyticsRepo = {
         gamingCenterId,
         staffId,
         date: new Date(dateStr),
-        completedReservations: bookingStats._count._all || 0,
-        revenue: bookingStats._sum.totalPrice || 0,
+        completedReservations: reservationStats._count._all || 0,
+        revenue: reservationStats._sum.totalPrice || 0,
         totalRating: reviewStats._sum.rating || 0,
         ratingCount: reviewStats._count._all || 0,
       },
       update: {
-        completedReservations: bookingStats._count._all || 0,
-        revenue: bookingStats._sum.totalPrice || 0,
+        completedReservations: reservationStats._count._all || 0,
+        revenue: reservationStats._sum.totalPrice || 0,
         totalRating: reviewStats._sum.rating || 0,
         ratingCount: reviewStats._count._all || 0,
         updatedAt: new Date(),
@@ -249,7 +249,7 @@ export const AnalyticsRepo = {
     });
   },
 
-  async syncAllStatsForBooking(reservationId: string) {
+  async syncAllStatsForReservation(reservationId: string) {
     const reservation = await prisma.reservation.findUnique({
       where: { id: reservationId },
     });
@@ -279,7 +279,7 @@ export const AnalyticsRepo = {
     }
 
     // Also sync the reservation's date stats just in case
-    await this.syncAllStatsForBooking(payment.reservationId);
+    await this.syncAllStatsForReservation(payment.reservationId);
   },
 
   async syncAllStatsForReview(reviewId: string) {

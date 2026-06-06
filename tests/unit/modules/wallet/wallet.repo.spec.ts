@@ -38,13 +38,13 @@ describe('WalletRepo', () => {
     });
   });
 
-  describe('findTotalPaidForBooking', () => {
+  describe('findTotalPaidForReservation', () => {
     it('should sum up paid payments for a reservation', async () => {
       paymentMock.findMany.mockResolvedValue([
         { amount: 100 },
         { amount: 200 }
       ]);
-      const total = await WalletRepo.findTotalPaidForBooking('res-1');
+      const total = await WalletRepo.findTotalPaidForReservation('res-1');
       expect(total).toBe(300);
       expect(paymentMock.findMany).toHaveBeenCalledWith({
         where: { reservationId: 'res-1', status: PaymentStatus.PAID }
@@ -53,15 +53,15 @@ describe('WalletRepo', () => {
 
     it('should return 0 if no payments found', async () => {
       paymentMock.findMany.mockResolvedValue([]);
-      const total = await WalletRepo.findTotalPaidForBooking('res-1');
+      const total = await WalletRepo.findTotalPaidForReservation('res-1');
       expect(total).toBe(0);
     });
   });
 
-  describe('findBooking', () => {
+  describe('findReservation', () => {
     it('should find reservation with customer account', async () => {
       resMock.findUnique.mockResolvedValue({ id: 'res-1', customerAccount: { id: 'ca-1' } });
-      const result = await WalletRepo.findBooking('res-1');
+      const result = await WalletRepo.findReservation('res-1');
       expect(result.customerAccount.id).toBe('ca-1');
       expect(resMock.findUnique).toHaveBeenCalledWith(expect.objectContaining({
         where: { id: 'res-1' },

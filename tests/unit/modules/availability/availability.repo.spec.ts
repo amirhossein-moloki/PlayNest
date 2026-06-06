@@ -34,9 +34,9 @@ describe('AvailabilityRepo', () => {
     expect(shiftMock.findMany).toHaveBeenCalled();
   });
 
-  it('findBookings', async () => {
+  it('findReservation', async () => {
     resMock.findMany.mockResolvedValue([]);
-    await AvailabilityRepo.findBookings('gc-1', ['u-1'], new Date(), new Date());
+    await AvailabilityRepo.findReservation('gc-1', ['u-1'], new Date(), new Date());
     expect(resMock.findMany).toHaveBeenCalled();
   });
 });

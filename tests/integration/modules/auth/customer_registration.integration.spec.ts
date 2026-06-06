@@ -1,5 +1,5 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { AuthService } from '../../../../src/modules/auth/auth.station';
+import { authService } from '../../../../src/modules/auth/auth.station';
 import { AuthRepository } from '../../../../src/modules/auth/auth.repository';
 import { SessionFactory } from '../../../../tests/factories/user.factory';
 import { CustomerAccount } from '@prisma/client';
@@ -32,7 +32,7 @@ describe('Customer Registration/Login Integration (Mocked Repo)', () => {
     MockedAuthRepository.createCustomer.mockResolvedValue(newCustomer);
     MockedAuthRepository.createSession.mockResolvedValue(session /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
-    const result = await AuthService.loginCustomer(phone);
+    const result = await authService.loginCustomer(phone);
 
     expect(result.customer).toEqual(newCustomer);
     expect(MockedAuthRepository.createCustomer).toHaveBeenCalledWith(phone, expect.any(Date));
@@ -55,7 +55,7 @@ describe('Customer Registration/Login Integration (Mocked Repo)', () => {
     MockedAuthRepository.markCustomerPhoneVerified.mockResolvedValue(verifiedCustomer);
     MockedAuthRepository.createSession.mockResolvedValue(session /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
-    const result = await AuthService.loginCustomer(phone);
+    const result = await authService.loginCustomer(phone);
 
     expect(result.customer).toEqual(verifiedCustomer);
     expect(MockedAuthRepository.markCustomerPhoneVerified).toHaveBeenCalledWith(existingUnverifiedCustomer.id);

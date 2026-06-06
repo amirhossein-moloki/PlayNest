@@ -9,7 +9,7 @@ jest.mock('../../../../src/modules/users/users.repo');
 jest.mock('../../../../src/modules/audit/audit.station');
 
 const MockedUserRepo = userRepo as jest.Mocked<typeof userRepo>;
-const MockedAuditService = auditService as jest.Mocked<typeof auditService>;
+const MockedAuditStation = auditService as jest.Mocked<typeof auditService>;
 
 describe('User Registration Integration (Mocked Repo)', () => {
   const gamingCenterId = 'gc-123';
@@ -34,7 +34,7 @@ describe('User Registration Integration (Mocked Repo)', () => {
 
     expect(result).toEqual(createdUser);
     expect(MockedUserRepo.createUser).toHaveBeenCalledWith(gamingCenterId, input);
-    expect(MockedAuditService.recordLog).toHaveBeenCalledWith({
+    expect(MockedAuditStation.recordLog).toHaveBeenCalledWith({
       gamingCenterId,
       userId: actor.id,
       actorType: actor.actorType,
@@ -60,7 +60,7 @@ describe('User Registration Integration (Mocked Repo)', () => {
     await expect(createStaffMember(gamingCenterId, input /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any, actor, context))
       .rejects.toThrow('Unique constraint failed');
 
-    expect(MockedAuditService.recordLog).not.toHaveBeenCalled();
+    expect(MockedAuditStation.recordLog).not.toHaveBeenCalled();
   });
 
   it('should reject invalid input (validation error simulated)', async () => {

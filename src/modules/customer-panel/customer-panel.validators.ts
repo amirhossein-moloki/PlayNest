@@ -3,7 +3,7 @@ import { ReservationStatus } from '@prisma/client';
 
 const CUID_MESSAGE = 'Invalid CUID';
 
-export const getCustomerBookingsSchema = z.object({
+export const getCustomerReservationSchema = z.object({
   query: z.object({
     page: z.preprocess((val) => Number(val), z.number().int().min(1)).optional(),
     pageSize: z.preprocess((val) => Number(val), z.number().int().min(1).max(100)).optional(),
@@ -12,7 +12,7 @@ export const getCustomerBookingsSchema = z.object({
   }),
 });
 
-export const customerCancelBookingSchema = z.object({
+export const customerCancelReservationSchema = z.object({
   params: z.object({
     reservationId: z.string().cuid(CUID_MESSAGE),
   }),
@@ -32,6 +32,6 @@ export const customerSubmitReviewSchema = z.object({
   }),
 });
 
-export type GetCustomerBookingsQuery = z.infer<typeof getCustomerBookingsSchema>['query'];
-export type CustomerCancelBookingInput = z.infer<typeof customerCancelBookingSchema>['body'];
+export type GetCustomerReservationQuery = z.infer<typeof getCustomerReservationSchema>['query'];
+export type CustomerCancelReservationInput = z.infer<typeof customerCancelReservationSchema>['body'];
 export type CustomerSubmitReviewInput = z.infer<typeof customerSubmitReviewSchema>['body'];

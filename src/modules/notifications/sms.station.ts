@@ -9,7 +9,7 @@ if (!smsir) {
   console.warn('SMSIR_API_KEY and SMSIR_LINE_NUMBER are not set. SMS station will run in MOCK mode.');
 }
 
-export const SmsService = {
+export const SmsStation = {
   async sendTemplateSms(mobile: string, templateId: number, parameters: Array<{ name: string; value: string }>) {
     if (!smsir) {
       console.log(`[MOCK SMS] To: ${mobile}, Template: ${templateId}, Params: ${JSON.stringify(parameters)}`);

@@ -1,13 +1,13 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { reservationsService } from '../../../../src/modules/reservations/reservations.station';
-import { ReservationsRepo } from '../../../../src/modules/reservations/reservations.repo';
+import { reservationStation } from '../../../../src/modules/reservation/reservation.station';
+import { ReservationRepo } from '../../../../src/modules/reservation/reservation.repo';
 import { ReservationStatus, ReservationSource } from '@prisma/client';
 import { eventEmitter, AppEvents } from '../../../../src/common/events/event-emitter';
 
-jest.mock('../../../../src/modules/reservations/reservations.repo');
+jest.mock('../../../../src/modules/reservation/reservation.repo');
 jest.mock('../../../../src/common/events/event-emitter');
 
-const MockedReservationsRepo = ReservationsRepo as jest.Mocked<typeof ReservationsRepo>;
+const MockedReservationRepo = ReservationRepo as jest.Mocked<typeof ReservationRepo>;
 const MockedEventEmitter = eventEmitter as jest.Mocked<typeof eventEmitter>;
 
 describe('Reservation Creation Integration (Mocked Repo)', () => {
@@ -19,12 +19,12 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Simulate transaction by just calling the callback
-    MockedReservationsRepo.transaction.mockImplementation(async (cb: /* eslint-disable-line @typescript-eslint/no-explicit-any */ any) => {
+    MockedReservationRepo.transaction.mockImplementation(async (cb: /* eslint-disable-line @typescript-eslint/no-explicit-any */ any) => {
       return cb({});
     });
   });
 
-  describe('createBooking (Internal/Staff)', () => {
+  describe('createReservation (Internal/Staff)', () => {
     it('should successfully create a reservation and emit event', async () => {
       const input = {
         gamingCenterId,
@@ -42,18 +42,18 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
       const gamingCenter = { id: gamingCenterId, settings: { timeZone: 'UTC' } };
       const reservation = { id: 'res-1', ...input, status: ReservationStatus.CONFIRMED };
 
-      MockedReservationsRepo.findStation.mockResolvedValue(station /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedReservationsRepo.findStaff.mockResolvedValue(staff /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedReservationsRepo.findCustomerAccountByPhone.mockResolvedValue(customerAccount /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedReservationsRepo.findCustomerProfile.mockResolvedValue(customerProfile /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedReservationsRepo.findGamingCenterWithSettings.mockResolvedValue(gamingCenter /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedReservationsRepo.createReservation.mockResolvedValue(reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findStation.mockResolvedValue(station /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findStaff.mockResolvedValue(staff /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findCustomerAccountByPhone.mockResolvedValue(customerAccount /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findCustomerProfile.mockResolvedValue(customerProfile /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findGamingCenterWithSettings.mockResolvedValue(gamingCenter /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.createReservation.mockResolvedValue(reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
-      const result = await reservationsService.createBooking(input);
+      const result = await reservationStation.createReservation(input);
 
       expect(result).toEqual(reservation);
-      expect(MockedReservationsRepo.createReservation).toHaveBeenCalled();
-      expect(MockedEventEmitter.emit).toHaveBeenCalledWith(AppEvents.BOOKING_CREATED, expect.objectContaining({
+      expect(MockedReservationRepo.createReservation).toHaveBeenCalled();
+      expect(MockedEventEmitter.emit).toHaveBeenCalledWith(AppEvents.RESERVATION_CREATED, expect.objectContaining({
         reservation,
         gamingCenter,
         customerAccount,
@@ -61,7 +61,7 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
     });
   });
 
-  describe('createPublicBooking', () => {
+  describe('createPublicReservation', () => {
     it('should successfully create an online reservation', async () => {
       const input = {
         stationId,
@@ -87,32 +87,32 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
       const customerProfile = { id: 'prof-2' };
       const reservation = { id: 'res-2', status: ReservationStatus.CONFIRMED, source: ReservationSource.ONLINE };
 
-      MockedReservationsRepo.findGamingCenterBySlugWithSettings.mockResolvedValue(gamingCenter /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedReservationsRepo.findStation.mockResolvedValue(station /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedReservationsRepo.findStaff.mockResolvedValue(staff /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedReservationsRepo.findStaffShift.mockResolvedValue(staffShift /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedReservationsRepo.findOverlappingReservation.mockResolvedValue(null);
-      MockedReservationsRepo.findCustomerAccountByPhone.mockResolvedValue(customerAccount /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedReservationsRepo.findCustomerProfile.mockResolvedValue(customerProfile /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedReservationsRepo.createReservation.mockResolvedValue(reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findGamingCenterBySlugWithSettings.mockResolvedValue(gamingCenter /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findStation.mockResolvedValue(station /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findStaff.mockResolvedValue(staff /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findStaffShift.mockResolvedValue(staffShift /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findOverlappingReservation.mockResolvedValue(null);
+      MockedReservationRepo.findCustomerAccountByPhone.mockResolvedValue(customerAccount /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findCustomerProfile.mockResolvedValue(customerProfile /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.createReservation.mockResolvedValue(reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
-      const result = await reservationsService.createPublicBooking(gamingCenterSlug, input);
+      const result = await reservationStation.createPublicReservation(gamingCenterSlug, input);
 
       expect(result).toEqual(reservation);
-      expect(MockedReservationsRepo.createReservation).toHaveBeenCalledWith(expect.objectContaining({
+      expect(MockedReservationRepo.createReservation).toHaveBeenCalledWith(expect.objectContaining({
         source: ReservationSource.ONLINE,
         status: ReservationStatus.CONFIRMED,
       }), expect.anything());
     });
 
-    it('should fail if online booking is disabled', async () => {
+    it('should fail if online reservation is disabled', async () => {
       const gamingCenter = {
         id: gamingCenterId,
         settings: { allowOnlineBooking: false },
       };
-      MockedReservationsRepo.findGamingCenterBySlugWithSettings.mockResolvedValue(gamingCenter /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findGamingCenterBySlugWithSettings.mockResolvedValue(gamingCenter /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
-      await expect(reservationsService.createPublicBooking(gamingCenterSlug, {
+      await expect(reservationStation.createPublicReservation(gamingCenterSlug, {
         startTime: '2027-06-06T10:00:00Z',
       } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any)).rejects.toThrow('Online reservation is disabled.');
     });
@@ -133,13 +133,13 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
       const staff = { id: staffId };
       const staffShift = { id: 'shift-1', startTime: '00:00', endTime: '23:59' };
 
-      MockedReservationsRepo.findGamingCenterBySlugWithSettings.mockResolvedValue(gamingCenter /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedReservationsRepo.findStation.mockResolvedValue(station /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedReservationsRepo.findStaff.mockResolvedValue(staff /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedReservationsRepo.findStaffShift.mockResolvedValue(staffShift /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedReservationsRepo.findOverlappingReservation.mockResolvedValue({ id: 'existing-res' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findGamingCenterBySlugWithSettings.mockResolvedValue(gamingCenter /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findStation.mockResolvedValue(station /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findStaff.mockResolvedValue(staff /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findStaffShift.mockResolvedValue(staffShift /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findOverlappingReservation.mockResolvedValue({ id: 'existing-res' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
-      await expect(reservationsService.createPublicBooking(gamingCenterSlug, input))
+      await expect(reservationStation.createPublicReservation(gamingCenterSlug, input))
         .rejects.toThrow('Selected time is not available.');
     });
   });

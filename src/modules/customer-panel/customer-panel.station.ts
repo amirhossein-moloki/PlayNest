@@ -1,14 +1,14 @@
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { CustomerPanelRepo } from './customer-panel.repo';
-import { GetCustomerBookingsQuery, CustomerSubmitReviewInput } from './customer-panel.validators';
+import { GetCustomerReservationQuery, CustomerSubmitReviewInput } from './customer-panel.validators';
 import { ReservationStatus, Prisma, SessionActorType } from '@prisma/client';
 import { auditService } from '../audit/audit.station';
-import { WalletService } from '../wallet/wallet.station';
+import { walletService } from '../wallet/wallet.station';
 import { AnalyticsRepo } from '../analytics/analytics.repo';
 import * as reviewsRepo from '../ratings/ratings.repo';
 
-export const CustomerPanelService = {
+export const CustomerPanelStation = {
   async getProfile(customerAccountId: string) {
     const account = await CustomerPanelRepo.findCustomerAccountById(customerAccountId);
     if (!account) {
@@ -17,7 +17,7 @@ export const CustomerPanelService = {
     return account;
   },
 
-  async getBookings(customerAccountId: string, query: GetCustomerBookingsQuery) {
+  async getReservation(customerAccountId: string, query: GetCustomerReservationQuery) {
     const { page = 1, pageSize = 10, status, gamingCenterId } = query;
     const skip = (page - 1) * pageSize;
 
@@ -27,13 +27,13 @@ export const CustomerPanelService = {
       gamingCenterId,
     };
 
-    const [reservations, totalItems] = await Promise.all([
-      CustomerPanelRepo.findManyReservations(where, skip, pageSize),
-      CustomerPanelRepo.countReservations(where),
+    const [reservation, totalItems] = await Promise.all([
+      CustomerPanelRepo.findManyReservation(where, skip, pageSize),
+      CustomerPanelRepo.countReservation(where),
     ]);
 
     return {
-      data: reservations,
+      data: reservation,
       meta: {
         page,
         pageSize,
@@ -43,7 +43,7 @@ export const CustomerPanelService = {
     };
   },
 
-  async getBookingDetails(reservationId: string, customerAccountId: string) {
+  async getReservationDetails(reservationId: string, customerAccountId: string) {
     const reservation = await CustomerPanelRepo.findReservationById(reservationId, customerAccountId);
     if (!reservation) {
       throw new AppError('Reservation not found', httpStatus.NOT_FOUND);
@@ -51,7 +51,7 @@ export const CustomerPanelService = {
     return reservation;
   },
 
-  async cancelBooking(
+  async cancelReservation(
     reservationId: string,
     customerAccountId: string,
     reason?: string,
@@ -66,7 +66,7 @@ export const CustomerPanelService = {
       throw new AppError('Reservation cannot be canceled in its current state', httpStatus.BAD_REQUEST);
     }
 
-    const updatedBooking = await CustomerPanelRepo.transaction(async (tx) => {
+    const updatedReservation = await CustomerPanelRepo.transaction(async (tx) => {
       const result = await CustomerPanelRepo.updateReservation(reservationId, customerAccountId, {
         status: ReservationStatus.CANCELED,
         canceledAt: new Date(),
@@ -74,7 +74,7 @@ export const CustomerPanelService = {
       }, tx);
 
       // Trigger refund if there are successful payments
-      await WalletService.refundBookingToWallet(reservationId, tx);
+      await walletService.refundReservationToWallet(reservationId, tx);
 
       return result;
     });
@@ -82,15 +82,15 @@ export const CustomerPanelService = {
     await auditService.log(
       reservation.gamingCenterId,
       { id: customerAccountId, actorType: SessionActorType.CUSTOMER },
-      'BOOKING_CANCEL',
+      'RESERVATION_CANCEL',
       { name: 'Reservation', id: reservationId },
-      { old: reservation, new: updatedBooking },
+      { old: reservation, new: updatedReservation },
       context
     );
 
-    AnalyticsRepo.syncAllStatsForBooking(reservationId).catch(console.error);
+    AnalyticsRepo.syncAllStatsForReservation(reservationId).catch(console.error);
 
-    return updatedBooking;
+    return updatedReservation;
   },
 
   async submitReview(
@@ -104,7 +104,7 @@ export const CustomerPanelService = {
     }
 
     if (reservation.status !== ReservationStatus.COMPLETED) {
-      throw new AppError('Only completed reservations can be reviewed', httpStatus.BAD_REQUEST);
+      throw new AppError('Only completed reservation can be reviewed', httpStatus.BAD_REQUEST);
     }
 
     // Check if rating already exists for this target

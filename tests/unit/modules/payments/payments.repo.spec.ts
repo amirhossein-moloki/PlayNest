@@ -9,14 +9,14 @@ import httpStatus from 'http-status';
 
 // Mock dependencies of PaymentsRepo
 jest.mock('../../../../src/modules/commissions/commissions.station', () => ({
-  commissionsService: {
+  commissionsStation: {
     calculateCommission: jest.fn().mockImplementation(() => Promise.resolve()),
   },
 }));
 
 jest.mock('../../../../src/modules/wallet/wallet.station', () => ({
-  WalletService: {
-    refundBookingToWallet: jest.fn().mockImplementation(() => Promise.resolve()),
+  walletService: {
+    refundReservationToWallet: jest.fn().mockImplementation(() => Promise.resolve()),
   },
 }));
 
@@ -28,10 +28,10 @@ describe('PaymentsRepo', () => {
   const reservationMock = prismaMock.reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
   const paymentMock = prismaMock.payment /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
-  describe('findBookingForUpdate', () => {
+  describe('findReservationForUpdate', () => {
     it('should find a reservation', async () => {
       reservationMock.findFirst.mockResolvedValue({ id: reservationId });
-      const result = await PaymentsRepo.findBookingForUpdate(reservationId, gamingCenterId);
+      const result = await PaymentsRepo.findReservationForUpdate(reservationId, gamingCenterId);
       expect(result?.id).toBe(reservationId);
     });
   });
@@ -123,14 +123,14 @@ describe('PaymentsRepo', () => {
     });
   });
 
-  describe('createPaymentAndUpdateBooking', () => {
+  describe('createPaymentAndUpdateReservation', () => {
     it('should create payment and update reservation in transaction', async () => {
       const paymentData = { amount: 1000 } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
       (prismaMock /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).$transaction.mockImplementation(async (cb: any) => cb(prismaMock));
       paymentMock.create.mockResolvedValue({ id: 'pay-1' });
       reservationMock.update.mockResolvedValue({ id: reservationId });
 
-      await PaymentsRepo.createPaymentAndUpdateBooking({ reservationId, paymentData });
+      await PaymentsRepo.createPaymentAndUpdateReservation({ reservationId, paymentData });
       expect(paymentMock.create).toHaveBeenCalled();
       expect(reservationMock.update).toHaveBeenCalled();
     });

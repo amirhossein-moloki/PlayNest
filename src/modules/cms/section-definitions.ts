@@ -86,8 +86,8 @@ const renderHighlights = (data: Record<string, unknown>) => {
   `;
 };
 
-const renderServicesGrid = (data: Record<string, unknown>) => {
-  const title = data?.title ? escapeHtml(String(data.title)) : 'Services';
+const renderStationsGrid = (data: Record<string, unknown>) => {
+  const title = data?.title ? escapeHtml(String(data.title)) : 'Stations';
   const maxItems = Number(data?.maxItems ?? 6);
   const placeholders = Array.from({ length: Math.min(maxItems, 6) }, (_, index) => ({
     name: `GameStation ${index + 1}`,
@@ -441,7 +441,7 @@ export const SECTION_DEFINITIONS: Record<
   },
   [PageSectionType.SERVICES_GRID]: {
     type: PageSectionType.SERVICES_GRID,
-    label: 'Services Grid',
+    label: 'Stations Grid',
     defaults: {
       title: 'خدمات پرطرفدار',
       showPrices: true,
@@ -457,7 +457,7 @@ export const SECTION_DEFINITIONS: Record<
       showPrices: z.boolean(),
       maxItems: z.number().int().positive(),
     }),
-    renderer: renderServicesGrid,
+    renderer: renderStationsGrid,
   },
   [PageSectionType.GALLERY_GRID]: {
     type: PageSectionType.GALLERY_GRID,

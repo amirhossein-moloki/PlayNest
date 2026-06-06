@@ -1,20 +1,20 @@
 import { Prisma, ReservationPaymentState, PaymentStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma';
-import { validateBookingTransition, validatePaymentTransition } from './payments.state';
+import { validateReservationTransition, validatePaymentTransition } from './payments.state';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
-import { commissionsService } from '../commissions/commissions.station';
-import { WalletService } from '../wallet/wallet.station';
+import { commissionsStation } from '../commissions/commissions.station';
+import { walletService } from '../wallet/wallet.station';
 
 type Tx = Prisma.TransactionClient;
 
-const findBookingForUpdate = (reservationId: string, gamingCenterId: string) => {
+const findReservationForUpdate = (reservationId: string, gamingCenterId: string) => {
   return prisma.reservation.findFirst({
     where: { id: reservationId, gamingCenterId },
   });
 };
 
-const createPaymentAndUpdateBooking = ({
+const createPaymentAndUpdateReservation = ({
   reservationId,
   paymentData,
 }: {
@@ -51,7 +51,7 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string) => {
   validatePaymentTransition(payment.status, PaymentStatus.PAID);
 
   try {
-    validateBookingTransition(payment.reservation.paymentState, ReservationPaymentState.PAID);
+    validateReservationTransition(payment.reservation.paymentState, ReservationPaymentState.PAID);
 
     // Update records
     await tx.payment.update({
@@ -72,7 +72,7 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string) => {
         data: { status: PaymentStatus.PAID, paidAt: new Date() },
       });
 
-      await WalletService.refundBookingToWallet(payment.reservationId, tx);
+      await walletService.refundReservationToWallet(payment.reservationId, tx);
       return;
     }
     throw error;
@@ -80,7 +80,7 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string) => {
 
   // Trigger commission calculation (async, non-blocking for the transaction)
   // We use the reservationId from the payment record
-  commissionsService.calculateCommission(payment.reservationId).catch((err) => {
+  commissionsStation.calculateCommission(payment.reservationId).catch((err) => {
     console.error('Failed to calculate commission for reservation after payment:', payment.reservationId, err);
   });
 };
@@ -105,9 +105,9 @@ const handleFailedPayment = async (
   }
 
   // Validate state transitions
-  const newBookingState = newStatus === PaymentStatus.CANCELED ? ReservationPaymentState.CANCELED : ReservationPaymentState.FAILED;
+  const newReservationState = newStatus === PaymentStatus.CANCELED ? ReservationPaymentState.CANCELED : ReservationPaymentState.FAILED;
   validatePaymentTransition(payment.status, newStatus);
-  validateBookingTransition(payment.reservation.paymentState, newBookingState);
+  validateReservationTransition(payment.reservation.paymentState, newReservationState);
 
   // Update records
   await tx.payment.update({
@@ -117,7 +117,7 @@ const handleFailedPayment = async (
 
   await tx.reservation.update({
     where: { id: payment.reservationId },
-    data: { paymentState: newBookingState },
+    data: { paymentState: newReservationState },
   });
 };
 
@@ -129,8 +129,8 @@ const updatePayment = (paymentId: string, data: Prisma.PaymentUpdateInput) => {
 };
 
 export const PaymentsRepo = {
-  findBookingForUpdate,
-  createPaymentAndUpdateBooking,
+  findReservationForUpdate,
+  createPaymentAndUpdateReservation,
   handleSuccessfulPayment,
   handleFailedPayment,
   updatePayment,

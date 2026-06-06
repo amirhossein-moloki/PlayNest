@@ -14,7 +14,7 @@ const initiatePayment = async ({
   idempotencyKey: string | null;
 }) => {
   // 1. Fetch the reservation
-  const reservation = await PaymentsRepo.findBookingForUpdate(reservationId, gamingCenterId);
+  const reservation = await PaymentsRepo.findReservationForUpdate(reservationId, gamingCenterId);
 
   if (!reservation) {
     throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
@@ -28,7 +28,7 @@ const initiatePayment = async ({
   // 3. Create the payment record
   // The idempotency check is now handled by the idempotencyMiddleware.
   // The idempotencyKey is still passed to the repo to enforce the DB constraint.
-  const { payment } = await PaymentsRepo.createPaymentAndUpdateBooking({
+  const { payment } = await PaymentsRepo.createPaymentAndUpdateReservation({
     reservationId,
     paymentData: {
       gamingCenter: { connect: { id: gamingCenterId } },
@@ -98,6 +98,6 @@ const initiatePayment = async ({
   }
 };
 
-export const PaymentsService = {
+export const PaymentsStation = {
   initiatePayment,
 };

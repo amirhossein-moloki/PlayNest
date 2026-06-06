@@ -2,7 +2,7 @@ import { analyticsQueue } from '../queues';
 import { getRequestContext } from '../../common/context/request-context';
 
 export interface AnalyticsSyncJobData {
-  type: 'BOOKING' | 'PAYMENT' | 'REVIEW';
+  type: 'RESERVATION' | 'PAYMENT' | 'REVIEW';
   entityId: string;
   correlationId?: string;
 }

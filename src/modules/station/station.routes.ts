@@ -1,11 +1,11 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import * as StationController from './stations.controller';
+import * as StationController from './station.controller';
 import { validate } from '../../common/middleware/validate';
 import {
   createStationSchema,
   updateStationSchema,
   stationIdParamSchema,
-} from './stations.validators';
+} from './station.validator';
 import { authMiddleware } from '../../common/middleware/auth';
 import { requireRole } from '../../common/middleware/requireRole';
 import { tenantGuard } from '../../common/middleware/tenantGuard';

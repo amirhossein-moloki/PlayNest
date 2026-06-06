@@ -21,7 +21,7 @@ export const CustomerPanelRepo = {
     });
   },
 
-  async findManyReservations(
+  async findManyReservation(
     where: Prisma.ReservationWhereInput,
     skip: number,
     take: number,
@@ -57,7 +57,7 @@ export const CustomerPanelRepo = {
     });
   },
 
-  async countReservations(where: Prisma.ReservationWhereInput) {
+  async countReservation(where: Prisma.ReservationWhereInput) {
     return prisma.reservation.count({ where });
   },
 

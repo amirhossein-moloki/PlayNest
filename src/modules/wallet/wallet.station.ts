@@ -2,7 +2,7 @@ import { Prisma, WalletTransactionType, ReservationPaymentState, PaymentStatus }
 import { WalletRepo } from './wallet.repo';
 import { prisma } from '../../config/prisma';
 
-export const WalletService = {
+export const walletService = {
   async credit(
     customerAccountId: string,
     amount: number,
@@ -35,12 +35,12 @@ export const WalletService = {
     }
   },
 
-  async refundBookingToWallet(reservationId: string, tx?: Prisma.TransactionClient) {
+  async refundReservationToWallet(reservationId: string, tx?: Prisma.TransactionClient) {
     const execute = async (t: Prisma.TransactionClient) => {
-      const reservation = await WalletRepo.findBooking(reservationId, t);
+      const reservation = await WalletRepo.findReservation(reservationId, t);
       if (!reservation) return;
 
-      const totalPaid = await WalletRepo.findTotalPaidForBooking(reservationId, t);
+      const totalPaid = await WalletRepo.findTotalPaidForReservation(reservationId, t);
       if (totalPaid <= 0) return;
 
       // Check if already refunded to avoid double refund
@@ -53,7 +53,7 @@ export const WalletService = {
 
       if (existingRefund) return;
 
-      await WalletService.credit(
+      await walletService.credit(
         reservation.customerAccountId,
         totalPaid,
         WalletTransactionType.REFUND,

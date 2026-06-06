@@ -2,9 +2,9 @@
 import { Response } from 'express';
 import { SessionActorType, UserRole } from '@prisma/client';
 import { AppRequest } from '../../types/express';
-import { reservationsService } from './reservations.station';
+import { reservationStation } from './reservation.station';
 
-export const createBooking = async (
+export const createReservation = async (
   req: AppRequest,
   res: Response
 ) => {
@@ -14,17 +14,17 @@ export const createBooking = async (
     createdByUserId: req.actor.id,
     requestId: req.id,
   };
-  const reservation = await reservationsService.createBooking(data);
+  const reservation = await reservationStation.createReservation(data);
   res.created(reservation);
 };
 
-export const createPublicBooking = async (
+export const createPublicReservation = async (
   req: AppRequest,
   res: Response
 ) => {
   const { gamingCenterSlug } = req.params;
 
-  const reservation = await reservationsService.createPublicBooking(
+  const reservation = await reservationStation.createPublicReservation(
     gamingCenterSlug,
     req.body
   );
@@ -32,11 +32,11 @@ export const createPublicBooking = async (
   res.created(reservation);
 };
 
-export const getBookings = async (
+export const getReservation = async (
   req: AppRequest,
   res: Response
 ) => {
-  const result = await reservationsService.getBookings(
+  const result = await reservationStation.getReservation(
     req.tenant.gamingCenterId,
     req.query,
     req.actor as { id: string; role: UserRole }
@@ -44,11 +44,11 @@ export const getBookings = async (
   res.ok(result.data, { pagination: result.meta });
 };
 
-export const getBookingById = async (
+export const getReservationById = async (
   req: AppRequest,
   res: Response
 ) => {
-  const reservation = await reservationsService.getBookingById(
+  const reservation = await reservationStation.getReservationById(
     req.params.reservationId,
     req.tenant.gamingCenterId,
     req.actor as { id: string; role: UserRole }
@@ -56,11 +56,11 @@ export const getBookingById = async (
   res.ok(reservation);
 };
 
-export const updateBooking = async (
+export const updateReservation = async (
   req: AppRequest,
   res: Response
 ) => {
-  const reservation = await reservationsService.updateBooking(
+  const reservation = await reservationStation.updateReservation(
     req.params.reservationId,
     req.tenant.gamingCenterId,
     req.body,
@@ -70,22 +70,22 @@ export const updateBooking = async (
   res.ok(reservation);
 };
 
-export const confirmBooking = async (
+export const confirmReservation = async (
   req: AppRequest,
   res: Response
 ) => {
-  const reservation = await reservationsService.confirmBooking(
+  const reservation = await reservationStation.confirmReservation(
     req.params.reservationId,
     req.tenant.gamingCenterId
   );
   res.ok(reservation);
 };
 
-export const cancelBooking = async (
+export const cancelReservation = async (
   req: AppRequest,
   res: Response
 ) => {
-  const reservation = await reservationsService.cancelBooking(
+  const reservation = await reservationStation.cancelReservation(
     req.params.reservationId,
     req.tenant.gamingCenterId,
     req.actor as { id: string; role: UserRole; actorType: SessionActorType },
@@ -95,11 +95,11 @@ export const cancelBooking = async (
   res.ok(reservation);
 };
 
-export const completeBooking = async (
+export const completeReservation = async (
   req: AppRequest,
   res: Response
 ) => {
-  const reservation = await reservationsService.completeBooking(
+  const reservation = await reservationStation.completeReservation(
     req.params.reservationId,
     req.tenant.gamingCenterId,
     req.actor as { id: string; role: UserRole; actorType: SessionActorType },
@@ -108,11 +108,11 @@ export const completeBooking = async (
   res.ok(reservation);
 };
 
-export const startBooking = async (
+export const startReservation = async (
   req: AppRequest,
   res: Response
 ) => {
-  const reservation = await reservationsService.startBooking(
+  const reservation = await reservationStation.startReservation(
     req.params.reservationId,
     req.tenant.gamingCenterId,
     req.actor as { id: string; role: UserRole; actorType: SessionActorType },
@@ -125,7 +125,7 @@ export const markAsNoShow = async (
   req: AppRequest,
   res: Response
 ) => {
-  const reservation = await reservationsService.markAsNoShow(
+  const reservation = await reservationStation.markAsNoShow(
     req.params.reservationId,
     req.tenant.gamingCenterId,
     req.actor as { id: string; role: UserRole; actorType: SessionActorType },

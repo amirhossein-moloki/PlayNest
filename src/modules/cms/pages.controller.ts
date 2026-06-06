@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import * as PagesService from './pages.station';
+import * as PagesStation from './pages.station';
 import { CreatePageInput, UpdatePageInput } from './pages.types';
 import { listPagesSchema } from './pages.validators';
 
@@ -8,7 +8,7 @@ export async function createPage(
   res: Response
 ) {
   const { gamingCenterId } = req.params;
-  const page = await PagesService.createPage(gamingCenterId, req.body);
+  const page = await PagesStation.createPage(gamingCenterId, req.body);
   res.created(page);
 }
 
@@ -18,7 +18,7 @@ export async function listPages(req: Request<{ gamingCenterId: string }>, res: R
   const limit = query.limit ?? 20;
   const offset = query.offset ?? 0;
 
-  const { pages, total } = await PagesService.listPages(gamingCenterId, {
+  const { pages, total } = await PagesStation.listPages(gamingCenterId, {
     status: query.status,
     type: query.type,
     limit,
@@ -45,7 +45,7 @@ export async function updatePage(
   res: Response
 ) {
   const { gamingCenterId, pageId } = req.params;
-  const page = await PagesService.updatePage(gamingCenterId, pageId, req.body);
+  const page = await PagesStation.updatePage(gamingCenterId, pageId, req.body);
   res.ok(page);
 }
 
@@ -54,6 +54,6 @@ export async function getPage(
   res: Response
 ) {
   const { gamingCenterId, pageId } = req.params;
-  const page = await PagesService.getPage(gamingCenterId, pageId);
+  const page = await PagesStation.getPage(gamingCenterId, pageId);
   res.ok(page);
 }

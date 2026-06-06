@@ -10,10 +10,10 @@ import routes from './routes';
 import { errorHandler } from './common/errors/errorHandler';
 import { responseMiddleware } from './common/middleware/response';
 import { env } from './config/env';
-import { initBookingEvents } from './modules/reservations/reservations.events';
+import { initReservationEvents } from './modules/reservation/reservation.events';
 
 // Initialize Event Listeners
-initBookingEvents();
+initReservationEvents();
 
 if (env.SENTRY_ENABLED && env.SENTRY_DSN) {
   Sentry.init({

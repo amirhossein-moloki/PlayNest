@@ -54,7 +54,7 @@ const createAndSaveSession = async (actorId: string, actorType: SessionActorType
   return { accessToken, refreshToken };
 };
 
-export const AuthService = {
+export const authService = {
   async loginUser(phone: string, password: string, gamingCenterId: string) {
     const user = await AuthRepository.findUserByPhone(phone, gamingCenterId);
     if (!user || !user.passwordHash) {

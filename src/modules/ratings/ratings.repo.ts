@@ -54,7 +54,7 @@ export async function findReviewById(reviewId: string, gamingCenterId: string) {
   });
 }
 
-export async function findBookingForReview(reservationId: string, gamingCenterSlug: string) {
+export async function findReservationForReview(reservationId: string, gamingCenterSlug: string) {
   return prisma.reservation.findFirst({
     where: {
       id: reservationId,

@@ -7,7 +7,7 @@ import { queueAnalyticsSync } from '../../jobs/producers/analytics.producer';
 
 export async function submitReview(gamingCenterSlug: string, input: SubmitReviewInput) {
   // 1. Verify reservation exists and belongs to the gamingCenter (by slug)
-  const reservation = await reviewsRepo.findBookingForReview(input.reservationId, gamingCenterSlug);
+  const reservation = await reviewsRepo.findReservationForReview(input.reservationId, gamingCenterSlug);
 
   if (!reservation) {
     throw new AppError('Reservation not found', httpStatus.NOT_FOUND);
@@ -15,7 +15,7 @@ export async function submitReview(gamingCenterSlug: string, input: SubmitReview
 
   // 2. check if reservation is completed
   if (reservation.status !== ReservationStatus.COMPLETED) {
-    throw new AppError('Only completed reservations can be reviewed', httpStatus.BAD_REQUEST);
+    throw new AppError('Only completed reservation can be reviewed', httpStatus.BAD_REQUEST);
   }
 
   // 3. Create the rating

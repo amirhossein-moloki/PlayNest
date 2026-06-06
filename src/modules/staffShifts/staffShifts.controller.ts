@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import * as staffShiftsService from './staffShifts.station';
+import * as staffShiftsStation from './staffShifts.station';
 import { UpsertShiftsInput } from './staffShifts.validators';
 
 export const upsertShiftsController = async (
@@ -9,7 +9,7 @@ export const upsertShiftsController = async (
 ) => {
   try {
     const { gamingCenterId, userId } = req.params;
-    const staffShifts = await staffShiftsService.upsertShifts(
+    const staffShifts = await staffShiftsStation.upsertShifts(
       gamingCenterId,
       userId,
       req.body,

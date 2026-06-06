@@ -12,7 +12,7 @@ jest.mock('../../../../src/jobs/queues', () => ({
 
 describe('Analytics Producer', () => {
   it('should add job to analyticsQueue', async () => {
-    const data = { type: 'BOOKING' as const, entityId: 'res-1' };
+    const data = { type: 'RESERVATION' as const, entityId: 'res-1' };
     await queueAnalyticsSync(data);
     expect(analyticsQueue.add).toHaveBeenCalledWith('sync-analytics', data);
   });

@@ -1,7 +1,7 @@
 import { Prisma, ReservationStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
-export const ReservationsRepo = {
+export const ReservationRepo = {
   async findStation(id: string, gamingCenterId: string, isActive?: boolean, tx?: Prisma.TransactionClient) {
     const client = tx || prisma;
     return client.gameStation.findFirst({
@@ -107,7 +107,7 @@ export const ReservationsRepo = {
     });
   },
 
-  async findManyReservations(where: Prisma.ReservationWhereInput, skip: number, take: number, orderBy: any, tx?: Prisma.TransactionClient) { // eslint-disable-line @typescript-eslint/no-explicit-any
+  async findManyReservation(where: Prisma.ReservationWhereInput, skip: number, take: number, orderBy: any, tx?: Prisma.TransactionClient) { // eslint-disable-line @typescript-eslint/no-explicit-any
     const client = tx || prisma;
     return client.reservation.findMany({
       where,
@@ -117,7 +117,7 @@ export const ReservationsRepo = {
     });
   },
 
-  async countReservations(where: Prisma.ReservationWhereInput, tx?: Prisma.TransactionClient) {
+  async countReservation(where: Prisma.ReservationWhereInput, tx?: Prisma.TransactionClient) {
     const client = tx || prisma;
     return client.reservation.count({ where });
   },

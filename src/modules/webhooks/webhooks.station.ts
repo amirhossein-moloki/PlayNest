@@ -64,7 +64,7 @@ const processPaymentWebhook = async ({
   try {
     // We use PaymentsRepo's access to prisma transaction or just use prisma directly if no other choice,
     // but better to have a repo method or use the common pattern.
-    // Since WebhooksService is cross-cutting, we might use prisma transaction here but use repos inside.
+    // Since WebhooksStation is cross-cutting, we might use prisma transaction here but use repos inside.
     await PaymentsRepo.transaction(async (tx) => {
       // Find the payment record
       const payment = await tx.payment.findUnique({
@@ -109,6 +109,6 @@ const processPaymentWebhook = async ({
   }
 };
 
-export const WebhooksService = {
+export const WebhooksStation = {
   processPaymentWebhook,
 };

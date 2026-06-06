@@ -14,7 +14,7 @@ import { AppRequest } from '../../types/express';
 const router = Router();
 
 router.post(
-  '/:reservationId/payments/init', // Path is now relative to `/gamingCenters/:gamingCenterId/reservations`
+  '/:reservationId/payments/init', // Path is now relative to `/gamingCenters/:gamingCenterId/reservation`
   authMiddleware,
   gamingCenterIdMiddleware,
   tenantGuard,

@@ -87,9 +87,9 @@ const EnvSchema = z.object({
   SMSIR_API_KEY: z.string().optional(),
   SMSIR_LINE_NUMBER: z.coerce.number().optional(),
   SMSIR_OTP_TEMPLATE_ID: z.coerce.number().optional(),
-  SMSIR_BOOKING_CONFIRMED_TEMPLATE_ID: z.coerce.number().optional(),
-  SMSIR_BOOKING_PENDING_TEMPLATE_ID: z.coerce.number().optional(),
-  SMSIR_BOOKING_CANCELED_TEMPLATE_ID: z.coerce.number().optional(),
+  SMSIR_RESERVATION_CONFIRMED_TEMPLATE_ID: z.coerce.number().optional(),
+  SMSIR_RESERVATION_PENDING_TEMPLATE_ID: z.coerce.number().optional(),
+  SMSIR_RESERVATION_CANCELED_TEMPLATE_ID: z.coerce.number().optional(),
 });
 
 const parsed = EnvSchema.safeParse(process.env);

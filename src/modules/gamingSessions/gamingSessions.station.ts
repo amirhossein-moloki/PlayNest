@@ -2,8 +2,9 @@ import { GamingSession, GamingSessionStatus, Prisma } from '@prisma/client';
 import { GamingSessionsRepo } from './gamingSessions.repo';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
+import { GamingSessionStateMachine } from './gamingSessions.state-machine';
 
-export const GamingSessionsService = {
+export const gamingSessionsStation = {
   async startSession(reservationId: string, stationId: string, tx?: Prisma.TransactionClient): Promise<GamingSession> {
     // Ensure no other active session for this reservation
     const existing = await GamingSessionsRepo.findActiveSessionByReservationId(reservationId, tx);
@@ -20,10 +21,12 @@ export const GamingSessionsService = {
   },
 
   async pauseSession(reservationId: string, tx?: Prisma.TransactionClient): Promise<GamingSession> {
-    const session = await GamingSessionsRepo.findActiveSessionByReservationId(reservationId, tx);
+    const session = await GamingSessionsRepo.findActiveOrPausedSessionByReservationId(reservationId, tx);
     if (!session) {
       throw new AppError('No active session found for this reservation.', httpStatus.NOT_FOUND);
     }
+
+    GamingSessionStateMachine.validateTransition(session.status, GamingSessionStatus.PAUSED);
 
     return GamingSessionsRepo.updateSession(session.id, {
       status: GamingSessionStatus.PAUSED,
@@ -32,11 +35,13 @@ export const GamingSessionsService = {
   },
 
   async resumeSession(reservationId: string, tx?: Prisma.TransactionClient): Promise<GamingSession> {
-    const session = await GamingSessionsRepo.findPausedSessionByReservationId(reservationId, tx);
+    const session = await GamingSessionsRepo.findActiveOrPausedSessionByReservationId(reservationId, tx);
 
     if (!session) {
       throw new AppError('No paused session found for this reservation.', httpStatus.NOT_FOUND);
     }
+
+    GamingSessionStateMachine.validateTransition(session.status, GamingSessionStatus.ACTIVE);
 
     const now = new Date();
     const pausedMinutes = session.pausedAt
@@ -56,6 +61,8 @@ export const GamingSessionsService = {
     if (!session) {
       throw new AppError('No active or paused session found for this reservation.', httpStatus.NOT_FOUND);
     }
+
+    GamingSessionStateMachine.validateTransition(session.status, GamingSessionStatus.COMPLETED);
 
     const endTime = new Date();
     let totalPausedMinutes = session.pausedMinutes;

@@ -1,8 +1,8 @@
 import { SessionActorType } from '@prisma/client';
 import { auditService } from '../audit/audit.station';
-import * as StationRepo from './stations.repo';
-import { CreateStationInput, UpdateStationInput } from './stations.types';
-import { ListStationsQuery } from './stations.validators';
+import * as StationRepo from './station.repo';
+import { CreateStationInput, UpdateStationInput } from './station.types';
+import { ListStationsQuery } from './station.validator';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 

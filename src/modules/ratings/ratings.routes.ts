@@ -35,7 +35,7 @@ export const publicReviewsRouter = Router({ mergeParams: true });
 publicReviewsRouter.use(publicApiRateLimiter, resolveGamingCenterBySlug);
 
 publicReviewsRouter.post(
-  '/reservations/:reservationId/ratings',
+  '/reservation/:reservationId/ratings',
   validate(submitReviewSchema),
   asyncHandler(ReviewsController.submitReview)
 );

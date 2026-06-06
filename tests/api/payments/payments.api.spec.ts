@@ -28,7 +28,7 @@ describe('Payment API', () => {
   describe('POST /payments/init', () => {
     it('should return 401 if token is missing', async () => {
       const res = await request(app)
-        .post(`/api/v1/gamingCenters/${gamingCenterId}/reservations/${reservationId}/payments/init`)
+        .post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/init`)
         .send({});
       expect(res.status).toBe(httpStatus.UNAUTHORIZED);
     });
@@ -38,7 +38,7 @@ describe('Payment API', () => {
       (prisma.user.findUnique /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).mockResolvedValue({ id: userId, gamingCenterId: 'other-gc', role: 'MANAGER' });
 
       const res = await request(app)
-        .post(`/api/v1/gamingCenters/${gamingCenterId}/reservations/${reservationId}/payments/init`)
+        .post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/init`)
         .set('Authorization', `Bearer ${token}`)
         .send({});
       expect(res.status).toBe(httpStatus.NOT_FOUND);

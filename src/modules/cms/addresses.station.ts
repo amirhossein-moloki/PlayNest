@@ -3,7 +3,7 @@ import { AddressesRepo } from './addresses.repo';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 
-export const AddressesService = {
+export const AddressesStation = {
   async getAddresses(gamingCenterId: string): Promise<Address[]> {
     return AddressesRepo.findByGamingCenterId(gamingCenterId);
   },

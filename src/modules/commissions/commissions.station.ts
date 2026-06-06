@@ -6,7 +6,7 @@ import httpStatus from 'http-status';
 import { ListCommissionsQuery, RecordCommissionPaymentInput, UpsertPolicyInput } from './commissions.validators';
 import { auditService } from '../audit/audit.station';
 
-export const commissionsService = {
+export const commissionsStation = {
   async getPolicy(gamingCenterId: string) {
     const policy = await CommissionsRepo.findPolicyByGamingCenterId(gamingCenterId);
     if (!policy) {
@@ -62,7 +62,7 @@ export const commissionsService = {
       if (!policy || !policy.isActive) return null;
 
       // 3. Apply filters
-      // We only take commission for ONLINE reservations.
+      // We only take commission for ONLINE reservation.
       if (reservation.source !== ReservationSource.ONLINE) {
         return null;
       }

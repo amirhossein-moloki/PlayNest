@@ -1,12 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
-import { gamingCenterService } from './gamingCenter.station';
+import { gamingCenterStation } from './gamingCenter.station';
 import { createGamingCenterSchema, updateGamingCenterSchema, listGamingCentersSchema } from './gamingCenter.validation';
 
 export const gamingCenterController = {
   async createGamingCenter(req: Request, res: Response, next: NextFunction) {
     try {
       const validatedData = createGamingCenterSchema.parse(req.body);
-      const gamingCenter = await gamingCenterService.createGamingCenter(
+      const gamingCenter = await gamingCenterStation.createGamingCenter(
         validatedData,
         req.actor!,
         { ip: req.ip, userAgent: req.headers['user-agent'] }
@@ -20,7 +20,7 @@ export const gamingCenterController = {
   async getGamingCenterById(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const gamingCenter = await gamingCenterService.getGamingCenterById(id);
+      const gamingCenter = await gamingCenterStation.getGamingCenterById(id);
       res.ok(gamingCenter);
     } catch (error) {
       next(error);
@@ -30,7 +30,7 @@ export const gamingCenterController = {
   async getAllGamingCenters(req: Request, res: Response, next: NextFunction) {
     try {
       const validatedQuery = listGamingCentersSchema.parse(req.query);
-      const gamingCenters = await gamingCenterService.getAllGamingCenters(validatedQuery);
+      const gamingCenters = await gamingCenterStation.getAllGamingCenters(validatedQuery);
       res.ok(gamingCenters);
     } catch (error) {
       next(error);
@@ -41,7 +41,7 @@ export const gamingCenterController = {
     try {
       const { id } = req.params;
       const validatedData = updateGamingCenterSchema.parse(req.body);
-      const updatedGamingCenter = await gamingCenterService.updateGamingCenter(
+      const updatedGamingCenter = await gamingCenterStation.updateGamingCenter(
         id,
         validatedData,
         req.actor!,
@@ -56,7 +56,7 @@ export const gamingCenterController = {
   async deleteGamingCenter(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      await gamingCenterService.deleteGamingCenter(
+      await gamingCenterStation.deleteGamingCenter(
         id,
         req.actor!,
         { ip: req.ip, userAgent: req.headers['user-agent'] }

@@ -51,13 +51,13 @@ export const getAvailableSlots = async (
 
   const staffIds = staffToCheck.map(s => s.id);
 
-  // 3. Fetch all relevant staffShifts and reservations in one go
+  // 3. Fetch all relevant staffShifts and reservation in one go
   const staffShifts = await AvailabilityRepo.findShifts(gamingCenterId, staffIds);
-  const reservations = await AvailabilityRepo.findBookings(gamingCenterId, staffIds, startDate, endDate);
+  const reservations = await AvailabilityRepo.findReservation(gamingCenterId, staffIds, startDate, endDate);
 
   // --- Core Logic: Generate and Filter Slots ---
   const availableSlots: TimeSlot[] = [];
-  const serviceDuration = station.defaultDurationHours * 60;
+  const stationDuration = station.defaultDurationHours * 60;
 
   // Create maps for quick lookups
   const shiftsByUserId: { [userId: string]: { [day: number]: any } } = {}; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -66,12 +66,12 @@ export const getAvailableSlots = async (
     shiftsByUserId[staffShift.userId][staffShift.dayOfWeek] = staffShift;
   }
 
-  const bookingsByStaffAndDate: { [key: string]: any[] } = {}; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const reservationByStaffAndDate: { [key: string]: any[] } = {}; // eslint-disable-line @typescript-eslint/no-explicit-any
   for (const reservation of reservations) {
     const dateKey = formatTz(reservation.startTime, 'yyyy-MM-dd', { timeZone });
     const key = `${reservation.staffId}-${dateKey}`;
-    if (!bookingsByStaffAndDate[key]) bookingsByStaffAndDate[key] = [];
-    bookingsByStaffAndDate[key].push(reservation);
+    if (!reservationByStaffAndDate[key]) reservationByStaffAndDate[key] = [];
+    reservationByStaffAndDate[key].push(reservation);
   }
 
   for (const staff of staffToCheck) {
@@ -83,15 +83,15 @@ export const getAvailableSlots = async (
       if (!staffShift) continue; // No staffShift for this day
 
       const dateKey = formatTz(day, 'yyyy-MM-dd', { timeZone });
-      const staffBookings = bookingsByStaffAndDate[`${staff.id}-${dateKey}`] || [];
+      const staffReservation = reservationByStaffAndDate[`${staff.id}-${dateKey}`] || [];
 
       const daySlots = internal_calculateStaffSlotsForDay(
         staff,
         staffShift,
         day,
         timeZone,
-        staffBookings,
-        serviceDuration
+        staffReservation,
+        stationDuration
       );
 
       availableSlots.push(...daySlots);
@@ -110,8 +110,8 @@ export const internal_calculateStaffSlotsForDay = (
   staffShift: { startTime: string; endTime: string },
   day: Date,
   timeZone: string,
-  staffBookings: { startTime: Date; endTime: Date }[],
-  serviceDuration: number
+  staffReservation: { startTime: Date; endTime: Date }[],
+  stationDuration: number
 ): TimeSlot[] => {
   const availableSlots: TimeSlot[] = [];
   const shiftStart = getZonedStartAndEnd(staffShift.startTime, day, timeZone);
@@ -120,14 +120,14 @@ export const internal_calculateStaffSlotsForDay = (
   // --- Interval Arithmetic Logic ---
 
   // 1. Identify Gaps (Free Time)
-  const sortedBookings = staffBookings
+  const sortedReservation = staffReservation
     .map((b) => ({ start: new Date(b.startTime), end: new Date(b.endTime) }))
     .sort((a, b) => a.start.getTime() - b.start.getTime());
 
   const gaps: Interval[] = [];
   let currentStart = new Date(shiftStart);
 
-  for (const reservation of sortedBookings) {
+  for (const reservation of sortedReservation) {
     if (isBefore(currentStart, reservation.start)) {
       gaps.push({ start: new Date(currentStart), end: new Date(reservation.start) });
     }
@@ -152,7 +152,7 @@ export const internal_calculateStaffSlotsForDay = (
 
     for (
       let slotStart = new Date(alignedStart);
-      add(slotStart, { minutes: serviceDuration }) <= gap.end;
+      add(slotStart, { minutes: stationDuration }) <= gap.end;
       slotStart = add(slotStart, { minutes: SLOT_INTERVAL_MINUTES })
     ) {
       availableSlots.push({
