@@ -25,7 +25,7 @@ export const gamingCenterHandlers = [
       isActive: true,
       createdAt: new Date().toISOString()
     };
-    db.gamingCenters.push(newCenter);
+    db.gamingCenters.push(newCenter as unknown as typeof db.gamingCenters[number]);
     return HttpResponse.json({
       success: true,
       data: newCenter,
@@ -56,7 +56,7 @@ export const gamingCenterHandlers = [
       ...body,
       isActive: body.isActive ?? true,
     };
-    db.stations.push(newStation);
+    db.stations.push(newStation as unknown as typeof db.stations[number]);
     return HttpResponse.json({
       success: true,
       data: newStation,
@@ -87,7 +87,7 @@ export const gamingCenterHandlers = [
       ...body,
       isActive: true,
     };
-    db.staff.push(newStaff);
+    db.staff.push(newStaff as unknown as typeof db.staff[number]);
     return HttpResponse.json({
       success: true,
       data: newStaff,
