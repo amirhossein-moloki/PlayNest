@@ -1,4 +1,4 @@
-import { Prisma, PaymentStatus } from '@prisma/client';
+import { Prisma, PaymentStatus, WalletTransactionType, ReservationPaymentState } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
 export const WalletRepo = {
@@ -41,5 +41,40 @@ export const WalletRepo = {
         customerAccount: true,
       },
     });
-  }
+  },
+
+  async findRefundTransaction(reservationId: string, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.walletTransaction.findFirst({
+      where: {
+        reservationId,
+        type: WalletTransactionType.REFUND,
+      },
+    });
+  },
+
+  async updateReservationPaymentState(
+    reservationId: string,
+    paymentState: ReservationPaymentState,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx || prisma;
+    return client.reservation.update({
+      where: { id: reservationId },
+      data: { paymentState },
+    });
+  },
+
+  async updatePaymentsStatus(
+    reservationId: string,
+    oldStatus: PaymentStatus,
+    newStatus: PaymentStatus,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx || prisma;
+    return client.payment.updateMany({
+      where: { reservationId, status: oldStatus },
+      data: { status: newStatus },
+    });
+  },
 };

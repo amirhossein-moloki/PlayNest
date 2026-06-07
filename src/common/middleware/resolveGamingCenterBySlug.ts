@@ -32,8 +32,8 @@ export const resolveGamingCenterBySlug = async (
   }
 
   // Attach a standardized tenant context to the request.
-  (req as any).tenant = { gamingCenterId: gamingCenter.id, gamingCenterSlug: gamingCenter.slug }; // eslint-disable-line @typescript-eslint/no-explicit-any
-  (req as any).gamingCenterId = gamingCenter.id; // eslint-disable-line @typescript-eslint/no-explicit-any
+  req.tenant = { gamingCenterId: gamingCenter.id, gamingCenterSlug: gamingCenter.slug };
+  req.gamingCenterId = gamingCenter.id;
 
   next();
 };

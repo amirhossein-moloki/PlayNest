@@ -3,25 +3,30 @@ import { SessionActorType, UserRole } from '@prisma/client';
 import { Request } from 'express';
 import { ApiMeta } from '../common/utils/response';
 
+export interface RequestActor {
+  id: string;
+  actorId?: string;
+  role?: UserRole;
+  gamingCenterId?: string;
+  actorType: SessionActorType;
+  sessionId?: string;
+}
+
+export interface RequestTenant {
+  gamingCenterId: string;
+  gamingCenterSlug?: string;
+}
+
 declare global {
   /* eslint-disable @typescript-eslint/no-namespace */
   namespace Express {
     export interface Request {
-      actor?: {
-        id: string;
-        actorId?: string;
-        role?: UserRole;
-        gamingCenterId?: string;
-        actorType: SessionActorType;
-      };
+      actor?: RequestActor;
       gamingCenterId?: string;
       id?: string;
       requestId?: string;
       rawBody?: Buffer;
-      tenant?: {
-        gamingCenterId: string;
-        gamingCenterSlug?: string;
-      };
+      tenant?: RequestTenant;
       gamingCenterSlug?: string;
     }
 
@@ -41,17 +46,8 @@ declare global {
 }
 
 export interface AppRequest extends Request {
-  actor: {
-    id: string;
-    actorId?: string;
-    role?: UserRole;
-    gamingCenterId?: string;
-    actorType: SessionActorType;
-  };
-  tenant: {
-    gamingCenterId: string;
-    gamingCenterSlug?: string;
-  };
+  actor: RequestActor;
+  tenant: RequestTenant;
   gamingCenterId?: string;
   id?: string;
 }

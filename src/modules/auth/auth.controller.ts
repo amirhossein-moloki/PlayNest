@@ -48,13 +48,12 @@ export const refresh = async (req: Request, res: Response) => {
 
 export const logout = async (req: Request, res: Response) => {
   // Assuming session ID is available on req.actor after authentication middleware
-  const sessionId = (req as any).actor?.sessionId; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const sessionId = (req.actor as any)?.sessionId;
   const result = await authService.logout(sessionId);
   res.ok(result);
 };
 
 export const me = async (req: Request, res: Response) => {
   // The user/customer object should be attached to the request by the auth middleware
-  const actor = (req as any).actor; // eslint-disable-line @typescript-eslint/no-explicit-any
-  res.ok(actor);
+  res.ok(req.actor);
 };

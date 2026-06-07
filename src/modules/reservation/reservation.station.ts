@@ -339,7 +339,7 @@ export const reservationStation = {
           throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
         }
 
-        if (([ReservationStatus.CANCELED, ReservationStatus.COMPLETED, ReservationStatus.NO_SHOW] as ReservationStatus[]).includes(reservation.status)) {
+        if (ReservationStateMachine.isTerminalState(reservation.status)) {
           throw new AppError('Reservation is in a terminal state', httpStatus.CONFLICT, {
             code: 'INVALID_TRANSITION',
           });

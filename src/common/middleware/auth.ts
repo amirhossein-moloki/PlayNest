@@ -31,6 +31,13 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     return next(new AppError('User not found', httpStatus.UNAUTHORIZED));
   }
 
-  (req as any).actor = { ...user, ...payload }; // eslint-disable-line @typescript-eslint/no-explicit-any
+  req.actor = {
+    id: user.id,
+    actorId: payload.actorId,
+    role: (user as any).role,
+    gamingCenterId: (user as any).gamingCenterId,
+    actorType: payload.actorType,
+    sessionId: (payload as any).sessionId,
+  };
   next();
 };

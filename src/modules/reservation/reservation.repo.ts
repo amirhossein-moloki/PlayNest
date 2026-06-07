@@ -107,7 +107,7 @@ export const ReservationRepo = {
     });
   },
 
-  async findManyReservation(where: Prisma.ReservationWhereInput, skip: number, take: number, orderBy: any, tx?: Prisma.TransactionClient) { // eslint-disable-line @typescript-eslint/no-explicit-any
+  async findManyReservation(where: Prisma.ReservationWhereInput, skip: number, take: number, orderBy: Prisma.ReservationOrderByWithRelationInput | Prisma.ReservationOrderByWithRelationInput[], tx?: Prisma.TransactionClient) {
     const client = tx || prisma;
     return client.reservation.findMany({
       where,

@@ -34,4 +34,13 @@ export class ReservationStateMachine {
       );
     }
   }
+
+  static isTerminalState(status: ReservationStatus): boolean {
+    const terminalStates: ReservationStatus[] = [
+      ReservationStatus.COMPLETED,
+      ReservationStatus.CANCELED,
+      ReservationStatus.NO_SHOW
+    ];
+    return terminalStates.includes(status);
+  }
 }

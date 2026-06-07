@@ -44,12 +44,7 @@ export const walletService = {
       if (totalPaid <= 0) return;
 
       // Check if already refunded to avoid double refund
-      const existingRefund = await t.walletTransaction.findFirst({
-        where: {
-          reservationId,
-          type: WalletTransactionType.REFUND,
-        }
-      });
+      const existingRefund = await WalletRepo.findRefundTransaction(reservationId, t);
 
       if (existingRefund) return;
 
@@ -64,16 +59,10 @@ export const walletService = {
       );
 
       // Update reservation payment state to REFUNDED
-      await t.reservation.update({
-        where: { id: reservationId },
-        data: { paymentState: ReservationPaymentState.REFUNDED }
-      });
+      await WalletRepo.updateReservationPaymentState(reservationId, ReservationPaymentState.REFUNDED, t);
 
       // Mark successful payments as REFUNDED
-      await t.payment.updateMany({
-        where: { reservationId, status: PaymentStatus.PAID },
-        data: { status: PaymentStatus.REFUNDED }
-      });
+      await WalletRepo.updatePaymentsStatus(reservationId, PaymentStatus.PAID, PaymentStatus.REFUNDED, t);
     };
 
     if (tx) {

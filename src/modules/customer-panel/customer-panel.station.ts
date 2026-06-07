@@ -7,6 +7,7 @@ import { auditService } from '../audit/audit.station';
 import { walletService } from '../wallet/wallet.station';
 import { AnalyticsRepo } from '../analytics/analytics.repo';
 import * as reviewsRepo from '../ratings/ratings.repo';
+import { ReservationStateMachine } from '../reservation/reservation.state-machine';
 
 export const CustomerPanelStation = {
   async getProfile(customerAccountId: string) {
@@ -62,9 +63,7 @@ export const CustomerPanelStation = {
       throw new AppError('Reservation not found', httpStatus.NOT_FOUND);
     }
 
-    if (!([ReservationStatus.PENDING, ReservationStatus.CONFIRMED] as ReservationStatus[]).includes(reservation.status)) {
-      throw new AppError('Reservation cannot be canceled in its current state', httpStatus.BAD_REQUEST);
-    }
+    ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.CANCELED);
 
     const updatedReservation = await CustomerPanelRepo.transaction(async (tx) => {
       const result = await CustomerPanelRepo.updateReservation(reservationId, customerAccountId, {
