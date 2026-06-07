@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { authService } from './auth.station';
+import AppError from '../../common/errors/AppError';
+import httpStatus from 'http-status';
 
 export const login = async (req: Request, res: Response) => {
   const { phone, password, gamingCenterId } = req.body;
@@ -49,6 +51,9 @@ export const refresh = async (req: Request, res: Response) => {
 export const logout = async (req: Request, res: Response) => {
   // Assuming session ID is available on req.actor after authentication middleware
   const sessionId = req.actor?.sessionId;
+  if (!sessionId) {
+    throw new AppError('Session not found', httpStatus.UNAUTHORIZED);
+  }
   const result = await authService.logout(sessionId);
   res.ok(result);
 };
