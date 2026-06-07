@@ -16,6 +16,7 @@ import {
   CommissionType,
   CommissionStatus,
   GameStationType,
+  GamingSessionStatus,
 } from '@prisma/client';
 import 'dotenv/config';
 
@@ -30,7 +31,7 @@ const CONFIG = {
   gamingCentersCount: 10,
   totalCustomers: 60,
   stationsPerCenter: 12,
-  bookingsPerCenter: 25,
+  reservationsPerCenter: 25,
 };
 
 type IranCity = {
@@ -58,11 +59,11 @@ const TABRIZ_CENTERS = [
     lat: 38.0810,
     lng: 46.2890,
     phone: '0417660896',
-    opening_time: '10:00',
-    closing_time: '23:59',
-    hourly_rate: 60000,
-    vip_hourly_rate: 90000,
-    has_food_service: true,
+    openingTime: '10:00',
+    closingTime: '23:59',
+    hourlyRate: 60000,
+    vipHourlyRate: 90000,
+    hasFoodService: true,
     games: ['CS2', 'Valorant', 'Dota2', 'FIFA 24', 'PUBG', 'Fortnite']
   },
   {
@@ -73,9 +74,9 @@ const TABRIZ_CENTERS = [
     phone: '0419725707',
     lat: 38.0732,
     lng: 46.2971,
-    hourly_rate: 65000,
-    vip_hourly_rate: 95000,
-    has_food_service: false,
+    hourlyRate: 65000,
+    vipHourlyRate: 95000,
+    hasFoodService: false,
     games: ['CS2', 'Valorant', 'Warzone', 'Tekken 8', 'FIFA 24']
   },
   {
@@ -86,9 +87,9 @@ const TABRIZ_CENTERS = [
     phone: '04133309846',
     lat: 38.0581,
     lng: 46.2832,
-    hourly_rate: 55000,
-    vip_hourly_rate: 85000,
-    has_food_service: false,
+    hourlyRate: 55000,
+    vipHourlyRate: 85000,
+    hasFoodService: false,
     games: ['LoL', 'CS2', 'Valorant', 'PUBG', 'Apex Legends']
   },
   {
@@ -99,9 +100,9 @@ const TABRIZ_CENTERS = [
     phone: '0412044240',
     lat: 38.0945,
     lng: 46.3201,
-    hourly_rate: 70000,
-    vip_hourly_rate: 100000,
-    has_food_service: false,
+    hourlyRate: 70000,
+    vipHourlyRate: 100000,
+    hasFoodService: false,
     games: ['FIFA 24', 'eFootball', 'Tekken 8', 'MK1']
   },
   {
@@ -112,9 +113,9 @@ const TABRIZ_CENTERS = [
     phone: '04133374298',
     lat: 38.0602,
     lng: 46.2711,
-    hourly_rate: 50000,
-    vip_hourly_rate: 80000,
-    has_food_service: false,
+    hourlyRate: 50000,
+    vipHourlyRate: 80000,
+    hasFoodService: false,
     games: ['CS2', 'Valorant', 'PUBG', 'GTA V']
   },
   {
@@ -125,9 +126,9 @@ const TABRIZ_CENTERS = [
     phone: '0413300000',
     lat: 38.0722,
     lng: 46.3110,
-    hourly_rate: 60000,
-    vip_hourly_rate: 90000,
-    has_food_service: false,
+    hourlyRate: 60000,
+    vipHourlyRate: 90000,
+    hasFoodService: false,
     games: ['CS2', 'Warzone', 'Fortnite', 'LoL']
   },
   {
@@ -138,9 +139,9 @@ const TABRIZ_CENTERS = [
     phone: '0413301111',
     lat: 38.0833,
     lng: 46.3002,
-    hourly_rate: 62000,
-    vip_hourly_rate: 92000,
-    has_food_service: false,
+    hourlyRate: 62000,
+    vipHourlyRate: 92000,
+    hasFoodService: false,
     games: ['Valorant', 'CS2', 'FIFA 24', 'PUBG']
   },
   {
@@ -151,9 +152,9 @@ const TABRIZ_CENTERS = [
     phone: '0413302222',
     lat: 38.0677,
     lng: 46.2951,
-    hourly_rate: 58000,
-    vip_hourly_rate: 88000,
-    has_food_service: false,
+    hourlyRate: 58000,
+    vipHourlyRate: 88000,
+    hasFoodService: false,
     games: ['CS2', 'Dota2', 'Apex Legends', 'Valorant']
   },
   {
@@ -164,9 +165,9 @@ const TABRIZ_CENTERS = [
     phone: '0413303333',
     lat: 38.0709,
     lng: 46.2798,
-    hourly_rate: 60000,
-    vip_hourly_rate: 90000,
-    has_food_service: false,
+    hourlyRate: 60000,
+    vipHourlyRate: 90000,
+    hasFoodService: false,
     games: ['CS2', 'FIFA 24', 'PUBG', 'Warzone']
   },
   {
@@ -177,9 +178,9 @@ const TABRIZ_CENTERS = [
     phone: '0413304444',
     lat: 38.0559,
     lng: 46.2664,
-    hourly_rate: 65000,
-    vip_hourly_rate: 95000,
-    has_food_service: false,
+    hourlyRate: 65000,
+    vipHourlyRate: 95000,
+    hasFoodService: false,
     games: ['CS2', 'Valorant', 'MK1', 'Fortnite']
   }
 ];
@@ -241,6 +242,12 @@ async function clearAll() {
   await prisma.siteSettings.deleteMany();
   await prisma.settings.deleteMany();
   await prisma.commissionPolicy.deleteMany();
+
+  // Analytics
+  await prisma.gamingCenterAnalytics.deleteMany();
+  await prisma.staffAnalytics.deleteMany();
+  await prisma.stationAnalytics.deleteMany();
+
   await prisma.gamingCenter.deleteMany();
   await prisma.session.deleteMany();
   await prisma.phoneOtp.deleteMany();
@@ -263,11 +270,11 @@ async function main() {
         description: `بزرگترین و مجهزترین مرکز بازی در ${tabriz.city} با سیستم‌های بروز و محیطی دوستانه.`,
         pcCount: 8,
         consoleCount: 4,
-        openingTime: data.opening_time || '10:00',
-        closingTime: data.closing_time || '23:59',
-        hourlyRate: data.hourly_rate,
-        vipHourlyRate: data.vip_hourly_rate,
-        hasFoodService: data.has_food_service,
+        openingTime: data.openingTime || '10:00',
+        closingTime: data.closingTime || '23:59',
+        hourlyRate: data.hourlyRate,
+        vipHourlyRate: data.vipHourlyRate,
+        hasFoodService: data.hasFoodService,
         games: data.games,
         settings: {
           create: {
@@ -374,8 +381,6 @@ async function main() {
     if (!center) continue;
 
     // Total 12 stations: 8 PC, 4 PS5
-    // 20% VIP rule: 12 * 0.2 = 2.4 -> 2 or 3 VIP stations.
-    // Let's make 2 VIP (one PC, one PS5) or just flag them based on index.
     for (let i = 0; i < 12; i++) {
       const isPc = i < 8;
       const stationIndex = isPc ? i + 1 : i - 7;
@@ -433,7 +438,7 @@ async function main() {
 
     if (profiles.length === 0) continue;
 
-    for (let i = 0; i < CONFIG.bookingsPerCenter; i++) {
+    for (let i = 0; i < CONFIG.reservationsPerCenter; i++) {
       const profile = pick(profiles);
       const station = pick(centerStations);
       const staffId = pick(centerStaff);
@@ -465,15 +470,27 @@ async function main() {
           source: pick([ReservationSource.ONLINE, ReservationSource.WALK_IN]),
           stationSnapshot: { name: station.name, price: station.hourlyPrice },
           paymentState: isPast ? ReservationPaymentState.PAID : ReservationPaymentState.PENDING,
+          completedAt: isPast ? endTime : null,
         }
       });
 
       if (isPast) {
+        await prisma.gamingSession.create({
+          data: {
+            reservationId: reservation.id,
+            stationId: station.id,
+            startTime,
+            endTime,
+            actualHours: hours,
+            status: GamingSessionStatus.COMPLETED,
+          }
+        });
+
         await prisma.payment.create({
           data: {
             gamingCenterId: centerId,
             reservationId: reservation.id,
-            amount: totalPrice,
+            amount: Math.round(totalPrice),
             currency: 'IRT',
             method: PaymentMethod.CASH,
             status: PaymentStatus.PAID,
@@ -501,7 +518,7 @@ async function main() {
           data: {
             reservationId: reservation.id,
             gamingCenterId: centerId,
-            baseAmount: totalPrice,
+            baseAmount: Math.round(totalPrice),
             currency: 'IRT',
             type: CommissionType.PERCENT,
             percentBps: 500,
@@ -530,9 +547,6 @@ async function main() {
 
   console.log('📄 Seeding Pages...');
   for (const centerId of centerIds) {
-    const center = await prisma.gamingCenter.findUnique({ where: { id: centerId } });
-    if (!center) continue;
-
     await prisma.page.create({
       data: {
         gamingCenterId: centerId,
@@ -558,7 +572,7 @@ async function main() {
     });
   }
 
-  console.log('✅ Professional Seed Completed!');
+  console.log('✅ Professional Seed Updated & Completed!');
 }
 
 main()
