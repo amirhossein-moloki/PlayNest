@@ -12,8 +12,6 @@ import { authMiddleware } from '../../common/middleware/auth';
 import { requireRole } from '../../common/middleware/requireRole';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
 
-const router = Router();
-
 // --- User (Customer) Routes ---
 // Note: Usually these would be under /customer or similar.
 // Based on prompt: GET /api/v1/tickets, etc.

@@ -139,7 +139,7 @@ export const updateTicketStatus = async (
     throw new AppError('Ticket not found', httpStatus.NOT_FOUND);
   }
 
-  const updateData: any = { status };
+  const updateData: Record<string, unknown> = { status };
   if (status === TicketStatus.CLOSED) {
     updateData.closedAt = new Date();
   } else {

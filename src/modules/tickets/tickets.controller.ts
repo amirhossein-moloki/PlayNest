@@ -76,7 +76,7 @@ export const getAllTickets = async (req: AppRequest, res: Response, next: NextFu
   try {
     const validatedQuery = listTicketsQuerySchema.parse(req.query);
 
-    const filters: any = {
+    const filters: Record<string, unknown> = {
       ...validatedQuery,
       startDate: validatedQuery.startDate ? new Date(validatedQuery.startDate) : undefined,
       endDate: validatedQuery.endDate ? new Date(validatedQuery.endDate) : undefined,
@@ -84,10 +84,10 @@ export const getAllTickets = async (req: AppRequest, res: Response, next: NextFu
 
     // Support can only see assigned tickets OR open tickets
     if (req.actor.role === UserRole.SUPPORT) {
-       filters.OR = [
-         { assignedToUserId: req.actor.id },
-         { status: 'OPEN' }
-       ];
+      filters.OR = [
+        { assignedToUserId: req.actor.id },
+        { status: 'OPEN' }
+      ];
     }
 
     const result = await ticketStation.getTicketsList(
@@ -146,9 +146,9 @@ export const getStatistics = async (req: AppRequest, res: Response, next: NextFu
   try {
     // Basic statistics for admin
     const [total, open, closed] = await Promise.all([
-       ticketStation.getTicketsList({}, { page: 1, limit: 1 }),
-       ticketStation.getTicketsList({ status: 'OPEN' }, { page: 1, limit: 1 }),
-       ticketStation.getTicketsList({ status: 'CLOSED' }, { page: 1, limit: 1 }),
+      ticketStation.getTicketsList({}, { page: 1, limit: 1 }),
+      ticketStation.getTicketsList({ status: 'OPEN' }, { page: 1, limit: 1 }),
+      ticketStation.getTicketsList({ status: 'CLOSED' }, { page: 1, limit: 1 }),
     ]);
 
     res.ok({
