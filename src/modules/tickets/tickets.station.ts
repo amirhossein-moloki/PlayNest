@@ -1,4 +1,4 @@
-import { TicketStatus, TicketSenderType, TicketPriority, TicketCategory, UserRole } from '@prisma/client';
+import { TicketStatus, TicketSenderType, TicketPriority, TicketCategory, UserRole, SessionActorType } from '@prisma/client';
 import * as ticketRepo from './tickets.repo';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
@@ -15,6 +15,7 @@ export const createTicket = async (data: {
 
   await auditService.recordLog({
     customerId: data.customerAccountId,
+    actorType: SessionActorType.CUSTOMER,
     action: 'TICKET_CREATE',
     entity: 'Ticket',
     entityId: ticket.id,
@@ -32,6 +33,7 @@ export const addMessage = async (
   senderType: TicketSenderType,
   text: string,
   attachment?: string,
+  actor?: { id: string; role?: UserRole; actorType: string },
   context?: { ip?: string; userAgent?: string }
 ) => {
   const ticket = await ticketRepo.findTicketById(ticketId);
@@ -46,6 +48,15 @@ export const addMessage = async (
   // Permission check: if sender is USER (customer), they must own the ticket
   if (senderType === TicketSenderType.USER && ticket.customerAccountId !== senderId) {
     throw new AppError('Unauthorized to reply to this ticket', httpStatus.FORBIDDEN);
+  }
+
+  // Support check: SUPPORT can only respond to assigned tickets unless they are ADMIN
+  if (
+    senderType === TicketSenderType.SUPPORT &&
+    actor?.role === UserRole.SUPPORT &&
+    ticket.assignedToUserId !== senderId
+  ) {
+    throw new AppError('Cannot respond to an unassigned ticket', httpStatus.FORBIDDEN);
   }
 
   const message = await ticketRepo.createMessage({
@@ -71,6 +82,7 @@ export const addMessage = async (
   await auditService.recordLog({
     userId: senderType === TicketSenderType.SUPPORT ? senderId : undefined,
     customerId: senderType === TicketSenderType.USER ? senderId : undefined,
+    actorType: senderType === TicketSenderType.SUPPORT ? SessionActorType.USER : SessionActorType.CUSTOMER,
     action: 'TICKET_MESSAGE_ADD',
     entity: 'Ticket',
     entityId: ticketId,
@@ -98,11 +110,12 @@ export const assignTicket = async (
   // Let's allow ADMIN and potentially any SUPPORT to assign if they have permission.
 
   const updatedTicket = await ticketRepo.updateTicket(ticketId, {
-    assignedToUserId: userId,
+    assignedTo: { connect: { id: userId } },
   });
 
   await auditService.recordLog({
     userId: actor.id,
+    actorType: SessionActorType.USER,
     action: 'TICKET_ASSIGN',
     entity: 'Ticket',
     entityId: ticketId,
@@ -137,6 +150,7 @@ export const updateTicketStatus = async (
 
   await auditService.recordLog({
     userId: actor.id,
+    actorType: SessionActorType.USER,
     action: 'TICKET_STATUS_UPDATE',
     entity: 'Ticket',
     entityId: ticketId,
@@ -161,11 +175,9 @@ export const getTicketDetails = async (ticketId: string, actor: { id: string; ro
       throw new AppError('Access denied', httpStatus.FORBIDDEN);
     }
   } else if (actor.role === UserRole.SUPPORT) {
-    if (ticket.assignedToUserId !== actor.id) {
-       // Support might still need to view it if they are looking at all tickets to pick one?
-       // Requirement says: "SUPPORT: Can access assigned tickets."
-       // I will enforce this strictly for now.
-       throw new AppError('Access denied: ticket not assigned to you', httpStatus.FORBIDDEN);
+    // Support can access assigned tickets OR unassigned tickets (OPEN)
+    if (ticket.assignedToUserId !== actor.id && ticket.status !== TicketStatus.OPEN) {
+      throw new AppError('Access denied: ticket not assigned to you', httpStatus.FORBIDDEN);
     }
   }
 

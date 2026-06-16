@@ -10,12 +10,17 @@ export const getMyTickets = async (req: AppRequest, res: Response, next: NextFun
   try {
     const validatedQuery = listTicketsQuerySchema.parse(req.query);
     const result = await ticketStation.getTicketsList(
-      { ...validatedQuery, customerAccountId: req.actor.id },
+      {
+        ...validatedQuery,
+        customerAccountId: req.actor.id,
+        startDate: validatedQuery.startDate ? new Date(validatedQuery.startDate) : undefined,
+        endDate: validatedQuery.endDate ? new Date(validatedQuery.endDate) : undefined,
+      },
       {
         page: validatedQuery.page || 1,
         limit: validatedQuery.limit || 10,
         sortBy: validatedQuery.sortBy,
-        sortOrder: validatedQuery.sortOrder as 'asc' | 'desc',
+        sortOrder: (validatedQuery.sortOrder as 'asc' | 'desc') || 'desc',
       }
     );
     res.ok(result.items, { pagination: result.pagination });
@@ -40,7 +45,7 @@ export const createTicket = async (req: AppRequest, res: Response, next: NextFun
         customerAccountId: req.actor.id,
         ...req.body,
       },
-      { ip: req.ip, userAgent: req.headers['user-agent'] }
+      { ip: req.ip, userAgent: req.headers['user-agent'] as string }
     );
     res.created(ticket);
   } catch (error) {
@@ -56,7 +61,8 @@ export const replyToTicket = async (req: AppRequest, res: Response, next: NextFu
       req.actor.actorType === 'USER' ? TicketSenderType.SUPPORT : TicketSenderType.USER,
       req.body.text,
       req.body.attachment,
-      { ip: req.ip, userAgent: req.headers['user-agent'] }
+      req.actor,
+      { ip: req.ip, userAgent: req.headers['user-agent'] as string }
     );
     res.created(message);
   } catch (error) {
@@ -70,10 +76,18 @@ export const getAllTickets = async (req: AppRequest, res: Response, next: NextFu
   try {
     const validatedQuery = listTicketsQuerySchema.parse(req.query);
 
-    // Support can only see assigned tickets by default if not admin
-    const filters = { ...validatedQuery };
+    const filters: any = {
+      ...validatedQuery,
+      startDate: validatedQuery.startDate ? new Date(validatedQuery.startDate) : undefined,
+      endDate: validatedQuery.endDate ? new Date(validatedQuery.endDate) : undefined,
+    };
+
+    // Support can only see assigned tickets OR open tickets
     if (req.actor.role === UserRole.SUPPORT) {
-      filters.assignedToUserId = req.actor.id;
+       filters.OR = [
+         { assignedToUserId: req.actor.id },
+         { status: 'OPEN' }
+       ];
     }
 
     const result = await ticketStation.getTicketsList(
@@ -82,7 +96,7 @@ export const getAllTickets = async (req: AppRequest, res: Response, next: NextFu
         page: validatedQuery.page || 1,
         limit: validatedQuery.limit || 10,
         sortBy: validatedQuery.sortBy,
-        sortOrder: validatedQuery.sortOrder as 'asc' | 'desc',
+        sortOrder: (validatedQuery.sortOrder as 'asc' | 'desc') || 'desc',
       }
     );
     res.ok(result.items, { pagination: result.pagination });
@@ -106,7 +120,7 @@ export const assignTicket = async (req: AppRequest, res: Response, next: NextFun
       req.params.ticketId,
       req.body.assignedToUserId,
       req.actor,
-      { ip: req.ip, userAgent: req.headers['user-agent'] }
+      { ip: req.ip, userAgent: req.headers['user-agent'] as string }
     );
     res.ok(ticket);
   } catch (error) {
@@ -120,7 +134,7 @@ export const updateStatus = async (req: AppRequest, res: Response, next: NextFun
       req.params.ticketId,
       req.body.status,
       req.actor,
-      { ip: req.ip, userAgent: req.headers['user-agent'] }
+      { ip: req.ip, userAgent: req.headers['user-agent'] as string }
     );
     res.ok(ticket);
   } catch (error) {
@@ -142,6 +156,28 @@ export const getStatistics = async (req: AppRequest, res: Response, next: NextFu
       open: open.pagination.totalItems,
       closed: closed.pagination.totalItems,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+import * as mediaStation from '../media/media-upload.station';
+
+export const uploadAttachment = async (req: AppRequest, res: Response, next: NextFunction) => {
+  try {
+    const { ticketId } = req.params;
+    if (!req.file) {
+      return res.fail('VALIDATION_ERROR', 'No file uploaded', 400);
+    }
+
+    const url = await mediaStation.uploadTicketAttachment({
+      ticketId,
+      buffer: req.file.buffer,
+      originalName: req.file.originalname,
+      contentType: req.file.mimetype,
+    });
+
+    res.ok({ url });
   } catch (error) {
     next(error);
   }
