@@ -23,14 +23,14 @@ export const ticketHandlers = [
   http.get('*/api/v1/tickets/:ticketId', async ({ params }) => {
     await delay(Math.random() * 700 + 500);
     const { ticketId } = params;
-    const ticket = db.tickets.find(t => t.id === ticketId);
+    const ticket = db.tickets.find((t: any) => t.id === ticketId); // eslint-disable-line @typescript-eslint/no-explicit-any
     if (!ticket) {
       return HttpResponse.json({
         success: false,
         error: { code: 'NOT_FOUND', message: 'Ticket not found' }
       }, { status: 404 });
     }
-    const messages = db.ticketMessages.filter(m => m.ticketId === ticketId);
+    const messages = db.ticketMessages.filter((m: any) => m.ticketId === ticketId); // eslint-disable-line @typescript-eslint/no-explicit-any
     return HttpResponse.json({
       success: true,
       data: { ...ticket, messages },
@@ -41,7 +41,7 @@ export const ticketHandlers = [
   // POST /api/v1/tickets
   http.post('*/api/v1/tickets', async ({ request }) => {
     await delay(Math.random() * 700 + 500);
-    const body = await request.json() as any;
+    const body = await request.json() as any; // eslint-disable-line @typescript-eslint/no-explicit-any
     const newTicket = {
       id: 'tick-' + Math.random().toString(36).substr(2, 9),
       subject: body.subject,
@@ -52,7 +52,7 @@ export const ticketHandlers = [
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    db.tickets.push(newTicket as any);
+    db.tickets.push(newTicket);
 
     const newMessage = {
       id: 'msg-' + Math.random().toString(36).substr(2, 9),
@@ -62,7 +62,7 @@ export const ticketHandlers = [
       senderType: 'USER',
       createdAt: new Date().toISOString(),
     };
-    db.ticketMessages.push(newMessage as any);
+    db.ticketMessages.push(newMessage);
 
     return HttpResponse.json({
       success: true,
@@ -75,8 +75,8 @@ export const ticketHandlers = [
   http.post('*/api/v1/tickets/:ticketId/messages', async ({ params, request }) => {
     await delay(Math.random() * 700 + 500);
     const { ticketId } = params;
-    const body = await request.json() as any;
-    const ticket = db.tickets.find(t => t.id === ticketId);
+    const body = await request.json() as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const ticket = db.tickets.find((t: any) => t.id === ticketId); // eslint-disable-line @typescript-eslint/no-explicit-any
     if (!ticket) {
       return HttpResponse.json({
         success: false,
@@ -93,7 +93,7 @@ export const ticketHandlers = [
       senderType: 'USER', // logic can be more complex based on URL but controller handles both
       createdAt: new Date().toISOString(),
     };
-    db.ticketMessages.push(newMessage as any);
+    db.ticketMessages.push(newMessage);
 
     return HttpResponse.json({
       success: true,
@@ -122,14 +122,14 @@ export const ticketHandlers = [
   http.get('*/api/v1/support/tickets/:ticketId', async ({ params }) => {
     await delay(Math.random() * 700 + 500);
     const { ticketId } = params;
-    const ticket = db.tickets.find(t => t.id === ticketId);
+    const ticket = db.tickets.find((t: any) => t.id === ticketId); // eslint-disable-line @typescript-eslint/no-explicit-any
     if (!ticket) {
       return HttpResponse.json({
         success: false,
         error: { code: 'NOT_FOUND', message: 'Ticket not found' }
       }, { status: 404 });
     }
-    const messages = db.ticketMessages.filter(m => m.ticketId === ticketId);
+    const messages = db.ticketMessages.filter((m: any) => m.ticketId === ticketId); // eslint-disable-line @typescript-eslint/no-explicit-any
     return HttpResponse.json({
       success: true,
       data: { ...ticket, messages },
@@ -141,8 +141,8 @@ export const ticketHandlers = [
   http.patch('*/api/v1/support/tickets/:ticketId/assign', async ({ params, request }) => {
     await delay(Math.random() * 700 + 500);
     const { ticketId } = params;
-    const body = await request.json() as any;
-    const ticket = db.tickets.find(t => t.id === ticketId);
+    const body = await request.json() as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const ticket = db.tickets.find((t: any) => t.id === ticketId); // eslint-disable-line @typescript-eslint/no-explicit-any
     if (!ticket) {
       return HttpResponse.json({
         success: false,
@@ -163,8 +163,8 @@ export const ticketHandlers = [
   http.patch('*/api/v1/support/tickets/:ticketId/status', async ({ params, request }) => {
     await delay(Math.random() * 700 + 500);
     const { ticketId } = params;
-    const body = await request.json() as any;
-    const ticket = db.tickets.find(t => t.id === ticketId);
+    const body = await request.json() as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const ticket = db.tickets.find((t: any) => t.id === ticketId); // eslint-disable-line @typescript-eslint/no-explicit-any
     if (!ticket) {
       return HttpResponse.json({
         success: false,
@@ -188,8 +188,8 @@ export const ticketHandlers = [
   http.post('*/api/v1/support/tickets/:ticketId/messages', async ({ params, request }) => {
     await delay(Math.random() * 700 + 500);
     const { ticketId } = params;
-    const body = await request.json() as any;
-    const ticket = db.tickets.find(t => t.id === ticketId);
+    const body = await request.json() as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const ticket = db.tickets.find((t: any) => t.id === ticketId); // eslint-disable-line @typescript-eslint/no-explicit-any
     if (!ticket) {
       return HttpResponse.json({
         success: false,
@@ -206,7 +206,7 @@ export const ticketHandlers = [
       senderType: 'SUPPORT',
       createdAt: new Date().toISOString(),
     };
-    db.ticketMessages.push(newMessage as any);
+    db.ticketMessages.push(newMessage);
 
     // Update ticket status to ANSWERED
     ticket.status = 'ANSWERED';
@@ -239,8 +239,8 @@ export const ticketHandlers = [
   http.get('*/api/v1/admin/tickets/statistics', async () => {
     await delay(Math.random() * 700 + 500);
     const total = db.tickets.length;
-    const open = db.tickets.filter(t => t.status === 'OPEN').length;
-    const closed = db.tickets.filter(t => t.status === 'CLOSED').length;
+    const open = db.tickets.filter((t: any) => t.status === 'OPEN').length; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const closed = db.tickets.filter((t: any) => t.status === 'CLOSED').length; // eslint-disable-line @typescript-eslint/no-explicit-any
     return HttpResponse.json({
       success: true,
       data: { total, open, closed },
@@ -252,8 +252,8 @@ export const ticketHandlers = [
   http.patch('*/api/v1/admin/tickets/:ticketId/assign', async ({ params, request }) => {
     await delay(Math.random() * 700 + 500);
     const { ticketId } = params;
-    const body = await request.json() as any;
-    const ticket = db.tickets.find(t => t.id === ticketId);
+    const body = await request.json() as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const ticket = db.tickets.find((t: any) => t.id === ticketId); // eslint-disable-line @typescript-eslint/no-explicit-any
     if (!ticket) {
       return HttpResponse.json({
         success: false,
@@ -274,8 +274,8 @@ export const ticketHandlers = [
   http.patch('*/api/v1/admin/tickets/:ticketId/status', async ({ params, request }) => {
     await delay(Math.random() * 700 + 500);
     const { ticketId } = params;
-    const body = await request.json() as any;
-    const ticket = db.tickets.find(t => t.id === ticketId);
+    const body = await request.json() as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const ticket = db.tickets.find((t: any) => t.id === ticketId); // eslint-disable-line @typescript-eslint/no-explicit-any
     if (!ticket) {
       return HttpResponse.json({
         success: false,
