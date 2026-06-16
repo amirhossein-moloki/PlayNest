@@ -9,6 +9,7 @@ export interface ListTicketsFilters {
   customerAccountId?: string;
   startDate?: Date;
   endDate?: Date;
+  OR?: Prisma.TicketWhereInput[];
 }
 
 export interface ListTicketsOptions {

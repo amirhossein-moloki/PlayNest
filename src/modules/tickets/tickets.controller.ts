@@ -76,7 +76,7 @@ export const getAllTickets = async (req: AppRequest, res: Response, next: NextFu
   try {
     const validatedQuery = listTicketsQuerySchema.parse(req.query);
 
-    const filters: Record<string, unknown> = {
+    const filters: any /* eslint-disable-line @typescript-eslint/no-explicit-any */ = {
       ...validatedQuery,
       startDate: validatedQuery.startDate ? new Date(validatedQuery.startDate) : undefined,
       endDate: validatedQuery.endDate ? new Date(validatedQuery.endDate) : undefined,

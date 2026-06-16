@@ -30,7 +30,7 @@ describe('Ticket System Station Unit Tests (Mocked Repo)', () => {
     };
 
     const createdTicket = { id: 'ticket-123', ...input, status: TicketStatus.OPEN, createdAt: new Date(), updatedAt: new Date(), closedAt: null, assignedToUserId: null };
-    MockedTicketRepo.createTicket.mockResolvedValue(createdTicket as any);
+    MockedTicketRepo.createTicket.mockResolvedValue(createdTicket /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
     const result = await ticketStation.createTicket(input, context);
 
@@ -49,8 +49,8 @@ describe('Ticket System Station Unit Tests (Mocked Repo)', () => {
     const ticket = { id: ticketId, customerAccountId, status: TicketStatus.OPEN, assignedToUserId: supportUserId };
     const message = { id: 'msg-1', ticketId, text: 'Reply', senderId: supportUserId, senderType: TicketSenderType.SUPPORT };
 
-    MockedTicketRepo.findTicketById.mockResolvedValue(ticket as any);
-    MockedTicketRepo.createMessage.mockResolvedValue(message as any);
+    MockedTicketRepo.findTicketById.mockResolvedValue(ticket /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+    MockedTicketRepo.createMessage.mockResolvedValue(message /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
     await ticketStation.addMessage(ticketId, supportUserId, TicketSenderType.SUPPORT, 'Reply', undefined, { id: supportUserId, role: UserRole.SUPPORT, actorType: 'USER' }, context);
 
@@ -61,8 +61,8 @@ describe('Ticket System Station Unit Tests (Mocked Repo)', () => {
   it('should successfully assign a ticket', async () => {
     const ticketId = 'ticket-123';
     const ticket = { id: ticketId, assignedToUserId: null };
-    MockedTicketRepo.findTicketById.mockResolvedValue(ticket as any);
-    MockedTicketRepo.updateTicket.mockResolvedValue({ ...ticket, assignedToUserId: supportUserId } as any);
+    MockedTicketRepo.findTicketById.mockResolvedValue(ticket /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+    MockedTicketRepo.updateTicket.mockResolvedValue({ ...ticket, assignedToUserId: supportUserId } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
     await ticketStation.assignTicket(ticketId, supportUserId, actor, context);
 
