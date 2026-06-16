@@ -184,6 +184,8 @@ export const db = {
   customerAccounts,
   customerProfiles,
   reservations,
+  tickets: [],
+  ticketMessages: [],
   sessions: [],
   auditLogs: [],
   earnings: [],
