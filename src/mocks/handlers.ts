@@ -3,6 +3,7 @@ import { publicHandlers } from './handlers/public';
 import { gamingCenterHandlers } from './handlers/gamingCenters';
 import { reservationHandlers } from './handlers/reservations';
 import { analyticsHandlers, cmsHandlers, commissionHandlers } from './handlers/analytics';
+import { ticketHandlers } from './handlers/tickets';
 
 export const handlers = [
   ...authHandlers,
@@ -12,4 +13,5 @@ export const handlers = [
   ...analyticsHandlers,
   ...cmsHandlers,
   ...commissionHandlers,
+  ...ticketHandlers,
 ];

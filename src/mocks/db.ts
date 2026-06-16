@@ -184,9 +184,11 @@ export const db = {
   customerAccounts,
   customerProfiles,
   reservations,
-  sessions: [],
-  auditLogs: [],
-  earnings: [],
+  tickets: [] as any[], // eslint-disable-line @typescript-eslint/no-explicit-any
+  ticketMessages: [] as any[], // eslint-disable-line @typescript-eslint/no-explicit-any
+  sessions: [] as any[], // eslint-disable-line @typescript-eslint/no-explicit-any
+  auditLogs: [] as any[], // eslint-disable-line @typescript-eslint/no-explicit-any
+  earnings: [] as any[], // eslint-disable-line @typescript-eslint/no-explicit-any
   siteSettings: TABRIZ_CENTERS.map(c => ({
     gamingCenterId: c.id,
     logoUrl: '',
