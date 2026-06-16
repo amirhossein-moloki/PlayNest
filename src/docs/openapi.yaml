@@ -132,9 +132,66 @@ components:
           type: string
         role:
           type: string
-          enum: [MANAGER, SUPERVISOR, STAFF, TRAINEE]
+          enum: [MANAGER, SUPERVISOR, STAFF, TRAINEE, SUPPORT, ADMIN]
         isActive:
           type: boolean
+
+    Ticket:
+      type: object
+      properties:
+        id:
+          type: string
+        customerAccountId:
+          type: string
+        assignedToUserId:
+          type: string
+          nullable: true
+        subject:
+          type: string
+        status:
+          type: string
+          enum: [OPEN, PENDING, ANSWERED, CLOSED]
+        priority:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        category:
+          type: string
+          enum: [TECHNICAL, FINANCIAL, SALES, ACCOUNT]
+        closedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/TicketMessage'
+
+    TicketMessage:
+      type: object
+      properties:
+        id:
+          type: string
+        ticketId:
+          type: string
+        senderId:
+          type: string
+        senderType:
+          type: string
+          enum: [USER, SUPPORT]
+        text:
+          type: string
+        attachment:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
 
     GamingCenter:
       type: object
@@ -265,6 +322,8 @@ components:
             pageSize:
               type: integer
             limit:
+              type: integer
+            total:
               type: integer
             totalPages:
               type: integer
@@ -1881,3 +1940,419 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthResponse'
+
+  /tickets:
+    get:
+      summary: List own tickets (Customer)
+      tags:
+        - Tickets
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of tickets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pagination'
+    post:
+      summary: Create a new ticket (Customer)
+      tags:
+        - Tickets
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - subject
+                - message
+                - category
+              properties:
+                subject:
+                  type: string
+                message:
+                  type: string
+                priority:
+                  type: string
+                  enum: [LOW, MEDIUM, HIGH]
+                category:
+                  type: string
+                  enum: [TECHNICAL, FINANCIAL, SALES, ACCOUNT]
+      responses:
+        '201':
+          description: Ticket created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /tickets/{ticketId}:
+    get:
+      summary: Get ticket details (Customer)
+      tags:
+        - Tickets
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ticket details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /tickets/{ticketId}/messages:
+    post:
+      summary: Add message to ticket (Customer)
+      tags:
+        - Tickets
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                attachment:
+                  type: string
+      responses:
+        '201':
+          description: Message added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /tickets/{ticketId}/attachments:
+    post:
+      summary: Upload attachment (Customer)
+      tags:
+        - Tickets
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Upload successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      url:
+                        type: string
+
+  /support/tickets:
+    get:
+      summary: List assigned tickets (Support)
+      tags:
+        - Support
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of tickets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pagination'
+
+  /support/tickets/{ticketId}:
+    get:
+      summary: Get ticket details (Support)
+      tags:
+        - Support
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ticket details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /support/tickets/{ticketId}/attachments:
+    post:
+      summary: Upload attachment (Support)
+      tags:
+        - Support
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Upload successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      url:
+                        type: string
+
+  /support/tickets/{ticketId}/assign:
+    patch:
+      summary: Assign ticket (Support/Admin)
+      tags:
+        - Support
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - assignedToUserId
+              properties:
+                assignedToUserId:
+                  type: string
+      responses:
+        '200':
+          description: Ticket assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /support/tickets/{ticketId}/status:
+    patch:
+      summary: Update ticket status (Support/Admin)
+      tags:
+        - Support
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [OPEN, PENDING, ANSWERED, CLOSED]
+      responses:
+        '200':
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /support/tickets/{ticketId}/messages:
+    post:
+      summary: Add message to ticket (Support)
+      tags:
+        - Support
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                attachment:
+                  type: string
+      responses:
+        '201':
+          description: Message added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /admin/tickets:
+    get:
+      summary: List all tickets (Admin)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of tickets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pagination'
+
+  /admin/tickets/statistics:
+    get:
+      summary: Get ticket statistics (Admin)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /admin/tickets/{ticketId}/assign:
+    patch:
+      summary: Assign ticket (Admin)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - assignedToUserId
+              properties:
+                assignedToUserId:
+                  type: string
+      responses:
+        '200':
+          description: Ticket assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /admin/tickets/{ticketId}/status:
+    patch:
+      summary: Update ticket status (Admin)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [OPEN, PENDING, ANSWERED, CLOSED]
+      responses:
+        '200':
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'

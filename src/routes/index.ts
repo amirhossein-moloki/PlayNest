@@ -36,6 +36,11 @@ import { analyticsRoutes } from '../modules/analytics/analytics.routes';
 import { gamingSessionsRoutes } from '../modules/gamingSessions/gamingSessions.routes';
 import { resolveGamingCenterBySlug } from '../common/middleware/resolveGamingCenterBySlug';
 import { customerPanelRouter } from '../modules/customer-panel/customer-panel.routes';
+import {
+  userRouter as ticketUserRouter,
+  supportRouter as ticketSupportRouter,
+  adminRouter as ticketAdminRouter,
+} from '../modules/tickets/tickets.routes';
 
 const router = Router();
 
@@ -90,6 +95,11 @@ router.use('/gamingCenters/:gamingCenterId/audit-logs', auditRoutes);
 
 // --- Customer Panel Routes ---
 router.use('/customer', customerPanelRouter);
+
+// --- Ticket Module Routes ---
+router.use('/tickets', ticketUserRouter);
+router.use('/support/tickets', ticketSupportRouter);
+router.use('/admin/tickets', ticketAdminRouter);
 
 // --- Analytics Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/analytics', analyticsRoutes);

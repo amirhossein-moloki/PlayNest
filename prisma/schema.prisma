@@ -16,6 +16,8 @@ enum UserRole {
   SUPERVISOR
   STAFF
   TRAINEE
+  SUPPORT
+  ADMIN
 }
 
 enum ShiftRole {
@@ -106,6 +108,7 @@ enum PageSectionType {
 enum MediaType {
   IMAGE
   VIDEO
+  DOCUMENT
 }
 
 enum MediaPurpose {
@@ -213,6 +216,31 @@ enum WalletTransactionType {
   MANUAL_ADJUSTMENT
 }
 
+enum TicketStatus {
+  OPEN
+  PENDING
+  ANSWERED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TicketCategory {
+  TECHNICAL
+  FINANCIAL
+  SALES
+  ACCOUNT
+}
+
+enum TicketSenderType {
+  USER
+  SUPPORT
+}
+
 // =======================
 // Models
 // =======================
@@ -226,13 +254,13 @@ model GamingCenter {
   slug        String  @unique
   description String?
 
-  pcCount        Int     @default(0)
-  consoleCount   Int     @default(0)
+  pcCount        Int      @default(0)
+  consoleCount   Int      @default(0)
   openingTime    String? // e.g., "09:00"
   closingTime    String? // e.g., "23:00"
-  hourlyRate     Float   @default(0)
+  hourlyRate     Float    @default(0)
   vipHourlyRate  Float?
-  hasFoodService Boolean @default(false)
+  hasFoodService Boolean  @default(false)
   games          String[] @default([])
 
   users        User[]
@@ -281,8 +309,8 @@ model Settings {
   workStartTime String?
   workEndTime   String?
 
-  allowOnlineBooking       Boolean @default(false)
-  onlineBookingAutoConfirm Boolean @default(false)
+  allowOnlineBooking         Boolean @default(false)
+  onlineBookingAutoConfirm   Boolean @default(false)
   requireOtpForPublicBooking Boolean @default(false)
 
   maxAdvanceBookingDays    Int   @default(7)
@@ -292,6 +320,50 @@ model Settings {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Ticket {
+  id String @id @default(cuid())
+
+  customerAccountId String
+  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id])
+
+  assignedToUserId String?
+  assignedTo       User?   @relation(fields: [assignedToUserId], references: [id])
+
+  subject  String
+  status   TicketStatus   @default(OPEN)
+  priority TicketPriority @default(MEDIUM)
+  category TicketCategory
+
+  messages TicketMessage[]
+
+  closedAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([customerAccountId])
+  @@index([assignedToUserId])
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+}
+
+model TicketMessage {
+  id String @id @default(cuid())
+
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  senderId   String
+  senderType TicketSenderType
+
+  text       String
+  attachment String?
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
 }
 
 // -----------------------
@@ -329,6 +401,7 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  Ticket    Ticket[]
 
   @@unique([gamingCenterId, phone])
   @@index([gamingCenterId, role])
@@ -402,6 +475,7 @@ model CustomerAccount {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  Ticket    Ticket[]
 
   @@index([phone])
 }
@@ -535,7 +609,7 @@ model Reservation {
 
   totalHours     Float
   totalPrice     Float
-  discountAmount Float @default(0)
+  discountAmount Float                   @default(0)
   voucherCode    String?
   paymentState   ReservationPaymentState @default(UNPAID)
 
@@ -1014,7 +1088,7 @@ model AuditLog {
   gamingCenter   GamingCenter? @relation(fields: [gamingCenterId], references: [id])
 
   userId String?
-  user   User? @relation(fields: [userId], references: [id])
+  user   User?   @relation(fields: [userId], references: [id])
 
   customerId String?
   customer   CustomerAccount? @relation(fields: [customerId], references: [id])
@@ -1041,7 +1115,7 @@ model AuditLog {
 // =====================================================
 
 model GamingSession {
-  id            String   @id @default(cuid())
+  id            String      @id @default(cuid())
   reservationId String
   reservation   Reservation @relation(fields: [reservationId], references: [id])
 
