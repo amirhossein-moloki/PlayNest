@@ -3,9 +3,10 @@ import { SessionActorType } from '@prisma/client';
 import { AuditRepo } from './audit.repo';
 
 export interface RecordLogInput {
-  gamingCenterId: string;
-  userId: string;
-  actorType: SessionActorType;
+  gamingCenterId?: string;
+  userId?: string;
+  customerId?: string;
+  actorType?: SessionActorType;
   action: string;
   entity: string;
   entityId: string;
@@ -50,6 +51,7 @@ export const auditService = {
       return await AuditRepo.createLog({
         gamingCenterId: data.gamingCenterId,
         userId: data.userId,
+        customerId: data.customerId,
 
         action: data.action,
         entity: data.entity,

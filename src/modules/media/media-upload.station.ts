@@ -34,16 +34,16 @@ const normalizeExtension = (contentType?: string, originalName?: string) => {
   return '';
 };
 
-const buildStorageKey = (gamingCenterId: string, variant: 'original' | 'thumb', extension: string) => {
+const buildStorageKey = (id: string, scope: 'gamingCenters' | 'tickets', variant: 'original' | 'thumb', extension: string) => {
   const fileId = uuidv4();
-  return `gamingCenters/${gamingCenterId}/media/${variant}/${fileId}${extension}`;
+  return `${scope}/${id}/media/${variant}/${fileId}${extension}`;
 };
 
 export async function uploadMedia(input: UploadMediaInput): Promise<UploadMediaResult> {
   const adapter = getStorageAdapter();
   const extension = normalizeExtension(input.contentType, input.originalName);
 
-  const originalKey = buildStorageKey(input.gamingCenterId, 'original', extension);
+  const originalKey = buildStorageKey(input.gamingCenterId, 'gamingCenters', 'original', extension);
   const originalUpload = await adapter.upload({
     key: originalKey,
     body: input.buffer,
@@ -58,7 +58,7 @@ export async function uploadMedia(input: UploadMediaInput): Promise<UploadMediaR
     };
   }
 
-  const thumbKey = buildStorageKey(input.gamingCenterId, 'thumb', extension);
+  const thumbKey = buildStorageKey(input.gamingCenterId, 'gamingCenters', 'thumb', extension);
   const thumbUpload = await adapter.upload({
     key: thumbKey,
     body: input.buffer,
@@ -72,4 +72,26 @@ export async function uploadMedia(input: UploadMediaInput): Promise<UploadMediaR
     storageKey: originalUpload.key,
     thumbStorageKey: thumbUpload.key,
   };
+}
+
+export interface UploadTicketAttachmentInput {
+  ticketId: string;
+  contentType?: string;
+  originalName?: string;
+  buffer: Buffer;
+}
+
+export async function uploadTicketAttachment(input: UploadTicketAttachmentInput): Promise<string> {
+  const adapter = getStorageAdapter();
+  const extension = normalizeExtension(input.contentType, input.originalName);
+
+  const key = buildStorageKey(input.ticketId, 'tickets', 'original', extension);
+  const upload = await adapter.upload({
+    key,
+    body: input.buffer,
+    contentType: input.contentType,
+    cacheControl: DEFAULT_CACHE_CONTROL,
+  });
+
+  return upload.url;
 }
