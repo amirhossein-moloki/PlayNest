@@ -9,6 +9,7 @@ import YAML from 'yamljs';
 import routes from './routes';
 import { errorHandler } from './common/errors/errorHandler';
 import { responseMiddleware } from './common/middleware/response';
+import { apiKeyMiddleware } from './common/middleware/apiKey';
 import { env } from './config/env';
 import { initReservationEvents } from './modules/reservation/reservation.events';
 
@@ -45,6 +46,7 @@ if (env.NODE_ENV !== 'test') {
 }
 
 app.use(responseMiddleware);
+app.use(apiKeyMiddleware);
 
 // Swagger Documentation
 const swaggerDocument = YAML.load(path.join(__dirname, 'docs/openapi.yaml'));

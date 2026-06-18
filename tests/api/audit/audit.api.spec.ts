@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import request from 'supertest';
+import { env } from '../../../src/config/env';
+
 import app from '../../../src/app';
 import { prisma } from '../../../src/config/prisma';
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
@@ -46,8 +48,7 @@ describe('Audit API', () => {
       return cb(tx);
     });
 
-    const res = await request(app)
-      .get('/api/v1/gamingCenters/gc-1/audit-logs?page=1&pageSize=10')
+    const res = await request(app).get('/api/v1/gamingCenters/gc-1/audit-logs?page=1&pageSize=10').set('x-api-key', env.STATIC_API_KEY)
       .set('Authorization', `Bearer ${MOCK_TOKEN}`);
 
     expect(res.status).toBe(200);

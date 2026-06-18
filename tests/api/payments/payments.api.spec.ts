@@ -1,4 +1,6 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { env } from '../../../src/config/env';
+
 import request from 'supertest';
 import app from '../../../src/app';
 import { prisma } from '../../../src/config/prisma';
@@ -27,8 +29,7 @@ describe('Payment API', () => {
 
   describe('POST /payments/init', () => {
     it('should return 401 if token is missing', async () => {
-      const res = await request(app)
-        .post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/init`)
+      const res = await request(app).post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/init`).set('x-api-key', env.STATIC_API_KEY)
         .send({});
       expect(res.status).toBe(httpStatus.UNAUTHORIZED);
     });
@@ -37,8 +38,7 @@ describe('Payment API', () => {
       const token = generateAccessToken({ sessionId: 's1', actorId: userId, actorType: 'USER' });
       (prisma.user.findUnique /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).mockResolvedValue({ id: userId, gamingCenterId: 'other-gc', role: 'MANAGER' });
 
-      const res = await request(app)
-        .post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/init`)
+      const res = await request(app).post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/init`).set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${token}`)
         .send({});
       expect(res.status).toBe(httpStatus.NOT_FOUND);
@@ -47,7 +47,7 @@ describe('Payment API', () => {
 
   describe('Webhooks', () => {
     it('should return 401 if webhook signature is missing', async () => {
-      const res = await request(app).post('/api/v1/webhooks/payments/zarinpal').send({ authority: 'a' });
+      const res = await request(app).post('/api/v1/webhooks/payments/zarinpal').set('x-api-key', env.STATIC_API_KEY).send({ authority: 'a' });
       expect(res.status).toBe(httpStatus.UNAUTHORIZED);
     });
   });

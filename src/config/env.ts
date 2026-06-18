@@ -31,6 +31,7 @@ const EnvSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(10, 'JWT_REFRESH_SECRET is too short'),
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
+  STATIC_API_KEY: z.string().min(10, 'STATIC_API_KEY must be at least 10 characters'),
   COOKIE_SECRET: z.string().min(10).optional(),
 
   // CORS
