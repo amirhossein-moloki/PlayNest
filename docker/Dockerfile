@@ -1,44 +1,68 @@
-# Stage 1: Build
-FROM node:18-slim AS builder
+# Stage 1: Base & Dependencies
+FROM node:18-slim AS base
 
 WORKDIR /app
 
-# Install dependencies needed for prisma and argon2/bcrypt
-RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var/lib/apt/lists/*
+# Install system dependencies needed for prisma and native modules (argon2/bcrypt/sharp)
+RUN apt-get update && apt-get install -y \
+    openssl \
+    python3 \
+    make \
+    g++ \
+    libvips-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Stage 2: Builder
+FROM base AS builder
 
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Configure npm for better resilience against network issues
+# Configure npm for resilience
 RUN npm config set fetch-retry-maxtimeout 600000 && \
     npm config set fetch-retry-mintimeout 100000 && \
     npm config set fetch-retries 10
 
-# Use cache mount for npm and multiple retries for npm ci and prisma generate
-# to handle transient network failures and speed up builds
+# Install all dependencies including devDependencies
 RUN --mount=type=cache,target=/root/.npm \
-    (npm ci || (sleep 5 && npm ci) || (sleep 10 && npm ci)) && \
-    (npx prisma generate || (sleep 5 && npx prisma generate))
+    npm ci && \
+    npx prisma generate
 
 COPY . .
 
+# Build the application
 RUN npm run build
 
-# Stage 2: Runtime
-FROM node:18-slim
+# Remove development dependencies to keep the image slim
+RUN npm prune --production
+
+# Stage 3: Runtime
+FROM node:18-slim AS runtime
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y openssl postgresql-client && rm -rf /var/lib/apt/lists/*
+# Install runtime system dependencies
+RUN apt-get update && apt-get install -y \
+    openssl \
+    postgresql-client \
+    libvips \
+    && rm -rf /var/lib/apt/lists/*
 
+# Copy build artifacts and production dependencies
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/scripts ./scripts
 
+# Ensure scripts are executable
 RUN chmod +x scripts/*.sh
+
+# Create storage directory for local media driver
+RUN mkdir -p storage/media && chmod -R 777 storage
 
 EXPOSE 3000
 
-CMD ["node", "dist/server.js"]
+# Use wait-for-db script by default in production
+# The actual command will be overridden in docker-compose for flexibility
+CMD ["./scripts/wait-for-db.sh", "db", "node", "dist/server.js"]
