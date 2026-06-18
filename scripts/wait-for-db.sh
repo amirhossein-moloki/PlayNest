@@ -1,12 +1,14 @@
 #!/bin/sh
-# wait-for-db.sh
+# scripts/wait-for-db.sh
 
 set -e
 
 host="$1"
 shift
 
-until PGPASSWORD=$POSTGRES_PASSWORD psql -h "$host" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c '\q'; do
+echo "Waiting for PostgreSQL at $host..."
+
+until pg_isready -h "$host" -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do
   >&2 echo "Postgres is unavailable - sleeping"
   sleep 1
 done

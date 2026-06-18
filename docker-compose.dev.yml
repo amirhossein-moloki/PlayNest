@@ -1,0 +1,13 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: base
+    environment:
+      - NODE_ENV=development
+      - RUN_SEED=true
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: ["sh", "-c", "npm install && npx prisma generate && ./scripts/migrate.sh && npm run dev"]
