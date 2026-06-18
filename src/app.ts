@@ -29,10 +29,16 @@ if (env.SENTRY_ENABLED && env.SENTRY_DSN) {
 const app = express();
 
 app.use(express.json());
-app.use(cors());
-app.use(helmet({
-  crossOriginResourcePolicy: false,
+app.use(cors({
+  origin: env.CORS_ORIGIN,
+  credentials: env.CORS_CREDENTIALS,
 }));
+
+if (env.HELMET_ENABLED) {
+  app.use(helmet({
+    crossOriginResourcePolicy: false,
+  }));
+}
 
 // Serve static files from the uploads directory
 app.use('/uploads', express.static('uploads'));

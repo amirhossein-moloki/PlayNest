@@ -36,7 +36,7 @@ const EnvSchema = z.object({
   // CORS
   CORS_ORIGIN: z
     .preprocess(corsOriginTransform, z.union([z.literal('*'), z.array(z.string().min(1))]))
-    .default([]),
+    .default('*'),
   CORS_CREDENTIALS: z.preprocess(toBool, z.boolean()).default(true),
 
   // Database
