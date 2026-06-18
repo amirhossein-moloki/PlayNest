@@ -1,4 +1,6 @@
 import { describe, it, expect, jest } from '@jest/globals';
+import { env } from '../../../src/config/env';
+
 import request from 'supertest';
 import app from '../../../src/app';
 import { prisma } from '../../../src/config/prisma';
@@ -15,7 +17,7 @@ jest.mock('../../../src/config/prisma', () => ({
 
 describe('Users & Customer API', () => {
   it('GET /customer/me should return 401 without token', async () => {
-    const res = await request(app).get('/api/v1/customer/me');
+    const res = await request(app).get('/api/v1/customer/me').set('x-api-key', env.STATIC_API_KEY);
     expect(res.status).toBe(401);
   });
 
@@ -24,7 +26,7 @@ describe('Users & Customer API', () => {
     const token = generateAccessToken({ sessionId: 's1', actorId: customerId, actorType: SessionActorType.CUSTOMER });
     (prisma.customerAccount.findUnique /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).mockResolvedValue({ id: customerId, fullName: 'John Doe' });
 
-    const res = await request(app).get('/api/v1/customer/me').set('Authorization', `Bearer ${token}`);
+    const res = await request(app).get('/api/v1/customer/me').set('x-api-key', env.STATIC_API_KEY).set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body.data.id).toBe(customerId);
   });

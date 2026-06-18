@@ -13,6 +13,7 @@ jest.mock('../src/config/env', () => ({
     NODE_ENV: 'test',
     JWT_SECRET: 't',
     JWT_ACCESS_SECRET: 't',
+    STATIC_API_KEY: 'test-static-api-key-at-least-10-chars',
     JWT_ACCESS_EXPIRES_IN: '15m',
     SMSIR_OTP_TEMPLATE_ID: 123456,
     LOG_LEVEL: 'silent',
