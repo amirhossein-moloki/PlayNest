@@ -1,0 +1,3 @@
+# Run master backup daily at 01:00 AM
+0 1 * * * /scripts/master-backup.sh >> /var/log/cron.log 2>&1
+# Extra line for cron compatibility
