@@ -16,6 +16,7 @@ restic restore $SNAPSHOT_ID --target /restore
 if [ -f "/restore/data/db/latest.sql.gz" ]; then
     echo "Found PostgreSQL dump. Restoring..."
     gunzip -c /restore/data/db/latest.sql.gz > /tmp/restore_db.sql
+    PGPASSWORD=$POSTGRES_PASSWORD psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$POSTGRES_DB' AND pid <> pg_backend_pid();"
     PGPASSWORD=$POSTGRES_PASSWORD psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER -d postgres -c "DROP DATABASE IF EXISTS \"$POSTGRES_DB\";"
     PGPASSWORD=$POSTGRES_PASSWORD psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER -d postgres -c "CREATE DATABASE \"$POSTGRES_DB\";"
     PGPASSWORD=$POSTGRES_PASSWORD psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER -d $POSTGRES_DB < /tmp/restore_db.sql

@@ -32,7 +32,10 @@ const app = express();
 app.set('trust proxy', env.TRUST_PROXY);
 
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: env.CORS_ORIGIN,
+  credentials: env.CORS_CREDENTIALS,
+}));
 app.use(helmet({
   crossOriginResourcePolicy: false,
   hsts: false,

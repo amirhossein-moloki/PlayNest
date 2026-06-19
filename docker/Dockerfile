@@ -1,6 +1,8 @@
 # Stage 1: Base & Dependencies
 FROM node:18-slim AS base
 
+RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
+
 WORKDIR /app
 
 # Install system dependencies needed for prisma and native modules (argon2/bcrypt/sharp)
@@ -59,7 +61,9 @@ COPY --from=builder /app/scripts ./scripts
 RUN chmod +x scripts/*.sh
 
 # Create storage directory for local media driver
-RUN mkdir -p storage/media && chmod -R 777 storage
+RUN mkdir -p storage/media && chown -R appuser:appuser storage
+
+USER appuser
 
 EXPOSE 3000
 
