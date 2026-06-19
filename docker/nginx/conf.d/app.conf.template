@@ -15,7 +15,6 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "no-referrer-when-downgrade" always;
     add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
     # Static Media Files
     location ${MEDIA_LOCAL_PUBLIC_PATH} {
@@ -51,8 +50,4 @@ server {
         access_log off;
     }
 
-    # Preparation for Let's Encrypt / Certbot
-    location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
-    }
 }

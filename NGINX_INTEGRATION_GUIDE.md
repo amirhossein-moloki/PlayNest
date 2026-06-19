@@ -43,11 +43,7 @@ graph LR
 - **Rate Limiting:** Implemented a global rate limit (10r/s with 20 burst) at the NGINX level to protect against DDoS and brute-force attacks.
 - **Server Tokens:** Disabled NGINX version broadcasting.
 
-### 6. SSL/TLS Preparation
-- Added a location block for `.well-known/acme-challenge/` to support Let's Encrypt / Certbot verification.
-- The structure is ready for SSL configuration once certificates are provided.
-
-### 7. Timeouts & Reliability
+### 6. Timeouts & Reliability
 - Configured 60s timeouts for upstream connections.
 - Integrated health-check friendly path for monitoring.
 
@@ -65,7 +61,14 @@ graph LR
 
 ## Production Readiness Checklist
 
-- [ ] Update `MEDIA_PUBLIC_BASE_URL` to the production domain.
-- [ ] Configure SSL/TLS certificates and update NGINX to listen on 443.
+- [ ] Update `MEDIA_PUBLIC_BASE_URL` to the production server IP address.
 - [ ] Adjust `rate_limit` parameters based on expected production traffic.
 - [ ] Verify `TRUST_PROXY` is correctly set in the production environment.
+
+## Future Improvements
+
+### SSL/TLS Support
+- When a domain name and SSL certificates are available, NGINX should be configured to listen on port 443.
+- Implement HTTP to HTTPS redirection.
+- Add Let's Encrypt / Certbot for automated certificate management.
+- Re-enable HSTS (HTTP Strict Transport Security).
