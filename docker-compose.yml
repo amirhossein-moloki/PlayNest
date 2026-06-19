@@ -34,8 +34,8 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     restart: always
-    ports:
-      - '3000:3000'
+    expose:
+      - '3000'
     depends_on:
       db:
         condition: service_healthy
@@ -66,6 +66,20 @@ services:
     volumes:
       - app_storage:/app/storage
     command: ["sh", "-c", "./scripts/migrate.sh && node dist/server.js"]
+
+  nginx:
+    build:
+      context: ./docker/nginx
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - '80:80'
+    environment:
+      - MEDIA_LOCAL_PUBLIC_PATH=/media
+    volumes:
+      - app_storage:/app/storage:ro
+    depends_on:
+      - app
 
 volumes:
   postgres_data:
