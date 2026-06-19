@@ -6,7 +6,12 @@ RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuse
 WORKDIR /app
 
 # Install system dependencies needed for prisma and native modules (argon2/bcrypt/sharp)
-RUN apt-get update && apt-get install -y \
+RUN sed -i 's|http://deb.debian.org|http://mirror.arvancloud.ir/debian|g' /etc/apt/sources.list && \
+    sed -i 's|https://deb.debian.org|http://mirror.arvancloud.ir/debian|g' /etc/apt/sources.list && \
+    (find /etc/apt/sources.list.d/ -type f -exec sed -i 's|http://deb.debian.org|http://mirror.arvancloud.ir/debian|g' {} + || true) && \
+    (find /etc/apt/sources.list.d/ -type f -exec sed -i 's|https://deb.debian.org|http://mirror.arvancloud.ir/debian|g' {} + || true) && \
+    echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until && \
+    apt-get update && apt-get install -y \
     openssl \
     python3 \
     make \
@@ -44,7 +49,12 @@ FROM node:18-slim AS runtime
 WORKDIR /app
 
 # Install runtime system dependencies
-RUN apt-get update && apt-get install -y \
+RUN sed -i 's|http://deb.debian.org|http://mirror.arvancloud.ir/debian|g' /etc/apt/sources.list && \
+    sed -i 's|https://deb.debian.org|http://mirror.arvancloud.ir/debian|g' /etc/apt/sources.list && \
+    (find /etc/apt/sources.list.d/ -type f -exec sed -i 's|http://deb.debian.org|http://mirror.arvancloud.ir/debian|g' {} + || true) && \
+    (find /etc/apt/sources.list.d/ -type f -exec sed -i 's|https://deb.debian.org|http://mirror.arvancloud.ir/debian|g' {} + || true) && \
+    echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until && \
+    apt-get update && apt-get install -y \
     openssl \
     postgresql-client \
     libvips \
