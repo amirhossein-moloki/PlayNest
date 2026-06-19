@@ -29,10 +29,13 @@ if (env.SENTRY_ENABLED && env.SENTRY_DSN) {
 
 const app = express();
 
+app.set('trust proxy', env.TRUST_PROXY);
+
 app.use(express.json());
 app.use(cors());
 app.use(helmet({
   crossOriginResourcePolicy: false,
+  hsts: false,
 }));
 
 // Serve static files from the uploads directory
