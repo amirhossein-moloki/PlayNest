@@ -19,6 +19,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@prisma/client": "^5.22.0",
     "@sentry/node": "^10.38.0",
     "@sentry/profiling-node": "^10.38.0",
     "argon2": "^0.44.0",
@@ -50,7 +51,6 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@prisma/client": "^5.22.0",
     "@types/argon2": "^0.14.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.7",
