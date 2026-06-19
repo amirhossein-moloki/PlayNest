@@ -87,7 +87,7 @@ services:
       - RETENTION_WEEKLY=4
       - RETENTION_MONTHLY=12
     healthcheck:
-      test: ["CMD-SHELL", "[ -f /var/log/last_success_backup ] && [ $(($(date +%s) - $(cat /var/log/last_success_backup))) -lt 7200 ]"]
+      test: ["CMD-SHELL", "[ -f /var/log/last_success_backup ] && [ $$(($$(date +%s) - $$(cat /var/log/last_success_backup))) -lt 7200 ]"]
       interval: 10s
       timeout: 5s
       retries: 3
