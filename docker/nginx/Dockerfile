@@ -1,7 +1,7 @@
 FROM nginx:stable-alpine
 
-# Use ArvanCloud mirror for Alpine packages
-RUN sed -i 's|https\?://dl-cdn.alpinelinux.org|http://mirror.arvancloud.ir|g' /etc/apk/repositories
+# Use ParsVDS mirror for Alpine packages
+RUN sed -i 's|https\?://dl-cdn.alpinelinux.org|http://mirror.parsvds.com|g' /etc/apk/repositories
 
 # Remove default configuration
 RUN rm /etc/nginx/conf.d/default.conf
