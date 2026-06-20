@@ -1,5 +1,8 @@
 FROM alpine:3.18
 
+# Use ArvanCloud mirror for Alpine packages
+RUN sed -i 's|https\?://dl-cdn.alpinelinux.org|http://mirror.arvancloud.ir|g' /etc/apk/repositories
+
 # Install dependencies
 RUN apk add --no-cache \
     restic \
