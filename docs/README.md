@@ -11,6 +11,7 @@ This folder contains documentation generated directly from the current Playenest
 - [API Reference](api.md)
 - [API List (Persian)](API_LIST.md)
 - [Authentication](auth.md)
+- [Local Setup Guide (Persian)](LOCAL_SETUP_GUIDE_FA.md)
 - [CMS + SEO](cms-seo.md)
 - [Payments, Commission, Webhooks](payments-commission-webhooks.md)
 - [Onboarding](onboarding.md)

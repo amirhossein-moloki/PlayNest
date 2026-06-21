@@ -76,6 +76,8 @@ npx prisma migrate dev
 npx prisma generate
 ```
 
+For a full guide on how to run the project **without Docker**, see [Local Setup Guide (Persian)](docs/LOCAL_SETUP_GUIDE_FA.md).
+
 ### 6. Seeding Data (Optional)
 To populate the database with professional test data:
 ```bash
@@ -137,6 +139,8 @@ Detailed documentation is available in the `docs/` folder:
    - اجرای زیرساخت: `docker compose up -d db redis`
    - بروزرسانی دیتابیس: `npx prisma migrate dev`
    - اجرای پروژه: `npm run dev`
+
+برای راهنمای کامل اجرای پروژه **بدون داکر**، [اینجا را کلیک کنید](docs/LOCAL_SETUP_GUIDE_FA.md).
 
 ---
 
