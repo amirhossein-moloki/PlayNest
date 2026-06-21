@@ -6,8 +6,8 @@ RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuse
 WORKDIR /app
 
 # Install system dependencies needed for prisma and native modules (argon2/bcrypt/sharp)
-RUN find /etc/apt/ -type f \( -name "*.list" -o -name "*.sources" \) -exec sed -i 's|https\?://deb.debian.org|http://mirror.arvancloud.ir|g' {} + && \
-    find /etc/apt/ -type f \( -name "*.list" -o -name "*.sources" \) -exec sed -i 's|https\?://security.debian.org|http://mirror.arvancloud.ir|g' {} + && \
+RUN find /etc/apt/ -type f \( -name "*.list" -o -name "*.sources" \) -exec sed -i 's|https\?://deb.debian.org|http://mirror.parsvds.com|g' {} + && \
+    find /etc/apt/ -type f \( -name "*.list" -o -name "*.sources" \) -exec sed -i 's|https\?://security.debian.org|http://mirror.parsvds.com|g' {} + && \
     echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until && \
     apt-get update && apt-get install -y \
     openssl \
@@ -23,8 +23,9 @@ FROM base AS builder
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Configure npm for resilience
-RUN npm config set fetch-retry-maxtimeout 600000 && \
+# Configure npm for resilience and use Abrha mirror
+RUN npm config set registry https://mirror.abrha.net/repository/npm/ && \
+    npm config set fetch-retry-maxtimeout 600000 && \
     npm config set fetch-retry-mintimeout 100000 && \
     npm config set fetch-retries 10
 
@@ -47,8 +48,8 @@ FROM node:18-slim AS runtime
 WORKDIR /app
 
 # Install runtime system dependencies
-RUN find /etc/apt/ -type f \( -name "*.list" -o -name "*.sources" \) -exec sed -i 's|https\?://deb.debian.org|http://mirror.arvancloud.ir|g' {} + && \
-    find /etc/apt/ -type f \( -name "*.list" -o -name "*.sources" \) -exec sed -i 's|https\?://security.debian.org|http://mirror.arvancloud.ir|g' {} + && \
+RUN find /etc/apt/ -type f \( -name "*.list" -o -name "*.sources" \) -exec sed -i 's|https\?://deb.debian.org|http://mirror.parsvds.com|g' {} + && \
+    find /etc/apt/ -type f \( -name "*.list" -o -name "*.sources" \) -exec sed -i 's|https\?://security.debian.org|http://mirror.parsvds.com|g' {} + && \
     echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until && \
     apt-get update && apt-get install -y \
     openssl \
