@@ -1,5 +1,5 @@
 # Stage 1: Base & Dependencies
-FROM node:18-slim AS base
+FROM node:22-slim AS base
 
 RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
 
@@ -45,7 +45,7 @@ RUN npm run build
 RUN npm prune --production
 
 # Stage 3: Runtime
-FROM node:18-slim AS runtime
+FROM node:22-slim AS runtime
 
 WORKDIR /app
 
