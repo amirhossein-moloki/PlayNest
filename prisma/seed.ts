@@ -214,6 +214,11 @@ function slugify(input: string) {
 }
 
 async function clearAll() {
+  if (process.env.NODE_ENV === 'production' && process.env.FORCE_SEED !== 'true') {
+    console.warn('⚠️ Skipping clearAll() in production. Use FORCE_SEED=true to override.');
+    return;
+  }
+
   console.log('🧹 Clearing existing data...');
   // Delete in reverse order of dependencies
   await prisma.auditLog.deleteMany();
