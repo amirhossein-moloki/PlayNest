@@ -1,8 +1,5 @@
 FROM nginx:stable-alpine
 
-# Use ParsVDS mirror for Alpine packages
-RUN sed -i 's|https\?://dl-cdn.alpinelinux.org|http://mirror.parsvds.com|g' /etc/apk/repositories
-
 # Remove default configuration
 RUN rm /etc/nginx/conf.d/default.conf
 

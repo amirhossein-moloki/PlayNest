@@ -6,11 +6,7 @@ RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuse
 WORKDIR /app
 
 # Install system dependencies needed for prisma and native modules (argon2/bcrypt/sharp)
-RUN find /etc/apt/ -type f \( -name "*.list" -o -name "*.sources" \) -exec sed -i \
-    -e 's|https\?://deb\.debian\.org/debian|http://mirror.shatel.ir/debian|g' \
-    -e 's|https\?://security\.debian\.org/debian-security|http://mirror.shatel.ir/debian-security|g' {} + && \
-    echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until && \
-    apt-get update && \
+RUN apt-get update && \
     apt-get install -y \
         openssl \
         python3 \
@@ -25,9 +21,8 @@ FROM base AS builder
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Configure npm for resilience and use Abrha mirror
-RUN npm config set registry https://mirror.abrha.net/repository/npm/ && \
-    npm config set fetch-retry-maxtimeout 600000 && \
+# Configure npm for resilience
+RUN npm config set fetch-retry-maxtimeout 600000 && \
     npm config set fetch-retry-mintimeout 100000 && \
     npm config set fetch-retries 10
 
@@ -50,11 +45,7 @@ FROM node:22-slim AS runtime
 WORKDIR /app
 
 # Install runtime system dependencies
-RUN find /etc/apt/ -type f \( -name "*.list" -o -name "*.sources" \) -exec sed -i \
-    -e 's|https\?://deb\.debian\.org/debian|http://mirror.shatel.ir/debian|g' \
-    -e 's|https\?://security\.debian\.org/debian-security|http://mirror.shatel.ir/debian-security|g' {} + && \
-    echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until && \
-    apt-get update && \
+RUN apt-get update && \
     apt-get install -y \
         openssl \
         postgresql-client \

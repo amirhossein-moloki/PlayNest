@@ -1,8 +1,5 @@
 FROM alpine:3.18
 
-# Use ParsVDS mirror for Alpine packages
-RUN sed -i 's|https\?://dl-cdn.alpinelinux.org|http://mirror.parsvds.com|g' /etc/apk/repositories
-
 # Install dependencies
 RUN apk add --no-cache \
     restic \
