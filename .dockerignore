@@ -11,7 +11,7 @@ yarn-error.log*
 .gitignore
 .dockerignore
 docker-compose.yml
-docker/
+!docker/
 README.md
 docs/
 tests/
