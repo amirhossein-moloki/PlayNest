@@ -18,8 +18,8 @@ RUN apk add --no-cache \
 RUN mkdir -p /backups /scripts /data /config /storage /redis_data /nginx_config /project_root
 
 # Copy scripts
-COPY scripts/backup/ /scripts/
-COPY docker/backup/entrypoint.sh /entrypoint.sh
+COPY scripts/ /scripts/
+COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /scripts/*.sh /entrypoint.sh
 
 # Default environment variables

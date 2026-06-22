@@ -71,8 +71,8 @@ services:
   backup:
     image: playenest-backup:latest
     build:
-      context: .
-      dockerfile: docker/backup/Dockerfile
+      context: ./docker/backup
+      dockerfile: Dockerfile
     restart: always
     depends_on:
       db:
