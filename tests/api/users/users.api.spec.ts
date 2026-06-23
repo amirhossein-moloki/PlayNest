@@ -25,10 +25,10 @@ describe('Users API', () => {
     const gamingCenterId = 'gc1';
     const token = generateAccessToken({ sessionId: 's1', actorId: userId, actorType: SessionActorType.USER });
     (prisma.user.findUnique /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).mockResolvedValue({
-        id: userId,
-        fullName: 'Staff User',
-        role: UserRole.STAFF,
-        gamingCenterId
+      id: userId,
+      fullName: 'Staff User',
+      role: UserRole.STAFF,
+      gamingCenterId,
     });
 
     const res = await request(app).get('/api/v1/auth/me').set('x-api-key', env.STATIC_API_KEY).set('Authorization', `Bearer ${token}`);

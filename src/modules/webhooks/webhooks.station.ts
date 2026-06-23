@@ -1,14 +1,7 @@
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 
-const processPaymentWebhook = async ({
-  provider: _provider,
-  payload: _payload,
-}: {
-  provider: string;
-  payload: { eventId: string; paymentId: string; status: 'SUCCEEDED' | 'FAILED' | 'EXPIRED' };
-  signature?: string | null;
-}) => {
+const processPaymentWebhook = async () => {
   // Generic payment webhook processing removed as it is tied to the Reservation/Payment domain.
   // This is a placeholder for future generic webhook implementations.
   throw new AppError('Generic payment webhooks are not implemented in this boilerplate.', httpStatus.NOT_IMPLEMENTED);
