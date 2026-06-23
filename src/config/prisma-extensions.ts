@@ -7,33 +7,9 @@ import logger from './logger';
  */
 const TENANT_MODELS = new Set([
   'User',
-  'GameStation',
-  'StaffShift',
-  'Reservation',
-  'Payment',
-  'Rating',
-  'CommissionPolicy',
-  'Earning',
-  'EarningPayment',
-  'SiteSettings',
-  'Page',
-  'PageSection',
   'Media',
   'SocialLink',
   'Address',
-  'GamingCenterAnalytics',
-  'StaffAnalytics',
-  'StationAnalytics',
-  'Tournament',
-]);
-
-/**
- * Models that MUST always have a customerAccountId filter (Global CRM).
- */
-const GLOBAL_CRM_MODELS = new Set([
-  'CustomerProfile', // Also has gamingCenterId
-  'WalletTransaction',
-  'Membership'
 ]);
 
 export const tenantGuardExtension = Prisma.defineExtension({
@@ -55,13 +31,6 @@ export const tenantGuardExtension = Prisma.defineExtension({
               logger.warn(
                 { model, operation, args },
                 `Potential missing gamingCenterId filter on tenant-scoped model: ${model}.${operation}`
-              );
-            }
-          } else if (GLOBAL_CRM_MODELS.has(model)) {
-            if (!where.customerAccountId && !where.customerAccount && (model !== 'CustomerProfile' || !where.gamingCenterId)) {
-              logger.warn(
-                { model, operation, args },
-                `Potential missing customerAccountId/gamingCenterId filter on CRM model: ${model}.${operation}`
               );
             }
           }

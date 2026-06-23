@@ -11,10 +11,6 @@ import { errorHandler } from './common/errors/errorHandler';
 import { responseMiddleware } from './common/middleware/response';
 import { apiKeyMiddleware } from './common/middleware/apiKey';
 import { env } from './config/env';
-import { initReservationEvents } from './modules/reservation/reservation.events';
-
-// Initialize Event Listeners
-initReservationEvents();
 
 if (env.SENTRY_ENABLED && env.SENTRY_DSN) {
   Sentry.init({
