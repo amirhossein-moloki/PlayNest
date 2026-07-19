@@ -1,0 +1,1546 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// =======================
+// Enums
+// =======================
+
+enum UserRole {
+  MANAGER
+  SUPERVISOR
+  STAFF
+  TRAINEE
+  SUPPORT
+  ADMIN
+}
+
+enum ShiftRole {
+  CASHIER
+  TECH_SUPPORT
+  CLEANER
+  HOST
+  SECURITY
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+  NO_SHOW
+}
+
+enum ReservationSource {
+  ONLINE
+  WALK_IN
+  PHONE
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  ONLINE
+  GIFT_CARD
+  MEMBERSHIP
+}
+
+enum PaymentStatus {
+  INITIATED
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  VOID
+  CANCELED
+}
+
+enum ReservationPaymentState {
+  UNPAID
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  REFUNDED
+  OVERPAID
+  FAILED
+  CANCELED
+}
+
+// ---- Site/CMS + SEO ----
+enum PageStatus {
+  DRAFT
+  REVIEW
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum PageType {
+  HOME
+  ABOUT
+  SERVICES
+  GALLERY
+  TEAM
+  CONTACT
+  CUSTOM
+  TOURNAMENT
+  BLOG
+  LANDING
+  LEGAL
+}
+
+enum PageSectionType {
+  HERO
+  RICH_TEXT
+  HIGHLIGHTS
+  SERVICES_GRID
+  STAFF_GRID
+  GALLERY_GRID
+  TESTIMONIALS
+  CONTACT_CARD
+  MAP
+  FAQ
+  CTA
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  FILE
+}
+
+enum MediaPurpose {
+  COVER
+  GALLERY
+  STATION
+  LOGO
+  AVATAR
+  POST_ATTACHMENT
+}
+
+enum LinkType {
+  INSTAGRAM
+  WHATSAPP
+  TELEGRAM
+  WEBSITE
+  PHONE
+  GOOGLE_MAP
+}
+
+enum RatingStatus {
+  PUBLISHED
+  HIDDEN
+  DELETED
+}
+
+enum RobotsIndex {
+  INDEX
+  NOINDEX
+}
+
+enum RobotsFollow {
+  FOLLOW
+  NOFOLLOW
+}
+
+enum PostVisibility {
+  PUBLIC
+  PRIVATE
+  UNLISTED
+}
+
+enum SeriesOrderStrategy {
+  MANUAL
+  BY_DATE
+}
+
+enum CommentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DELETED
+}
+
+enum ReactionType {
+  LIKE
+  LOVE
+  LAUGH
+  WOW
+  SAD
+  ANGRY
+}
+
+enum MenuLocation {
+  HEADER
+  FOOTER
+  SIDEBAR
+}
+
+enum MenuItemTargetType {
+  PAGE
+  POST
+  CATEGORY
+  TAG
+  URL
+}
+
+enum NavigationVisibilityRule {
+  PUBLIC
+  AUTHENTICATED
+  STAFF
+  ADMIN
+}
+
+// ---- Commission ----
+enum CommissionType {
+  PERCENT
+  FIXED
+}
+
+enum CommissionStatus {
+  PENDING
+  ACCRUED
+  CHARGED
+  WAIVED
+  REFUNDED
+}
+
+enum CommissionPaymentMethod {
+  CASH
+  CARD
+  ONLINE
+  TRANSFER
+}
+
+enum CommissionPaymentStatus {
+  PENDING
+  PAID
+  VOID
+  REFUNDED
+}
+
+// ---- OTP / Auth ----
+enum SessionActorType {
+  USER
+  CUSTOMER
+}
+
+enum OtpPurpose {
+  LOGIN
+  SIGNUP
+}
+
+enum OtpChannel {
+  SMS
+  WHATSAPP
+}
+
+enum GameStationType {
+  PC
+  PLAYSTATION
+  XBOX
+  SWITCH
+  VR
+}
+
+enum GamingSessionStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  INTERRUPTED
+  NO_SHOW
+}
+
+enum SkillLevel {
+  BASIC
+  INTERMEDIATE
+  EXPERT
+}
+
+enum WalletTransactionType {
+  REFUND
+  RESERVATION_PAYMENT
+  DEPOSIT
+  MANUAL_ADJUSTMENT
+}
+
+enum TicketStatus {
+  OPEN
+  PENDING
+  ANSWERED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TicketCategory {
+  TECHNICAL
+  FINANCIAL
+  SALES
+  ACCOUNT
+}
+
+enum TicketSenderType {
+  USER
+  SUPPORT
+}
+
+// =======================
+// Identity Domain
+// =======================
+
+model GamingCenter {
+  id       String  @id @default(cuid())
+  name     String
+  isActive Boolean @default(true)
+
+  // Public identity (site)
+  slug        String  @unique
+  description String?
+
+  pcCount        Int      @default(0)
+  consoleCount   Int      @default(0)
+  openingTime    String? // e.g., "09:00"
+  closingTime    String? // e.g., "23:00"
+  hourlyRate     Float    @default(0)
+  vipHourlyRate  Float?
+  hasFoodService Boolean  @default(false)
+  games          String[] @default([])
+
+  users        User[]
+  stations     GameStation[]
+  reservations Reservation[]
+  shifts       StaffShift[]
+  settings     Settings?
+
+  // CRM
+  customers CustomerProfile[]
+
+  // Site builder / SEO / CMS
+  siteSettings SiteSettings?
+  pages        Page[]
+  posts        Post[]
+  categories   Category[]
+  tags         Tag[]
+  series       Series[]
+  menus        Menu[]
+  comments     Comment[]
+  reactions    Reaction[]
+  media        Media[]
+  links        SocialLink[]
+  addresses    Address[]
+  reactionAggregates ReactionAggregate[]
+
+  // Ratings
+  ratings Rating[]
+
+  // Commission
+  commissionPolicy CommissionPolicy?
+  earnings         Earning[]
+  auditLogs        AuditLog[]
+
+  // New features
+  tournaments Tournament[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  Payment   Payment[]
+
+  @@index([slug])
+}
+
+model User {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
+
+  fullName String
+  phone    String
+
+  passwordHash    String?
+  phoneVerifiedAt DateTime?
+
+  role     UserRole @default(STAFF)
+  isActive Boolean  @default(true)
+
+  // Django-inspired extensions for CMS
+  email       String?
+  username    String?
+  isStaff     Boolean @default(false)
+  isSuperuser Boolean @default(false)
+  lastLogin   DateTime?
+
+  // Public profile (Team page / Author)
+  isPublic   Boolean @default(false)
+  publicName String?
+  bio        String? @db.Text
+  avatarUrl  String?
+
+  authorProfile        AuthorProfile?
+  shifts               StaffShift[]
+  reservationsAsStaff  Reservation[] @relation("ReservationStaff")
+  reservationsCreated  Reservation[] @relation("ReservationCreator")
+  canceledReservations Reservation[] @relation("ReservationCanceler")
+
+  // CMS relations
+  uploadedMedias Media[]    @relation("UploadedBy")
+  comments       Comment[]
+  reactions      Reaction[]
+  revisions      Revision[] @relation("EditedBy")
+
+  // join table (explicit)
+  stationSkills StaffStationSkill[]
+  auditLogs     AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Ticket    Ticket[]
+
+  @@unique([gamingCenterId, phone])
+  @@unique([gamingCenterId, username])
+  @@unique([gamingCenterId, email])
+  @@index([gamingCenterId, role])
+  @@index([gamingCenterId, isActive])
+  @@index([gamingCenterId, isPublic])
+}
+
+model AuthorProfile {
+  userId      String  @id
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName String
+  bio         String? @db.Text
+  avatarId    String?
+  avatar      Media?  @relation("AuthorAvatar", fields: [avatarId], references: [id], onDelete: SetNull)
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  posts       Post[]
+}
+
+model CustomerAccount {
+  id       String  @id @default(cuid())
+  phone    String  @unique
+  fullName String?
+
+  phoneVerifiedAt DateTime?
+
+  walletBalance Int @default(0)
+
+  profiles           CustomerProfile[]
+  reservations       Reservation[]
+  ratings            Rating[]
+  walletTransactions WalletTransaction[]
+  auditLogs          AuditLog[]
+  memberships        Membership[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Ticket    Ticket[]
+
+  @@index([phone])
+}
+
+model CustomerProfile {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
+
+  customerAccountId String
+  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+
+  displayName String?
+  note        String?
+
+  reservations Reservation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([gamingCenterId, customerAccountId])
+  @@index([gamingCenterId, displayName])
+  @@index([customerAccountId])
+  @@index([gamingCenterId, createdAt])
+}
+
+model Session {
+  id String @id @default(cuid())
+
+  actorType SessionActorType
+  actorId   String
+
+  tokenHash String    @unique
+  revokedAt DateTime?
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([actorType, actorId, expiresAt])
+}
+
+model PhoneOtp {
+  id String @id @default(cuid())
+
+  phone   String
+  purpose OtpPurpose
+  channel OtpChannel @default(SMS)
+
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int       @default(0)
+
+  ip        String?
+  userAgent String?
+
+  targetActorType SessionActorType?
+  targetActorId   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([phone, purpose, expiresAt])
+  @@index([phone, createdAt])
+  @@index([consumedAt])
+  @@index([targetActorType, targetActorId])
+}
+
+// =======================
+// Media Domain
+// =======================
+
+model Media {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
+
+  type    MediaType    @default(IMAGE)
+  purpose MediaPurpose @default(GALLERY)
+
+  url        String
+  thumbUrl   String?
+  storageKey String?
+  mime       String?
+  width      Int?
+  height     Int?
+  duration   Int?      // in seconds
+  sizeBytes  Int       @default(0)
+
+  // SEO for images
+  altText String?
+  title   String?
+
+  category String?
+  caption  String?
+
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  uploadedById String?
+  uploadedBy   User?    @relation("UploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  authorAvatars    AuthorProfile[] @relation("AuthorAvatar")
+  postCovers       Post[]          @relation("PostCover")
+  postOgImages     Post[]          @relation("PostOgImage")
+  postAttachments  PostMedia[]
+  pageAttachments  PageMedia[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gamingCenterId, purpose, isActive, sortOrder])
+  @@index([gamingCenterId, category])
+}
+
+model PostMedia {
+  id             String   @id @default(cuid())
+  postId         String
+  post           Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  mediaId        String
+  media          Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  attachmentType String   @default("in-content") // e.g., 'in-content', 'cover', 'og-image'
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([postId, mediaId, attachmentType])
+}
+
+// =======================
+// CMS / Blog Domain
+// =======================
+
+model Category {
+  id              String        @id @default(cuid())
+  gamingCenterId  String
+  gamingCenter    GamingCenter  @relation(fields: [gamingCenterId], references: [id])
+  slug            String
+  name            String
+  parentId        String?
+  parent          Category?     @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children        Category[]    @relation("CategoryHierarchy")
+  description     String?       @db.Text
+  order           Int           @default(0)
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  posts           Post[]
+
+  @@unique([gamingCenterId, slug])
+  @@index([gamingCenterId, slug])
+}
+
+model Tag {
+  id              String    @id @default(cuid())
+  gamingCenterId  String
+  gamingCenter    GamingCenter @relation(fields: [gamingCenterId], references: [id])
+  slug            String
+  name            String
+  description     String?   @db.Text
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  posts           PostTag[]
+
+  @@unique([gamingCenterId, slug])
+  @@index([gamingCenterId, slug])
+}
+
+model Series {
+  id              String              @id @default(cuid())
+  gamingCenterId  String
+  gamingCenter    GamingCenter        @relation(fields: [gamingCenterId], references: [id])
+  slug            String
+  title           String
+  description     String?             @db.Text
+  orderStrategy   SeriesOrderStrategy @default(MANUAL)
+  isActive        Boolean             @default(true)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  posts           Post[]
+
+  @@unique([gamingCenterId, slug])
+  @@index([gamingCenterId, slug])
+}
+
+model Post {
+  id              String         @id @default(cuid())
+  gamingCenterId  String
+  gamingCenter    GamingCenter   @relation(fields: [gamingCenterId], references: [id])
+  slug            String
+  canonicalUrl    String?
+  title           String
+  excerpt         String         @db.Text
+  isHot           Boolean        @default(false)
+  content         String         @db.Text // CKEditor HTML
+  readingTimeSec  Int            @default(0)
+  status          PageStatus     @default(DRAFT)
+  visibility      PostVisibility @default(PUBLIC)
+  publishedAt     DateTime?
+  scheduledAt     DateTime?
+  viewsCount      Int            @default(0)
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  authorId        String
+  author          AuthorProfile  @relation(fields: [authorId], references: [userId], onDelete: Cascade)
+  categoryId      String?
+  category        Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  seriesId        String?
+  series          Series?        @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+
+  coverMediaId    String?
+  coverMedia      Media?         @relation("PostCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
+
+  ogImageId       String?
+  ogImage         Media?         @relation("PostOgImage", fields: [ogImageId], references: [id], onDelete: SetNull)
+
+  seoTitle        String?
+  seoDescription  String?        @db.Text
+
+  tags            PostTag[]
+  revisions       Revision[]
+  mediaAttachments PostMedia[]
+  comments        Comment[]
+
+  @@unique([gamingCenterId, slug])
+  @@index([gamingCenterId, status])
+  @@index([authorId])
+}
+
+model PostTag {
+  postId    String
+  tagId     String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+}
+
+model Revision {
+  id         String   @id @default(cuid())
+  postId     String
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  editorId   String?
+  editor     User?    @relation("EditedBy", fields: [editorId], references: [id], onDelete: SetNull)
+  content    String   @db.Text
+  title      String
+  excerpt    String   @db.Text
+  changeNote String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Comment {
+  id              String        @id @default(cuid())
+  gamingCenterId  String
+  gamingCenter    GamingCenter  @relation(fields: [gamingCenterId], references: [id])
+  postId          String
+  post            Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId          String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      Comment?      @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     Comment[]     @relation("CommentReplies")
+  rootId      String?
+  depth       Int           @default(0)
+  isPinned    Boolean       @default(false)
+  flagCount   Int           @default(0)
+  content     String        @db.Text
+  status      CommentStatus @default(PENDING)
+  ip          String?
+  userAgent   String?
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([gamingCenterId, postId, status, isActive])
+  @@index([rootId, status, isActive])
+  @@index([userId, createdAt])
+}
+
+model Reaction {
+  id              String   @id @default(cuid())
+  gamingCenterId  String
+  gamingCenter    GamingCenter @relation(fields: [gamingCenterId], references: [id])
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            ReactionType
+
+  // Polymorphic relation simulation (Generic Foreign Key)
+  contentType String   // e.g., 'post', 'comment'
+  objectId    String
+
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, contentType, objectId])
+  @@index([contentType, objectId])
+  @@index([gamingCenterId])
+}
+
+model ReactionAggregate {
+  id              String   @id @default(cuid())
+  gamingCenterId  String
+  gamingCenter    GamingCenter @relation(fields: [gamingCenterId], references: [id])
+  contentType     String   // e.g., 'post', 'comment'
+  objectId        String
+  type            ReactionType
+  count           Int      @default(0)
+
+  updatedAt       DateTime @updatedAt
+
+  @@unique([contentType, objectId, type])
+  @@index([gamingCenterId])
+  @@index([contentType, objectId])
+}
+
+model Menu {
+  id              String       @id @default(cuid())
+  gamingCenterId  String
+  gamingCenter    GamingCenter @relation(fields: [gamingCenterId], references: [id])
+  name            String
+  location        MenuLocation
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  items           MenuItem[]
+
+  @@unique([gamingCenterId, location])
+}
+
+model MenuItem {
+  id     String @id @default(cuid())
+  menuId String
+  menu   Menu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  parentId String?
+  parent   MenuItem?  @relation("MenuItemHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children MenuItem[] @relation("MenuItemHierarchy")
+
+  label       String
+  url         String
+  order       Int        @default(0)
+  targetBlank Boolean    @default(false)
+  isActive    Boolean    @default(true)
+
+  targetType MenuItemTargetType       @default(URL)
+  targetId   String?
+  visibility NavigationVisibilityRule @default(PUBLIC)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Site Settings & Pages (Merged/Unified)
+
+model SiteSettings {
+  id String @id @default(cuid())
+
+  gamingCenterId String       @unique
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
+
+  logoUrl    String?
+  faviconUrl String?
+
+  defaultSeoTitle       String?
+  defaultSeoDescription String?
+  defaultOgImageUrl     String?
+
+  googleSiteVerification String?
+  analyticsTag           String?
+
+  robotsIndex  RobotsIndex  @default(INDEX)
+  robotsFollow RobotsFollow @default(FOLLOW)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Page {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
+
+  slug     String
+  fullPath String
+  title    String
+  type     PageType @default(CUSTOM)
+
+  parentId String?
+  parent   Page?   @relation("PageHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Page[]  @relation("PageHierarchy")
+  depth    Int     @default(0)
+
+  status      PageStatus @default(DRAFT)
+  publishedAt DateTime?  @db.Timestamptz(6)
+  scheduledAt DateTime?  @db.Timestamptz(6)
+  isActive    Boolean    @default(true)
+
+  // Django-inspired addition
+  content String? @db.Text // CKEditor HTML (optional, if sections are not used)
+
+  // SEO per-page
+  seoTitle       String?
+  seoDescription String?
+  canonicalPath  String?
+  ogTitle        String?
+  ogDescription  String?
+  ogImageUrl     String?
+
+  robotsIndex  RobotsIndex  @default(INDEX)
+  robotsFollow RobotsFollow @default(FOLLOW)
+
+  structuredDataJson String?
+
+  sections    PageSection[]
+  slugHistory PageSlugHistory[]
+  media       PageMedia[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([gamingCenterId, slug])
+  @@unique([gamingCenterId, fullPath])
+  @@index([gamingCenterId, status])
+  @@index([gamingCenterId, type])
+  @@index([gamingCenterId, publishedAt])
+  @@index([fullPath])
+}
+
+model PageSection {
+  id String @id @default(cuid())
+
+  pageId String
+  page   Page   @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  type     PageSectionType
+  dataJson String // block config JSON (NO HTML)
+
+  sortOrder Int     @default(0)
+  isEnabled Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([pageId, sortOrder])
+  @@index([pageId, isEnabled])
+  @@index([pageId, type])
+}
+
+model PageSlugHistory {
+  id String @id @default(cuid())
+
+  pageId String
+  page   Page   @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  oldSlug   String
+  createdAt DateTime @default(now())
+
+  @@index([pageId, createdAt])
+  @@index([oldSlug])
+}
+
+model PageMedia {
+  id             String   @id @default(cuid())
+  pageId         String
+  page           Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  mediaId        String
+  media          Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  attachmentType String   @default("in-content")
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([pageId, mediaId, attachmentType])
+}
+
+model SocialLink {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
+
+  type  LinkType
+  label String?
+  value String
+
+  isPrimary Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gamingCenterId, type])
+  @@index([gamingCenterId, isPrimary])
+  @@index([gamingCenterId, isActive])
+}
+
+model Address {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
+
+  title String?
+
+  province String?
+  city     String
+  district String?
+
+  addressLine String
+  postalCode  String?
+
+  lat Decimal?
+  lng Decimal?
+
+  isPrimary Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gamingCenterId])
+  @@index([gamingCenterId, isPrimary])
+  @@index([province])
+  @@index([city])
+}
+
+// =======================
+// Reservation Domain
+// =======================
+
+model Settings {
+  id String @id @default(cuid())
+
+  gamingCenterId String       @unique
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
+
+  preventOverlaps Boolean @default(true)
+
+  timeZone      String?
+  workStartTime String?
+  workEndTime   String?
+
+  allowOnlineBooking         Boolean @default(false)
+  onlineBookingAutoConfirm   Boolean @default(false)
+  requireOtpForPublicBooking Boolean @default(false)
+
+  maxAdvanceBookingDays    Int   @default(7)
+  cancellationHours        Int   @default(2)
+  noShowPenaltyAmount      Float @default(0)
+  autoReleaseUnpaidMinutes Int   @default(15)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model GameStation {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
+
+  name                 String
+  stationType          GameStationType @default(PC)
+  isVip                Boolean         @default(false)
+  hourlyPrice          Float
+  minRentHours         Int             @default(1)
+  maxRentHours         Int             @default(8)
+  defaultDurationHours Int             @default(1)
+  incrementMinutes     Int             @default(30)
+  isActive             Boolean         @default(true)
+
+  reservations Reservation[]
+  ratings      Rating[]
+
+  // join table (explicit)
+  staffSkills StaffStationSkill[]
+
+  maintenances   StationMaintenance[]
+  gamingSessions GamingSession[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gamingCenterId, isActive])
+  @@index([gamingCenterId, name])
+}
+
+model StaffStationSkill {
+  userId    String
+  stationId String
+
+  skillLevel SkillLevel @default(BASIC)
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  station GameStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@id([userId, stationId])
+  @@index([stationId])
+  @@index([userId])
+}
+
+model StaffShift {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  dayOfWeek Int
+  startTime String
+  endTime   String
+  shiftRole ShiftRole @default(HOST)
+  isActive  Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([gamingCenterId, userId, dayOfWeek])
+  @@index([gamingCenterId, dayOfWeek])
+}
+
+model Reservation {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
+
+  customerProfileId String
+  customerProfile   CustomerProfile @relation(fields: [customerProfileId], references: [id])
+
+  customerAccountId String
+  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id])
+
+  stationId String
+  station   GameStation @relation(fields: [stationId], references: [id])
+
+  staffId String?
+  staff   User?   @relation("ReservationStaff", fields: [staffId], references: [id])
+
+  createdByUserId String
+  createdBy       User   @relation("ReservationCreator", fields: [createdByUserId], references: [id])
+
+  startTime DateTime @db.Timestamptz(6)
+  endTime   DateTime @db.Timestamptz(6)
+
+  // Snapshot
+  stationSnapshot Json
+
+  totalHours     Float
+  totalPrice     Float
+  discountAmount Float                   @default(0)
+  voucherCode    String?
+  paymentState   ReservationPaymentState @default(UNPAID)
+
+  status ReservationStatus @default(CONFIRMED)
+  source ReservationSource @default(WALK_IN)
+  note   String?
+
+  canceledAt       DateTime? @db.Timestamptz(6)
+  cancelReason     String?
+  canceledByUserId String?
+  canceledBy       User?     @relation("ReservationCanceler", fields: [canceledByUserId], references: [id])
+
+  completedAt DateTime? @db.Timestamptz(6)
+  noShowAt    DateTime? @db.Timestamptz(6)
+
+  payments           Payment[]
+  ratings            Rating[]
+  earning            Earning?
+  walletTransactions WalletTransaction[]
+  gamingSessions     GamingSession[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gamingCenterId, startTime])
+  @@index([gamingCenterId, staffId, startTime])
+  @@index([gamingCenterId, status, startTime])
+  @@index([gamingCenterId, staffId, status, startTime, endTime])
+  @@index([customerAccountId, startTime])
+  @@index([customerProfileId, startTime])
+  @@index([gamingCenterId, paymentState, startTime])
+}
+
+model GamingSession {
+  id            String      @id @default(cuid())
+  reservationId String
+  reservation   Reservation @relation(fields: [reservationId], references: [id])
+
+  stationId String
+  station   GameStation @relation(fields: [stationId], references: [id])
+
+  startTime DateTime
+  endTime   DateTime?
+
+  actualHours Float               @default(0)
+  status      GamingSessionStatus @default(ACTIVE)
+
+  pausedAt      DateTime?
+  pausedMinutes Int       @default(0)
+
+  interruptionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StationMaintenance {
+  id        String      @id @default(cuid())
+  stationId String
+  station   GameStation @relation(fields: [stationId], references: [id])
+
+  startTime DateTime
+  endTime   DateTime?
+
+  reason String
+  cost   Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Tournament {
+  id             String       @id @default(cuid())
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
+
+  title       String
+  description String?
+  gameName    String
+
+  startTime DateTime
+  endTime   DateTime?
+
+  prizePool       String?
+  maxParticipants Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =======================
+// Finance Domain
+// =======================
+
+enum PaymentProvider {
+  MANUAL
+  STRIPE
+  ZARINPAL
+}
+
+model Payment {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+
+  reservationId String
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  amount   Int
+  currency String
+
+  provider           PaymentProvider @default(MANUAL)
+  providerPaymentId  String?
+  providerCheckoutId String?
+  status             PaymentStatus   @default(INITIATED)
+  failureReason      String?
+  rawProviderPayload Json?
+  idempotencyKey     String?
+
+  paidAt DateTime? @db.Timestamptz(6)
+
+  method        PaymentMethod @default(ONLINE)
+  referenceCode String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique(fields: [provider, providerPaymentId], name: "provider_payment_id")
+  @@unique(fields: [gamingCenterId, idempotencyKey], name: "idempotency_key")
+  @@index([reservationId, paidAt])
+  @@index([status, paidAt])
+  @@index([gamingCenterId, status, paidAt])
+}
+
+model WalletTransaction {
+  id                String          @id @default(cuid())
+  customerAccountId String
+  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id])
+
+  amount   Int // can be positive (credit) or negative (debit)
+  currency String
+  type     WalletTransactionType
+
+  reservationId String?
+  reservation   Reservation? @relation(fields: [reservationId], references: [id])
+
+  note String?
+
+  createdAt DateTime @default(now())
+
+  @@index([customerAccountId])
+  @@index([reservationId])
+}
+
+model Membership {
+  id                String          @id @default(cuid())
+  customerAccountId String
+  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id])
+
+  type      String // e.g. GOLD, SILVER, VIP
+  expiresAt DateTime?
+
+  benefits Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Commission
+
+model CommissionPolicy {
+  id String @id @default(cuid())
+
+  gamingCenterId String       @unique
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
+
+  type CommissionType @default(PERCENT)
+
+  // PERCENT: basis points (e.g., 250 = 2.5%)
+  percentBps Int?
+
+  // FIXED
+  fixedAmount Int?
+  currency    String?
+
+  // Usually only charge commission for ONLINE bookings
+  applyToOnlineOnly Boolean @default(true)
+
+  // Optional minimum fee
+  minimumFeeAmount Int?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gamingCenterId, isActive])
+}
+
+model Earning {
+  id String @id @default(cuid())
+
+  reservationId String      @unique
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
+
+  status CommissionStatus @default(PENDING)
+
+  // base used to calculate commission
+  baseAmount Int
+  currency   String
+
+  // snapshot of applied policy
+  type        CommissionType
+  percentBps  Int?
+  fixedAmount Int?
+
+  // final commission amount
+  commissionAmount Int
+
+  calculatedAt DateTime? @db.Timestamptz(6)
+  chargedAt    DateTime? @db.Timestamptz(6)
+
+  note String?
+
+  payments EarningPayment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gamingCenterId, status, createdAt])
+  @@index([chargedAt])
+}
+
+model EarningPayment {
+  id String @id @default(cuid())
+
+  earningId String
+  earning   Earning @relation(fields: [earningId], references: [id], onDelete: Cascade)
+
+  amount   Int
+  currency String
+
+  status CommissionPaymentStatus  @default(PENDING)
+  method CommissionPaymentMethod?
+  paidAt DateTime?                @db.Timestamptz(6)
+
+  referenceCode String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([earningId, paidAt])
+  @@index([status, paidAt])
+}
+
+// =======================
+// Audit & Analytics Domain
+// =======================
+
+model Rating {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
+
+  customerAccountId String
+  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id])
+
+  reservationId String
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  stationId String?
+  station   GameStation? @relation(fields: [stationId], references: [id])
+
+  cleanlinessRating Int @default(5)
+  equipmentRating   Int @default(5)
+  staffRating       Int @default(5)
+  priceValueRating  Int @default(5)
+
+  rating  Int
+  comment String?
+
+  status RatingStatus @default(PUBLISHED)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([reservationId, stationId])
+  @@index([gamingCenterId, status, createdAt])
+  @@index([stationId, status, createdAt])
+  @@index([reservationId])
+  @@index([customerAccountId, createdAt])
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  gamingCenterId String?
+  gamingCenter   GamingCenter? @relation(fields: [gamingCenterId], references: [id])
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  customerId String?
+  customer   CustomerAccount? @relation(fields: [customerId], references: [id])
+
+  action   String // e.g., "RESERVATION_CANCEL", "SETTINGS_UPDATE"
+  entity   String // e.g., "Reservation", "Settings"
+  entityId String
+
+  oldData Json?
+  newData Json?
+
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([gamingCenterId, createdAt])
+  @@index([entity, entityId])
+  @@index([userId])
+}
+
+model GamingCenterAnalytics {
+  gamingCenterId String
+  date           DateTime @db.Date
+
+  totalReservations     Int @default(0)
+  completedReservations Int @default(0)
+  canceledReservations  Int @default(0)
+  revenue               Int @default(0)
+  realizedCash          Int @default(0)
+
+  peakHours     Json?
+  occupancyRate Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([gamingCenterId, date])
+}
+
+model StaffAnalytics {
+  gamingCenterId String
+  staffId        String
+  date           DateTime @db.Date
+
+  completedReservations Int @default(0)
+  revenue               Int @default(0)
+  totalRating           Int @default(0)
+  ratingCount           Int @default(0)
+
+  reservationsHandled Int   @default(0)
+  cancellationRate    Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([gamingCenterId, staffId, date])
+}
+
+model StationAnalytics {
+  gamingCenterId String
+  stationId      String
+  date           DateTime @db.Date
+
+  completedReservations Int @default(0)
+  revenue               Int @default(0)
+
+  totalHoursBooked Float @default(0)
+  utilizationRate  Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([gamingCenterId, stationId, date])
+}
+
+model Ticket {
+  id String @id @default(cuid())
+
+  customerAccountId String
+  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id])
+
+  assignedToUserId String?
+  assignedTo       User?   @relation(fields: [assignedToUserId], references: [id])
+
+  subject  String
+  status   TicketStatus   @default(OPEN)
+  priority TicketPriority @default(MEDIUM)
+  category TicketCategory
+
+  messages TicketMessage[]
+
+  closedAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([customerAccountId])
+  @@index([assignedToUserId])
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+}
+
+model TicketMessage {
+  id String @id @default(cuid())
+
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  senderId   String
+  senderType TicketSenderType
+
+  text       String
+  attachment String?
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+}
