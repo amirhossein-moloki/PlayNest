@@ -104,7 +104,7 @@ export const commentsController = {
 
   async getCommentTree(req: Request, res: Response, next: NextFunction) {
     try {
-      const { gamingCenterId } = req.params;
+      const gamingCenterId = req.gamingCenterId || req.params.gamingCenterId;
       const { postId, page = 1, pageSize = 10 } = req.query;
       if (!postId) {
         throw new AppError('postId is required.', httpStatus.BAD_REQUEST);

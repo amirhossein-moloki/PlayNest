@@ -3,7 +3,7 @@ import httpStatus from 'http-status';
 import { postsRepository } from './posts.repository';
 import { CreatePostInput, UpdatePostInput, CreateSeriesInput, UpdateSeriesInput } from './posts.types';
 import { ListPostsQuery } from './posts.validation';
-import { SessionActorType, PageStatus } from '@prisma/client';
+import { SessionActorType, PageStatus, UserRole } from '@prisma/client';
 import { auditService } from '../../audit/audit.station';
 import { prisma } from '../../../config/prisma';
 import { cmsSyncMediaQueue } from '../../../jobs/queues';
@@ -93,12 +93,25 @@ export const postsStation = {
     id: string,
     gamingCenterId: string,
     data: UpdatePostInput,
-    actor: { id: string; actorType: SessionActorType },
+    actor: { id: string; actorType: SessionActorType; role?: UserRole },
     context?: { ip?: string; userAgent?: string }
   ) {
     const post = await postsRepository.findPostById(id, gamingCenterId);
     if (!post) {
       throw new AppError('Post not found', httpStatus.NOT_FOUND);
+    }
+
+    // Author vs Editor check:
+    // Only Author (owner) can edit their own post.
+    // Editor (SUPERVISOR, MANAGER, ADMIN) can edit any post.
+    const isEditorOrAdmin = actor.role && ([UserRole.SUPERVISOR, UserRole.MANAGER, UserRole.ADMIN] as UserRole[]).includes(actor.role);
+    if (!isEditorOrAdmin && post.authorId !== actor.id) {
+      throw new AppError('Forbidden: You can only edit your own posts.', httpStatus.FORBIDDEN);
+    }
+
+    // Only Editors/Admins can publish posts
+    if (data.status === PageStatus.PUBLISHED && !isEditorOrAdmin) {
+      throw new AppError('Forbidden: Only editors or administrators can publish posts.', httpStatus.FORBIDDEN);
     }
 
     if (data.slug && data.slug !== post.slug) {

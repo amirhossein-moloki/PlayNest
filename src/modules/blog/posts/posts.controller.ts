@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { postsStation } from './posts.station';
 import { createPostSchema, updatePostSchema, createSeriesSchema, updateSeriesSchema, listPostsSchema } from './posts.validation';
 import { CreatePostInput, CreateSeriesInput } from './posts.types';
+import AppError from '../../../common/errors/AppError';
+import httpStatus from 'http-status';
 
 export const postsController = {
   // --- Posts ---
@@ -22,8 +24,14 @@ export const postsController = {
 
   async getAllPosts(req: Request, res: Response, next: NextFunction) {
     try {
-      const { gamingCenterId } = req.params;
+      const gamingCenterId = req.gamingCenterId || req.params.gamingCenterId;
       const validatedQuery = listPostsSchema.parse(req.query);
+
+      // For public requests, we force page status to be PUBLISHED
+      if (!req.actor) {
+        validatedQuery.status = 'PUBLISHED';
+      }
+
       const posts = await postsStation.getAllPosts(gamingCenterId, validatedQuery);
       res.ok(posts);
     } catch (error) {
@@ -33,8 +41,15 @@ export const postsController = {
 
   async getPostById(req: Request, res: Response, next: NextFunction) {
     try {
-      const { gamingCenterId, id } = req.params;
+      const gamingCenterId = req.gamingCenterId || req.params.gamingCenterId;
+      const { id } = req.params;
       const post = await postsStation.getPostById(id, gamingCenterId);
+
+      // Public users can only view published posts
+      if (!req.actor && post.status !== 'PUBLISHED') {
+        throw new AppError('Post not found', httpStatus.NOT_FOUND);
+      }
+
       res.ok(post);
     } catch (error) {
       next(error);
@@ -91,7 +106,7 @@ export const postsController = {
 
   async getAllSeries(req: Request, res: Response, next: NextFunction) {
     try {
-      const { gamingCenterId } = req.params;
+      const gamingCenterId = req.gamingCenterId || req.params.gamingCenterId;
       const series = await postsStation.getAllSeries(gamingCenterId);
       res.ok(series);
     } catch (error) {
@@ -101,7 +116,8 @@ export const postsController = {
 
   async getSeriesById(req: Request, res: Response, next: NextFunction) {
     try {
-      const { gamingCenterId, id } = req.params;
+      const gamingCenterId = req.gamingCenterId || req.params.gamingCenterId;
+      const { id } = req.params;
       const series = await postsStation.getSeriesById(id, gamingCenterId);
       res.ok(series);
     } catch (error) {

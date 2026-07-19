@@ -23,7 +23,7 @@ export const reactionsController = {
 
   async getAggregates(req: Request, res: Response, next: NextFunction) {
     try {
-      const { gamingCenterId } = req.params;
+      const gamingCenterId = req.gamingCenterId || req.params.gamingCenterId;
       const { contentType, objectId } = req.query;
       if (!contentType || !objectId) {
         throw new AppError('contentType and objectId are required.', httpStatus.BAD_REQUEST);

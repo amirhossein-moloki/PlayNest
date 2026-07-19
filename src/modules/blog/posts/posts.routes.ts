@@ -11,10 +11,15 @@ router.use(authMiddleware);
 router.use(tenantGuard);
 
 // Posts
-router.post('/', requireRole([UserRole.ADMIN, UserRole.MANAGER]), postsController.createPost);
+// Authors (STAFF, SUPERVISOR, MANAGER, ADMIN) can create posts.
+router.post('/', requireRole([UserRole.STAFF, UserRole.SUPERVISOR, UserRole.MANAGER, UserRole.ADMIN]), postsController.createPost);
 router.get('/', postsController.getAllPosts);
 router.get('/:id', postsController.getPostById);
-router.patch('/:id', requireRole([UserRole.ADMIN, UserRole.MANAGER]), postsController.updatePost);
+
+// Edit Post: any author can hit this, but posts.station.ts checks if own post or if they are editor
+router.patch('/:id', requireRole([UserRole.STAFF, UserRole.SUPERVISOR, UserRole.MANAGER, UserRole.ADMIN]), postsController.updatePost);
+
+// Delete Post: only ADMIN, MANAGER can delete posts
 router.delete('/:id', requireRole([UserRole.ADMIN, UserRole.MANAGER]), postsController.deletePost);
 
 // Series
