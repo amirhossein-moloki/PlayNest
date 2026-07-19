@@ -91,6 +91,8 @@ enum PageType {
   CUSTOM
   TOURNAMENT
   BLOG
+  LANDING
+  LEGAL
 }
 
 enum PageSectionType {
@@ -163,14 +165,38 @@ enum SeriesOrderStrategy {
 enum CommentStatus {
   PENDING
   APPROVED
-  SPAM
-  REMOVED
+  REJECTED
+  DELETED
+}
+
+enum ReactionType {
+  LIKE
+  LOVE
+  LAUGH
+  WOW
+  SAD
+  ANGRY
 }
 
 enum MenuLocation {
   HEADER
   FOOTER
   SIDEBAR
+}
+
+enum MenuItemTargetType {
+  PAGE
+  POST
+  CATEGORY
+  TAG
+  URL
+}
+
+enum NavigationVisibilityRule {
+  PUBLIC
+  AUTHENTICATED
+  STAFF
+  ADMIN
 }
 
 // ---- Commission ----
@@ -315,6 +341,7 @@ model GamingCenter {
   media        Media[]
   links        SocialLink[]
   addresses    Address[]
+  reactionAggregates ReactionAggregate[]
 
   // Ratings
   ratings Rating[]
@@ -531,6 +558,7 @@ model Media {
   postCovers       Post[]          @relation("PostCover")
   postOgImages     Post[]          @relation("PostOgImage")
   postAttachments  PostMedia[]
+  pageAttachments  PageMedia[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -698,6 +726,10 @@ model Comment {
   parentId    String?
   parent      Comment?      @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies     Comment[]     @relation("CommentReplies")
+  rootId      String?
+  depth       Int           @default(0)
+  isPinned    Boolean       @default(false)
+  flagCount   Int           @default(0)
   content     String        @db.Text
   status      CommentStatus @default(PENDING)
   ip          String?
@@ -705,6 +737,10 @@ model Comment {
   isActive    Boolean       @default(true)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+
+  @@index([gamingCenterId, postId, status, isActive])
+  @@index([rootId, status, isActive])
+  @@index([userId, createdAt])
 }
 
 model Reaction {
@@ -713,7 +749,7 @@ model Reaction {
   gamingCenter    GamingCenter @relation(fields: [gamingCenterId], references: [id])
   userId          String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reaction        String   // e.g., 'like', or emoji code
+  type            ReactionType
 
   // Polymorphic relation simulation (Generic Foreign Key)
   contentType String   // e.g., 'post', 'comment'
@@ -723,7 +759,24 @@ model Reaction {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@unique([userId, contentType, objectId, reaction])
+  @@unique([userId, contentType, objectId])
+  @@index([contentType, objectId])
+  @@index([gamingCenterId])
+}
+
+model ReactionAggregate {
+  id              String   @id @default(cuid())
+  gamingCenterId  String
+  gamingCenter    GamingCenter @relation(fields: [gamingCenterId], references: [id])
+  contentType     String   // e.g., 'post', 'comment'
+  objectId        String
+  type            ReactionType
+  count           Int      @default(0)
+
+  updatedAt       DateTime @updatedAt
+
+  @@unique([contentType, objectId, type])
+  @@index([gamingCenterId])
   @@index([contentType, objectId])
 }
 
@@ -743,19 +796,26 @@ model Menu {
 }
 
 model MenuItem {
-  id          String     @id @default(cuid())
-  menuId      String
-  menu        Menu       @relation(fields: [menuId], references: [id], onDelete: Cascade)
-  parentId    String?
-  parent      MenuItem?  @relation("MenuItemHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children    MenuItem[] @relation("MenuItemHierarchy")
+  id     String @id @default(cuid())
+  menuId String
+  menu   Menu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  parentId String?
+  parent   MenuItem?  @relation("MenuItemHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children MenuItem[] @relation("MenuItemHierarchy")
+
   label       String
   url         String
   order       Int        @default(0)
   targetBlank Boolean    @default(false)
   isActive    Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+
+  targetType MenuItemTargetType       @default(URL)
+  targetId   String?
+  visibility NavigationVisibilityRule @default(PUBLIC)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Site Settings & Pages (Merged/Unified)
@@ -789,15 +849,23 @@ model Page {
   gamingCenterId String
   gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
-  slug  String
-  title String
-  type  PageType @default(CUSTOM)
+  slug     String
+  fullPath String
+  title    String
+  type     PageType @default(CUSTOM)
+
+  parentId String?
+  parent   Page?   @relation("PageHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Page[]  @relation("PageHierarchy")
+  depth    Int     @default(0)
 
   status      PageStatus @default(DRAFT)
   publishedAt DateTime?  @db.Timestamptz(6)
+  scheduledAt DateTime?  @db.Timestamptz(6)
+  isActive    Boolean    @default(true)
 
   // Django-inspired addition
-  content     String?    @db.Text // CKEditor HTML (optional, if sections are not used)
+  content String? @db.Text // CKEditor HTML (optional, if sections are not used)
 
   // SEO per-page
   seoTitle       String?
@@ -814,14 +882,17 @@ model Page {
 
   sections    PageSection[]
   slugHistory PageSlugHistory[]
+  media       PageMedia[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([gamingCenterId, slug])
+  @@unique([gamingCenterId, fullPath])
   @@index([gamingCenterId, status])
   @@index([gamingCenterId, type])
   @@index([gamingCenterId, publishedAt])
+  @@index([fullPath])
 }
 
 model PageSection {
@@ -855,6 +926,20 @@ model PageSlugHistory {
 
   @@index([pageId, createdAt])
   @@index([oldSlug])
+}
+
+model PageMedia {
+  id             String   @id @default(cuid())
+  pageId         String
+  page           Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  mediaId        String
+  media          Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  attachmentType String   @default("in-content")
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([pageId, mediaId, attachmentType])
 }
 
 model SocialLink {
