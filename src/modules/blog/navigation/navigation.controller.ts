@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import httpStatus from 'http-status';
 import { navigationStation } from './navigation.station';
 import { asyncHandler } from '../../../common/middleware/asyncHandler';
