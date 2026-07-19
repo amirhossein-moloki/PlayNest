@@ -22,7 +22,7 @@ export const taxonomyController = {
 
   async getAllCategories(req: Request, res: Response, next: NextFunction) {
     try {
-      const { gamingCenterId } = req.params;
+      const gamingCenterId = req.gamingCenterId || req.params.gamingCenterId;
       const validatedQuery = listTaxonomySchema.parse(req.query);
       const categories = await taxonomyStation.getAllCategories(gamingCenterId, validatedQuery);
       res.ok(categories);
@@ -33,7 +33,8 @@ export const taxonomyController = {
 
   async getCategoryById(req: Request, res: Response, next: NextFunction) {
     try {
-      const { gamingCenterId, id } = req.params;
+      const gamingCenterId = req.gamingCenterId || req.params.gamingCenterId;
+      const { id } = req.params;
       const category = await taxonomyStation.getCategoryById(id, gamingCenterId);
       res.ok(category);
     } catch (error) {
@@ -91,7 +92,7 @@ export const taxonomyController = {
 
   async getAllTags(req: Request, res: Response, next: NextFunction) {
     try {
-      const { gamingCenterId } = req.params;
+      const gamingCenterId = req.gamingCenterId || req.params.gamingCenterId;
       const validatedQuery = listTaxonomySchema.parse(req.query);
       const tags = await taxonomyStation.getAllTags(gamingCenterId, validatedQuery);
       res.ok(tags);
@@ -102,7 +103,8 @@ export const taxonomyController = {
 
   async getTagById(req: Request, res: Response, next: NextFunction) {
     try {
-      const { gamingCenterId, id } = req.params;
+      const gamingCenterId = req.gamingCenterId || req.params.gamingCenterId;
+      const { id } = req.params;
       const tag = await taxonomyStation.getTagById(id, gamingCenterId);
       res.ok(tag);
     } catch (error) {
