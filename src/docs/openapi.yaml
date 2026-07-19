@@ -313,8 +313,6 @@ components:
         pagination:
           type: object
           properties:
-            total:
-              type: integer
             totalItems:
               type: integer
             page:
