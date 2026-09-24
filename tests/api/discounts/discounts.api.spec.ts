@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import request from 'supertest';
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { UserRole, DiscountTargetType, DiscountValueType, SessionActorType } from '@prisma/client';
 import routes from '../../../src/routes';
 import { discountsStation } from '../../../src/modules/discounts/discounts.station';
@@ -9,10 +10,10 @@ import { responseMiddleware } from '../../../src/common/middleware/response';
 
 jest.mock('../../../src/modules/discounts/discounts.station');
 jest.mock('../../../src/common/middleware/auth', () => ({
-  authMiddleware: (req: any, res: any, next: any) => {
+  authMiddleware: (req: Request, _res: Response, next: NextFunction) => {
     const roleHeader = req.headers['x-test-role'] as string;
     const role = roleHeader ? (roleHeader as UserRole) : UserRole.MANAGER;
-    req.actor = {
+    (req as any).actor = {
       id: 'clx0000000000000000000001',
       actorType: SessionActorType.USER,
       role,
@@ -23,8 +24,8 @@ jest.mock('../../../src/common/middleware/auth', () => ({
 }));
 
 jest.mock('../../../src/common/middleware/tenantGuard', () => ({
-  tenantGuard: (req: any, res: any, next: any) => {
-    req.tenant = { gamingCenterId: req.params.gamingCenterId || 'clx0000000000000000000000' };
+  tenantGuard: (req: Request, _res: Response, next: NextFunction) => {
+    (req as any).tenant = { gamingCenterId: req.params.gamingCenterId || 'clx0000000000000000000000' };
     next();
   },
 }));
@@ -37,12 +38,9 @@ app.use(responseMiddleware);
 app.use('/api/v1', routes);
 app.use(errorHandler);
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 describe('Discounts API Integration Tests', () => {
   const gamingCenterId = 'clx0000000000000000000000';
   const discountId = 'clx0000000000000000000002';
-  const stationId = 'clx0000000000000000000003';
 
   const sampleDiscount = {
     id: discountId,
