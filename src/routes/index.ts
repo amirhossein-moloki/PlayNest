@@ -44,6 +44,7 @@ import {
 import { blogRouter } from '../modules/blog/blog.routes';
 import { publicBlogRouter } from '../modules/blog/public-blog.routes';
 import notificationsRouter from '../modules/notifications/notifications.routes';
+import { discountsRoutes } from '../modules/discounts/discounts.routes';
 
 const router = Router();
 
@@ -92,6 +93,9 @@ router.use('/gamingCenters/:gamingCenterId/settings', settingsRouter);
 
 // --- Commissions Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/commissions', commissionsRoutes);
+
+// --- Discounts Module Routes ---
+router.use('/gamingCenters/:gamingCenterId/discounts', discountsRoutes);
 
 // --- Audit Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/audit-logs', auditRoutes);

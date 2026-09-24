@@ -494,6 +494,40 @@ components:
           type: string
           format: date-time
 
+    Discount:
+      type: object
+      properties:
+        id:
+          type: string
+        gamingCenterId:
+          type: string
+        targetType:
+          type: string
+          enum: [GAMING_CENTER, STATION]
+        targetId:
+          type: string
+        valueType:
+          type: string
+          enum: [PERCENTAGE, FIXED_AMOUNT]
+        value:
+          type: number
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        isActive:
+          type: boolean
+        createdByUserId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
 paths:
   /health:
     get:
@@ -507,6 +541,276 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+
+  /gamingCenters/{gamingCenterId}/discounts:
+    get:
+      summary: List discounts
+      tags:
+        - Discounts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: gamingCenterId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: targetType
+          in: query
+          schema:
+            type: string
+            enum: [GAMING_CENTER, STATION]
+        - name: targetId
+          in: query
+          schema:
+            type: string
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of discounts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      summary: Create a new discount
+      tags:
+        - Discounts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: gamingCenterId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - targetType
+                - targetId
+                - valueType
+                - value
+                - startAt
+                - endAt
+              properties:
+                targetType:
+                  type: string
+                  enum: [GAMING_CENTER, STATION]
+                targetId:
+                  type: string
+                valueType:
+                  type: string
+                  enum: [PERCENTAGE, FIXED_AMOUNT]
+                value:
+                  type: number
+                startAt:
+                  type: string
+                  format: date-time
+                endAt:
+                  type: string
+                  format: date-time
+                isActive:
+                  type: boolean
+      responses:
+        '201':
+          description: Discount created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /gamingCenters/{gamingCenterId}/discounts/{id}:
+    get:
+      summary: Get discount by ID
+      tags:
+        - Discounts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: gamingCenterId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Discount details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    patch:
+      summary: Update discount details
+      tags:
+        - Discounts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: gamingCenterId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetType:
+                  type: string
+                  enum: [GAMING_CENTER, STATION]
+                targetId:
+                  type: string
+                valueType:
+                  type: string
+                  enum: [PERCENTAGE, FIXED_AMOUNT]
+                value:
+                  type: number
+                startAt:
+                  type: string
+                  format: date-time
+                endAt:
+                  type: string
+                  format: date-time
+                isActive:
+                  type: boolean
+      responses:
+        '200':
+          description: Discount updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    delete:
+      summary: Delete discount
+      tags:
+        - Discounts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: gamingCenterId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Discount deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /gamingCenters/{gamingCenterId}/discounts/{id}/status:
+    patch:
+      summary: Activate or deactivate discount
+      tags:
+        - Discounts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: gamingCenterId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - isActive
+              properties:
+                isActive:
+                  type: boolean
+      responses:
+        '200':
+          description: Discount status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
 
   /notifications:
     get:

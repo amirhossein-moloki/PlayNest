@@ -15,6 +15,7 @@ import { normalizePhone } from '../../common/utils/phone';
 import { AppEvents, eventEmitter } from '../../common/events/event-emitter';
 import { Metrics } from '../../common/metrics/metrics';
 import { ReservationStateMachine } from './reservation.state-machine';
+import { discountsStation } from '../discounts/discounts.station';
 
 import {
   CancelReservationInput,
@@ -105,9 +106,20 @@ export const reservationStation = {
         throw new AppError('GamingCenter not found.', httpStatus.NOT_FOUND);
       }
 
-      // 2. Calculate endTime and create reservation
+      // 2. Calculate endTime, base price, and applicable discount
       const durationHours = station.defaultDurationHours;
       const endTime = addMinutes(startTime, durationHours * 60);
+      const basePrice = durationHours * station.hourlyPrice;
+
+      const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
+        gamingCenterId,
+        stationId,
+        basePrice,
+        startTime,
+        tx
+      );
+
+      const finalPrice = Math.max(0, basePrice - discountAmount);
 
       const reservation = await ReservationRepo.createReservation({
         gamingCenterId,
@@ -126,7 +138,9 @@ export const reservationStation = {
           stationType: station.stationType,
         },
         totalHours: durationHours,
-        totalPrice: durationHours * station.hourlyPrice,
+        totalPrice: finalPrice,
+        discountAmount,
+        discountId: applicableDiscount?.id,
       }, tx);
 
       return { reservation, gamingCenter, customerAccount };
@@ -236,6 +250,17 @@ export const reservationStation = {
           ? ReservationStatus.CONFIRMED
           : ReservationStatus.PENDING;
 
+        const basePrice = durationHours * station.hourlyPrice;
+        const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
+          gamingCenter.id,
+          station.id,
+          basePrice,
+          startTime,
+          tx
+        );
+
+        const finalPrice = Math.max(0, basePrice - discountAmount);
+
         const reservation = await ReservationRepo.createReservation({
           gamingCenterId: gamingCenter.id,
           stationId: station.id,
@@ -254,7 +279,9 @@ export const reservationStation = {
             stationType: station.stationType,
           },
           totalHours: durationHours,
-          totalPrice: durationHours * station.hourlyPrice,
+          totalPrice: finalPrice,
+          discountAmount,
+          discountId: applicableDiscount?.id,
         }, tx);
 
         return { reservation, gamingCenter, customerAccount };
@@ -455,11 +482,23 @@ export const reservationStation = {
           if (stationChanged || data.startTime) {
             updateData.endTime = newEndAt;
             updateData.totalHours = durationHours;
-            // Recalculate totalPrice if station didn't change but startTime did (and we use current snapshot price)
-            if (!stationChanged) {
-              const snapshot = reservation.stationSnapshot as Record<string, unknown>;
-              updateData.totalPrice = durationHours * ((snapshot?.hourlyPrice as number) || 0);
-            }
+
+            const hourlyRate = stationChanged
+              ? effectiveStation!.hourlyPrice
+              : ((reservation.stationSnapshot as Record<string, unknown>)?.hourlyPrice as number) || 0;
+            const basePrice = durationHours * hourlyRate;
+
+            const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
+              gamingCenterId,
+              effectiveStationId,
+              basePrice,
+              newStartAt,
+              tx
+            );
+
+            updateData.discountAmount = discountAmount;
+            updateData.discountId = applicableDiscount?.id || null;
+            updateData.totalPrice = Math.max(0, basePrice - discountAmount);
           }
         }
 
