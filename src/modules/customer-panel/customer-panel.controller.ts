@@ -48,3 +48,43 @@ export const submitMyReview = async (req: AppRequest, res: Response) => {
 
   res.created(rating);
 };
+
+export const getMyProposals = async (req: AppRequest, res: Response) => {
+  const customerAccountId = req.actor.id;
+  const { reservationId } = req.params;
+
+  const proposals = await CustomerPanelStation.getCustomerProposals(
+    reservationId,
+    customerAccountId
+  );
+
+  res.ok(proposals);
+};
+
+export const acceptProposal = async (req: AppRequest, res: Response) => {
+  const customerAccountId = req.actor.id;
+  const { reservationId, proposalId } = req.params;
+
+  const result = await CustomerPanelStation.acceptProposal(
+    reservationId,
+    proposalId,
+    customerAccountId,
+    { ip: req.ip, userAgent: req.headers['user-agent'] }
+  );
+
+  res.ok(result);
+};
+
+export const rejectProposal = async (req: AppRequest, res: Response) => {
+  const customerAccountId = req.actor.id;
+  const { reservationId, proposalId } = req.params;
+
+  const proposal = await CustomerPanelStation.rejectProposal(
+    reservationId,
+    proposalId,
+    customerAccountId,
+    { ip: req.ip, userAgent: req.headers['user-agent'] }
+  );
+
+  res.ok(proposal);
+};

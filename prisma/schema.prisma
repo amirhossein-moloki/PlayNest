@@ -37,6 +37,14 @@ enum ReservationStatus {
   NO_SHOW
 }
 
+enum ReservationProposalStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
 enum ReservationSource {
   ONLINE
   WALK_IN
@@ -394,6 +402,7 @@ model User {
   reservationsAsStaff  Reservation[]  @relation("ReservationStaff")
   reservationsCreated  Reservation[]  @relation("ReservationCreator")
   canceledReservations Reservation[]  @relation("ReservationCanceler")
+  proposalsCreated     ReservationTimeProposal[] @relation("ProposalCreator")
 
   // CMS relations
   uploadedMedias Media[]    @relation("UploadedBy")
@@ -1139,6 +1148,7 @@ model Reservation {
   earning            Earning?
   walletTransactions WalletTransaction[]
   gamingSessions     GamingSession[]
+  proposals          ReservationTimeProposal[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1150,6 +1160,34 @@ model Reservation {
   @@index([customerAccountId, startTime])
   @@index([customerProfileId, startTime])
   @@index([gamingCenterId, paymentState, startTime])
+}
+
+model ReservationTimeProposal {
+  id String @id @default(cuid())
+
+  reservationId String
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  originalStartTime DateTime @db.Timestamptz(6)
+  originalEndTime   DateTime @db.Timestamptz(6)
+
+  proposedStartTime DateTime @db.Timestamptz(6)
+  proposedEndTime   DateTime @db.Timestamptz(6)
+
+  note String? @db.Text
+
+  status ReservationProposalStatus @default(PENDING)
+
+  createdByUserId String
+  createdBy       User   @relation("ProposalCreator", fields: [createdByUserId], references: [id])
+
+  customerRespondedAt DateTime? @db.Timestamptz(6)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reservationId, status])
+  @@index([reservationId, createdAt])
 }
 
 model GamingSession {

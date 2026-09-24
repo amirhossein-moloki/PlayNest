@@ -56,6 +56,33 @@ export const getReservationById = async (
   res.ok(reservation);
 };
 
+export const proposeTime = async (
+  req: AppRequest,
+  res: Response
+) => {
+  const proposal = await reservationStation.proposeTime(
+    req.params.reservationId,
+    req.tenant.gamingCenterId,
+    req.actor.id,
+    req.body,
+    req.actor as { id: string; role: UserRole; actorType: SessionActorType },
+    { ip: req.ip, userAgent: req.headers['user-agent'] }
+  );
+  res.created(proposal);
+};
+
+export const getProposals = async (
+  req: AppRequest,
+  res: Response
+) => {
+  const proposals = await reservationStation.getProposals(
+    req.params.reservationId,
+    req.tenant.gamingCenterId,
+    req.actor as { id: string; role: UserRole }
+  );
+  res.ok(proposals);
+};
+
 export const updateReservation = async (
   req: AppRequest,
   res: Response

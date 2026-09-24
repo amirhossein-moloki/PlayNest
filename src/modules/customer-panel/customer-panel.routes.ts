@@ -8,6 +8,8 @@ import {
   getCustomerReservationSchema,
   customerCancelReservationSchema,
   customerSubmitReviewSchema,
+  proposalActionParamsSchema,
+  listProposalsParamsSchema,
 } from './customer-panel.validators';
 import { privateApiRateLimiter } from '../../common/middleware/rateLimit';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
@@ -33,6 +35,24 @@ router.post(
   '/reservation/:reservationId/ratings',
   validate(customerSubmitReviewSchema),
   asyncHandler<AppRequest>(CustomerPanelController.submitMyReview)
+);
+
+router.get(
+  '/reservation/:reservationId/proposals',
+  validate(listProposalsParamsSchema),
+  asyncHandler<AppRequest>(CustomerPanelController.getMyProposals)
+);
+
+router.post(
+  '/reservation/:reservationId/proposals/:proposalId/accept',
+  validate(proposalActionParamsSchema),
+  asyncHandler<AppRequest>(CustomerPanelController.acceptProposal)
+);
+
+router.post(
+  '/reservation/:reservationId/proposals/:proposalId/reject',
+  validate(proposalActionParamsSchema),
+  asyncHandler<AppRequest>(CustomerPanelController.rejectProposal)
 );
 
 export { router as customerPanelRouter };

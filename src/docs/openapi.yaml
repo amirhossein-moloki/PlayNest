@@ -276,6 +276,44 @@ components:
             stationType:
               type: string
 
+    ReservationTimeProposal:
+      type: object
+      properties:
+        id:
+          type: string
+        reservationId:
+          type: string
+        originalStartTime:
+          type: string
+          format: date-time
+        originalEndTime:
+          type: string
+          format: date-time
+        proposedStartTime:
+          type: string
+          format: date-time
+        proposedEndTime:
+          type: string
+          format: date-time
+        note:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [PENDING, ACCEPTED, REJECTED, EXPIRED, CANCELLED]
+        createdByUserId:
+          type: string
+        customerRespondedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
     Staff:
       type: object
       allOf:
@@ -444,6 +482,76 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
 
+  /gamingCenters/{gamingCenterId}/reservation/{reservationId}/propose-time:
+    post:
+      summary: Propose a new reservation time (Owner/Staff)
+      tags:
+        - Reservation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: gamingCenterId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: reservationId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - startTime
+                - endTime
+              properties:
+                startTime:
+                  type: string
+                  format: date-time
+                endTime:
+                  type: string
+                  format: date-time
+                note:
+                  type: string
+      responses:
+        '201':
+          description: Time proposal created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /gamingCenters/{gamingCenterId}/reservation/{reservationId}/proposals:
+    get:
+      summary: List time proposals for reservation (Owner/Staff)
+      tags:
+        - Reservation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: gamingCenterId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: reservationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of proposals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
   /gamingCenters/{gamingCenterId}/reservations/{reservationId}/sessions/pause:
     post:
       summary: Pause a gaming session for a reservation
@@ -465,6 +573,79 @@ paths:
       responses:
         '200':
           description: Session paused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /customer/reservation/{reservationId}/proposals:
+    get:
+      summary: List my reservation time proposals
+      tags:
+        - Customer Panel
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: reservationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of proposals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /customer/reservation/{reservationId}/proposals/{proposalId}/accept:
+    post:
+      summary: Accept a proposed reservation time
+      tags:
+        - Customer Panel
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: reservationId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: proposalId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Proposal accepted and reservation updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /customer/reservation/{reservationId}/proposals/{proposalId}/reject:
+    post:
+      summary: Reject a proposed reservation time
+      tags:
+        - Customer Panel
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: reservationId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: proposalId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Proposal rejected
           content:
             application/json:
               schema:
