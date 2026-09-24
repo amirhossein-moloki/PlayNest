@@ -744,6 +744,10 @@ export const reservationStation = {
   ) {
     const reservation = await findAndValidateReservation(reservationId, gamingCenterId);
 
+    if (actor.role === UserRole.STAFF && reservation.staffId && reservation.staffId !== actor.id) {
+      throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
+    }
+
     if (ReservationStateMachine.isTerminalState(reservation.status)) {
       throw new AppError('Cannot propose time for a reservation in terminal state', httpStatus.CONFLICT, {
         code: 'INVALID_TRANSITION',
@@ -794,6 +798,7 @@ export const reservationStation = {
       customerId: reservation.customerAccountId,
       gamingCenterId: reservation.gamingCenterId,
       proposalId: proposal.id,
+      proposal,
     });
 
     return proposal;

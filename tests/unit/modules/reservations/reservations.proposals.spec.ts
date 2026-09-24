@@ -111,6 +111,7 @@ describe('Reservation Proposals Workflow', () => {
         customerId: mockReservation.customerAccountId,
         gamingCenterId: mockReservation.gamingCenterId,
         proposalId: mockProposal.id,
+        proposal: mockProposal,
       });
     });
 
@@ -121,6 +122,17 @@ describe('Reservation Proposals Workflow', () => {
       await expect(
         reservationStation.proposeTime(reservationId, gamingCenterId, staffUserId, proposeInput, actor)
       ).rejects.toThrow(AppError);
+    });
+
+    it('should prevent staff from proposing time for another staff member reservation', async () => {
+      const otherStaffReservation = { ...mockReservation, staffId: 'other-staff-999' };
+      MockedReservationRepo.findReservationById.mockResolvedValue(otherStaffReservation as any);
+
+      const staffActor = { id: staffUserId, role: UserRole.STAFF, actorType: SessionActorType.USER };
+
+      await expect(
+        reservationStation.proposeTime(reservationId, gamingCenterId, staffUserId, proposeInput, staffActor)
+      ).rejects.toThrow('Reservation not found.');
     });
   });
 
