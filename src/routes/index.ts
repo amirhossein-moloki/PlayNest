@@ -43,6 +43,7 @@ import {
 } from '../modules/tickets/tickets.routes';
 import { blogRouter } from '../modules/blog/blog.routes';
 import { publicBlogRouter } from '../modules/blog/public-blog.routes';
+import notificationsRouter from '../modules/notifications/notifications.routes';
 
 const router = Router();
 
@@ -94,6 +95,9 @@ router.use('/gamingCenters/:gamingCenterId/commissions', commissionsRoutes);
 
 // --- Audit Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/audit-logs', auditRoutes);
+
+// --- Notifications Module Routes ---
+router.use('/notifications', notificationsRouter);
 
 // --- Customer Panel Routes ---
 router.use('/customer', customerPanelRouter);
