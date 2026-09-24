@@ -6,6 +6,7 @@ import { CustomerPanelRepo } from '../../../../src/modules/customer-panel/custom
 import { ReservationStatus, ReservationProposalStatus, SessionActorType, UserRole } from '@prisma/client';
 import AppError from '../../../../src/common/errors/AppError';
 import { eventEmitter } from '../../../../src/common/events/event-emitter';
+import { discountsStation } from '../../../../src/modules/discounts/discounts.station';
 
 jest.mock('../../../../src/modules/reservation/reservation.repo');
 jest.mock('../../../../src/modules/customer-panel/customer-panel.repo');
@@ -14,10 +15,12 @@ jest.mock('../../../../src/modules/wallet/wallet.station');
 jest.mock('../../../../src/modules/commissions/commissions.station');
 jest.mock('../../../../src/modules/audit/audit.station');
 jest.mock('../../../../src/common/events/event-emitter');
+jest.mock('../../../../src/modules/discounts/discounts.station');
 
 const MockedReservationRepo = ReservationRepo as jest.Mocked<typeof ReservationRepo>;
 const MockedCustomerPanelRepo = CustomerPanelRepo as jest.Mocked<typeof CustomerPanelRepo>;
 const MockedEventEmitter = eventEmitter as jest.Mocked<typeof eventEmitter>;
+const MockedDiscountsStation = discountsStation as jest.Mocked<typeof discountsStation>;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -66,6 +69,7 @@ describe('Reservation Proposals Workflow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     MockedReservationRepo.transaction.mockImplementation(async (fn) => fn({} as any));
+    MockedDiscountsStation.calculateApplicableDiscount.mockResolvedValue({ applicableDiscount: null, discountAmount: 0 });
   });
 
   describe('Owner/Staff proposeTime', () => {

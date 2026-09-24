@@ -3,12 +3,15 @@ import { reservationStation } from '../../../../src/modules/reservation/reservat
 import { ReservationRepo } from '../../../../src/modules/reservation/reservation.repo';
 import { ReservationStatus, ReservationSource } from '@prisma/client';
 import { eventEmitter, AppEvents } from '../../../../src/common/events/event-emitter';
+import { discountsStation } from '../../../../src/modules/discounts/discounts.station';
 
 jest.mock('../../../../src/modules/reservation/reservation.repo');
+jest.mock('../../../../src/modules/discounts/discounts.station');
 jest.mock('../../../../src/common/events/event-emitter');
 
 const MockedReservationRepo = ReservationRepo as jest.Mocked<typeof ReservationRepo>;
 const MockedEventEmitter = eventEmitter as jest.Mocked<typeof eventEmitter>;
+const MockedDiscountsStation = discountsStation as jest.Mocked<typeof discountsStation>;
 
 describe('Reservation Creation Integration (Mocked Repo)', () => {
   const gamingCenterId = 'gc-1';
@@ -22,6 +25,7 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
     MockedReservationRepo.transaction.mockImplementation(async (cb: /* eslint-disable-line @typescript-eslint/no-explicit-any */ any) => {
       return cb({});
     });
+    MockedDiscountsStation.calculateApplicableDiscount.mockResolvedValue({ applicableDiscount: null, discountAmount: 0 });
   });
 
   describe('createReservation (Internal/Staff)', () => {

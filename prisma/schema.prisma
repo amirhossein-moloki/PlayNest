@@ -313,6 +313,16 @@ enum NotificationType {
   RESERVATION_TIME_PROPOSED
 }
 
+enum DiscountTargetType {
+  GAMING_CENTER
+  STATION
+}
+
+enum DiscountValueType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
 // =======================
 // Identity Domain
 // =======================
@@ -366,6 +376,7 @@ model GamingCenter {
   commissionPolicy CommissionPolicy?
   earnings         Earning[]
   auditLogs        AuditLog[]
+  discounts        Discount[]
 
   // New features
   tournaments Tournament[]
@@ -411,6 +422,7 @@ model User {
   reservationsCreated  Reservation[]  @relation("ReservationCreator")
   canceledReservations Reservation[]  @relation("ReservationCanceler")
   proposalsCreated     ReservationTimeProposal[] @relation("ProposalCreator")
+  discountsCreated     Discount[]     @relation("DiscountCreator")
 
   // CMS relations
   uploadedMedias Media[]    @relation("UploadedBy")
@@ -1138,6 +1150,8 @@ model Reservation {
   totalPrice     Float
   discountAmount Float                   @default(0)
   voucherCode    String?
+  discountId     String?
+  discount       Discount?               @relation(fields: [discountId], references: [id], onDelete: SetNull)
   paymentState   ReservationPaymentState @default(UNPAID)
 
   status ReservationStatus @default(CONFIRMED)
@@ -1573,6 +1587,34 @@ model Ticket {
   @@index([status])
   @@index([priority])
   @@index([category])
+}
+
+model Discount {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+
+  targetType DiscountTargetType
+  targetId   String
+
+  valueType DiscountValueType
+  value     Float
+
+  startAt  DateTime @db.Timestamptz(6)
+  endAt    DateTime @db.Timestamptz(6)
+  isActive Boolean  @default(true)
+
+  createdByUserId String
+  createdBy       User   @relation("DiscountCreator", fields: [createdByUserId], references: [id])
+
+  reservations Reservation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gamingCenterId, isActive, startAt, endAt])
+  @@index([gamingCenterId, targetType, targetId])
 }
 
 model TicketMessage {

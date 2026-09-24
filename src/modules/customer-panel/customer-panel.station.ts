@@ -12,6 +12,7 @@ import * as reviewsRepo from '../ratings/ratings.repo';
 import { ReservationStateMachine } from '../reservation/reservation.state-machine';
 import { ReservationRepo } from '../reservation/reservation.repo';
 import { getZonedStartAndEnd } from '../../common/utils/date';
+import { discountsStation } from '../discounts/discounts.station';
 
 export const CustomerPanelStation = {
   async getProfile(customerAccountId: string) {
@@ -221,7 +222,17 @@ export const CustomerPanelStation = {
       const durationHours = (proposal.proposedEndTime.getTime() - proposal.proposedStartTime.getTime()) / (1000 * 60 * 60);
       const station = await ReservationRepo.findStation(reservation.stationId, reservation.gamingCenterId, undefined, tx);
       const hourlyPrice = station?.hourlyPrice ?? ((reservation.stationSnapshot as Record<string, unknown>)?.hourlyPrice as number) ?? 0;
-      const totalPrice = durationHours * hourlyPrice;
+      const basePrice = durationHours * hourlyPrice;
+
+      const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
+        reservation.gamingCenterId,
+        reservation.stationId,
+        basePrice,
+        proposal.proposedStartTime,
+        tx
+      );
+
+      const finalPrice = Math.max(0, basePrice - discountAmount);
 
       const updatedReservation = await ReservationRepo.updateReservation(
         reservationId,
@@ -230,7 +241,9 @@ export const CustomerPanelStation = {
           startTime: proposal.proposedStartTime,
           endTime: proposal.proposedEndTime,
           totalHours: durationHours,
-          totalPrice,
+          totalPrice: finalPrice,
+          discountAmount,
+          discountId: applicableDiscount?.id || null,
         },
         tx
       );
