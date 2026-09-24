@@ -91,6 +91,7 @@ const EnvSchema = z.object({
   SMSIR_RESERVATION_CONFIRMED_TEMPLATE_ID: z.coerce.number().optional(),
   SMSIR_RESERVATION_PENDING_TEMPLATE_ID: z.coerce.number().optional(),
   SMSIR_RESERVATION_CANCELED_TEMPLATE_ID: z.coerce.number().optional(),
+  SMSIR_OWNER_RESERVATION_CREATED_TEMPLATE_ID: z.coerce.number().optional(),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
