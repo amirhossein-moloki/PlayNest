@@ -32,6 +32,19 @@ export const customerSubmitReviewSchema = z.object({
   }),
 });
 
+export const proposalActionParamsSchema = z.object({
+  params: z.object({
+    reservationId: z.string().cuid(CUID_MESSAGE),
+    proposalId: z.string().cuid(CUID_MESSAGE),
+  }),
+});
+
+export const listProposalsParamsSchema = z.object({
+  params: z.object({
+    reservationId: z.string().cuid(CUID_MESSAGE),
+  }),
+});
+
 export type GetCustomerReservationQuery = z.infer<typeof getCustomerReservationSchema>['query'];
 export type CustomerCancelReservationInput = z.infer<typeof customerCancelReservationSchema>['body'];
 export type CustomerSubmitReviewInput = z.infer<typeof customerSubmitReviewSchema>['body'];

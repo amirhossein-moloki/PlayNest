@@ -6,6 +6,8 @@ import {
   updateReservationSchema,
   cancelReservationSchema,
   listReservationQuerySchema,
+  proposeTimeSchema,
+  listProposalsParamsSchema,
 } from './reservation.dto';
 import { authMiddleware } from '../../common/middleware/auth';
 import { requireRole } from '../../common/middleware/requireRole';
@@ -97,6 +99,22 @@ router.post(
   requireRole(M_R),
   validate(idParamSchema('reservationId')),
   asyncHandler<AppRequest>(reservationController.markAsNoShow)
+);
+
+// 10. Propose Time
+router.post(
+  '/:reservationId/propose-time',
+  requireRole(M_R_S),
+  validate(proposeTimeSchema),
+  asyncHandler<AppRequest>(reservationController.proposeTime)
+);
+
+// 11. List Proposals
+router.get(
+  '/:reservationId/proposals',
+  requireRole(M_R_S),
+  validate(listProposalsParamsSchema),
+  asyncHandler<AppRequest>(reservationController.getProposals)
 );
 
 export default router;

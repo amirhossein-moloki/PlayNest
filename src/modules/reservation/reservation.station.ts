@@ -1,7 +1,7 @@
 
 import { addMinutes, isBefore } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { Reservation, ReservationSource, ReservationStatus, Prisma, SessionActorType, UserRole, OtpPurpose } from '@prisma/client';
+import { Reservation, ReservationSource, ReservationStatus, ReservationProposalStatus, Prisma, SessionActorType, UserRole, OtpPurpose } from '@prisma/client';
 import { ReservationRepo } from './reservation.repo';
 import { AuthRepository } from '../auth/auth.repository';
 import AppError from '../../common/errors/AppError';
@@ -21,6 +21,7 @@ import {
   CreateReservationInput,
   CreatePublicReservationInput,
   ListReservationQuery,
+  ProposeTimeInput,
   UpdateReservationInput,
 } from './reservation.dto';
 
@@ -692,5 +693,84 @@ export const reservationStation = {
     eventEmitter.emit(AppEvents.RESERVATION_NOSHOW, { reservation: updatedReservation });
 
     return updatedReservation;
+  },
+
+  async proposeTime(
+    reservationId: string,
+    gamingCenterId: string,
+    createdByUserId: string,
+    data: ProposeTimeInput,
+    actor: { id: string; role: UserRole; actorType: SessionActorType },
+    context?: { ip?: string; userAgent?: string }
+  ) {
+    const reservation = await findAndValidateReservation(reservationId, gamingCenterId);
+
+    if (ReservationStateMachine.isTerminalState(reservation.status)) {
+      throw new AppError('Cannot propose time for a reservation in terminal state', httpStatus.CONFLICT, {
+        code: 'INVALID_TRANSITION',
+      });
+    }
+
+    const proposedStartTime = new Date(data.startTime);
+    const proposedEndTime = new Date(data.endTime);
+
+    if (isBefore(proposedStartTime, new Date())) {
+      throw new AppError('Proposed start time must be in the future.', httpStatus.BAD_REQUEST, {
+        code: 'RESERVATION_START_TIME_IN_PAST',
+      });
+    }
+
+    const proposal = await ReservationRepo.transaction(async (tx) => {
+      // Cancel any existing PENDING proposal for this reservation
+      await ReservationRepo.cancelPendingProposals(reservationId, tx);
+
+      const created = await ReservationRepo.createTimeProposal(
+        {
+          reservationId,
+          originalStartTime: reservation.startTime,
+          originalEndTime: reservation.endTime,
+          proposedStartTime,
+          proposedEndTime,
+          note: data.note,
+          status: ReservationProposalStatus.PENDING,
+          createdByUserId,
+        },
+        tx
+      );
+
+      await auditService.log(
+        gamingCenterId,
+        actor,
+        'RESERVATION_TIME_PROPOSED',
+        { name: 'ReservationTimeProposal', id: created.id },
+        { new: created },
+        context
+      );
+
+      return created;
+    });
+
+    eventEmitter.emit(AppEvents.RESERVATION_TIME_PROPOSED, {
+      reservationId: reservation.id,
+      customerId: reservation.customerAccountId,
+      gamingCenterId: reservation.gamingCenterId,
+      proposalId: proposal.id,
+    });
+
+    return proposal;
+  },
+
+  async getProposals(
+    reservationId: string,
+    gamingCenterId: string,
+    actor: { id: string; role: UserRole }
+  ) {
+    const reservation = await findAndValidateReservation(reservationId, gamingCenterId);
+
+    if (actor.role === UserRole.STAFF && reservation.staffId !== actor.id) {
+      throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
+    }
+
+    return ReservationRepo.listProposalsByReservationId(reservationId);
   },
 };

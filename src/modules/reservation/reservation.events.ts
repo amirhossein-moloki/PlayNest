@@ -67,4 +67,9 @@ export const initReservationEvents = () => {
   eventEmitter.on(AppEvents.RESERVATION_NOSHOW, async ({ reservation }) => {
     queueAnalyticsSync({ type: 'RESERVATION', entityId: reservation.id }).catch(console.error);
   });
+
+  eventEmitter.on(AppEvents.RESERVATION_TIME_PROPOSED, async ({ reservationId }) => {
+    // Domain event triggered for future notification integration
+    queueAnalyticsSync({ type: 'RESERVATION', entityId: reservationId }).catch(console.error);
+  });
 };

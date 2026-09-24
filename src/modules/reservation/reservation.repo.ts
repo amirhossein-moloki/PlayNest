@@ -1,4 +1,4 @@
-import { Prisma, ReservationStatus } from '@prisma/client';
+import { Prisma, ReservationProposalStatus, ReservationStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
 export const ReservationRepo = {
@@ -146,6 +146,72 @@ export const ReservationRepo = {
     const client = tx || prisma;
     return client.settings.findUnique({
       where: { gamingCenterId },
+    });
+  },
+
+  async createTimeProposal(data: Prisma.ReservationTimeProposalUncheckedCreateInput, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.reservationTimeProposal.create({ data });
+  },
+
+  async findProposalById(id: string, reservationId?: string, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.reservationTimeProposal.findFirst({
+      where: {
+        id,
+        ...(reservationId ? { reservationId } : {}),
+      },
+    });
+  },
+
+  async findPendingProposalByReservationId(reservationId: string, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.reservationTimeProposal.findFirst({
+      where: {
+        reservationId,
+        status: ReservationProposalStatus.PENDING,
+      },
+    });
+  },
+
+  async updateProposalStatus(id: string, status: ReservationProposalStatus, customerRespondedAt?: Date, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.reservationTimeProposal.update({
+      where: { id },
+      data: {
+        status,
+        ...(customerRespondedAt !== undefined ? { customerRespondedAt } : {}),
+      },
+    });
+  },
+
+  async listProposalsByReservationId(reservationId: string, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.reservationTimeProposal.findMany({
+      where: { reservationId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            fullName: true,
+            role: true,
+          },
+        },
+      },
+    });
+  },
+
+  async cancelPendingProposals(reservationId: string, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.reservationTimeProposal.updateMany({
+      where: {
+        reservationId,
+        status: ReservationProposalStatus.PENDING,
+      },
+      data: {
+        status: ReservationProposalStatus.CANCELLED,
+      },
     });
   },
 

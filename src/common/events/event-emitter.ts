@@ -9,6 +9,7 @@ export enum AppEvents {
   RESERVATION_CANCELED = 'reservation.canceled',
   RESERVATION_COMPLETED = 'reservation.completed',
   RESERVATION_NOSHOW = 'reservation.noshow',
+  RESERVATION_TIME_PROPOSED = 'reservation.time_proposed',
   PAYMENT_SUCCESS = 'payment.success',
   REVIEW_CREATED = 'rating.created',
 

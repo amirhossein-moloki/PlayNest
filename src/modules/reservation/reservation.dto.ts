@@ -45,6 +45,33 @@ export const cancelReservationSchema = z.object({
   }),
 });
 
+export const proposeTimeSchema = z.object({
+  params: z.object({
+    reservationId: z.string().cuid(CUID_MESSAGE),
+  }),
+  body: z.object({
+    startTime: z.string().datetime(),
+    endTime: z.string().datetime(),
+    note: z.string().max(500).optional(),
+  }).refine((data) => new Date(data.endTime) > new Date(data.startTime), {
+    message: 'endTime must be after startTime',
+    path: ['endTime'],
+  }),
+});
+
+export const proposalActionParamsSchema = z.object({
+  params: z.object({
+    reservationId: z.string().cuid(CUID_MESSAGE),
+    proposalId: z.string().cuid(CUID_MESSAGE),
+  }),
+});
+
+export const listProposalsParamsSchema = z.object({
+  params: z.object({
+    reservationId: z.string().cuid(CUID_MESSAGE),
+  }),
+});
+
 export const listReservationQuerySchema = z.object({
   query: z.object({
     page: z.preprocess(Number, z.number().int().min(1)).optional(),
@@ -89,5 +116,6 @@ export const createPublicReservationSchema = z.object({
 export type CreateReservationInput = z.infer<typeof createReservationSchema>['body'];
 export type UpdateReservationInput = z.infer<typeof updateReservationSchema>['body'];
 export type CancelReservationInput = z.infer<typeof cancelReservationSchema>['body'];
+export type ProposeTimeInput = z.infer<typeof proposeTimeSchema>['body'];
 export type ListReservationQuery = z.infer<typeof listReservationQuerySchema>['query'];
 export type CreatePublicReservationInput = z.infer<typeof createPublicReservationSchema>['body'];
