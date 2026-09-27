@@ -10,8 +10,8 @@ describe('Swagger Documentation API & Security Headers', () => {
 
     const cspHeader = res.headers['content-security-policy'] as string;
     expect(cspHeader).toBeDefined();
-    expect(cspHeader).toContain("script-src 'self' 'unsafe-inline'");
-    expect(cspHeader).toContain("style-src 'self' 'unsafe-inline'");
+    expect(cspHeader).toContain('script-src \'self\' \'unsafe-inline\'');
+    expect(cspHeader).toContain('style-src \'self\' \'unsafe-inline\'');
   });
 
   it('should serve /api-docs/swagger-ui-bundle.js with HTTP 200', async () => {
