@@ -1,4 +1,3 @@
-
 import { set } from 'date-fns';
 import { format as formatTz, fromZonedTime } from 'date-fns-tz';
 
@@ -18,5 +17,9 @@ export const timeToDate = (timeStr: string, date: Date): Date => {
  */
 export const getZonedStartAndEnd = (timeStr: string, date: Date, timeZone: string): Date => {
   const datePart = formatTz(date, 'yyyy-MM-dd', { timeZone });
+  const parts = timeStr.split(':');
+  if (parts.length === 2 && parts[0] === '23' && parts[1] === '59') {
+    return fromZonedTime(`${datePart} 23:59:59.999`, timeZone);
+  }
   return fromZonedTime(`${datePart} ${timeStr}`, timeZone);
 };
