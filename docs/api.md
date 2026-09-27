@@ -20,6 +20,11 @@ This document is generated from route files in `src/routes/index.ts` and `src/mo
 - Scope: Key + GamingCenter + Path.
 - TTL: 24 hours.
 
+### Service-to-Service API Key
+- Header: `x-api-key: <STATIC_API_KEY>`
+- Used to protect API routes (`/api/v1/*`) against unauthorized direct access.
+- Note: This static API key is intended strictly for backend / service-to-service communication and must not be embedded or exposed in frontend client applications. Public docs (`/api-docs`) bypass API key validation.
+
 ## Response Envelope
 
 Most JSON APIs use `responseMiddleware` which wraps responses like:

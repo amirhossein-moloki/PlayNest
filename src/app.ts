@@ -52,13 +52,13 @@ if (env.NODE_ENV !== 'test') {
 }
 
 app.use(responseMiddleware);
-app.use(apiKeyMiddleware);
 
-// Swagger Documentation
+// Swagger Documentation (Public)
 const swaggerDocument = YAML.load(path.join(__dirname, 'docs/openapi.yaml'));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-app.use('/api/v1', routes);
+// API Routes (Protected by API Key middleware)
+app.use('/api/v1', apiKeyMiddleware, routes);
 
 if (env.SENTRY_ENABLED && env.SENTRY_DSN) {
   Sentry.setupExpressErrorHandler(app);
