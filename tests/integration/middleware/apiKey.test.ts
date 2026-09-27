@@ -28,4 +28,10 @@ describe('API Key Middleware', () => {
 
     expect(response.status).not.toBe(httpStatus.UNAUTHORIZED);
   });
+
+  it('should allow access to /api-docs without x-api-key header', async () => {
+    const response = await request(app).get('/api-docs/');
+    // Swagger UI returns 200 or 301/200 when accessing /api-docs/
+    expect([httpStatus.OK, httpStatus.MOVED_PERMANENTLY]).toContain(response.status);
+  });
 });

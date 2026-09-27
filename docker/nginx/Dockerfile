@@ -1,5 +1,8 @@
 FROM nginx:stable-alpine
 
+# Set envsubst filter to only replace explicit app variables (prevents stripping nginx variables like $host, $remote_addr)
+ENV NGINX_ENVSUBST_FILTER="MEDIA_LOCAL_PUBLIC_PATH"
+
 # Remove default configuration
 RUN rm /etc/nginx/conf.d/default.conf
 

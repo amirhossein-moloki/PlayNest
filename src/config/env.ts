@@ -103,12 +103,23 @@ if (!parsed.success) {
   throw new Error('Invalid environment variables');
 }
 
-if (parsed.success && parsed.data.MEDIA_STORAGE_DRIVER === 's3') {
-  if (!parsed.data.MEDIA_S3_BUCKET || !parsed.data.MEDIA_S3_REGION) {
-    throw new Error('MEDIA_S3_BUCKET and MEDIA_S3_REGION are required when MEDIA_STORAGE_DRIVER=s3');
+if (parsed.success) {
+  if (parsed.data.MEDIA_STORAGE_DRIVER === 's3') {
+    if (!parsed.data.MEDIA_S3_BUCKET || !parsed.data.MEDIA_S3_REGION) {
+      throw new Error('MEDIA_S3_BUCKET and MEDIA_S3_REGION are required when MEDIA_STORAGE_DRIVER=s3');
+    }
+    if (!parsed.data.MEDIA_S3_UPLOAD_URL_TEMPLATE) {
+      throw new Error('MEDIA_S3_UPLOAD_URL_TEMPLATE is required when MEDIA_STORAGE_DRIVER=s3');
+    }
   }
-  if (!parsed.data.MEDIA_S3_UPLOAD_URL_TEMPLATE) {
-    throw new Error('MEDIA_S3_UPLOAD_URL_TEMPLATE is required when MEDIA_STORAGE_DRIVER=s3');
+
+  if (
+    parsed.data.NODE_ENV === 'production' &&
+    parsed.data.STATIC_API_KEY === 'generate_a_secure_api_key_at_least_10_chars'
+  ) {
+    throw new Error(
+      'STATIC_API_KEY must be changed from the default placeholder value in production.'
+    );
   }
 }
 

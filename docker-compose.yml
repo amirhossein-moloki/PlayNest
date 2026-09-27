@@ -63,6 +63,7 @@ services:
       - '80:80'
     environment:
       - MEDIA_LOCAL_PUBLIC_PATH=/media
+      - NGINX_ENVSUBST_FILTER=MEDIA_LOCAL_PUBLIC_PATH
     volumes:
       - app_storage:/app/storage:ro
     depends_on:
