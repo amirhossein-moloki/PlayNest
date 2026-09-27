@@ -6,7 +6,8 @@ import { env } from '../../config/env';
 
 const mockMiddleware = (req: Request, res: Response, next: NextFunction) => next();
 
-const store = new RedisStore({
+const createStore = (prefix: string) => new RedisStore({
+  prefix,
   // @ts-expect-error - Known issue with types compatibility between ioredis and rate-limit-redis
   sendCommand: (...args: string[]) => redis.call(...args),
 });
@@ -31,7 +32,8 @@ export const privateApiRateLimiter = env.NODE_ENV === 'test'
     max: 500,
     standardHeaders: true,
     legacyHeaders: false,
-    store,
+    store: createStore('rl:private:'),
+    validate: false,
     message: 'Too many requests for this session, please try again after 15 minutes',
   });
 
@@ -45,8 +47,9 @@ export const publicApiRateLimiter = env.NODE_ENV === 'test'
     max: 100,
     standardHeaders: true,
     legacyHeaders: false,
-    store,
+    store: createStore('rl:public:'),
     keyGenerator: publicApiKeyGenerator,
+    validate: false,
     message: 'Too many requests from this IP for this gamingCenter, please try again after 15 minutes',
   });
 
@@ -60,7 +63,8 @@ export const publicReservationRateLimiter = env.NODE_ENV === 'test'
     max: 10,
     standardHeaders: true,
     legacyHeaders: false,
-    store,
+    store: createStore('rl:res:'),
     keyGenerator: publicApiKeyGenerator,
+    validate: false,
     message: 'Too many reservation attempts from this IP for this gamingCenter, please try again after 15 minutes',
   });

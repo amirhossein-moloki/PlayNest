@@ -42,6 +42,9 @@ RUN npm prune --production
 # Stage 3: Runtime
 FROM node:22-slim AS runtime
 
+RUN groupadd -r appuser && \
+    useradd -r -g appuser -d /app -s /sbin/nologin appuser
+
 WORKDIR /app
 
 # Install runtime system dependencies
@@ -63,7 +66,7 @@ COPY --from=builder /app/scripts ./scripts
 RUN chmod +x scripts/*.sh
 
 # Create storage directory for local media driver
-RUN mkdir -p storage/media && chown -R appuser:appuser storage
+RUN mkdir -p storage/media && chown -R appuser:appuser /app
 
 USER appuser
 
