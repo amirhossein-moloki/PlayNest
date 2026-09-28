@@ -51,7 +51,13 @@ services:
       - REDIS_URL=redis://redis:6379
     volumes:
       - app_storage:/app/storage
-    command: ["sh", "-c", "./scripts/migrate.sh && node dist/server.js"]
+    command: ["./scripts/entrypoint.sh", "node", "dist/server.js"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/v1/health', (r) => { if (r.statusCode === 200) process.exit(0); else process.exit(1); }).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   nginx:
     image: playenest-nginx:latest
@@ -67,7 +73,8 @@ services:
     volumes:
       - app_storage:/app/storage:ro
     depends_on:
-      - app
+      app:
+        condition: service_healthy
 
   backup:
     image: playenest-backup:latest
