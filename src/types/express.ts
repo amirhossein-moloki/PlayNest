@@ -1,6 +1,6 @@
-
 import { SessionActorType, UserRole } from '@prisma/client';
 import { Request } from 'express';
+import { ReqId } from 'pino-http';
 import { ApiMeta } from '../common/utils/response';
 
 export interface RequestActor {
@@ -23,7 +23,7 @@ declare global {
     export interface Request {
       actor?: RequestActor;
       gamingCenterId?: string;
-      id?: string;
+      id: ReqId;
       requestId?: string;
       rawBody?: Buffer;
       tenant?: RequestTenant;
@@ -45,9 +45,10 @@ declare global {
   }
 }
 
-export interface AppRequest extends Request {
-  actor: RequestActor;
-  tenant: RequestTenant;
+export interface AppRequest<P = any, ResBody = any, ReqBody = any, ReqQuery = any, Locals extends Record<string, any> = Record<string, any>>
+  extends Request<P, ResBody, ReqBody, ReqQuery, Locals> {
+  actor?: RequestActor;
+  tenant?: RequestTenant;
   gamingCenterId?: string;
-  id?: string;
+  id: ReqId;
 }
