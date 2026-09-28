@@ -7,6 +7,7 @@ import path from 'path';
 import swaggerUi from 'swagger-ui-express';
 import YAML from 'yamljs';
 import routes from './routes';
+import healthRouter from './routes/health.routes';
 import { errorHandler } from './common/errors/errorHandler';
 import { responseMiddleware } from './common/middleware/response';
 import { apiKeyMiddleware } from './common/middleware/apiKey';
@@ -64,9 +65,23 @@ if (env.NODE_ENV !== 'test') {
 
 app.use(responseMiddleware);
 
-// Swagger Documentation (Public)
-const swaggerDocument = YAML.load(path.join(__dirname, 'docs/openapi.yaml'));
+// Health Check (Public - root level)
+app.use('/health', healthRouter);
+
+// Swagger Documentation & OpenAPI Spec (Public)
+const openapiFilePath = path.join(__dirname, 'docs/openapi.yaml');
+const swaggerDocument = YAML.load(openapiFilePath);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use('/swagger', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
+app.get('/openapi.yaml', (req, res) => {
+  res.sendFile(openapiFilePath);
+});
+
+app.get('/openapi.json', (req, res) => {
+  res.json(swaggerDocument);
+});
 
 // API Routes (Protected by API Key middleware)
 app.use('/api/v1', apiKeyMiddleware, routes);
