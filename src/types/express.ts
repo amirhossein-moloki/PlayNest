@@ -47,8 +47,8 @@ declare global {
 
 export interface AppRequest<P = any, ResBody = any, ReqBody = any, ReqQuery = any, Locals extends Record<string, any> = Record<string, any>>
   extends Request<P, ResBody, ReqBody, ReqQuery, Locals> {
-  actor?: RequestActor;
-  tenant?: RequestTenant;
+  actor: RequestActor;
+  tenant: RequestTenant;
   gamingCenterId?: string;
   id: ReqId;
 }

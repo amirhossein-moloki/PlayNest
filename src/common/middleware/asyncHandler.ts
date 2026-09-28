@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 
-type AsyncFunction<T extends Request = Request> = (
+type AsyncFunction<T = any> = (
   req: T,
   res: Response,
   next: NextFunction
@@ -14,8 +14,8 @@ type AsyncFunction<T extends Request = Request> = (
  * compatibility with router methods (get, post, etc.) while allowing
  * the use of custom request types like AppRequest in controllers.
  */
-export const asyncHandler = <T extends Request = Request>(
+export const asyncHandler = <T = Request>(
   execution: AsyncFunction<T>
 ): RequestHandler => (req: Request, res: Response, next: NextFunction) => {
-    execution(req as T, res, next).catch(next);
+    execution(req as unknown as T, res, next).catch(next);
   };
