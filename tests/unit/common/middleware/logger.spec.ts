@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, jest } from '@jest/globals';
-import express, { Request, Response } from 'express';
+import express, { Request, Response, RequestHandler } from 'express';
 import request from 'supertest';
 
 describe('Logger Middleware', () => {
@@ -18,7 +18,8 @@ describe('Logger Middleware', () => {
   });
 
   it('should process request and attach correlation/request headers without throwing', async () => {
-    const loggerMiddleware = (require('../../../../src/common/middleware/logger') as { default: express.RequestHandler }).default;
+    const loggerModule = await import('../../../../src/common/middleware/logger');
+    const loggerMiddleware: RequestHandler = loggerModule.default;
 
     const app = express();
     app.use(loggerMiddleware);
@@ -33,7 +34,8 @@ describe('Logger Middleware', () => {
   });
 
   it('should reuse existing x-request-id and x-correlation-id if provided', async () => {
-    const loggerMiddleware = (require('../../../../src/common/middleware/logger') as { default: express.RequestHandler }).default;
+    const loggerModule = await import('../../../../src/common/middleware/logger');
+    const loggerMiddleware: RequestHandler = loggerModule.default;
 
     const app = express();
     app.use(loggerMiddleware);
@@ -55,7 +57,8 @@ describe('Logger Middleware', () => {
   });
 
   it('should safely handle 404 and 500 status codes', async () => {
-    const loggerMiddleware = (require('../../../../src/common/middleware/logger') as { default: express.RequestHandler }).default;
+    const loggerModule = await import('../../../../src/common/middleware/logger');
+    const loggerMiddleware: RequestHandler = loggerModule.default;
 
     const app = express();
     app.use(loggerMiddleware);
