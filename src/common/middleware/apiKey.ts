@@ -13,6 +13,25 @@ import { env } from '../../config/env';
  * JWT Bearer Tokens for user/customer session authentication).
  */
 export const apiKeyMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  const path = req.path;
+  const originalUrl = req.originalUrl || '';
+
+  // Public endpoints (health checks, webhooks, openapi specification files) bypass static API key check
+  const isExcluded =
+    path === '/health' ||
+    originalUrl === '/health' ||
+    originalUrl.startsWith('/api/v1/health') ||
+    path.startsWith('/webhooks') ||
+    originalUrl.startsWith('/api/v1/webhooks') ||
+    path === '/openapi.yaml' ||
+    originalUrl === '/openapi.yaml' ||
+    path === '/openapi.json' ||
+    originalUrl === '/openapi.json';
+
+  if (isExcluded) {
+    return next();
+  }
+
   const apiKey = req.headers['x-api-key'];
 
   if (!apiKey || apiKey !== env.STATIC_API_KEY) {
