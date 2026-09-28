@@ -3,7 +3,7 @@ import app from '../../src/app';
 import { describe, it, expect } from '@jest/globals';
 
 describe('Swagger Documentation API & Security Headers', () => {
-  it('should serve /api-docs/ with HTTP 200 and correct Content-Security-Policy allowing unsafe-inline', async () => {
+  it('should serve /api-docs/ with HTTP 200 and correct Content-Security-Policy allowing unsafe-inline and HTTP', async () => {
     const res = await request(app).get('/api-docs/');
     expect(res.status).toBe(200);
     expect(res.text).toContain('swagger-ui');
@@ -12,6 +12,7 @@ describe('Swagger Documentation API & Security Headers', () => {
     expect(cspHeader).toBeDefined();
     expect(cspHeader).toContain('script-src \'self\' \'unsafe-inline\'');
     expect(cspHeader).toContain('style-src \'self\' \'unsafe-inline\'');
+    expect(cspHeader).not.toContain('upgrade-insecure-requests');
   });
 
   it('should serve /api-docs/swagger-ui-bundle.js with HTTP 200', async () => {
