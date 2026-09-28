@@ -21,10 +21,7 @@ const logger = pino({
     };
   },
   transport: isProduction
-    ? {
-      target: 'pino/file',
-      options: { destination: './app.log' },
-    }
+    ? undefined
     : {
       target: 'pino-pretty',
       options: {
