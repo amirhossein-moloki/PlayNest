@@ -8,6 +8,9 @@ import { devUser } from '../credentials.js'
 import { MediaCollection, mediaSlug } from './collections/Media/index.js'
 import { PostsCollection, postsSlug } from './collections/Posts/index.js'
 import { MenuGlobal } from './globals/Menu/index.js'
+import { VenueProfilesCollection } from '../../src/collections/VenueProfiles.js'
+import { ArticlesCollection } from '../../src/collections/Articles.js'
+import { CityLandingPagesCollection } from '../../src/collections/CityLandingPages.js'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -21,7 +24,7 @@ export default buildConfigWithDefaults({
         baseDir: path.resolve(dirname),
       },
     },
-    collections: [PostsCollection, MediaCollection],
+    collections: [PostsCollection, MediaCollection, VenueProfilesCollection, ArticlesCollection, CityLandingPagesCollection],
     editor: lexicalEditor({}),
     globals: [
       // ...add more globals here
