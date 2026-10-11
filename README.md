@@ -1,8 +1,11 @@
 # Playenest | پلتفرم مدیریت و رزرو گیم‌نت
 
-Playenest is a specialized Gamenet Management & Reservation system. It provides a robust API for managing gaming centers, stations (PC, Console, VR), staff shifts, and online/walk-in reservations.
+Playenest is a specialized Gamenet Management & Reservation system. It provides a robust architecture with two backend applications operating on shared infrastructure:
 
-[![Node.js Version](https://img.shields.io/badge/node-18.x-blue.svg)](https://nodejs.org)
+- `sayra/`: Express.js + Prisma reservation backend.
+- `payload/`: Independent Payload CMS backend for blog/content management.
+
+[![Node.js Version](https://img.shields.io/badge/node-22.x-blue.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
 [![Prisma](https://img.shields.io/badge/Prisma-5.x-teal.svg)](https://www.prisma.io/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue.svg)](https://www.postgresql.org/)
@@ -16,131 +19,92 @@ Playenest is a specialized Gamenet Management & Reservation system. It provides 
 - **Reservation Engine**: Real-time availability, preventing overlaps, and support for Online, Walk-in, and Phone bookings.
 - **Staff & Shift Management**: Role-based access control (RBAC) and scheduling for staff members.
 - **Financials & Payments**: Integrated with Zarinpal for online payments, wallet system, and commission tracking.
-- **CMS & SEO**: Built-in site builder to generate public-facing pages for each gaming center.
-- **Analytics**: Detailed reporting on revenue, occupancy, and staff performance.
+- **Independent Payload CMS**: Isolated CMS backend for blog management and content authoring.
+- **Analytics & Notifications**: Detailed reporting on revenue, occupancy, and staff performance, plus SMS/In-App notifications.
 
 ---
 
-## 🛠 Tech Stack | تکنولوژی‌های مورد استفاده
+## 🛠 Tech Stack & Repository Structure
 
-- **Backend**: Node.js, Express, TypeScript
-- **Database**: PostgreSQL (ORM: Prisma)
-- **Caching & Queues**: Redis, BullMQ
-- **Validation**: Zod
-- **Security**: Argon2, JWT, Helmet
-- **Logging**: Pino
-- **Testing**: Jest, Supertest, Playwright
+- **Sayra (`sayra/`)**: Express.js, TypeScript, Prisma ORM, BullMQ, Redis, PostgreSQL.
+- **Payload (`payload/`)**: Payload CMS, Next.js, TypeScript, PostgreSQL.
+- **Infrastructure (`docker/`)**: Shared PostgreSQL 15, Redis, Nginx Reverse Proxy, Restic Backup service.
 
 ---
 
 ## 🚦 Getting Started | راهنمای راه‌اندازی
 
-Follow these steps to get the project running on your local machine.
-
 ### 1. Prerequisites
-- **Node.js** (v18 or higher)
-- **Docker & Docker Compose** (recommended for DB and Redis)
+- **Node.js** (v22 or higher)
+- **Docker & Docker Compose** (recommended for infrastructure services)
+- **pnpm** (for Payload CMS)
 
-### 2. Installation
-```bash
-# Clone the repository
-git clone https://github.com/your-repo/playenest.git
-cd playenest
-
-# Install dependencies
-npm install
-```
-
-### 3. Environment Setup
-Copy the example environment file and update it with your credentials:
+### 2. Environment Setup
+Copy the example environment file and update credentials if necessary:
 ```bash
 cp .env.example .env
 ```
-*(Make sure to update `DATABASE_URL` and `REDIS_URL` if they differ from the defaults).*
 
-### 4. Running with Docker (Recommended)
-The easiest way to start the entire stack (App, DB, and Redis) is using Docker Compose:
+### 3. Running with Docker Compose
+To start all services (`sayra`, `payload`, `db`, `redis`, `nginx`, `backup`):
 ```bash
 docker compose up -d --build
 ```
-This will build the app image, run migrations, and start all services. The API will be available at `http://localhost:3000`.
 
-### 5. Manual Setup (Development)
-If you prefer to run the app locally and only use Docker for infrastructure:
+Services will be accessible via Nginx reverse proxy on port 80:
+- **Sayra Reservation API**: `http://localhost/api/v1/` or `http://localhost/api/reservations/`
+- **Payload Admin Panel**: `http://localhost/admin`
+- **Payload API**: `http://localhost/api/payload/`
+- **Sayra Health Check**: `http://localhost/health`
+- **Sayra Swagger Docs**: `http://localhost/api-docs`
+
+### 4. Local Development
+
+#### Sayra Reservation Backend (`sayra/`):
 ```bash
-# Start DB and Redis
+# Start DB and Redis infrastructure
 docker compose up -d db redis
 
-# Initialize database
-npx prisma migrate dev
+# Navigate to Sayra
+cd sayra
+
+# Install dependencies and setup database
+npm install
 npx prisma generate
-```
+npx prisma migrate dev
 
-For a full guide on how to run the project **without Docker**, see [Local Setup Guide (Persian)](docs/LOCAL_SETUP_GUIDE_FA.md).
-
-### 6. Seeding Data (Optional)
-To populate the database with professional test data:
-```bash
-npm run db:seed
-```
-
-### 7. Running the Application
-```bash
-# Development mode
+# Run development server
 npm run dev
-
-# Production build
-npm run build
-npm start
 ```
 
-The API will be available at `http://localhost:3000/api/v1`.
-Swagger documentation is available at `http://localhost:3000/api-docs`.
+#### Payload CMS Backend (`payload/`):
+```bash
+# Navigate to Payload
+cd payload
+
+# Install dependencies and start dev server
+pnpm install
+pnpm dev
+```
 
 ---
 
 ## 🧪 Testing | تست‌ها
 
-We maintain a high standard of quality with multiple testing layers:
+Run tests in the `sayra/` directory:
 
 ```bash
-# Run all tests
+cd sayra
 npm test
-
-# Run with coverage
 npm run test:cov
-
-# Run E2E tests only
-npm run test:e2e
 ```
 
 ---
 
 ## 📚 Documentation | مستندات
 
-Detailed documentation is available in the `docs/` folder:
-- [Architecture Overview](docs/architecture.md)
-- [API Reference](docs/api.md)
-- [Database Schema](docs/database.md)
-- [Persian API Guide (راهنمای فارسی)](docs/API_GUIDE_FA.md)
+- [NGINX Integration Guide](NGINX_INTEGRATION_GUIDE.md)
+- [Local Setup Guide (Persian)](docs/LOCAL_SETUP_GUIDE_FA.md)
 - [Docker Guide (راهنمای داکر)](docs/DOCKER_GUIDE_FA.md)
 
 ---
-
-## 🇮🇷 راهنمای سریع (Persian Summary)
-
-پروژه **Playenest** یک سیستم جامع مدیریت گیم‌نت است که شامل مدیریت سیستم رزرو، مدیریت ایستگاه‌ها (PC/Console)، مدیریت شیفت کارکنان و درگاه پرداخت است.
-
-**نحوه اجرا:**
-۱. اجرای کل پروژه با داکر: `docker compose up -d --build`
-۲. (اختیاری) اجرای دستی:
-   - نصب پکیج‌ها: `npm install`
-   - تنظیم فایل `.env`: `cp .env.example .env`
-   - اجرای زیرساخت: `docker compose up -d db redis`
-   - بروزرسانی دیتابیس: `npx prisma migrate dev`
-   - اجرای پروژه: `npm run dev`
-
-برای راهنمای کامل اجرای پروژه **بدون داکر**، [اینجا را کلیک کنید](docs/LOCAL_SETUP_GUIDE_FA.md).
-
----
-

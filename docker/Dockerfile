@@ -18,8 +18,8 @@ RUN apt-get update && \
 # Stage 2: Builder
 FROM base AS builder
 
-COPY package*.json ./
-COPY prisma ./prisma/
+COPY sayra/package*.json ./
+COPY sayra/prisma ./prisma/
 
 # Configure npm for resilience
 RUN npm config set fetch-retry-maxtimeout 600000 && \
@@ -31,7 +31,7 @@ RUN --mount=type=cache,target=/root/.npm \
     npm ci && \
     npx prisma generate
 
-COPY . .
+COPY sayra .
 
 # Build the application
 RUN npm run build
@@ -73,5 +73,4 @@ USER appuser
 EXPOSE 3000
 
 # Use wait-for-db script by default in production
-# The actual command will be overridden in docker-compose for flexibility
 CMD ["./scripts/wait-for-db.sh", "db", "node", "dist/server.js"]

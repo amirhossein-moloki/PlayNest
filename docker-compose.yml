@@ -3,15 +3,15 @@ services:
     image: postgres:15
     restart: always
     environment:
-      POSTGRES_USER: playenest-dev
-      POSTGRES_PASSWORD: playenest-dev-password
-      POSTGRES_DB: playenest-db
-    ports:
-      - '5432:5432'
+      POSTGRES_USER: ${POSTGRES_USER:-playenest_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_this_secure_password_in_production}
+      POSTGRES_DB: ${POSTGRES_DB:-playenest_prod}
+      POSTGRES_MULTIPLE_DATABASES: payload_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U playenest-dev -d playenest-db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-playenest_admin} -d ${POSTGRES_DB:-playenest_prod}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -19,8 +19,6 @@ services:
   redis:
     image: redis:alpine
     restart: always
-    ports:
-      - '6379:6379'
     volumes:
       - redis_data:/data
     healthcheck:
@@ -29,8 +27,8 @@ services:
       timeout: 5s
       retries: 5
 
-  app:
-    image: playenest-app:latest
+  sayra:
+    image: playenest-sayra:latest
     build:
       context: .
       dockerfile: docker/Dockerfile
@@ -47,17 +45,44 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:-change_this_secure_password_in_production}@db:5432/${POSTGRES_DB:-playenest_prod}
       - REDIS_URL=redis://redis:6379
     volumes:
       - app_storage:/app/storage
-    command: ["./scripts/entrypoint.sh", "node", "dist/server.js"]
+    command: ["./scripts/wait-for-db.sh", "db", "node", "dist/server.js"]
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/v1/health', (r) => { if (r.statusCode === 200) process.exit(0); else process.exit(1); }).on('error', () => process.exit(1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => { if (r.statusCode === 200) process.exit(0); else process.exit(1); }).on('error', () => process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
+
+  payload:
+    image: playenest-payload:latest
+    build:
+      context: ./payload
+      dockerfile: Dockerfile
+    restart: always
+    expose:
+      - '3000'
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URI=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:-change_this_secure_password_in_production}@db:5432/${PAYLOAD_POSTGRES_DB:-payload_db}
+      - PAYLOAD_SECRET=${PAYLOAD_SECRET:-change_this_payload_secret_in_production}
+    volumes:
+      - payload_media:/app/public/media
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/admin || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   nginx:
     image: playenest-nginx:latest
@@ -72,8 +97,11 @@ services:
       - NGINX_ENVSUBST_FILTER=MEDIA_LOCAL_PUBLIC_PATH
     volumes:
       - app_storage:/app/storage:ro
+      - payload_media:/app/payload_media:ro
     depends_on:
-      app:
+      sayra:
+        condition: service_healthy
+      payload:
         condition: service_healthy
 
   backup:
@@ -110,10 +138,10 @@ services:
       - backup_data:/data
       - .env:/.env:ro
       - ./docker-compose.yml:/project_root/docker-compose.yml:ro
-      - ./package.json:/project_root/package.json:ro
 
 volumes:
   postgres_data:
   redis_data:
   app_storage:
+  payload_media:
   backup_data:
