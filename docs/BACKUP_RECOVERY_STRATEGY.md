@@ -23,7 +23,7 @@ The following critical components are protected:
 
 | Component | Method | Frequency |
 | :--- | :--- | :--- |
-| **PostgreSQL DB** | Logical `pg_dump` + Restic snapshot | Hourly |
+| **PostgreSQL DB** | Logical `pg_dump` of all databases (`playenest_prod`, `payload_db`) + Restic snapshot | Hourly |
 | **Redis Data** | `BGSAVE` + Restic snapshot of `/redis_data` | Daily |
 | **Media & Uploads**| Restic snapshot of `/storage` volume | Daily |
 | **Configuration** | Restic snapshot of `.env` and Project Root | Hourly |

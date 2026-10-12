@@ -9,6 +9,7 @@ services:
       - RUN_SEED=true
       - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:-change_this_secure_password_in_production}@db:5432/${POSTGRES_DB:-playenest_prod}
       - REDIS_URL=redis://redis:6379
+      - POSTGRES_MULTIPLE_DATABASES=${POSTGRES_MULTIPLE_DATABASES:-payload_db}
     volumes:
       - ./sayra:/app
       - /app/node_modules
