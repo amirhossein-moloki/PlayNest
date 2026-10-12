@@ -184,6 +184,7 @@
     "copyfiles": "catalog:",
     "create-payload-app": "workspace:*",
     "cross-env": "catalog:",
+    "payload": "workspace:*",
     "dotenv": "catalog:",
     "drizzle-kit": "0.31.7",
     "drizzle-orm": "0.44.7",

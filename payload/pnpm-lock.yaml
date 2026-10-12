@@ -184,6 +184,9 @@ importers:
       p-limit:
         specifier: ^5.0.0
         version: 5.0.0
+      payload:
+        specifier: workspace:*
+        version: link:packages/payload
       pg:
         specifier: 8.16.3
         version: 8.16.3
