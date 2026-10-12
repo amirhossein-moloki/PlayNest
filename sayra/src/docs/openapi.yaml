@@ -7,18 +7,21 @@ info:
   contact:
     name: Playenest Support
     email: support@playenest.com
-
 servers:
-  - url: /api/v1
-    description: V1 API
-
+- url: /api/v1
+  description: V1 API
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-
+      description: JWT Bearer Token for authenticated user sessions
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: Static API Key required for /api/v1 endpoints
   responses:
     UnauthorizedError:
       description: Access token is missing or invalid
@@ -50,7 +53,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-
   schemas:
     Error:
       type: object
@@ -65,36 +67,35 @@ components:
               type: string
               description: Unique error code for machine handling
               enum:
-                - INTERNAL_ERROR
-                - APP_ERROR
-                - VALIDATION_ERROR
-                - DB_REQUEST_FAILED
-                - NOT_FOUND
-                - CONFLICT
-                - UNAUTHORIZED
-                - FORBIDDEN
-                - SLOT_NOT_AVAILABLE
-                - RESERVATION_OVERLAP
-                - OVERLAP_CONFLICT
-                - RESERVATION_START_TIME_IN_PAST
-                - INVALID_TRANSITION
-                - ONLINE_RESERVATION_DISABLED
-                - IDEMPOTENCY_KEY_REQUIRED
-                - IDEMPOTENCY_KEY_INVALID_LENGTH
-                - IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD
-                - IDEMPOTENCY_REQUEST_IN_PROGRESS
-              example: "VALIDATION_ERROR"
+              - INTERNAL_ERROR
+              - APP_ERROR
+              - VALIDATION_ERROR
+              - DB_REQUEST_FAILED
+              - NOT_FOUND
+              - CONFLICT
+              - UNAUTHORIZED
+              - FORBIDDEN
+              - SLOT_NOT_AVAILABLE
+              - RESERVATION_OVERLAP
+              - OVERLAP_CONFLICT
+              - RESERVATION_START_TIME_IN_PAST
+              - INVALID_TRANSITION
+              - ONLINE_RESERVATION_DISABLED
+              - IDEMPOTENCY_KEY_REQUIRED
+              - IDEMPOTENCY_KEY_INVALID_LENGTH
+              - IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD
+              - IDEMPOTENCY_REQUEST_IN_PROGRESS
+              example: VALIDATION_ERROR
             message:
               type: string
               description: Human-readable error message
-              example: "Invalid request payload."
+              example: Invalid request payload.
             details:
               type: object
               description: Optional additional error details (e.g., validation issues)
               nullable: true
         meta:
           $ref: '#/components/schemas/Meta'
-
     Success:
       type: object
       properties:
@@ -105,7 +106,6 @@ components:
           type: object
         meta:
           $ref: '#/components/schemas/Meta'
-
     AuthResponse:
       type: object
       properties:
@@ -120,7 +120,6 @@ components:
               type: string
             user:
               $ref: '#/components/schemas/User'
-
     User:
       type: object
       properties:
@@ -132,10 +131,15 @@ components:
           type: string
         role:
           type: string
-          enum: [MANAGER, SUPERVISOR, STAFF, TRAINEE, SUPPORT, ADMIN]
+          enum:
+          - MANAGER
+          - SUPERVISOR
+          - STAFF
+          - TRAINEE
+          - SUPPORT
+          - ADMIN
         isActive:
           type: boolean
-
     Ticket:
       type: object
       properties:
@@ -150,13 +154,24 @@ components:
           type: string
         status:
           type: string
-          enum: [OPEN, PENDING, ANSWERED, CLOSED]
+          enum:
+          - OPEN
+          - PENDING
+          - ANSWERED
+          - CLOSED
         priority:
           type: string
-          enum: [LOW, MEDIUM, HIGH]
+          enum:
+          - LOW
+          - MEDIUM
+          - HIGH
         category:
           type: string
-          enum: [TECHNICAL, FINANCIAL, SALES, ACCOUNT]
+          enum:
+          - TECHNICAL
+          - FINANCIAL
+          - SALES
+          - ACCOUNT
         closedAt:
           type: string
           format: date-time
@@ -171,7 +186,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TicketMessage'
-
     TicketMessage:
       type: object
       properties:
@@ -183,7 +197,9 @@ components:
           type: string
         senderType:
           type: string
-          enum: [USER, SUPPORT]
+          enum:
+          - USER
+          - SUPPORT
         text:
           type: string
         attachment:
@@ -192,7 +208,6 @@ components:
         createdAt:
           type: string
           format: date-time
-
     GamingCenter:
       type: object
       properties:
@@ -209,7 +224,6 @@ components:
         createdAt:
           type: string
           format: date-time
-
     GameStation:
       type: object
       properties:
@@ -221,7 +235,12 @@ components:
           type: string
         stationType:
           type: string
-          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+          enum:
+          - PC
+          - PLAYSTATION
+          - XBOX
+          - SWITCH
+          - VR
         isVip:
           type: boolean
         hourlyPrice:
@@ -236,7 +255,6 @@ components:
           type: integer
         isActive:
           type: boolean
-
     Reservation:
       type: object
       properties:
@@ -258,10 +276,24 @@ components:
           format: date-time
         status:
           type: string
-          enum: [PENDING, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELED, NO_SHOW]
+          enum:
+          - PENDING
+          - CONFIRMED
+          - IN_PROGRESS
+          - COMPLETED
+          - CANCELED
+          - NO_SHOW
         paymentState:
           type: string
-          enum: [UNPAID, PENDING, PARTIALLY_PAID, PAID, REFUNDED, OVERPAID, FAILED, CANCELED]
+          enum:
+          - UNPAID
+          - PENDING
+          - PARTIALLY_PAID
+          - PAID
+          - REFUNDED
+          - OVERPAID
+          - FAILED
+          - CANCELED
         totalHours:
           type: number
         totalPrice:
@@ -275,7 +307,6 @@ components:
               type: number
             stationType:
               type: string
-
     ReservationTimeProposal:
       type: object
       properties:
@@ -300,7 +331,12 @@ components:
           nullable: true
         status:
           type: string
-          enum: [PENDING, ACCEPTED, REJECTED, EXPIRED, CANCELLED]
+          enum:
+          - PENDING
+          - ACCEPTED
+          - REJECTED
+          - EXPIRED
+          - CANCELLED
         createdByUserId:
           type: string
         customerRespondedAt:
@@ -313,22 +349,20 @@ components:
         updatedAt:
           type: string
           format: date-time
-
     Staff:
       type: object
       allOf:
-        - $ref: '#/components/schemas/User'
-        - type: object
-          properties:
-            isPublic:
-              type: boolean
-            publicName:
-              type: string
-            bio:
-              type: string
-            avatarUrl:
-              type: string
-
+      - $ref: '#/components/schemas/User'
+      - type: object
+        properties:
+          isPublic:
+            type: boolean
+          publicName:
+            type: string
+          bio:
+            type: string
+          avatarUrl:
+            type: string
     Customer:
       type: object
       properties:
@@ -341,13 +375,12 @@ components:
         phoneVerifiedAt:
           type: string
           format: date-time
-
     Meta:
       type: object
       properties:
         requestId:
           type: string
-          example: "ckv1abc..."
+          example: ckv1abc...
         pagination:
           type: object
           properties:
@@ -363,7 +396,6 @@ components:
               type: integer
             totalPages:
               type: integer
-
     Pagination:
       type: object
       properties:
@@ -376,7 +408,6 @@ components:
             type: object
         meta:
           $ref: '#/components/schemas/Meta'
-
     Settings:
       type: object
       properties:
@@ -396,7 +427,6 @@ components:
           type: boolean
         preventOverlaps:
           type: boolean
-
     SiteSettings:
       type: object
       properties:
@@ -410,11 +440,14 @@ components:
           type: string
         robotsIndex:
           type: string
-          enum: [INDEX, NOINDEX]
+          enum:
+          - INDEX
+          - NOINDEX
         robotsFollow:
           type: string
-          enum: [FOLLOW, NOFOLLOW]
-
+          enum:
+          - FOLLOW
+          - NOFOLLOW
     CommissionPolicy:
       type: object
       properties:
@@ -424,7 +457,9 @@ components:
           type: string
         type:
           type: string
-          enum: [PERCENT, FIXED]
+          enum:
+          - PERCENT
+          - FIXED
         percentBps:
           type: integer
         fixedAmount:
@@ -433,7 +468,6 @@ components:
           type: string
         isActive:
           type: boolean
-
     Earning:
       type: object
       properties:
@@ -445,12 +479,16 @@ components:
           type: string
         status:
           type: string
-          enum: [PENDING, ACCRUED, CHARGED, WAIVED, REFUNDED]
+          enum:
+          - PENDING
+          - ACCRUED
+          - CHARGED
+          - WAIVED
+          - REFUNDED
         commissionAmount:
           type: integer
         currency:
           type: string
-
     Rating:
       type: object
       properties:
@@ -466,8 +504,10 @@ components:
           type: string
         status:
           type: string
-          enum: [PUBLISHED, HIDDEN, DELETED]
-
+          enum:
+          - PUBLISHED
+          - HIDDEN
+          - DELETED
     Notification:
       type: object
       properties:
@@ -477,7 +517,12 @@ components:
           type: string
         type:
           type: string
-          enum: [RESERVATION_CREATED, RESERVATION_CONFIRMED, RESERVATION_REJECTED, RESERVATION_CANCELLED, RESERVATION_TIME_PROPOSED]
+          enum:
+          - RESERVATION_CREATED
+          - RESERVATION_CONFIRMED
+          - RESERVATION_REJECTED
+          - RESERVATION_CANCELLED
+          - RESERVATION_TIME_PROPOSED
         title:
           type: string
         message:
@@ -493,7 +538,6 @@ components:
         updatedAt:
           type: string
           format: date-time
-
     Discount:
       type: object
       properties:
@@ -503,12 +547,16 @@ components:
           type: string
         targetType:
           type: string
-          enum: [GAMING_CENTER, STATION]
+          enum:
+          - GAMING_CENTER
+          - STATION
         targetId:
           type: string
         valueType:
           type: string
-          enum: [PERCENTAGE, FIXED_AMOUNT]
+          enum:
+          - PERCENTAGE
+          - FIXED_AMOUNT
         value:
           type: number
         startAt:
@@ -527,13 +575,12 @@ components:
         updatedAt:
           type: string
           format: date-time
-
 paths:
   /health:
     get:
       summary: Health Check
       tags:
-        - System
+      - System
       responses:
         '200':
           description: OK
@@ -541,41 +588,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: get_health
+      description: Health Check
   /gamingCenters/{gamingCenterId}/discounts:
     get:
       summary: List discounts
       tags:
-        - Discounts
+      - Discounts
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: targetType
-          in: query
-          schema:
-            type: string
-            enum: [GAMING_CENTER, STATION]
-        - name: targetId
-          in: query
-          schema:
-            type: string
-        - name: isActive
-          in: query
-          schema:
-            type: boolean
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: targetType
+        in: query
+        schema:
+          type: string
+          enum:
+          - GAMING_CENTER
+          - STATION
+      - name: targetId
+        in: query
+        schema:
+          type: string
+      - name: isActive
+        in: query
+        schema:
+          type: boolean
+      - name: page
+        in: query
+        schema:
+          type: integer
+      - name: pageSize
+        in: query
+        schema:
+          type: integer
       responses:
         '200':
           description: List of discounts
@@ -587,19 +637,20 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
-
+      operationId: get_gamingCenters_gamingCenterId_discounts
+      description: List discounts
     post:
       summary: Create a new discount
       tags:
-        - Discounts
+      - Discounts
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -607,21 +658,25 @@ paths:
             schema:
               type: object
               required:
-                - targetType
-                - targetId
-                - valueType
-                - value
-                - startAt
-                - endAt
+              - targetType
+              - targetId
+              - valueType
+              - value
+              - startAt
+              - endAt
               properties:
                 targetType:
                   type: string
-                  enum: [GAMING_CENTER, STATION]
+                  enum:
+                  - GAMING_CENTER
+                  - STATION
                 targetId:
                   type: string
                 valueType:
                   type: string
-                  enum: [PERCENTAGE, FIXED_AMOUNT]
+                  enum:
+                  - PERCENTAGE
+                  - FIXED_AMOUNT
                 value:
                   type: number
                 startAt:
@@ -645,25 +700,26 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
-
+      operationId: post_gamingCenters_gamingCenterId_discounts
+      description: Create a new discount
   /gamingCenters/{gamingCenterId}/discounts/{id}:
     get:
       summary: Get discount by ID
       tags:
-        - Discounts
+      - Discounts
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Discount details
@@ -677,24 +733,25 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
-
+      operationId: get_gamingCenters_gamingCenterId_discounts_id
+      description: Get discount by ID
     patch:
       summary: Update discount details
       tags:
-        - Discounts
+      - Discounts
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -704,12 +761,16 @@ paths:
               properties:
                 targetType:
                   type: string
-                  enum: [GAMING_CENTER, STATION]
+                  enum:
+                  - GAMING_CENTER
+                  - STATION
                 targetId:
                   type: string
                 valueType:
                   type: string
-                  enum: [PERCENTAGE, FIXED_AMOUNT]
+                  enum:
+                  - PERCENTAGE
+                  - FIXED_AMOUNT
                 value:
                   type: number
                 startAt:
@@ -735,24 +796,25 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
-
+      operationId: patch_gamingCenters_gamingCenterId_discounts_id
+      description: Update discount details
     delete:
       summary: Delete discount
       tags:
-        - Discounts
+      - Discounts
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Discount deleted
@@ -766,25 +828,26 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
-
+      operationId: delete_gamingCenters_gamingCenterId_discounts_id
+      description: Delete discount
   /gamingCenters/{gamingCenterId}/discounts/{id}/status:
     patch:
       summary: Activate or deactivate discount
       tags:
-        - Discounts
+      - Discounts
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -792,7 +855,7 @@ paths:
             schema:
               type: object
               required:
-                - isActive
+              - isActive
               properties:
                 isActive:
                   type: boolean
@@ -811,27 +874,28 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
-
+      operationId: patch_gamingCenters_gamingCenterId_discounts_id_status
+      description: Activate or deactivate discount
   /notifications:
     get:
       summary: Get user notifications
       tags:
-        - Notifications
+      - Notifications
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-        - name: isRead
-          in: query
-          schema:
-            type: boolean
+      - name: page
+        in: query
+        schema:
+          type: integer
+      - name: pageSize
+        in: query
+        schema:
+          type: integer
+      - name: isRead
+        in: query
+        schema:
+          type: boolean
       responses:
         '200':
           description: Paginated notifications list
@@ -841,14 +905,15 @@ paths:
                 $ref: '#/components/schemas/Pagination'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
-
+      operationId: get_notifications
+      description: Get user notifications
   /notifications/unread-count:
     get:
       summary: Get unread notification count
       tags:
-        - Notifications
+      - Notifications
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       responses:
         '200':
           description: Count of unread notifications
@@ -858,20 +923,21 @@ paths:
                 $ref: '#/components/schemas/Success'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
-
+      operationId: get_notifications_unread-count
+      description: Get unread notification count
   /notifications/{id}/read:
     patch:
       summary: Mark notification as read
       tags:
-        - Notifications
+      - Notifications
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Notification marked as read
@@ -885,25 +951,26 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
-
+      operationId: patch_notifications_id_read
+      description: Mark notification as read
   /gamingCenters/{gamingCenterId}/reservation/{reservationId}/propose-time:
     post:
       summary: Propose a new reservation time (Owner/Staff)
       tags:
-        - Reservation
+      - Reservation
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: reservationId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -911,8 +978,8 @@ paths:
             schema:
               type: object
               required:
-                - startTime
-                - endTime
+              - startTime
+              - endTime
               properties:
                 startTime:
                   type: string
@@ -929,25 +996,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_gamingCenters_gamingCenterId_reservation_reservationId_propose-time
+      description: Propose a new reservation time (Owner/Staff)
   /gamingCenters/{gamingCenterId}/reservation/{reservationId}/proposals:
     get:
       summary: List time proposals for reservation (Owner/Staff)
       tags:
-        - Reservation
+      - Reservation
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: reservationId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: List of proposals
@@ -955,25 +1023,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: get_gamingCenters_gamingCenterId_reservation_reservationId_proposals
+      description: List time proposals for reservation (Owner/Staff)
   /gamingCenters/{gamingCenterId}/reservations/{reservationId}/sessions/pause:
     post:
       summary: Pause a gaming session for a reservation
       tags:
-        - GamingSessions
+      - GamingSessions
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: reservationId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Session paused
@@ -981,20 +1050,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_gamingCenters_gamingCenterId_reservations_reservationId_sessions_pause
+      description: Pause a gaming session for a reservation
   /customer/reservation/{reservationId}/proposals:
     get:
       summary: List my reservation time proposals
       tags:
-        - Customer Panel
+      - Customer Panel
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: reservationId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: List of proposals
@@ -1002,25 +1072,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: get_customer_reservation_reservationId_proposals
+      description: List my reservation time proposals
   /customer/reservation/{reservationId}/proposals/{proposalId}/accept:
     post:
       summary: Accept a proposed reservation time
       tags:
-        - Customer Panel
+      - Customer Panel
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: reservationId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: proposalId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: proposalId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Proposal accepted and reservation updated
@@ -1028,25 +1099,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_customer_reservation_reservationId_proposals_proposalId_accept
+      description: Accept a proposed reservation time
   /customer/reservation/{reservationId}/proposals/{proposalId}/reject:
     post:
       summary: Reject a proposed reservation time
       tags:
-        - Customer Panel
+      - Customer Panel
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: reservationId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: proposalId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: proposalId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Proposal rejected
@@ -1054,25 +1126,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_customer_reservation_reservationId_proposals_proposalId_reject
+      description: Reject a proposed reservation time
   /gamingCenters/{gamingCenterId}/reservations/{reservationId}/sessions/resume:
     post:
       summary: Resume a gaming session for a reservation
       tags:
-        - GamingSessions
+      - GamingSessions
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: reservationId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Session resumed
@@ -1080,30 +1153,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_gamingCenters_gamingCenterId_reservations_reservationId_sessions_resume
+      description: Resume a gaming session for a reservation
   /gamingCenters/{gamingCenterId}/analytics/summary:
     get:
       summary: Get analytics summary
       tags:
-        - Analytics
+      - Analytics
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: startDate
-          in: query
-          schema:
-            type: string
-            format: date-time
-        - name: endDate
-          in: query
-          schema:
-            type: string
-            format: date-time
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
       responses:
         '200':
           description: Analytics summary
@@ -1113,30 +1187,31 @@ paths:
                 $ref: '#/components/schemas/Success'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
-
+      operationId: get_gamingCenters_gamingCenterId_analytics_summary
+      description: Get analytics summary
   /gamingCenters/{gamingCenterId}/analytics/staff:
     get:
       summary: Get staff performance analytics
       tags:
-        - Analytics
+      - Analytics
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: startDate
-          in: query
-          schema:
-            type: string
-            format: date-time
-        - name: endDate
-          in: query
-          schema:
-            type: string
-            format: date-time
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
       responses:
         '200':
           description: Staff performance data
@@ -1144,30 +1219,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: get_gamingCenters_gamingCenterId_analytics_staff
+      description: Get staff performance analytics
   /gamingCenters/{gamingCenterId}/analytics/stations:
     get:
       summary: Get station performance analytics
       tags:
-        - Analytics
+      - Analytics
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: startDate
-          in: query
-          schema:
-            type: string
-            format: date-time
-        - name: endDate
-          in: query
-          schema:
-            type: string
-            format: date-time
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
       responses:
         '200':
           description: GameStation performance data
@@ -1175,30 +1251,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: get_gamingCenters_gamingCenterId_analytics_stations
+      description: Get station performance analytics
   /gamingCenters/{gamingCenterId}/analytics/revenue-chart:
     get:
       summary: Get revenue chart data
       tags:
-        - Analytics
+      - Analytics
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: startDate
-          in: query
-          schema:
-            type: string
-            format: date-time
-        - name: endDate
-          in: query
-          schema:
-            type: string
-            format: date-time
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
       responses:
         '200':
           description: Revenue over time data
@@ -1206,20 +1283,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: get_gamingCenters_gamingCenterId_analytics_revenue-chart
+      description: Get revenue chart data
   /gamingCenters/{gamingCenterId}/settings:
     get:
       summary: Get gamingCenter settings
       tags:
-        - Settings
+      - Settings
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: GamingCenter settings
@@ -1227,18 +1305,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_settings
+      description: Get gamingCenter settings
     put:
       summary: Update gamingCenter settings
       tags:
-        - Settings
+      - Settings
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
@@ -1264,33 +1344,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: put_gamingCenters_gamingCenterId_settings
+      description: Update gamingCenter settings
   /gamingCenters/{gamingCenterId}/commissions:
     get:
       summary: List reservation earnings (commissions)
       tags:
-        - Commissions
+      - Commissions
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [PENDING, ACCRUED, CHARGED, WAIVED, REFUNDED]
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: page
+        in: query
+        schema:
+          type: integer
+      - name: pageSize
+        in: query
+        schema:
+          type: integer
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum:
+          - PENDING
+          - ACCRUED
+          - CHARGED
+          - WAIVED
+          - REFUNDED
       responses:
         '200':
           description: List of earnings
@@ -1298,20 +1384,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Pagination'
-
+      operationId: get_gamingCenters_gamingCenterId_commissions
+      description: List reservation earnings (commissions)
   /gamingCenters/{gamingCenterId}/commissions/policy:
     get:
       summary: Get commission policy
       tags:
-        - Commissions
+      - Commissions
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Policy details
@@ -1319,18 +1406,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_commissions_policy
+      description: Get commission policy
     post:
       summary: Upsert commission policy
       tags:
-        - Commissions
+      - Commissions
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -1338,11 +1427,13 @@ paths:
             schema:
               type: object
               required:
-                - type
+              - type
               properties:
                 type:
                   type: string
-                  enum: [PERCENT, FIXED]
+                  enum:
+                  - PERCENT
+                  - FIXED
                 percentBps:
                   type: integer
                 fixedAmount:
@@ -1362,25 +1453,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_gamingCenters_gamingCenterId_commissions_policy
+      description: Upsert commission policy
   /gamingCenters/{gamingCenterId}/commissions/{earningId}/pay:
     post:
       summary: Record commission payment
       tags:
-        - Commissions
+      - Commissions
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: earningId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: earningId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -1388,8 +1480,8 @@ paths:
             schema:
               type: object
               required:
-                - amount
-                - currency
+              - amount
+              - currency
               properties:
                 amount:
                   type: integer
@@ -1397,11 +1489,19 @@ paths:
                   type: string
                 status:
                   type: string
-                  enum: [PENDING, PAID, VOID, REFUNDED]
+                  enum:
+                  - PENDING
+                  - PAID
+                  - VOID
+                  - REFUNDED
                   default: PAID
                 method:
                   type: string
-                  enum: [CASH, CARD, ONLINE, TRANSFER]
+                  enum:
+                  - CASH
+                  - CARD
+                  - ONLINE
+                  - TRANSFER
                 referenceCode:
                   type: string
                 paidAt:
@@ -1414,28 +1514,29 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_gamingCenters_gamingCenterId_commissions_earningId_pay
+      description: Record commission payment
   /gamingCenters/{gamingCenterId}/audit-logs:
     get:
       summary: List audit logs
       tags:
-        - Audit
+      - Audit
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: entity
-          in: query
-          schema:
-            type: string
-        - name: action
-          in: query
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: entity
+        in: query
+        schema:
+          type: string
+      - name: action
+        in: query
+        schema:
+          type: string
       responses:
         '200':
           description: Audit logs
@@ -1443,20 +1544,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Pagination'
-
+      operationId: get_gamingCenters_gamingCenterId_audit-logs
+      description: List audit logs
   /gamingCenters/{gamingCenterId}/site-settings:
     get:
       summary: Get site settings
       tags:
-        - CMS
+      - CMS
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Site settings
@@ -1464,18 +1566,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_site-settings
+      description: Get site settings
     patch:
       summary: Update site settings
       tags:
-        - CMS
+      - CMS
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
@@ -1492,10 +1596,14 @@ paths:
                   type: string
                 robotsIndex:
                   type: string
-                  enum: [INDEX, NOINDEX]
+                  enum:
+                  - INDEX
+                  - NOINDEX
                 robotsFollow:
                   type: string
-                  enum: [FOLLOW, NOFOLLOW]
+                  enum:
+                  - FOLLOW
+                  - NOFOLLOW
       responses:
         '200':
           description: Settings updated
@@ -1503,25 +1611,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: patch_gamingCenters_gamingCenterId_site-settings
+      description: Update site settings
   /gamingCenters/{gamingCenterId}/ratings/{id}/status:
     patch:
       summary: Moderate a review (status update)
       tags:
-        - Ratings
+      - Ratings
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -1529,11 +1638,14 @@ paths:
             schema:
               type: object
               required:
-                - status
+              - status
               properties:
                 status:
                   type: string
-                  enum: [PUBLISHED, HIDDEN, DELETED]
+                  enum:
+                  - PUBLISHED
+                  - HIDDEN
+                  - DELETED
       responses:
         '200':
           description: Status updated
@@ -1541,18 +1653,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: patch_gamingCenters_gamingCenterId_ratings_id_status
+      description: Moderate a review (status update)
   /public/gamingCenters/{gamingCenterSlug}:
     get:
       summary: Get public gaming center info
       tags:
-        - Public
+      - Public
       parameters:
-        - name: gamingCenterSlug
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterSlug
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Gaming center details
@@ -1560,23 +1673,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: get_public_gamingCenters_gamingCenterSlug
+      description: Get public gaming center info
   /public/gamingCenters/{gamingCenterSlug}/pages/{pageSlug}:
     get:
       summary: Get a public page by slug
       tags:
-        - Public
+      - Public
       parameters:
-        - name: gamingCenterSlug
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: pageSlug
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterSlug
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: pageSlug
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Page details
@@ -1584,18 +1698,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: get_public_gamingCenters_gamingCenterSlug_pages_pageSlug
+      description: Get a public page by slug
   /public/gamingCenters/{gamingCenterSlug}/media:
     get:
       summary: Get public media
       tags:
-        - Public
+      - Public
       parameters:
-        - name: gamingCenterSlug
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterSlug
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Media list
@@ -1603,18 +1718,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: get_public_gamingCenters_gamingCenterSlug_media
+      description: Get public media
   /public/gamingCenters/{gamingCenterSlug}/links:
     get:
       summary: Get public social links
       tags:
-        - Public
+      - Public
       parameters:
-        - name: gamingCenterSlug
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterSlug
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Links list
@@ -1622,18 +1738,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: get_public_gamingCenters_gamingCenterSlug_links
+      description: Get public social links
   /public/gamingCenters/{gamingCenterSlug}/addresses:
     get:
       summary: Get public addresses
       tags:
-        - Public
+      - Public
       parameters:
-        - name: gamingCenterSlug
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterSlug
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Address list
@@ -1641,18 +1758,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: get_public_gamingCenters_gamingCenterSlug_addresses
+      description: Get public addresses
   /public/gamingCenters/{gamingCenterSlug}/ratings:
     get:
       summary: List public ratings
       tags:
-        - Public
+      - Public
       parameters:
-        - name: gamingCenterSlug
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterSlug
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Ratings list
@@ -1660,23 +1778,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: get_public_gamingCenters_gamingCenterSlug_ratings
+      description: List public ratings
   /public/gamingCenters/{gamingCenterSlug}/reservation/{reservationId}/ratings:
     post:
       summary: Submit a review
       tags:
-        - Public
+      - Public
       parameters:
-        - name: gamingCenterSlug
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: reservationId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterSlug
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -1684,7 +1803,7 @@ paths:
             schema:
               type: object
               required:
-                - rating
+              - rating
               properties:
                 rating:
                   type: integer
@@ -1699,20 +1818,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_public_gamingCenters_gamingCenterSlug_reservation_reservationId_ratings
+      description: Submit a review
   /gamingCenters/{gamingCenterId}/media/upload:
     post:
       summary: Upload an image
       tags:
-        - CMS
+      - CMS
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -1720,14 +1840,18 @@ paths:
             schema:
               type: object
               required:
-                - file
+              - file
               properties:
                 file:
                   type: string
                   format: binary
                 purpose:
                   type: string
-                  enum: [COVER, GALLERY, STATION, LOGO]
+                  enum:
+                  - COVER
+                  - GALLERY
+                  - STATION
+                  - LOGO
                 altText:
                   type: string
       responses:
@@ -1737,32 +1861,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_gamingCenters_gamingCenterId_media_upload
+      description: Upload an image
   /gamingCenters/{gamingCenterId}/customers:
     get:
       summary: List customers for a gamingCenter
       tags:
-        - Customers
+      - Customers
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: search
-          in: query
-          schema:
-            type: string
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: limit
-          in: query
-          schema:
-            type: integer
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: search
+        in: query
+        schema:
+          type: string
+      - name: page
+        in: query
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        schema:
+          type: integer
       responses:
         '200':
           description: List of customers
@@ -1770,18 +1895,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Pagination'
+      operationId: get_gamingCenters_gamingCenterId_customers
+      description: List customers for a gamingCenter
     post:
       summary: Create or link a customer
       tags:
-        - Customers
+      - Customers
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -1789,7 +1916,7 @@ paths:
             schema:
               type: object
               required:
-                - phone
+              - phone
               properties:
                 phone:
                   type: string
@@ -1806,25 +1933,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_gamingCenters_gamingCenterId_customers
+      description: Create or link a customer
   /gamingCenters/{gamingCenterId}/customers/{customerId}:
     patch:
       summary: Update customer profile
       tags:
-        - Customers
+      - Customers
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: customerId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: customerId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -1845,28 +1973,29 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: patch_gamingCenters_gamingCenterId_customers_customerId
+      description: Update customer profile
   /public/gamingCenters/{gamingCenterSlug}/availability/slots:
     get:
       summary: Get available slots
       tags:
-        - Availability
+      - Availability
       parameters:
-        - name: gamingCenterSlug
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: date
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
-        - name: stationId
-          in: query
-          schema:
-            type: string
+      - name: gamingCenterSlug
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: date
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: stationId
+        in: query
+        schema:
+          type: string
       responses:
         '200':
           description: Available slots
@@ -1874,23 +2003,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: get_public_gamingCenters_gamingCenterSlug_availability_slots
+      description: Get available slots
   /public/gamingCenters/{gamingCenterSlug}/reservation:
     post:
       summary: Create an online reservation
       tags:
-        - Reservation
+      - Reservation
       parameters:
-        - name: gamingCenterSlug
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: idempotency-key
-          in: header
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterSlug
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: idempotency-key
+        in: header
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -1898,9 +2028,9 @@ paths:
             schema:
               type: object
               required:
-                - stationId
-                - startTime
-                - customer
+              - stationId
+              - startTime
+              - customer
               properties:
                 stationId:
                   type: string
@@ -1912,8 +2042,8 @@ paths:
                 customer:
                   type: object
                   required:
-                    - fullName
-                    - phone
+                  - fullName
+                  - phone
                   properties:
                     fullName:
                       type: string
@@ -1930,33 +2060,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_public_gamingCenters_gamingCenterSlug_reservation
+      description: Create an online reservation
   /gamingCenters/{gamingCenterId}/reservation:
     get:
       summary: List reservation for a gamingCenter
       tags:
-        - Reservation
+      - Reservation
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [PENDING, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELED, NO_SHOW]
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: page
+        in: query
+        schema:
+          type: integer
+      - name: pageSize
+        in: query
+        schema:
+          type: integer
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum:
+          - PENDING
+          - CONFIRMED
+          - IN_PROGRESS
+          - COMPLETED
+          - CANCELED
+          - NO_SHOW
       responses:
         '200':
           description: List of reservation
@@ -1964,18 +2101,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Pagination'
+      operationId: get_gamingCenters_gamingCenterId_reservation
+      description: List reservation for a gamingCenter
     post:
       summary: Create a reservation (Panel)
       tags:
-        - Reservation
+      - Reservation
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -1983,9 +2122,9 @@ paths:
             schema:
               type: object
               required:
-                - stationId
-                - startTime
-                - customer
+              - stationId
+              - startTime
+              - customer
               properties:
                 stationId:
                   type: string
@@ -1997,8 +2136,8 @@ paths:
                 customer:
                   type: object
                   required:
-                    - fullName
-                    - phone
+                  - fullName
+                  - phone
                   properties:
                     fullName:
                       type: string
@@ -2013,25 +2152,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_gamingCenters_gamingCenterId_reservation
+      description: Create a reservation (Panel)
   /gamingCenters/{gamingCenterId}/reservation/{reservationId}:
     get:
       summary: Get reservation by ID
       tags:
-        - Reservation
+      - Reservation
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: reservationId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Reservation details
@@ -2039,23 +2179,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_reservation_reservationId
+      description: Get reservation by ID
     patch:
       summary: Update reservation details
       tags:
-        - Reservation
+      - Reservation
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: reservationId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -2079,25 +2221,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: patch_gamingCenters_gamingCenterId_reservation_reservationId
+      description: Update reservation details
   /gamingCenters/{gamingCenterId}/reservation/{reservationId}/sessions/start:
     post:
       summary: Start a gaming session for a reservation
       tags:
-        - GamingSessions
+      - GamingSessions
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: reservationId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
@@ -2113,25 +2256,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_gamingCenters_gamingCenterId_reservation_reservationId_sessions_start
+      description: Start a gaming session for a reservation
   /gamingCenters/{gamingCenterId}/reservation/{reservationId}/sessions/stop:
     post:
       summary: Stop a gaming session for a reservation
       tags:
-        - GamingSessions
+      - GamingSessions
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: reservationId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Session stopped
@@ -2139,30 +2283,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_gamingCenters_gamingCenterId_reservation_reservationId_sessions_stop
+      description: Stop a gaming session for a reservation
   /gamingCenters/{gamingCenterId}/reservation/{reservationId}/payments/init:
     post:
       summary: Initiate payment for reservation
       tags:
-        - Payments
+      - Payments
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: reservationId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: idempotency-key
-          in: header
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: idempotency-key
+        in: header
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Payment initiated
@@ -2170,14 +2315,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_gamingCenters_gamingCenterId_reservation_reservationId_payments_init
+      description: Initiate payment for reservation
   /customer/me:
     get:
       summary: Get current customer info
       tags:
-        - Customer Panel
+      - Customer Panel
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       responses:
         '200':
           description: Customer info
@@ -2185,14 +2331,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: get_customer_me
+      description: Get current customer info
   /customer/reservation:
     get:
       summary: List my reservation
       tags:
-        - Customer Panel
+      - Customer Panel
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       responses:
         '200':
           description: List of reservation
@@ -2200,20 +2347,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Pagination'
-
+      operationId: get_customer_reservation
+      description: List my reservation
   /customer/reservation/{reservationId}:
     get:
       summary: Get reservation details
       tags:
-        - Customer Panel
+      - Customer Panel
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: reservationId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Reservation details
@@ -2221,20 +2369,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: get_customer_reservation_reservationId
+      description: Get reservation details
   /customer/reservation/{reservationId}/cancel:
     post:
       summary: Cancel my reservation
       tags:
-        - Customer Panel
+      - Customer Panel
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: reservationId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Reservation canceled
@@ -2242,20 +2391,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_customer_reservation_reservationId_cancel
+      description: Cancel my reservation
   /customer/reservation/{reservationId}/ratings:
     post:
       summary: Submit a review (customer panel)
       tags:
-        - Customer Panel
+      - Customer Panel
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: reservationId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -2263,7 +2413,7 @@ paths:
             schema:
               type: object
               required:
-                - rating
+              - rating
               properties:
                 rating:
                   type: integer
@@ -2278,18 +2428,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_customer_reservation_reservationId_ratings
+      description: Submit a review (customer panel)
   /gamingCenters/{gamingCenterId}/staff:
     get:
       summary: List staff for a gamingCenter
       tags:
-        - Staff
+      - Staff
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: List of staff
@@ -2297,18 +2448,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_staff
+      description: List staff for a gamingCenter
     post:
       summary: Add new staff member
       tags:
-        - Staff
+      - Staff
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -2316,9 +2469,9 @@ paths:
             schema:
               type: object
               required:
-                - fullName
-                - phone
-                - role
+              - fullName
+              - phone
+              - role
               properties:
                 fullName:
                   type: string
@@ -2326,7 +2479,11 @@ paths:
                   type: string
                 role:
                   type: string
-                  enum: [MANAGER, SUPERVISOR, STAFF, TRAINEE]
+                  enum:
+                  - MANAGER
+                  - SUPERVISOR
+                  - STAFF
+                  - TRAINEE
                 isPublic:
                   type: boolean
                 publicName:
@@ -2342,18 +2499,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_gamingCenters_gamingCenterId_staff
+      description: Add new staff member
   /gamingCenters/{gamingCenterId}/stations:
     get:
       summary: List stations for a gamingCenter
       tags:
-        - Stations
+      - Stations
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: List of stations
@@ -2361,18 +2519,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_stations
+      description: List stations for a gamingCenter
     post:
       summary: Create a new station
       tags:
-        - Stations
+      - Stations
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: gamingCenterId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -2380,15 +2540,20 @@ paths:
             schema:
               type: object
               required:
-                - name
-                - stationType
-                - hourlyPrice
+              - name
+              - stationType
+              - hourlyPrice
               properties:
                 name:
                   type: string
                 stationType:
                   type: string
-                  enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+                  enum:
+                  - PC
+                  - PLAYSTATION
+                  - XBOX
+                  - SWITCH
+                  - VR
                 hourlyPrice:
                   type: number
                 minRentHours:
@@ -2410,12 +2575,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_gamingCenters_gamingCenterId_stations
+      description: Create a new station
   /gamingCenters:
     get:
       summary: List all gamingCenters
       tags:
-        - GamingCenters
+      - GamingCenters
       responses:
         '200':
           description: List of gamingCenters
@@ -2423,12 +2589,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Pagination'
+      operationId: get_gamingCenters
+      description: List all gamingCenters
     post:
       summary: Create a new gamingCenter
       tags:
-        - GamingCenters
+      - GamingCenters
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -2436,9 +2604,9 @@ paths:
             schema:
               type: object
               required:
-                - name
-                - slug
-                - ownerId
+              - name
+              - slug
+              - ownerId
               properties:
                 name:
                   type: string
@@ -2457,14 +2625,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_gamingCenters
+      description: Create a new gamingCenter
   /auth/me:
     get:
       summary: Get current user info
       tags:
-        - Auth
+      - Auth
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       responses:
         '200':
           description: User info
@@ -2472,12 +2641,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: get_auth_me
+      description: Get current user info
   /auth/customer/otp/request:
     post:
       summary: Request OTP (Customer)
       tags:
-        - Auth
+      - Auth
       requestBody:
         required: true
         content:
@@ -2485,7 +2655,7 @@ paths:
             schema:
               type: object
               required:
-                - phone
+              - phone
               properties:
                 phone:
                   type: string
@@ -2496,12 +2666,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_auth_customer_otp_request
+      description: Request OTP (Customer)
   /auth/customer/otp/verify:
     post:
       summary: Verify OTP (Customer)
       tags:
-        - Auth
+      - Auth
       requestBody:
         required: true
         content:
@@ -2509,8 +2680,8 @@ paths:
             schema:
               type: object
               required:
-                - phone
-                - code
+              - phone
+              - code
               properties:
                 phone:
                   type: string
@@ -2523,14 +2694,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthResponse'
-
+      operationId: post_auth_customer_otp_verify
+      description: Verify OTP (Customer)
   /tickets:
     get:
       summary: List own tickets (Customer)
       tags:
-        - Tickets
+      - Tickets
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       responses:
         '200':
           description: List of tickets
@@ -2538,12 +2710,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Pagination'
+      operationId: get_tickets
+      description: List own tickets (Customer)
     post:
       summary: Create a new ticket (Customer)
       tags:
-        - Tickets
+      - Tickets
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -2551,9 +2725,9 @@ paths:
             schema:
               type: object
               required:
-                - subject
-                - message
-                - category
+              - subject
+              - message
+              - category
               properties:
                 subject:
                   type: string
@@ -2561,10 +2735,17 @@ paths:
                   type: string
                 priority:
                   type: string
-                  enum: [LOW, MEDIUM, HIGH]
+                  enum:
+                  - LOW
+                  - MEDIUM
+                  - HIGH
                 category:
                   type: string
-                  enum: [TECHNICAL, FINANCIAL, SALES, ACCOUNT]
+                  enum:
+                  - TECHNICAL
+                  - FINANCIAL
+                  - SALES
+                  - ACCOUNT
       responses:
         '201':
           description: Ticket created
@@ -2572,20 +2753,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_tickets
+      description: Create a new ticket (Customer)
   /tickets/{ticketId}:
     get:
       summary: Get ticket details (Customer)
       tags:
-        - Tickets
+      - Tickets
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: ticketId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: ticketId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Ticket details
@@ -2593,20 +2775,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: get_tickets_ticketId
+      description: Get ticket details (Customer)
   /tickets/{ticketId}/messages:
     post:
       summary: Add message to ticket (Customer)
       tags:
-        - Tickets
+      - Tickets
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: ticketId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: ticketId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -2614,7 +2797,7 @@ paths:
             schema:
               type: object
               required:
-                - text
+              - text
               properties:
                 text:
                   type: string
@@ -2627,20 +2810,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_tickets_ticketId_messages
+      description: Add message to ticket (Customer)
   /tickets/{ticketId}/attachments:
     post:
       summary: Upload attachment (Customer)
       tags:
-        - Tickets
+      - Tickets
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: ticketId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: ticketId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -2648,7 +2832,7 @@ paths:
             schema:
               type: object
               required:
-                - file
+              - file
               properties:
                 file:
                   type: string
@@ -2668,14 +2852,15 @@ paths:
                     properties:
                       url:
                         type: string
-
+      operationId: post_tickets_ticketId_attachments
+      description: Upload attachment (Customer)
   /support/tickets:
     get:
       summary: List assigned tickets (Support)
       tags:
-        - Support
+      - Support
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       responses:
         '200':
           description: List of tickets
@@ -2683,20 +2868,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Pagination'
-
+      operationId: get_support_tickets
+      description: List assigned tickets (Support)
   /support/tickets/{ticketId}:
     get:
       summary: Get ticket details (Support)
       tags:
-        - Support
+      - Support
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: ticketId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: ticketId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: Ticket details
@@ -2704,20 +2890,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: get_support_tickets_ticketId
+      description: Get ticket details (Support)
   /support/tickets/{ticketId}/attachments:
     post:
       summary: Upload attachment (Support)
       tags:
-        - Support
+      - Support
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: ticketId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: ticketId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -2725,7 +2912,7 @@ paths:
             schema:
               type: object
               required:
-                - file
+              - file
               properties:
                 file:
                   type: string
@@ -2745,20 +2932,21 @@ paths:
                     properties:
                       url:
                         type: string
-
+      operationId: post_support_tickets_ticketId_attachments
+      description: Upload attachment (Support)
   /support/tickets/{ticketId}/assign:
     patch:
       summary: Assign ticket (Support/Admin)
       tags:
-        - Support
+      - Support
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: ticketId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: ticketId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -2766,7 +2954,7 @@ paths:
             schema:
               type: object
               required:
-                - assignedToUserId
+              - assignedToUserId
               properties:
                 assignedToUserId:
                   type: string
@@ -2777,20 +2965,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: patch_support_tickets_ticketId_assign
+      description: Assign ticket (Support/Admin)
   /support/tickets/{ticketId}/status:
     patch:
       summary: Update ticket status (Support/Admin)
       tags:
-        - Support
+      - Support
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: ticketId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: ticketId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -2798,11 +2987,15 @@ paths:
             schema:
               type: object
               required:
-                - status
+              - status
               properties:
                 status:
                   type: string
-                  enum: [OPEN, PENDING, ANSWERED, CLOSED]
+                  enum:
+                  - OPEN
+                  - PENDING
+                  - ANSWERED
+                  - CLOSED
       responses:
         '200':
           description: Status updated
@@ -2810,20 +3003,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: patch_support_tickets_ticketId_status
+      description: Update ticket status (Support/Admin)
   /support/tickets/{ticketId}/messages:
     post:
       summary: Add message to ticket (Support)
       tags:
-        - Support
+      - Support
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: ticketId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: ticketId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -2831,7 +3025,7 @@ paths:
             schema:
               type: object
               required:
-                - text
+              - text
               properties:
                 text:
                   type: string
@@ -2844,14 +3038,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: post_support_tickets_ticketId_messages
+      description: Add message to ticket (Support)
   /admin/tickets:
     get:
       summary: List all tickets (Admin)
       tags:
-        - Admin
+      - Admin
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       responses:
         '200':
           description: List of tickets
@@ -2859,14 +3054,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Pagination'
-
+      operationId: get_admin_tickets
+      description: List all tickets (Admin)
   /admin/tickets/statistics:
     get:
       summary: Get ticket statistics (Admin)
       tags:
-        - Admin
+      - Admin
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       responses:
         '200':
           description: Statistics
@@ -2874,20 +3070,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: get_admin_tickets_statistics
+      description: Get ticket statistics (Admin)
   /admin/tickets/{ticketId}/assign:
     patch:
       summary: Assign ticket (Admin)
       tags:
-        - Admin
+      - Admin
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: ticketId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: ticketId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -2895,7 +3092,7 @@ paths:
             schema:
               type: object
               required:
-                - assignedToUserId
+              - assignedToUserId
               properties:
                 assignedToUserId:
                   type: string
@@ -2906,20 +3103,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-
+      operationId: patch_admin_tickets_ticketId_assign
+      description: Assign ticket (Admin)
   /admin/tickets/{ticketId}/status:
     patch:
       summary: Update ticket status (Admin)
       tags:
-        - Admin
+      - Admin
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - name: ticketId
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: ticketId
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -2927,11 +3125,15 @@ paths:
             schema:
               type: object
               required:
-                - status
+              - status
               properties:
                 status:
                   type: string
-                  enum: [OPEN, PENDING, ANSWERED, CLOSED]
+                  enum:
+                  - OPEN
+                  - PENDING
+                  - ANSWERED
+                  - CLOSED
       responses:
         '200':
           description: Status updated
@@ -2939,3 +3141,274 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+      operationId: patch_admin_tickets_ticketId_status
+      description: Update ticket status (Admin)
+  /auth/login:
+    post:
+      tags:
+      - Auth
+      summary: User password login
+      description: Authenticate user with phone number and password
+      operationId: auth_login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - phone
+              - password
+              properties:
+                phone:
+                  type: string
+                  example: "09123456789"
+                password:
+                  type: string
+                  format: password
+                  example: SecurePass123!
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                      refreshToken:
+                        type: string
+                      user:
+                        type: object
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /auth/refresh:
+    post:
+      tags:
+      - Auth
+      summary: Refresh authentication token
+      description: Obtain new access token using a valid refresh token
+      operationId: auth_refresh
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /auth/logout:
+    post:
+      tags:
+      - Auth
+      summary: User logout
+      description: Invalidate current session and logout user
+      operationId: auth_logout
+      security:
+      - ApiKeyAuth: []
+        bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Logged out successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /auth/user/otp/request:
+    post:
+      tags:
+      - Auth
+      summary: Request OTP for user authentication
+      description: Request a one-time password sent to staff/user phone number
+      operationId: auth_user_otp_request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - phone
+              properties:
+                phone:
+                  type: string
+                  example: "09123456789"
+      responses:
+        '200':
+          description: OTP sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: OTP sent
+  /auth/user/otp/verify:
+    post:
+      tags:
+      - Auth
+      summary: Verify user OTP
+      description: Verify one-time password for user authentication
+      operationId: auth_user_otp_verify
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - phone
+              - code
+              properties:
+                phone:
+                  type: string
+                  example: "09123456789"
+                code:
+                  type: string
+                  example: '123456'
+      responses:
+        '200':
+          description: OTP verified successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+  /auth/user/login/otp:
+    post:
+      tags:
+      - Auth
+      summary: Login user with OTP code
+      description: Authenticate user using verified OTP code
+      operationId: auth_user_login_otp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - phone
+              - code
+              properties:
+                phone:
+                  type: string
+                  example: "09123456789"
+                code:
+                  type: string
+                  example: '123456'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                      refreshToken:
+                        type: string
+tags:
+- name: Admin
+  description: Administrative endpoints for system management
+- name: Analytics
+  description: Analytics and reporting endpoints
+- name: Audit
+  description: Audit logs and system trail
+- name: Auth
+  description: User and Customer authentication endpoints
+- name: Availability
+  description: Public availability and slot reservation endpoints
+- name: CMS
+  description: Content management system operations
+- name: Commissions
+  description: Commission calculation and earnings
+- name: Customer Panel
+  description: Customer self-service portal operations
+- name: Customers
+  description: Customer profile management
+- name: Discounts
+  description: Discount codes and promotional offers
+- name: GamingCenters
+  description: Gaming center organization management
+- name: GamingSessions
+  description: Active station and seat gaming sessions
+- name: Notifications
+  description: User and customer notifications
+- name: Payments
+  description: Payment initialization and transaction management
+- name: Public
+  description: Publicly accessible tenant resources
+- name: Ratings
+  description: Gaming center reviews and ratings
+- name: Reservation
+  description: Station booking and reservation management
+- name: Settings
+  description: Gaming center operational settings
+- name: Staff
+  description: Staff account and shift management
+- name: Stations
+  description: Gaming station hardware and availability
+- name: Support
+  description: Support ticket agent endpoints
+- name: System
+  description: System operations
+- name: Tickets
+  description: Customer support ticket management
+security:
+- ApiKeyAuth: []
+  bearerAuth: []
+- ApiKeyAuth: []
