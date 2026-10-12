@@ -14,6 +14,7 @@ const withBundleAnalyzer = bundleAnalyzer({
 const config = withBundleAnalyzer(
   withPayload(
     {
+      output: 'standalone',
       cacheComponents: process.env.PAYLOAD_CACHE_COMPONENTS === 'true',
       basePath: process.env?.NEXT_BASE_PATH || undefined,
       typescript: {
@@ -54,6 +55,11 @@ const config = withBundleAnalyzer(
           '.cjs': ['.cts', '.cjs'],
           '.js': ['.ts', '.tsx', '.js', '.jsx'],
           '.mjs': ['.mts', '.mjs'],
+        }
+
+        webpackConfig.resolve.alias = {
+          ...(webpackConfig.resolve.alias || {}),
+          payload: path.resolve(dirname, './packages/payload/src/index.ts'),
         }
 
         // Ignore sentry warnings when not wrapped with withSentryConfig
