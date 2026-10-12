@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-playenest_admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_this_secure_password_in_production}
       POSTGRES_DB: ${POSTGRES_DB:-playenest_prod}
-      POSTGRES_MULTIPLE_DATABASES: payload_db
+      POSTGRES_MULTIPLE_DATABASES: ${POSTGRES_MULTIPLE_DATABASES:-payload_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
@@ -47,6 +47,7 @@ services:
       - PORT=3000
       - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:-change_this_secure_password_in_production}@db:5432/${POSTGRES_DB:-playenest_prod}
       - REDIS_URL=redis://redis:6379
+      - POSTGRES_MULTIPLE_DATABASES=${POSTGRES_MULTIPLE_DATABASES:-payload_db}
     volumes:
       - app_storage:/app/storage
     command: ["./scripts/wait-for-db.sh", "db", "node", "dist/server.js"]

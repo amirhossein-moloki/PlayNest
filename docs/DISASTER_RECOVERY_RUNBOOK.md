@@ -9,12 +9,12 @@ This runbook provides exact steps to recover from various failure scenarios in t
 **Symptom:** Application errors, connection failures, or data loss.
 
 **Steps:**
-1.  Stop the `app` container: `docker compose stop app`.
-2.  Execute the restore script inside the `backup` container:
+1.  Stop the `sayra` and `payload` containers: `docker compose stop sayra payload`.
+2.  Execute the restore script inside the `backup` container (restores all databases, including `playenest_prod` and `payload_db`):
     ```bash
     docker compose exec backup /scripts/restore.sh latest
     ```
-3.  Restart the application: `docker compose start app`.
+3.  Restart the applications: `docker compose start sayra payload`.
 
 ---
 
