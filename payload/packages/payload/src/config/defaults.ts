@@ -4,7 +4,6 @@ import { defaultAccess } from '../auth/defaultAccess.js'
 import { databaseKVAdapter } from '../kv/adapters/DatabaseKVAdapter.js'
 
 const defaultCLICommands: CLICommands = {
-  build: 'payload/cli/builtin#createBuildCommand',
   countDocuments: 'payload/cli/builtin#createCountDocumentsCommand',
   countGlobalVersions: 'payload/cli/builtin#createCountGlobalVersionsCommand',
   countVersions: 'payload/cli/builtin#createCountVersionsCommand',
