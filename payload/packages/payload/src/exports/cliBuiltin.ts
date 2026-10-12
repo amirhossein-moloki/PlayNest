@@ -1,4 +1,3 @@
-export { createBuildCommand } from '../cli/commands/build/index.js'
 export { createCountDocumentsCommand } from '../cli/commands/collections/countDocuments.js'
 export { createCountVersionsCommand } from '../cli/commands/collections/countVersions.js'
 export { createCreateDocumentsCommand } from '../cli/commands/collections/createDocuments.js'
