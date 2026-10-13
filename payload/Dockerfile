@@ -21,6 +21,7 @@ FROM base AS builder
 WORKDIR /app
 # Disable Husky during Docker build
 ENV HUSKY=0
+ENV NODE_ENV=production
 ENV NODE_OPTIONS="--max-old-space-size=8192"
 
 RUN corepack enable pnpm
