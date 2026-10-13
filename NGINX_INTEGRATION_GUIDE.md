@@ -26,9 +26,10 @@ graph LR
 ## Routing & Services Overview
 
 - `/api/v1/` & `/api/reservations/` → `sayra` backend service (`http://sayra:3000`).
-- `/health`, `/api-docs`, `/swagger` → `sayra` health checks and Swagger UI.
+- `/health`, `/api-docs`, `/swagger`, `/openapi.yaml`, `/openapi.json` → `sayra` health checks and Sayra Swagger UI.
 - `/admin` → `payload` CMS admin panel (`http://payload:3000`).
 - `/api/payload/` & `/api/graphql` → `payload` CMS API endpoints.
+- `/payload-api-docs`, `/payload-openapi.yaml`, `/payload-openapi.json` → `payload` CMS Swagger UI and OpenAPI specifications.
 - `/` → Gateway status placeholder.
 
 ## Configuration Files
