@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:15
+    image: postgres:15-alpine
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-playenest_admin}
@@ -17,7 +17,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
     restart: always
     volumes:
       - redis_data:/data
@@ -79,7 +79,7 @@ services:
     volumes:
       - payload_media:/app/public/media
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/admin || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/admin || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3
