@@ -126,9 +126,9 @@ export const connect: Connect = async function connect(
     operatorHandlers: this.operatorHandlers,
   })
 
-  // Only push schema if not in production
+  // Only push schema if not in production or if explicitly requested with push: true
   if (
-    process.env.NODE_ENV !== 'production' &&
+    (process.env.NODE_ENV !== 'production' || this.push === true) &&
     process.env.PAYLOAD_MIGRATING !== 'true' &&
     this.push !== false
   ) {
