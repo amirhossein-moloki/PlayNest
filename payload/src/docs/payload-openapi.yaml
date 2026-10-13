@@ -1,0 +1,1354 @@
+openapi: 3.0.3
+info:
+  title: Payload CMS API
+  description: Dedicated OpenAPI specification for Payload CMS headless backend in PlayNest platform.
+  version: 4.0.0-beta.0
+  contact:
+    name: PlayNest Development Team
+    url: https://github.com/payloadcms/payload
+tags:
+  - name: Authentication
+    description: User authentication, session management, and password reset endpoints.
+  - name: Articles
+    description: Editorial blog articles collection management.
+  - name: City Landing Pages
+    description: SEO landing pages for gaming centers per city.
+  - name: Venue Profiles
+    description: Editorial profile overlays associated with Sayra gaming center IDs.
+  - name: Posts
+    description: Blog posts collection management.
+  - name: Media
+    description: File uploads and media asset management.
+  - name: Users
+    description: Administrative user accounts collection.
+  - name: Globals
+    description: Global site settings and menu configuration.
+  - name: Custom Endpoints
+    description: Custom Next.js App Router endpoints.
+servers:
+  - url: /api/payload
+    description: Payload CMS API Gateway (NGINX Proxy)
+  - url: http://localhost:3000/api
+    description: Payload CMS Direct Local Server
+paths:
+  /users/login:
+    post:
+      operationId: loginUser
+      tags:
+        - Authentication
+      summary: Login user
+      description: Authenticates a user with email and password, returning JWT token and user details.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successfully authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Invalid input or credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/logout:
+    post:
+      operationId: logoutUser
+      tags:
+        - Authentication
+      summary: Logout user
+      description: Logs out current authenticated user session and clears authentication cookies.
+      responses:
+        '200':
+          description: Successfully logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Logged out successfully.
+
+  /users/me:
+    get:
+      operationId: getCurrentUser
+      tags:
+        - Authentication
+      summary: Get current user
+      description: Returns current authenticated user information and strategy.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+        - apiKeyAuth: []
+      responses:
+        '200':
+          description: Authenticated user details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMeResponse'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/refresh-token:
+    post:
+      operationId: refreshToken
+      tags:
+        - Authentication
+      summary: Refresh authentication token
+      description: Generates a refreshed JWT token for the current session.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Token Refreshed
+                  refreshedToken:
+                    type: string
+                  exp:
+                    type: integer
+
+  /users/forgot-password:
+    post:
+      operationId: forgotPassword
+      tags:
+        - Authentication
+      summary: Request password reset
+      description: Initiates password reset flow by sending reset token email.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: Reset password email queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /users/reset-password:
+    post:
+      operationId: resetPassword
+      tags:
+        - Authentication
+      summary: Reset password
+      description: Resets password using valid password reset token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+
+  /articles:
+    get:
+      operationId: listArticles
+      tags:
+        - Articles
+      summary: List articles
+      description: Retrieves a paginated list of articles. Unauthenticated users receive only published articles.
+      parameters:
+        - $ref: '#/components/parameters/depth'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/sort'
+        - $ref: '#/components/parameters/where'
+        - $ref: '#/components/parameters/draft'
+        - $ref: '#/components/parameters/locale'
+      responses:
+        '200':
+          description: Paginated articles list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedArticles'
+    post:
+      operationId: createArticle
+      tags:
+        - Articles
+      summary: Create article
+      description: Creates a new article entry in CMS. Requires authentication.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArticleInput'
+      responses:
+        '201':
+          description: Article created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  doc:
+                    $ref: '#/components/schemas/Article'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /articles/{id}:
+    get:
+      operationId: getArticleById
+      tags:
+        - Articles
+      summary: Get article by ID
+      description: Retrieves a single article by its ID or CUID.
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/depth'
+        - $ref: '#/components/parameters/draft'
+        - $ref: '#/components/parameters/locale'
+      responses:
+        '200':
+          description: Article document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Article'
+        '404':
+          description: Article not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      operationId: updateArticle
+      tags:
+        - Articles
+      summary: Update article
+      description: Updates an existing article document by ID. Requires authentication.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArticleInput'
+      responses:
+        '200':
+          description: Article updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  doc:
+                    $ref: '#/components/schemas/Article'
+    delete:
+      operationId: deleteArticle
+      tags:
+        - Articles
+      summary: Delete article
+      description: Deletes an article document by ID. Requires authentication.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Article deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  id:
+                    type: string
+
+  /city-landing-pages:
+    get:
+      operationId: listCityLandingPages
+      tags:
+        - City Landing Pages
+      summary: List city landing pages
+      description: Retrieves a paginated list of city landing pages.
+      parameters:
+        - $ref: '#/components/parameters/depth'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/sort'
+        - $ref: '#/components/parameters/where'
+      responses:
+        '200':
+          description: Paginated city landing pages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCityLandingPages'
+    post:
+      operationId: createCityLandingPage
+      tags:
+        - City Landing Pages
+      summary: Create city landing page
+      description: Creates a new city landing page entry. Requires authentication.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CityLandingPageInput'
+      responses:
+        '201':
+          description: Created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  doc:
+                    $ref: '#/components/schemas/CityLandingPage'
+
+  /city-landing-pages/{id}:
+    get:
+      operationId: getCityLandingPageById
+      tags:
+        - City Landing Pages
+      summary: Get city landing page by ID
+      description: Retrieves a single city landing page by ID.
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/depth'
+      responses:
+        '200':
+          description: City landing page document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CityLandingPage'
+    patch:
+      operationId: updateCityLandingPage
+      tags:
+        - City Landing Pages
+      summary: Update city landing page
+      description: Updates an existing city landing page document by ID. Requires authentication.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CityLandingPageInput'
+      responses:
+        '200':
+          description: City landing page updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  doc:
+                    $ref: '#/components/schemas/CityLandingPage'
+    delete:
+      operationId: deleteCityLandingPage
+      tags:
+        - City Landing Pages
+      summary: Delete city landing page
+      description: Deletes a city landing page document by ID. Requires authentication.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: City landing page deleted
+
+  /venue-profiles:
+    get:
+      operationId: listVenueProfiles
+      tags:
+        - Venue Profiles
+      summary: List venue profiles
+      description: Retrieves editorial venue profiles enriched for Sayra gaming centers.
+      parameters:
+        - $ref: '#/components/parameters/depth'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/sort'
+        - $ref: '#/components/parameters/where'
+      responses:
+        '200':
+          description: Paginated venue profiles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedVenueProfiles'
+    post:
+      operationId: createVenueProfile
+      tags:
+        - Venue Profiles
+      summary: Create venue profile
+      description: Creates an editorial profile for a Sayra venue ID. Validates sayraVenueId against Sayra API. Requires authentication.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VenueProfileInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  doc:
+                    $ref: '#/components/schemas/VenueProfile'
+        '400':
+          description: Invalid Sayra Venue ID or payload error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /venue-profiles/{id}:
+    get:
+      operationId: getVenueProfileById
+      tags:
+        - Venue Profiles
+      summary: Get venue profile by ID
+      description: Retrieves a single venue profile document by ID.
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/depth'
+      responses:
+        '200':
+          description: Venue profile document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueProfile'
+    patch:
+      operationId: updateVenueProfile
+      tags:
+        - Venue Profiles
+      summary: Update venue profile
+      description: Updates an existing venue profile document by ID. Requires authentication.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VenueProfileInput'
+      responses:
+        '200':
+          description: Updated venue profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  doc:
+                    $ref: '#/components/schemas/VenueProfile'
+    delete:
+      operationId: deleteVenueProfile
+      tags:
+        - Venue Profiles
+      summary: Delete venue profile
+      description: Deletes a venue profile document by ID. Requires authentication.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Deleted venue profile
+
+  /posts:
+    get:
+      operationId: listPosts
+      tags:
+        - Posts
+      summary: List posts
+      description: Retrieves a paginated list of blog posts.
+      parameters:
+        - $ref: '#/components/parameters/depth'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/sort'
+      responses:
+        '200':
+          description: Paginated posts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPosts'
+    post:
+      operationId: createPost
+      tags:
+        - Posts
+      summary: Create post
+      description: Creates a new post entry in CMS.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostInput'
+      responses:
+        '201':
+          description: Post created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  doc:
+                    $ref: '#/components/schemas/Post'
+
+  /posts/{id}:
+    get:
+      operationId: getPostById
+      tags:
+        - Posts
+      summary: Get post by ID
+      description: Retrieves a single post document by ID.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Post document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+    patch:
+      operationId: updatePost
+      tags:
+        - Posts
+      summary: Update post
+      description: Updates an existing post document by ID.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostInput'
+      responses:
+        '200':
+          description: Post updated
+    delete:
+      operationId: deletePost
+      tags:
+        - Posts
+      summary: Delete post
+      description: Deletes a post document by ID.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Post deleted
+
+  /media:
+    get:
+      operationId: listMedia
+      tags:
+        - Media
+      summary: List media
+      description: Retrieves a paginated list of uploaded media items.
+      parameters:
+        - $ref: '#/components/parameters/depth'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/page'
+      responses:
+        '200':
+          description: Paginated media list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMedia'
+    post:
+      operationId: uploadMedia
+      tags:
+        - Media
+      summary: Upload media
+      description: Uploads a media file using multipart/form-data.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                alt:
+                  type: string
+      responses:
+        '201':
+          description: Uploaded media document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+
+  /media/{id}:
+    get:
+      operationId: getMediaById
+      tags:
+        - Media
+      summary: Get media by ID
+      description: Retrieves a single media document by ID.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Media document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+    patch:
+      operationId: updateMedia
+      tags:
+        - Media
+      summary: Update media metadata
+      description: Updates metadata for an uploaded media document.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Media updated
+    delete:
+      operationId: deleteMedia
+      tags:
+        - Media
+      summary: Delete media
+      description: Deletes a media file and record by ID.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Media deleted
+
+  /users:
+    get:
+      operationId: listUsers
+      tags:
+        - Users
+      summary: List users
+      description: Retrieves a paginated list of user accounts. Requires administrative authentication.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/depth'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/page'
+      responses:
+        '200':
+          description: Paginated users list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUsers'
+    post:
+      operationId: createUser
+      tags:
+        - Users
+      summary: Create user
+      description: Registers a new user account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserInput'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users/{id}:
+    get:
+      operationId: getUserById
+      tags:
+        - Users
+      summary: Get user by ID
+      description: Retrieves a single user record by ID. Requires authentication.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: User object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    patch:
+      operationId: updateUser
+      tags:
+        - Users
+      summary: Update user
+      description: Updates a user account by ID. Requires authentication.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserInput'
+      responses:
+        '200':
+          description: User updated
+    delete:
+      operationId: deleteUser
+      tags:
+        - Users
+      summary: Delete user
+      description: Deletes a user account by ID. Requires authentication.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: User deleted
+
+  /globals/menu:
+    get:
+      operationId: getMenuGlobal
+      tags:
+        - Globals
+      summary: Get menu global configuration
+      description: Retrieves global navigation menu configuration.
+      responses:
+        '200':
+          description: Menu global object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuGlobal'
+    post:
+      operationId: updateMenuGlobal
+      tags:
+        - Globals
+      summary: Update menu global configuration
+      description: Updates global navigation menu configuration. Requires authentication.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MenuGlobal'
+      responses:
+        '200':
+          description: Updated menu global object
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  result:
+                    $ref: '#/components/schemas/MenuGlobal'
+
+  /my-route:
+    get:
+      operationId: getMyCustomRoute
+      tags:
+        - Custom Endpoints
+      summary: Custom sample route
+      description: Endpoint exposed via custom App Router route handler in Next.js.
+      responses:
+        '200':
+          description: Sample custom JSON response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hello:
+                    type: string
+                    example: elliot
+
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      description: Document ID or CUID
+      schema:
+        type: string
+    depth:
+      name: depth
+      in: query
+      description: Relationship population depth
+      schema:
+        type: integer
+        default: 1
+    limit:
+      name: limit
+      in: query
+      description: Number of documents to return per page
+      schema:
+        type: integer
+        default: 10
+    page:
+      name: page
+      in: query
+      description: Page number
+      schema:
+        type: integer
+        default: 1
+    sort:
+      name: sort
+      in: query
+      description: Field sorting specification (prefix with '-' for descending)
+      schema:
+        type: string
+        example: -createdAt
+    where:
+      name: where
+      in: query
+      description: Query conditions filtering object
+      schema:
+        type: object
+    draft:
+      name: draft
+      in: query
+      description: Include draft versions
+      schema:
+        type: boolean
+        default: false
+    locale:
+      name: locale
+      in: query
+      description: Locale code
+      schema:
+        type: string
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT authentication header (Bearer <token>)
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Payload API key authorization header
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: payload-token
+      description: Session JWT token cookie
+
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: dev@payloadcms.com
+        password:
+          type: string
+          format: password
+          example: password123
+
+    LoginResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Auth Passed
+        token:
+          type: string
+        exp:
+          type: integer
+        user:
+          $ref: '#/components/schemas/User'
+
+    UserMeResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        collection:
+          type: string
+          example: users
+        strategy:
+          type: string
+          example: local
+
+    ForgotPasswordRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+
+    ResetPasswordRequest:
+      type: object
+      required:
+        - token
+        - password
+      properties:
+        token:
+          type: string
+        password:
+          type: string
+          format: password
+
+    SEO:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        keywords:
+          type: string
+
+    ArticleInput:
+      type: object
+      required:
+        - title
+        - slug
+      properties:
+        title:
+          type: string
+        slug:
+          type: string
+        content:
+          type: object
+          description: Lexical RichText AST object
+        status:
+          type: string
+          enum:
+            - draft
+            - published
+          default: draft
+        publishedAt:
+          type: string
+          format: date-time
+        featuredVenues:
+          type: array
+          items:
+            type: object
+            required:
+              - sayraVenueId
+            properties:
+              sayraVenueId:
+                type: string
+        heroMedia:
+          type: string
+          description: Media CUID ID
+        seo:
+          $ref: '#/components/schemas/SEO'
+
+    Article:
+      allOf:
+        - $ref: '#/components/schemas/ArticleInput'
+        - type: object
+          properties:
+            id:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    PaginatedArticles:
+      type: object
+      properties:
+        docs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Article'
+        totalDocs:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+        page:
+          type: integer
+        pagingCounter:
+          type: integer
+        hasPrevPage:
+          type: boolean
+        hasNextPage:
+          type: boolean
+        prevPage:
+          type: integer
+          nullable: true
+        nextPage:
+          type: integer
+          nullable: true
+
+    CityLandingPageInput:
+      type: object
+      required:
+        - cityName
+        - citySlug
+      properties:
+        cityName:
+          type: string
+        citySlug:
+          type: string
+        introText:
+          type: object
+          description: Lexical RichText AST object
+        featuredVenues:
+          type: array
+          items:
+            type: object
+            required:
+              - sayraVenueId
+            properties:
+              sayraVenueId:
+                type: string
+        seo:
+          $ref: '#/components/schemas/SEO'
+
+    CityLandingPage:
+      allOf:
+        - $ref: '#/components/schemas/CityLandingPageInput'
+        - type: object
+          properties:
+            id:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    PaginatedCityLandingPages:
+      type: object
+      properties:
+        docs:
+          type: array
+          items:
+            $ref: '#/components/schemas/CityLandingPage'
+        totalDocs:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+        page:
+          type: integer
+        pagingCounter:
+          type: integer
+        hasPrevPage:
+          type: boolean
+        hasNextPage:
+          type: boolean
+
+    VenueProfileInput:
+      type: object
+      required:
+        - sayraVenueId
+      properties:
+        sayraVenueId:
+          type: string
+          description: Must correspond to an existing Sayra GamingCenter ID
+        editorialTitle:
+          type: string
+        editorialDescription:
+          type: object
+        heroMedia:
+          type: string
+        gallery:
+          type: array
+          items:
+            type: object
+            required:
+              - image
+            properties:
+              image:
+                type: string
+              caption:
+                type: string
+        isFeatured:
+          type: boolean
+          default: false
+        seo:
+          $ref: '#/components/schemas/SEO'
+
+    VenueProfile:
+      allOf:
+        - $ref: '#/components/schemas/VenueProfileInput'
+        - type: object
+          properties:
+            id:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    PaginatedVenueProfiles:
+      type: object
+      properties:
+        docs:
+          type: array
+          items:
+            $ref: '#/components/schemas/VenueProfile'
+        totalDocs:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+        page:
+          type: integer
+
+    PostInput:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: object
+
+    Post:
+      allOf:
+        - $ref: '#/components/schemas/PostInput'
+        - type: object
+          properties:
+            id:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    PaginatedPosts:
+      type: object
+      properties:
+        docs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Post'
+        totalDocs:
+          type: integer
+        limit:
+          type: integer
+        page:
+          type: integer
+
+    Media:
+      type: object
+      properties:
+        id:
+          type: string
+        filename:
+          type: string
+        mimeType:
+          type: string
+        filesize:
+          type: integer
+        width:
+          type: integer
+        height:
+          type: integer
+        url:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PaginatedMedia:
+      type: object
+      properties:
+        docs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Media'
+        totalDocs:
+          type: integer
+        limit:
+          type: integer
+        page:
+          type: integer
+
+    UserInput:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PaginatedUsers:
+      type: object
+      properties:
+        docs:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        totalDocs:
+          type: integer
+        limit:
+          type: integer
+        page:
+          type: integer
+
+    MenuGlobal:
+      type: object
+      properties:
+        globalText:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
