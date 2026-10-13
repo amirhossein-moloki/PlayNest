@@ -380,6 +380,7 @@ model GamingCenter {
 
   // New features
   tournaments Tournament[]
+  groupBookings GroupBooking[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -423,6 +424,8 @@ model User {
   canceledReservations Reservation[]  @relation("ReservationCanceler")
   proposalsCreated     ReservationTimeProposal[] @relation("ProposalCreator")
   discountsCreated     Discount[]     @relation("DiscountCreator")
+  groupBookingsCreated GroupBooking[] @relation("GroupBookingCreator")
+  canceledGroupBookings GroupBooking[] @relation("GroupBookingCanceler")
 
   // CMS relations
   uploadedMedias Media[]    @relation("UploadedBy")
@@ -476,6 +479,7 @@ model CustomerAccount {
   walletTransactions WalletTransaction[]
   auditLogs          AuditLog[]
   memberships        Membership[]
+  groupBookings      GroupBooking[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -496,7 +500,8 @@ model CustomerProfile {
   displayName String?
   note        String?
 
-  reservations Reservation[]
+  reservations  Reservation[]
+  groupBookings GroupBooking[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1073,8 +1078,9 @@ model GameStation {
   // join table (explicit)
   staffSkills StaffStationSkill[]
 
-  maintenances   StationMaintenance[]
-  gamingSessions GamingSession[]
+  maintenances      StationMaintenance[]
+  gamingSessions    GamingSession[]
+  groupBookingItems GroupBookingItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1173,6 +1179,11 @@ model Reservation {
   gamingSessions     GamingSession[]
   proposals          ReservationTimeProposal[]
 
+  groupBookingId String?
+  groupBooking   GroupBooking? @relation(fields: [groupBookingId], references: [id], onDelete: SetNull)
+
+  groupBookingItem GroupBookingItem?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1183,6 +1194,74 @@ model Reservation {
   @@index([customerAccountId, startTime])
   @@index([customerProfileId, startTime])
   @@index([gamingCenterId, paymentState, startTime])
+  @@index([groupBookingId])
+}
+
+model GroupBooking {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
+
+  customerProfileId String
+  customerProfile   CustomerProfile @relation(fields: [customerProfileId], references: [id])
+
+  customerAccountId String
+  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id])
+
+  createdByUserId String
+  createdBy       User   @relation("GroupBookingCreator", fields: [createdByUserId], references: [id])
+
+  startTime DateTime @db.Timestamptz(6)
+  endTime   DateTime @db.Timestamptz(6)
+
+  totalHours     Float
+  totalPrice     Float
+  discountAmount Float                   @default(0)
+  paymentState   ReservationPaymentState @default(UNPAID)
+  status         ReservationStatus       @default(CONFIRMED)
+  note           String?
+
+  canceledAt       DateTime? @db.Timestamptz(6)
+  cancelReason     String?
+  canceledByUserId String?
+  canceledBy       User?     @relation("GroupBookingCanceler", fields: [canceledByUserId], references: [id])
+
+  items        GroupBookingItem[]
+  reservations Reservation[]
+  payments     Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gamingCenterId, startTime])
+  @@index([customerAccountId, startTime])
+  @@index([customerProfileId, startTime])
+  @@index([gamingCenterId, status, startTime])
+}
+
+model GroupBookingItem {
+  id String @id @default(cuid())
+
+  groupBookingId String
+  groupBooking   GroupBooking @relation(fields: [groupBookingId], references: [id], onDelete: Cascade)
+
+  stationId String
+  station   GameStation @relation(fields: [stationId], references: [id])
+
+  staffId String?
+
+  reservationId String?      @unique
+  reservation   Reservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+
+  price          Float
+  discountAmount Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([groupBookingId])
+  @@index([stationId])
 }
 
 model ReservationTimeProposal {
@@ -1286,8 +1365,11 @@ model Payment {
   gamingCenterId String
   gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
 
-  reservationId String
-  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  reservationId String?
+  reservation   Reservation? @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  groupBookingId String?
+  groupBooking   GroupBooking? @relation(fields: [groupBookingId], references: [id], onDelete: Cascade)
 
   amount   Int
   currency String
@@ -1311,6 +1393,7 @@ model Payment {
   @@unique(fields: [provider, providerPaymentId], name: "provider_payment_id")
   @@unique(fields: [gamingCenterId, idempotencyKey], name: "idempotency_key")
   @@index([reservationId, paidAt])
+  @@index([groupBookingId, paidAt])
   @@index([status, paidAt])
   @@index([gamingCenterId, status, paidAt])
 }
