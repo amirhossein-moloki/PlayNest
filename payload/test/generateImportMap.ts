@@ -1,48 +1,46 @@
 import path from 'path'
-
-const [testConfigDir] = process.argv.slice(2)
-
-import type { SanitizedConfig } from 'payload'
-
 import fs from 'fs'
 import { generateImportMap } from 'payload'
+import type { SanitizedConfig } from 'payload'
 import { fileURLToPath } from 'url'
+
+const [targetArg] = process.argv.slice(2)
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
-let testDir: string
-
 async function run() {
-  if (testConfigDir) {
-    testDir = path.resolve(dirname, testConfigDir)
+  if (targetArg) {
+    const targetDir = path.resolve(dirname, targetArg)
+    // Check if config exists at targetDir/payload.config.ts or targetDir/config.ts
+    let pathWithConfig = path.resolve(targetDir, 'payload.config.ts')
+    if (!fs.existsSync(pathWithConfig)) {
+      pathWithConfig = path.resolve(targetDir, 'config.ts')
+    }
 
-    const pathWithConfig = path.resolve(testDir, 'config.ts')
     console.log('Generating ad-hoc import map for config:', pathWithConfig)
 
-    const config: SanitizedConfig = await (await import(pathWithConfig)).default
+    const imported = await import(pathWithConfig)
+    const config: SanitizedConfig = imported.default || imported
 
-    let rootDir = ''
+    let rootDir = path.resolve(dirname, '..')
 
     if (
-      testConfigDir === 'live-preview' ||
-      testConfigDir === 'admin-root' ||
-      testConfigDir === 'admin-bar'
+      targetArg === 'live-preview' ||
+      targetArg === 'admin-root' ||
+      targetArg === 'admin-bar'
     ) {
-      rootDir = testDir
+      rootDir = targetDir
 
       if (process.env.PAYLOAD_TEST_PROD === 'true') {
-        // If in prod mode, there may be a testSuite/prod folder. If so, use that as the rootDir
-        const prodDir = path.resolve(testDir, 'prod')
+        const prodDir = path.resolve(targetDir, 'prod')
         try {
           fs.accessSync(prodDir, fs.constants.F_OK)
           rootDir = prodDir
         } catch (err) {
-          // Swallow err - no prod folder
+          // Swallow err
         }
       }
-    } else {
-      rootDir = path.resolve(dirname, '..')
     }
 
     process.env.ROOT_DIR = rootDir
