@@ -126,12 +126,14 @@ export const connect: Connect = async function connect(
     operatorHandlers: this.operatorHandlers,
   })
 
-  // Only push schema if not in production
-  if (
-    process.env.NODE_ENV !== 'production' &&
-    process.env.PAYLOAD_MIGRATING !== 'true' &&
-    this.push !== false
-  ) {
+  // Push schema if explicitly requested via PAYLOAD_DB_PUSH or in non-production environment
+  const shouldPushSchema =
+    process.env.PAYLOAD_DB_PUSH === 'true' ||
+    (process.env.NODE_ENV !== 'production' &&
+      process.env.PAYLOAD_MIGRATING !== 'true' &&
+      this.push !== false)
+
+  if (shouldPushSchema) {
     await pushDevSchema(this as unknown as DrizzleAdapter)
   }
 
