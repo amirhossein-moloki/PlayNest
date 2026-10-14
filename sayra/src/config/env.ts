@@ -92,6 +92,16 @@ const EnvSchema = z.object({
   SMSIR_RESERVATION_PENDING_TEMPLATE_ID: z.coerce.number().optional(),
   SMSIR_RESERVATION_CANCELED_TEMPLATE_ID: z.coerce.number().optional(),
   SMSIR_OWNER_RESERVATION_CREATED_TEMPLATE_ID: z.coerce.number().optional(),
+
+  // Sayra SMTP / Email (Optional)
+  SAYRA_SMTP_HOST: z.string().optional(),
+  SAYRA_SMTP_PORT: z.coerce.number().int().positive().optional(),
+  SAYRA_SMTP_USER: z.string().optional(),
+  SAYRA_SMTP_PASSWORD: z.string().optional(),
+  SAYRA_SMTP_SECURE: z.preprocess(toBool, z.boolean()).optional(),
+  SAYRA_SMTP_FROM_EMAIL: z.string().email().optional(),
+  SAYRA_SMTP_FROM_NAME: z.string().optional(),
+  SAYRA_SMTP_REPLY_TO: z.string().email().optional(),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
@@ -113,13 +123,22 @@ if (parsed.success) {
     }
   }
 
-  if (
-    parsed.data.NODE_ENV === 'production' &&
-    parsed.data.STATIC_API_KEY === 'generate_a_secure_api_key_at_least_10_chars'
-  ) {
-    throw new Error(
-      'STATIC_API_KEY must be changed from the default placeholder value in production.'
-    );
+  if (parsed.data.NODE_ENV === 'production') {
+    if (parsed.data.STATIC_API_KEY === 'generate_a_secure_api_key_at_least_10_chars') {
+      throw new Error(
+        'STATIC_API_KEY must be changed from the default placeholder value in production.'
+      );
+    }
+    if (parsed.data.JWT_ACCESS_SECRET === 'generate_at_least_32_chars_long_random_string') {
+      throw new Error(
+        'JWT_ACCESS_SECRET must be changed from the default placeholder value in production.'
+      );
+    }
+    if (parsed.data.JWT_REFRESH_SECRET === 'generate_another_at_least_32_chars_long_random_string') {
+      throw new Error(
+        'JWT_REFRESH_SECRET must be changed from the default placeholder value in production.'
+      );
+    }
   }
 }
 

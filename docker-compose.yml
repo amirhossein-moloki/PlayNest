@@ -43,11 +43,23 @@ services:
     env_file:
       - .env
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=${NODE_ENV:-production}
       - PORT=3000
       - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:-change_this_secure_password_in_production}@db:5432/${POSTGRES_DB:-playenest_prod}
       - REDIS_URL=redis://redis:6379
       - POSTGRES_MULTIPLE_DATABASES=${POSTGRES_MULTIPLE_DATABASES:-payload_db}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-generate_at_least_32_chars_long_random_string}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-generate_another_at_least_32_chars_long_random_string}
+      - STATIC_API_KEY=${STATIC_API_KEY:-generate_a_secure_api_key_at_least_10_chars}
+      - PAYMENT_PROVIDER_WEBHOOK_SECRET=${PAYMENT_PROVIDER_WEBHOOK_SECRET:-generate_a_secure_webhook_secret}
+      - SAYRA_SMTP_HOST=${SAYRA_SMTP_HOST:-}
+      - SAYRA_SMTP_PORT=${SAYRA_SMTP_PORT:-587}
+      - SAYRA_SMTP_USER=${SAYRA_SMTP_USER:-}
+      - SAYRA_SMTP_PASSWORD=${SAYRA_SMTP_PASSWORD:-}
+      - SAYRA_SMTP_SECURE=${SAYRA_SMTP_SECURE:-false}
+      - SAYRA_SMTP_FROM_EMAIL=${SAYRA_SMTP_FROM_EMAIL:-noreply@playenest.com}
+      - SAYRA_SMTP_FROM_NAME=${SAYRA_SMTP_FROM_NAME:-PlayNest Sayra}
+      - SAYRA_SMTP_REPLY_TO=${SAYRA_SMTP_REPLY_TO:-support@playenest.com}
     volumes:
       - app_storage:/app/storage
     command: ["./scripts/wait-for-db.sh", "db", "node", "dist/server.js"]
@@ -72,11 +84,18 @@ services:
     env_file:
       - .env
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=${NODE_ENV:-production}
       - PORT=3000
-      - PAYLOAD_DB_PUSH=true
+      - PAYLOAD_DB_PUSH=${PAYLOAD_DB_PUSH:-true}
       - DATABASE_URI=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:-change_this_secure_password_in_production}@db:5432/${PAYLOAD_POSTGRES_DB:-payload_db}
-      - PAYLOAD_SECRET=${PAYLOAD_SECRET:-change_this_payload_secret_in_production}
+      - PAYLOAD_SECRET=${PAYLOAD_SECRET:-generate_a_secure_payload_secret_at_least_32_chars}
+      - PAYLOAD_SMTP_HOST=${PAYLOAD_SMTP_HOST:-}
+      - PAYLOAD_SMTP_PORT=${PAYLOAD_SMTP_PORT:-587}
+      - PAYLOAD_SMTP_USER=${PAYLOAD_SMTP_USER:-}
+      - PAYLOAD_SMTP_PASSWORD=${PAYLOAD_SMTP_PASSWORD:-}
+      - PAYLOAD_SMTP_SECURE=${PAYLOAD_SMTP_SECURE:-false}
+      - PAYLOAD_SMTP_FROM_ADDRESS=${PAYLOAD_SMTP_FROM_ADDRESS:-cms@playenest.com}
+      - PAYLOAD_SMTP_FROM_NAME=${PAYLOAD_SMTP_FROM_NAME:-PlayNest CMS}
     volumes:
       - payload_media:/app/public/media
     healthcheck:
