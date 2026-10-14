@@ -6,20 +6,24 @@ export class ReservationStateMachine {
   private static transitions: Record<ReservationStatus, ReservationStatus[]> = {
     [ReservationStatus.PENDING]: [
       ReservationStatus.CONFIRMED,
-      ReservationStatus.CANCELED
+      ReservationStatus.CANCELED,
+      ReservationStatus.EXPIRED,
+    ],
+    [ReservationStatus.EXPIRED]: [
+      ReservationStatus.CONFIRMED,
     ],
     [ReservationStatus.CONFIRMED]: [
       ReservationStatus.IN_PROGRESS,
       ReservationStatus.COMPLETED,
       ReservationStatus.CANCELED,
-      ReservationStatus.NO_SHOW
+      ReservationStatus.NO_SHOW,
     ],
     [ReservationStatus.IN_PROGRESS]: [
-      ReservationStatus.COMPLETED
+      ReservationStatus.COMPLETED,
     ],
     [ReservationStatus.COMPLETED]: [],
     [ReservationStatus.CANCELED]: [],
-    [ReservationStatus.NO_SHOW]: []
+    [ReservationStatus.NO_SHOW]: [],
   };
 
   static validateTransition(current: ReservationStatus, next: ReservationStatus): void {
@@ -39,7 +43,8 @@ export class ReservationStateMachine {
     const terminalStates: ReservationStatus[] = [
       ReservationStatus.COMPLETED,
       ReservationStatus.CANCELED,
-      ReservationStatus.NO_SHOW
+      ReservationStatus.NO_SHOW,
+      ReservationStatus.EXPIRED,
     ];
     return terminalStates.includes(status);
   }
