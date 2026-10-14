@@ -27,5 +27,15 @@ EOSQL
   done
 fi
 
->&2 echo "Database setup verified - executing command"
+>&2 echo "Database setup verified - checking database migrations"
+
+if [ -f "./scripts/migrate.sh" ]; then
+  echo "Running database migrations..."
+  ./scripts/migrate.sh
+elif [ -x "$(command -v npx)" ]; then
+  echo "Running prisma migrate deploy..."
+  npx prisma migrate deploy
+fi
+
+>&2 echo "Database migrations verified - executing command"
 exec "$@"

@@ -74,6 +74,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - PAYLOAD_DB_PUSH=true
       - DATABASE_URI=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:-change_this_secure_password_in_production}@db:5432/${PAYLOAD_POSTGRES_DB:-payload_db}
       - PAYLOAD_SECRET=${PAYLOAD_SECRET:-change_this_payload_secret_in_production}
     volumes:
@@ -131,6 +132,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+      start_period: 30s
     volumes:
       - app_storage:/storage:ro
       - redis_data:/redis_data:ro
