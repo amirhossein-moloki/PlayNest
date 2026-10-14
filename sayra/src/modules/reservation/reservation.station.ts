@@ -78,6 +78,9 @@ export const reservationStation = {
       const { gamingCenterId, stationId, staffId, customer, startTime: startAtString, createdByUserId, note } = input;
       const startTime = new Date(startAtString);
 
+      // Lock station for update to prevent concurrent double-booking
+      await ReservationRepo.lockStationForUpdate(stationId, tx);
+
       // 1. Fetch GameStation and Customer Profile details
       const station = await ReservationRepo.findStation(stationId, gamingCenterId, true, tx);
 
@@ -94,11 +97,32 @@ export const reservationStation = {
         );
       }
 
+      const durationHours = station.defaultDurationHours;
+      const endTime = addMinutes(startTime, durationHours * 60);
+
+      const overlappingReservation = await ReservationRepo.findOverlappingReservation(
+        gamingCenterId,
+        staffId,
+        startTime,
+        endTime,
+        undefined,
+        tx,
+        stationId
+      );
+
+      if (overlappingReservation) {
+        throw new AppError('Selected time is not available.', httpStatus.CONFLICT, {
+          code: 'SLOT_NOT_AVAILABLE',
+        });
+      }
+
       const { customerAccount, customerProfile } = await findOrCreateCustomerProfile(
         tx,
         gamingCenterId,
         customer as { fullName: string; phone: string; email?: string }
       );
+
+      await ReservationRepo.assertActiveReservationLimitNotExceeded(customerAccount.id, tx);
 
       const gamingCenter = await ReservationRepo.findGamingCenterWithSettings(gamingCenterId, tx);
 
@@ -106,9 +130,7 @@ export const reservationStation = {
         throw new AppError('GamingCenter not found.', httpStatus.NOT_FOUND);
       }
 
-      // 2. Calculate endTime, base price, and applicable discount
-      const durationHours = station.defaultDurationHours;
-      const endTime = addMinutes(startTime, durationHours * 60);
+      // 2. Calculate base price and applicable discount
       const basePrice = durationHours * station.hourlyPrice;
 
       const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
@@ -195,6 +217,8 @@ export const reservationStation = {
           }
         }
 
+        await ReservationRepo.lockStationForUpdate(input.stationId, tx);
+
         const station = await ReservationRepo.findStation(input.stationId, gamingCenter.id, true, tx);
 
         if (!station) {
@@ -232,7 +256,7 @@ export const reservationStation = {
           });
         }
 
-        const overlappingReservation = await ReservationRepo.findOverlappingReservation(gamingCenter.id, staff.id, startTime, endTime, undefined, tx);
+        const overlappingReservation = await ReservationRepo.findOverlappingReservation(gamingCenter.id, staff.id, startTime, endTime, undefined, tx, station.id);
 
         if (overlappingReservation) {
           throw new AppError('Selected time is not available.', httpStatus.CONFLICT, {
@@ -245,6 +269,8 @@ export const reservationStation = {
           gamingCenter.id,
           input.customer as { fullName: string; phone: string; email?: string }
         );
+
+        await ReservationRepo.assertActiveReservationLimitNotExceeded(customerAccount.id, tx);
 
         const status = gamingCenter.settings?.onlineBookingAutoConfirm
           ? ReservationStatus.CONFIRMED
@@ -261,6 +287,10 @@ export const reservationStation = {
 
         const finalPrice = Math.max(0, basePrice - discountAmount);
 
+        const expiresAt = status === ReservationStatus.PENDING
+          ? new Date(Date.now() + 60 * 1000)
+          : null;
+
         const reservation = await ReservationRepo.createReservation({
           gamingCenterId: gamingCenter.id,
           stationId: station.id,
@@ -273,6 +303,7 @@ export const reservationStation = {
           note: input.note,
           status,
           source: ReservationSource.ONLINE,
+          expiresAt,
           stationSnapshot: {
             name: station.name,
             hourlyPrice: station.hourlyPrice,
@@ -816,5 +847,9 @@ export const reservationStation = {
     }
 
     return ReservationRepo.listProposalsByReservationId(reservationId);
+  },
+
+  async expireStaleReservations() {
+    return ReservationRepo.expireStaleReservations();
   },
 };

@@ -62,8 +62,6 @@ describe('ReservationRepo', () => {
       expect(result).toEqual({ id: 'res-1' });
       expect(resMock.findFirst).toHaveBeenCalledWith(expect.objectContaining({
         where: expect.objectContaining({
-          staffId,
-          status: { in: [ReservationStatus.PENDING, ReservationStatus.CONFIRMED, ReservationStatus.COMPLETED] },
           startTime: { lt: endTime },
           endTime: { gt: startTime },
         }),

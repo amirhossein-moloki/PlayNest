@@ -112,6 +112,7 @@ export const GroupBookingRepo = {
       paymentState: ReservationPaymentState;
       source?: ReservationSource;
       note?: string;
+      expiresAt?: Date | null;
       items: Array<{
         stationId: string;
         staffId?: string;
@@ -142,6 +143,7 @@ export const GroupBookingRepo = {
         status: data.status,
         paymentState: data.paymentState,
         note: data.note,
+        expiresAt: data.expiresAt,
       },
     });
 
@@ -166,6 +168,7 @@ export const GroupBookingRepo = {
           source: data.source || ReservationSource.WALK_IN,
           note: data.note,
           paymentState: data.paymentState,
+          expiresAt: data.expiresAt,
           stationSnapshot: item.stationSnapshot as unknown as Prisma.InputJsonValue,
         },
       });
