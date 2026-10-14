@@ -1,5 +1,6 @@
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import { postgresAdapter } from '@payloadcms/db-postgres'
+import { nodemailerAdapter } from '@payloadcms/email-nodemailer'
 import { sharpTransformer } from '@payloadcms/transformer-sharp'
 import { buildConfig } from 'payload'
 import { fileURLToPath } from 'node:url'
@@ -14,6 +15,23 @@ import { VenueProfilesCollection } from './collections/VenueProfiles.js'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
+
+const isProduction = process.env.NODE_ENV === 'production'
+const payloadSecret = process.env.PAYLOAD_SECRET
+
+if (isProduction && (!payloadSecret || payloadSecret === 'generate_a_secure_payload_secret_at_least_32_chars' || payloadSecret === 'change_this_payload_secret_in_production')) {
+  throw new Error('PAYLOAD_SECRET must be set to a secure, non-default value in production.')
+}
+
+const secret = payloadSecret || 'dev_payload_secret_32_characters_minimum_length'
+
+const smtpHost = process.env.PAYLOAD_SMTP_HOST
+const smtpPort = process.env.PAYLOAD_SMTP_PORT ? parseInt(process.env.PAYLOAD_SMTP_PORT, 10) : 587
+const smtpUser = process.env.PAYLOAD_SMTP_USER
+const smtpPassword = process.env.PAYLOAD_SMTP_PASSWORD
+const smtpSecure = process.env.PAYLOAD_SMTP_SECURE === 'true'
+const smtpFromAddress = process.env.PAYLOAD_SMTP_FROM_ADDRESS || 'cms@playenest.com'
+const smtpFromName = process.env.PAYLOAD_SMTP_FROM_NAME || 'PlayNest CMS'
 
 export default buildConfig({
   admin: {
@@ -31,7 +49,7 @@ export default buildConfig({
     VenueProfilesCollection,
   ],
   editor: lexicalEditor({}),
-  secret: process.env.PAYLOAD_SECRET || 'change_this_payload_secret_in_production',
+  secret,
   db: postgresAdapter({
     push: process.env.PAYLOAD_DB_PUSH === 'true',
     pool: {
@@ -44,6 +62,27 @@ export default buildConfig({
       },
     },
   }),
+  ...(smtpHost
+    ? {
+        email: nodemailerAdapter({
+          defaultFromAddress: smtpFromAddress,
+          defaultFromName: smtpFromName,
+          transportOptions: {
+            host: smtpHost,
+            port: smtpPort,
+            secure: smtpSecure,
+            ...(smtpUser && smtpPassword
+              ? {
+                  auth: {
+                    user: smtpUser,
+                    pass: smtpPassword,
+                  },
+                }
+              : {}),
+          },
+        }),
+      }
+    : {}),
   typescript: {
     outputFile: path.resolve(dirname, '../payload-types.ts'),
   },
