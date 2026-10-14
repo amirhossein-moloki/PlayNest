@@ -99,7 +99,10 @@ export const GroupBookingStation = {
         effectiveCreatedByUserId = systemUser.id;
       }
 
-      // 3. Batch fetch all stations
+      // 3. Lock all selected stations deterministically to prevent race conditions & deadlocks
+      await ReservationRepo.lockStationsForUpdate(stationIds, tx);
+
+      // Batch fetch all stations
       const stations = await GroupBookingRepo.findStationsBatch(stationIds, gamingCenterId, true, tx);
       if (stations.length !== stationIds.length) {
         throw new AppError('One or more selected stations are invalid or inactive.', httpStatus.NOT_FOUND, {
@@ -180,6 +183,13 @@ export const GroupBookingStation = {
       // 6. Customer profile
       const { customerAccount, customerProfile } = await findOrCreateCustomerProfile(tx, gamingCenterId, customer);
 
+      await ReservationRepo.assertActiveReservationLimitNotExceeded(customerAccount.id, tx);
+
+      const status: ReservationStatus = ReservationStatus.CONFIRMED;
+      const expiresAt = (status as ReservationStatus) === ReservationStatus.PENDING
+        ? new Date(Date.now() + 60 * 1000)
+        : null;
+
       // 7. Create GroupBooking and child entities
       const createdGroupBooking = await GroupBookingRepo.createGroupBookingWithDetails(
         {
@@ -196,6 +206,7 @@ export const GroupBookingStation = {
           paymentState: ReservationPaymentState.UNPAID,
           source: source || ReservationSource.WALK_IN,
           note,
+          expiresAt,
           items: preparedItems,
         },
         tx
@@ -257,6 +268,8 @@ export const GroupBookingStation = {
     }
 
     return GroupBookingRepo.transaction(async (tx) => {
+      await ReservationRepo.lockStationsForUpdate(stationIds, tx);
+
       const stations = await GroupBookingRepo.findStationsBatch(stationIds, gamingCenter.id, true, tx);
       if (stations.length !== stationIds.length) {
         throw new AppError('One or more selected stations are invalid or inactive.', httpStatus.NOT_FOUND, {
@@ -332,9 +345,15 @@ export const GroupBookingStation = {
 
       const { customerAccount, customerProfile } = await findOrCreateCustomerProfile(tx, gamingCenter.id, customer);
 
+      await ReservationRepo.assertActiveReservationLimitNotExceeded(customerAccount.id, tx);
+
       const status = gamingCenter.settings?.onlineBookingAutoConfirm
         ? ReservationStatus.CONFIRMED
         : ReservationStatus.PENDING;
+
+      const expiresAt = status === ReservationStatus.PENDING
+        ? new Date(Date.now() + 60 * 1000)
+        : null;
 
       // Find staff/system user to assign as creator
       const systemUser = await tx.user.findFirst({ where: { gamingCenterId: gamingCenter.id } });
@@ -357,6 +376,7 @@ export const GroupBookingStation = {
           paymentState: ReservationPaymentState.UNPAID,
           source: ReservationSource.ONLINE,
           note,
+          expiresAt,
           items: preparedItems,
         },
         tx

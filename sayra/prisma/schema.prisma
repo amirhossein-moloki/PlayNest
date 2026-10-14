@@ -35,6 +35,7 @@ enum ReservationStatus {
   COMPLETED
   CANCELED
   NO_SHOW
+  EXPIRED
 }
 
 enum ReservationProposalStatus {
@@ -1169,6 +1170,8 @@ model Reservation {
   canceledByUserId String?
   canceledBy       User?     @relation("ReservationCanceler", fields: [canceledByUserId], references: [id])
 
+  expiresAt DateTime? @db.Timestamptz(6)
+
   completedAt DateTime? @db.Timestamptz(6)
   noShowAt    DateTime? @db.Timestamptz(6)
 
@@ -1226,6 +1229,8 @@ model GroupBooking {
   cancelReason     String?
   canceledByUserId String?
   canceledBy       User?     @relation("GroupBookingCanceler", fields: [canceledByUserId], references: [id])
+
+  expiresAt DateTime? @db.Timestamptz(6)
 
   items        GroupBookingItem[]
   reservations Reservation[]
