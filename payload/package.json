@@ -159,6 +159,8 @@
     "@next/bundle-analyzer": "16.4.0",
     "@payloadcms/db-postgres": "workspace:*",
     "@payloadcms/eslint-config": "workspace:*",
+    "@payloadcms/richtext-lexical": "workspace:*",
+    "@payloadcms/transformer-sharp": "workspace:*",
     "@payloadcms/eslint-plugin": "workspace:*",
     "@payloadcms/live-preview-react": "workspace:*",
     "@payloadcms/typescript-plugin": "workspace:*",

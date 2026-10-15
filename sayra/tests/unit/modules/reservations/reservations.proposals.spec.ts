@@ -31,10 +31,10 @@ describe('Reservation Proposals Workflow', () => {
   const staffUserId = 'u-staff-1';
   const customerAccountId = 'cust-1';
 
-  const futureStartOriginal = new Date(Date.now() + 86400000); // +1 day
-  const futureEndOriginal = new Date(Date.now() + 90000000);
-  const futureStartProposed = new Date(Date.now() + 172800000); // +2 days
-  const futureEndProposed = new Date(Date.now() + 176400000);
+  const futureStartOriginal = new Date('2028-06-15T10:00:00.000Z');
+  const futureEndOriginal = new Date('2028-06-15T11:00:00.000Z');
+  const futureStartProposed = new Date('2028-06-16T10:00:00.000Z');
+  const futureEndProposed = new Date('2028-06-16T11:00:00.000Z');
 
   const mockReservation = {
     id: reservationId,

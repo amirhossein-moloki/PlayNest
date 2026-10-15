@@ -72,14 +72,9 @@ export const withPayload = (nextConfig = {}, options = {}) => {
        */
       silenceDeprecations: [...(nextConfig.sassOptions?.silenceDeprecations || []), 'import'],
     },
-    outputFileTracingExcludes: {
-      ...(nextConfig.outputFileTracingExcludes || {}),
-      '**/*': [
-        ...(nextConfig.outputFileTracingExcludes?.['**/*'] || []),
-        'drizzle-kit',
-        'drizzle-kit/api',
-      ],
-    },
+    ...(nextConfig.outputFileTracingExcludes
+      ? { outputFileTracingExcludes: nextConfig.outputFileTracingExcludes }
+      : {}),
     turbopack: {
       ...(nextConfig.turbopack || {}),
     },
@@ -116,7 +111,6 @@ export const withPayload = (nextConfig = {}, options = {}) => {
       // during runtime ("Ensure that there is only one instance of \"graphql\" in the node_modules\ndirectory.")
       'graphql',
       'drizzle-kit',
-      'drizzle-kit/api',
       'sharp',
       'libsql',
       'require-in-the-middle',
