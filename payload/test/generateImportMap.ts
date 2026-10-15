@@ -21,7 +21,10 @@ async function run() {
     console.log('Generating ad-hoc import map for config:', pathWithConfig)
 
     const imported = await import(pathWithConfig)
-    const config: SanitizedConfig = imported.default || imported
+    let config: SanitizedConfig = imported.default || imported
+    if (config && typeof (config as any).then === 'function') {
+      config = await config
+    }
 
     let rootDir = path.resolve(dirname, '..')
 

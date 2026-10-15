@@ -34,7 +34,7 @@ COPY --from=deps /app/templates ./templates
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN pnpm run build && pnpm run build:app
+RUN pnpm run build:all && pnpm run build:app
 
 FROM base AS runner
 WORKDIR /app
