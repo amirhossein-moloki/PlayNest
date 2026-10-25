@@ -28,10 +28,10 @@ export const VenueProfilesCollection: CollectionConfig = {
               console.warn(`[Payload] Warning: Sayra API returned status ${res.status} when validating venue '${data.sayraVenueId}'.`)
             }
           } catch (err: any) {
-            if (err.message.includes('Invalid Sayra Venue ID')) {
+            if (err?.message?.includes('Invalid Sayra Venue ID')) {
               throw err
             }
-            console.warn(`[Payload] Warning: Unable to verify Sayra venue ID '${data.sayraVenueId}': ${err.message}`)
+            console.warn(`[Payload] Warning: Unable to verify Sayra venue ID '${data.sayraVenueId}': ${err?.message || err}`)
           }
         }
         return data
