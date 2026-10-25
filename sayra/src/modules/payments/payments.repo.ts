@@ -1,8 +1,9 @@
-import { Prisma, ReservationPaymentState, PaymentStatus } from '@prisma/client';
+import { Prisma, ReservationPaymentState, PaymentStatus, ReservationStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { validateReservationTransition, validatePaymentTransition } from './payments.state';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
+import logger from '../../config/logger';
 import { commissionsStation } from '../commissions/commissions.station';
 import { walletService } from '../wallet/wallet.station';
 
@@ -63,6 +64,14 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string) => {
       where: { id: payment.reservationId },
       data: { paymentState: ReservationPaymentState.PAID },
     });
+
+    if (payment.reservation.status === ReservationStatus.EXPIRED) {
+      logger.warn({
+        msg: 'Late payment received for expired reservation. Recorded payment state as PAID for manual reconciliation.',
+        reservationId: payment.reservationId,
+        paymentId,
+      });
+    }
   } catch (error) {
     if (error instanceof AppError && error.statusCode === httpStatus.CONFLICT) {
       // If reservation is in a state that doesn't allow transitioning to PAID (e.g., CANCELED)

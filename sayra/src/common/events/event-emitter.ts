@@ -7,6 +7,7 @@ export enum AppEvents {
   RESERVATION_UPDATED = 'reservation.updated',
   RESERVATION_CONFIRMED = 'reservation.confirmed',
   RESERVATION_CANCELED = 'reservation.canceled',
+  RESERVATION_EXPIRED = 'reservation.expired',
   RESERVATION_COMPLETED = 'reservation.completed',
   RESERVATION_NOSHOW = 'reservation.noshow',
   RESERVATION_TIME_PROPOSED = 'reservation.time_proposed',
