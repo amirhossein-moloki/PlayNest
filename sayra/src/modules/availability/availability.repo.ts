@@ -17,6 +17,20 @@ export const AvailabilityRepo = {
     });
   },
 
+  async findMaintenances(gamingCenterId: string, stationId: string, startDate: Date, endDate: Date) {
+    return prisma.stationMaintenance.findMany({
+      where: {
+        stationId,
+        station: { gamingCenterId },
+        startTime: { lt: endDate },
+        OR: [
+          { endTime: null },
+          { endTime: { gt: startDate } },
+        ],
+      },
+    });
+  },
+
   async findStaff(staffId: string, gamingCenterId: string, stationId: string) {
     return prisma.user.findFirst({
       where: {

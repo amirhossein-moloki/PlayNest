@@ -73,6 +73,21 @@ export const ReservationRepo = {
     });
   },
 
+  async findOverlappingMaintenance(stationId: string, startTime: Date, endTime: Date, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    if (!client.stationMaintenance) return [];
+    return client.stationMaintenance.findMany({
+      where: {
+        stationId,
+        startTime: { lt: endTime },
+        OR: [
+          { endTime: null },
+          { endTime: { gt: startTime } },
+        ],
+      },
+    });
+  },
+
   async findOverlappingReservation(
     gamingCenterId: string,
     staffId: string | null | undefined,
