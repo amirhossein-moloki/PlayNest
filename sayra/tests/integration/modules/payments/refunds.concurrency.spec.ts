@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import { prisma } from '../../../../src/config/prisma';
 import { RefundsStation } from '../../../../src/modules/payments/payments.refund.station';
 import { PaymentStatus, RefundStatus, ReservationStatus, ReservationPaymentState } from '@prisma/client';
@@ -20,6 +20,14 @@ describe('Phase 6 — PostgreSQL Live Refund Concurrency & Invariants Integratio
     } catch {
       isDbAvailable = false;
       console.warn('PostgreSQL is not reachable. Skipping live database concurrency tests.');
+    }
+  });
+
+  afterAll(async () => {
+    try {
+      await prisma.$disconnect();
+    } catch {
+      // Ignore disconnect errors in tests
     }
   });
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { RefundsStation } from '../../../../src/modules/payments/payments.refund.station';
 import { RefundsRepo } from '../../../../src/modules/payments/payments.refund.repo';
@@ -18,7 +19,7 @@ describe('Phase 6 — Refund Integration & Concurrency Simulation', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    MockedPaymentsRepo.transaction.mockImplementation(async (cb: /* eslint-disable-line @typescript-eslint/no-explicit-any */ any) => cb({}));
+    MockedPaymentsRepo.transaction.mockImplementation(async (cb: any) => cb({}));
   });
 
   it('CONCURRENT OVER-REFUND PROTECTION: rejects concurrent request when cumulative sum exceeds balance', async () => {

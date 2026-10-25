@@ -8,9 +8,7 @@ import {
   InitiatePaymentResult,
   VerifyPaymentParams,
   VerifyPaymentResult,
-  RequestRefundParams,
   RequestRefundResult,
-  VerifyRefundParams,
   VerifyRefundResult,
 } from './payment-provider.interface';
 
@@ -124,7 +122,7 @@ export class ZarinPalProvider implements IPaymentProvider {
     }
   }
 
-  async requestRefund(_params: RequestRefundParams): Promise<RequestRefundResult> {
+  async requestRefund(): Promise<RequestRefundResult> {
     return {
       success: false,
       status: RefundStatus.FAILED,
@@ -132,7 +130,7 @@ export class ZarinPalProvider implements IPaymentProvider {
     };
   }
 
-  async verifyRefund(_params: VerifyRefundParams): Promise<VerifyRefundResult> {
+  async verifyRefund(): Promise<VerifyRefundResult> {
     return {
       success: false,
       status: RefundStatus.FAILED,

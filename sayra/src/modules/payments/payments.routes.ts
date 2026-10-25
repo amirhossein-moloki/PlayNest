@@ -67,7 +67,7 @@ router.get(
 export const paymentsRoutes = router;
 
 // Management Router for Refunds, Ledger, and Reconciliation
-const managementRouter = Router();
+const managementRouter = Router({ mergeParams: true });
 
 // Request refund for a payment
 managementRouter.post(

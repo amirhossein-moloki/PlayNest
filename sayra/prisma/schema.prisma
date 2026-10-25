@@ -1792,10 +1792,10 @@ model Refund {
   id String @id @default(cuid())
 
   gamingCenterId String
-  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
   paymentId String
-  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  payment   Payment @relation(fields: [paymentId], references: [id])
 
   amount   Int
   currency String
@@ -1827,13 +1827,13 @@ model LedgerEntry {
   id String @id @default(cuid())
 
   gamingCenterId String
-  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
   paymentId String?
-  payment   Payment? @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  payment   Payment? @relation(fields: [paymentId], references: [id])
 
   refundId String?
-  refund   Refund? @relation(fields: [refundId], references: [id], onDelete: Cascade)
+  refund   Refund? @relation(fields: [refundId], references: [id])
 
   entryType LedgerEntryType
   amount    Int
@@ -1856,10 +1856,10 @@ model ReconciliationRecord {
   id String @id @default(cuid())
 
   gamingCenterId String
-  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
 
   paymentId String
-  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  payment   Payment @relation(fields: [paymentId], references: [id])
 
   status ReconciliationStatus
   details Json?

@@ -51,6 +51,11 @@ const requestRefund = async (input: RequestRefundInput) => {
     throw new AppError('Refund amount must be a positive integer.', httpStatus.BAD_REQUEST);
   }
 
+  // Early validation of requested provider name before creating DB record
+  if (providerName) {
+    PaymentProviderFactory.getProvider(providerName);
+  }
+
   // 2. Lock payment row & validate eligibility inside database transaction
   const initialData = await PaymentsRepo.transaction(async (tx) => {
     const payment = await RefundsRepo.findPaymentForRefundLock(tx, paymentId, gamingCenterId);
