@@ -5,6 +5,7 @@ import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import logger from '../../config/logger';
 import { commissionsStation } from '../commissions/commissions.station';
+import { LedgerRepo } from './ledger.repo';
 
 type Tx = Prisma.TransactionClient;
 
@@ -66,10 +67,20 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string, refId?: string
   validatePaymentTransition(payment.status, PaymentStatus.PAID);
 
   if (!payment.reservation) {
-    return tx.payment.update({
+    const updatedPaymentNoRes = await tx.payment.update({
       where: { id: paymentId },
       data: { status: PaymentStatus.PAID, paidAt: new Date(), referenceCode: refId || payment.referenceCode },
     });
+
+    await LedgerRepo.createCollectionEntry(tx, {
+      gamingCenterId: payment.gamingCenterId,
+      paymentId: payment.id,
+      amount: payment.amount,
+      currency: payment.currency,
+      description: `Payment collection for ${payment.id}`,
+    });
+
+    return updatedPaymentNoRes;
   }
 
   // Handle case where reservation was cancelled or expired before payment succeeded
@@ -89,6 +100,14 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string, refId?: string
         referenceCode: refId || payment.referenceCode,
         failureReason: `Paid after reservation ${payment.reservation.status.toLowerCase()}; logged for reconciliation`,
       },
+    });
+
+    await LedgerRepo.createCollectionEntry(tx, {
+      gamingCenterId: payment.gamingCenterId,
+      paymentId: payment.id,
+      amount: payment.amount,
+      currency: payment.currency,
+      description: `Payment collection for ${payment.id} (Reservation ${payment.reservation.status.toLowerCase()})`,
     });
 
     return updatedPayment;
@@ -117,6 +136,14 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string, refId?: string
   await tx.reservation.update({
     where: { id: payment.reservationId! },
     data: updateData,
+  });
+
+  await LedgerRepo.createCollectionEntry(tx, {
+    gamingCenterId: payment.gamingCenterId,
+    paymentId: payment.id,
+    amount: payment.amount,
+    currency: payment.currency,
+    description: `Payment collection for reservation ${payment.reservationId}`,
   });
 
   // Trigger commission calculation (async, non-blocking for the transaction)

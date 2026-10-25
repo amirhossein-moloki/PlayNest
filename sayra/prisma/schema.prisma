@@ -324,6 +324,27 @@ enum DiscountValueType {
   FIXED_AMOUNT
 }
 
+enum RefundStatus {
+  PENDING
+  SUCCESSFUL
+  FAILED
+  AMBIGUOUS
+}
+
+enum LedgerEntryType {
+  PAYMENT_COLLECTION
+  REFUND_DISBURSEMENT
+  COMPENSATING_ADJUSTMENT
+}
+
+enum ReconciliationStatus {
+  MATCHED
+  DISCREPANCY_AMOUNT
+  DISCREPANCY_STATUS
+  MISSING_PROVIDER_REF
+  UNCONFIRMED_PROVIDER_STATE
+}
+
 // =======================
 // Identity Domain
 // =======================
@@ -386,6 +407,10 @@ model GamingCenter {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   Payment   Payment[]
+
+  refunds               Refund[]
+  ledgerEntries         LedgerEntry[]
+  reconciliationRecords ReconciliationRecord[]
 
   @@index([slug])
 }
@@ -1415,6 +1440,10 @@ model Payment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  refunds               Refund[]
+  ledgerEntries         LedgerEntry[]
+  reconciliationRecords ReconciliationRecord[]
+
   @@unique(fields: [provider, providerPaymentId], name: "provider_payment_id")
   @@unique(fields: [gamingCenterId, idempotencyKey], name: "idempotency_key")
   @@index([reservationId, paidAt])
@@ -1757,4 +1786,86 @@ model Notification {
 
   @@index([userId, isRead, createdAt])
   @@index([userId, createdAt])
+}
+
+model Refund {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+
+  paymentId String
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  amount   Int
+  currency String
+
+  status RefundStatus @default(PENDING)
+
+  reason           String?
+  failureReason    String?
+  providerRefundId String?
+  idempotencyKey   String?
+  rawPayload       Json?
+
+  requestedById String?
+
+  processedAt DateTime? @db.Timestamptz(6)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ledgerEntries LedgerEntry[]
+
+  @@unique(fields: [gamingCenterId, idempotencyKey], name: "refund_idempotency_key")
+  @@index([paymentId, status])
+  @@index([gamingCenterId, status, createdAt])
+  @@index([providerRefundId])
+}
+
+model LedgerEntry {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+
+  paymentId String?
+  payment   Payment? @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  refundId String?
+  refund   Refund? @relation(fields: [refundId], references: [id], onDelete: Cascade)
+
+  entryType LedgerEntryType
+  amount    Int
+  currency  String
+
+  idempotencyKey String @unique
+
+  description String?
+  metadata    Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([gamingCenterId, createdAt])
+  @@index([paymentId])
+  @@index([refundId])
+  @@index([entryType])
+}
+
+model ReconciliationRecord {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+
+  paymentId String
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  status ReconciliationStatus
+  details Json?
+
+  reconciledAt DateTime @default(now())
+
+  @@index([gamingCenterId, status, reconciledAt])
+  @@index([paymentId])
 }
