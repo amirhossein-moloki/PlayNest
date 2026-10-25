@@ -485,6 +485,7 @@ model User {
   reservationsAsStaff  Reservation[]  @relation("ReservationStaff")
   reservationsCreated  Reservation[]  @relation("ReservationCreator")
   canceledReservations Reservation[]  @relation("ReservationCanceler")
+  checkedInReservations Reservation[] @relation("ReservationCheckInStaff")
   proposalsCreated     ReservationTimeProposal[] @relation("ProposalCreator")
   discountsCreated     Discount[]     @relation("DiscountCreator")
   groupBookingsCreated GroupBooking[] @relation("GroupBookingCreator")
@@ -1237,6 +1238,11 @@ model Reservation {
   canceledByUserId String?
   canceledBy       User?     @relation("ReservationCanceler", fields: [canceledByUserId], references: [id])
 
+  trackingCode      String?   @unique
+  checkedInAt       DateTime? @db.Timestamptz(6)
+  checkedInByUserId String?
+  checkedInBy       User?     @relation("ReservationCheckInStaff", fields: [checkedInByUserId], references: [id])
+
   expiresAt DateTime? @db.Timestamptz(6)
 
   completedAt DateTime? @db.Timestamptz(6)
@@ -1266,6 +1272,7 @@ model Reservation {
   @@index([customerAccountId, startTime])
   @@index([customerProfileId, startTime])
   @@index([gamingCenterId, paymentState, startTime])
+  @@index([gamingCenterId, trackingCode])
   @@index([groupBookingId])
   @@index([status, expiresAt])
 }

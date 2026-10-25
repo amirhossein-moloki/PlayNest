@@ -24,7 +24,8 @@ describe('Reservation Lifecycle & Rescheduling Application Tests', () => {
   const staffId = 'staff-100';
   const actor = { id: 'usr-1', role: UserRole.MANAGER, actorType: SessionActorType.USER };
 
-  const futureDate = new Date(Date.now() + 2 * 3600 * 1000); // 2 hours from now
+  const futureDate = new Date(Date.now() + 24 * 3600 * 1000); // Tomorrow
+  futureDate.setUTCHours(12, 0, 0, 0); // 12:00 UTC tomorrow
   const pastDate = new Date(Date.now() - 2 * 3600 * 1000); // 2 hours ago
 
   const mockBaseReservation = {

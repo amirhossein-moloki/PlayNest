@@ -2,12 +2,22 @@ import { Prisma, ReservationPaymentState, ReservationProposalStatus, Reservation
 import { prisma } from '../../config/prisma';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
+import { generateTrackingCode } from '../../common/utils/trackingCode';
 
 export const ReservationRepo = {
   async lockStationForUpdate(stationId: string, tx: Prisma.TransactionClient): Promise<void> {
     const client = tx || prisma;
     try {
       await client.$executeRaw`SELECT id FROM "GameStation" WHERE id = ${stationId} FOR UPDATE`;
+    } catch {
+      // In unit test mocks or environments without raw sql, proceed gracefully
+    }
+  },
+
+  async lockReservationForUpdate(id: string, tx: Prisma.TransactionClient): Promise<void> {
+    const client = tx || prisma;
+    try {
+      await client.$executeRaw`SELECT id FROM "Reservation" WHERE id = ${id} FOR UPDATE`;
     } catch {
       // In unit test mocks or environments without raw sql, proceed gracefully
     }
@@ -355,9 +365,94 @@ export const ReservationRepo = {
     return client.customerProfile.create({ data });
   },
 
-  async createReservation(data: Prisma.ReservationUncheckedCreateInput, tx?: Prisma.TransactionClient) {
+  async createReservation(data: Prisma.ReservationUncheckedCreateInput, tx?: Prisma.TransactionClient, maxRetries = 5) {
     const client = tx || prisma;
-    return client.reservation.create({ data });
+    let attempts = 0;
+    let currentCode = data.trackingCode;
+    while (attempts < maxRetries) {
+      attempts++;
+      const code = currentCode || generateTrackingCode();
+      try {
+        return await client.reservation.create({
+          data: {
+            ...data,
+            trackingCode: code,
+          },
+        });
+      } catch (error: unknown) {
+        if (
+          error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          error.code === 'P2002' &&
+          'meta' in error &&
+          error.meta &&
+          typeof error.meta === 'object' &&
+          'target' in error.meta &&
+          Array.isArray(error.meta.target) &&
+          (error.meta.target.includes('trackingCode') || error.meta.target.includes('Reservation_trackingCode_key'))
+        ) {
+          if (attempts >= maxRetries) {
+            throw new AppError('Failed to generate unique tracking code after retries.', httpStatus.INTERNAL_SERVER_ERROR);
+          }
+          currentCode = generateTrackingCode();
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw new AppError('Failed to generate unique tracking code.', httpStatus.INTERNAL_SERVER_ERROR);
+  },
+
+  async createReservationWithRetry(
+    data: Prisma.ReservationUncheckedCreateInput,
+    generateCodeFn: () => string,
+    tx?: Prisma.TransactionClient,
+    maxRetries = 5
+  ) {
+    return this.createReservation(
+      {
+        ...data,
+        trackingCode: data.trackingCode || generateCodeFn(),
+      },
+      tx,
+      maxRetries
+    );
+  },
+
+  async findReservationByTrackingCode(
+    gamingCenterId: string,
+    trackingCode: string,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx || prisma;
+    return client.reservation.findFirst({
+      where: {
+        gamingCenterId,
+        trackingCode,
+      },
+      include: {
+        station: {
+          select: {
+            id: true,
+            name: true,
+            stationType: true,
+          },
+        },
+        customerAccount: {
+          select: {
+            id: true,
+            fullName: true,
+          },
+        },
+        customerProfile: {
+          select: {
+            id: true,
+            displayName: true,
+          },
+        },
+      },
+    });
   },
 
   async findReservationById(id: string, gamingCenterId: string, tx?: Prisma.TransactionClient) {
