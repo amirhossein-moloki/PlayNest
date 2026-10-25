@@ -17,6 +17,7 @@ import logger from '../../config/logger';
 import { env } from '../../config/env';
 import { ReservationStateMachine } from './reservation.state-machine';
 import { discountsStation } from '../discounts/discounts.station';
+import { DiscountsRepo } from '../discounts/discounts.repo';
 import {
   validateLeadTime,
   validateOperatingHours,
@@ -159,8 +160,18 @@ export const reservationStation = {
         stationId,
         basePrice,
         startTime,
+        input.voucherCode,
         tx
       );
+
+      if (applicableDiscount) {
+        const incremented = await DiscountsRepo.incrementUsedCount(applicableDiscount.id, tx);
+        if (!incremented) {
+          throw new AppError('Discount usage limit reached.', httpStatus.CONFLICT, {
+            code: 'DISCOUNT_LIMIT_REACHED',
+          });
+        }
+      }
 
       const finalPrice = Math.max(0, basePrice - discountAmount);
 
@@ -309,8 +320,18 @@ export const reservationStation = {
           station.id,
           basePrice,
           startTime,
+          input.voucherCode,
           tx
         );
+
+        if (applicableDiscount) {
+          const incremented = await DiscountsRepo.incrementUsedCount(applicableDiscount.id, tx);
+          if (!incremented) {
+            throw new AppError('Discount usage limit reached.', httpStatus.CONFLICT, {
+              code: 'DISCOUNT_LIMIT_REACHED',
+            });
+          }
+        }
 
         const finalPrice = Math.max(0, basePrice - discountAmount);
 
@@ -563,6 +584,7 @@ export const reservationStation = {
               effectiveStationId,
               basePrice,
               newStartAt,
+              undefined,
               tx
             );
 
@@ -980,6 +1002,7 @@ export const reservationStation = {
           effectiveStationId,
           basePrice,
           newStartTime,
+          undefined,
           tx
         );
         const finalPrice = Math.max(0, basePrice - discountAmount);

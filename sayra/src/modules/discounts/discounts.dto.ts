@@ -9,6 +9,8 @@ export const createDiscountSchema = z.object({
   }),
   body: z
     .object({
+      code: z.string().min(1).max(50).toUpperCase().optional(),
+      maxUses: z.number().int().positive('maxUses must be a positive integer').optional(),
       targetType: z.nativeEnum(DiscountTargetType),
       targetId: z.string().min(1, 'targetId is required'),
       valueType: z.nativeEnum(DiscountValueType),
@@ -43,6 +45,8 @@ export const updateDiscountSchema = z.object({
   }),
   body: z
     .object({
+      code: z.string().min(1).max(50).toUpperCase().optional(),
+      maxUses: z.number().int().positive('maxUses must be a positive integer').optional(),
       targetType: z.nativeEnum(DiscountTargetType).optional(),
       targetId: z.string().min(1).optional(),
       valueType: z.nativeEnum(DiscountValueType).optional(),
