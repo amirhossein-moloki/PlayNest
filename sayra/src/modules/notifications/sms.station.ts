@@ -16,9 +16,17 @@ export const SmsStation = {
       return { status: 'mocked' };
     }
 
+    const TIMEOUT_MS = 5000;
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`SMS request timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS);
+    });
+
     try {
-      // smsir-js v1.x uses SendVerifyCode for template-based messages
-      const response = await smsir.SendVerifyCode(mobile, templateId, parameters);
+      // smsir-js v1.x uses SendVerifyCode for template-based messages wrapped in 5s timeout race
+      const response = await Promise.race([
+        smsir.SendVerifyCode(mobile, templateId, parameters),
+        timeoutPromise,
+      ]);
       return response;
     } catch (error) {
       console.error('Failed to send SMS via Smsir:', error);

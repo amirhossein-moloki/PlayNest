@@ -15,6 +15,12 @@ export const smsWorker = new Worker(
     return requestContext.run({ correlationId, requestId: job.id }, async () => {
       logger.info({ msg: 'Processing SMS job', jobId: job.id, mobile, templateId });
 
+      // Cooperative cancellation check before external API call
+      if (job.token && (await job.isCompleted() || await job.isFailed())) {
+        logger.warn({ msg: 'SMS job cancelled or stalled, aborting execution', jobId: job.id });
+        return;
+      }
+
       try {
         await SmsStation.sendTemplateSms(mobile, templateId, parameters);
       } catch (error) {

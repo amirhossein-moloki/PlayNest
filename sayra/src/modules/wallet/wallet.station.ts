@@ -48,21 +48,29 @@ export const walletService = {
 
       if (existingRefund) return;
 
-      await walletService.credit(
-        reservation.customerAccountId,
-        totalPaid,
-        WalletTransactionType.REFUND,
-        ((reservation.stationSnapshot as Record<string, unknown>)?.currency as string | undefined || 'USD'),
-        reservationId,
-        `Refund for reservation ${reservationId}`,
-        t
-      );
+      try {
+        await walletService.credit(
+          reservation.customerAccountId,
+          totalPaid,
+          WalletTransactionType.REFUND,
+          ((reservation.stationSnapshot as Record<string, unknown>)?.currency as string | undefined || 'USD'),
+          reservationId,
+          `Refund for reservation ${reservationId}`,
+          t
+        );
 
-      // Update reservation payment state to REFUNDED
-      await WalletRepo.updateReservationPaymentState(reservationId, ReservationPaymentState.REFUNDED, t);
+        // Update reservation payment state to REFUNDED
+        await WalletRepo.updateReservationPaymentState(reservationId, ReservationPaymentState.REFUNDED, t);
 
-      // Mark successful payments as REFUNDED
-      await WalletRepo.updatePaymentsStatus(reservationId, PaymentStatus.PAID, PaymentStatus.REFUNDED, t);
+        // Mark successful payments as REFUNDED
+        await WalletRepo.updatePaymentsStatus(reservationId, PaymentStatus.PAID, PaymentStatus.REFUNDED, t);
+      } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+        if (error.code === 'P2002') {
+          // Unique constraint violation: already refunded concurrently
+          return;
+        }
+        throw error;
+      }
     };
 
     if (tx) {

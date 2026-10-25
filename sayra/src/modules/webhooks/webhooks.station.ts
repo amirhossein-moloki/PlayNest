@@ -5,6 +5,7 @@ import httpStatus from 'http-status';
 import { IdempotencyRepo } from '../../common/repositories/idempotency.repo';
 import { PaymentsRepo } from '../payments/payments.repo';
 import { queueAnalyticsSync } from '../../jobs/producers/analytics.producer';
+import logger from '../../config/logger';
 
 const processPaymentWebhook = async ({
   provider,
@@ -96,8 +97,17 @@ const processPaymentWebhook = async ({
 
     });
 
-    // Sync analytics
-    queueAnalyticsSync({ type: 'PAYMENT', entityId: paymentId }).catch(console.error);
+    // Sync analytics - properly awaited with structured logger
+    try {
+      await queueAnalyticsSync({ type: 'PAYMENT', entityId: paymentId });
+    } catch (analyticsError) {
+      logger.error({
+        msg: 'Failed to queue analytics sync for payment webhook',
+        paymentId,
+        eventId,
+        error: analyticsError,
+      });
+    }
 
     // Mark the idempotency key as completed outside the DB transaction
     await IdempotencyRepo.updateKey(idempotencyScope, eventId, { status: IdempotencyStatus.COMPLETED });

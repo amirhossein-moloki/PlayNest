@@ -4,6 +4,17 @@ import { prisma } from '../../config/prisma';
 export const WalletRepo = {
   async updateBalance(customerAccountId: string, amount: number, tx?: Prisma.TransactionClient) {
     const client = tx || prisma;
+    // Check non-negative balance requirement if debiting
+    if (amount < 0) {
+      const account = await client.customerAccount.findUnique({
+        where: { id: customerAccountId },
+        select: { walletBalance: true },
+      });
+      if (!account || account.walletBalance + amount < 0) {
+        throw new Error('INSUFFICIENT_BALANCE');
+      }
+    }
+
     return client.customerAccount.update({
       where: { id: customerAccountId },
       data: {
