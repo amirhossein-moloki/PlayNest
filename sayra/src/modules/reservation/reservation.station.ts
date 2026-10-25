@@ -1,12 +1,11 @@
 
-import { addMinutes, isBefore } from 'date-fns';
+import { addMinutes } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { Reservation, ReservationSource, ReservationStatus, ReservationProposalStatus, Prisma, SessionActorType, UserRole, OtpPurpose } from '@prisma/client';
 import { ReservationRepo } from './reservation.repo';
 import { AuthRepository } from '../auth/auth.repository';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
-import { getZonedStartAndEnd } from '../../common/utils/date';
 import { gamingSessionsStation } from '../gamingSessions/gamingSessions.station';
 import { commissionsStation } from '../commissions/commissions.station';
 import { walletService } from '../wallet/wallet.station';
@@ -78,38 +77,21 @@ const findOrCreateCustomerProfile = async (
   return { customerAccount, customerProfile };
 };
 
-function isExclusionConstraintViolation(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const err = error as Record<string, unknown>;
-  if (err.code === '23P01') return true;
-  if (typeof err.message === 'string' && (err.message.includes('23P01') || err.message.includes('Reservation_no_overlap_active'))) {
-    return true;
-  }
-  if (err.meta && typeof err.meta === 'object') {
-    const metaStr = JSON.stringify(err.meta);
-    if (metaStr.includes('23P01') || metaStr.includes('Reservation_no_overlap_active')) {
-      return true;
-    }
-  }
-  return false;
-}
-
 export const reservationStation = {
   async createReservation(input: CreateReservationInput & { gamingCenterId: string; createdByUserId: string; }) {
-    try {
-      const result = await ReservationRepo.transaction(async (tx) => {
-        const { gamingCenterId, stationId, staffId, customer, startTime: startAtString, createdByUserId, note } = input;
-        const startTime = new Date(startAtString);
+    const result = await ReservationRepo.transaction(async (tx) => {
+      const { gamingCenterId, stationId, staffId, customer, startTime: startAtString, createdByUserId, note } = input;
+      const startTime = new Date(startAtString);
 
-        // Lock station for update to prevent concurrent double-booking
-        await ReservationRepo.lockStationForUpdate(stationId, tx);
+      // Lock station for update to prevent concurrent double-booking
+      await ReservationRepo.lockStationForUpdate(stationId, tx);
 
-        // 1. Fetch GameStation and Customer Profile details
-        const station = await ReservationRepo.findStation(stationId, gamingCenterId, true, tx);
+      // 1. Fetch GameStation and Customer Profile details
+      const station = await ReservationRepo.findStation(stationId, gamingCenterId, true, tx);
 
-        if (!station) {
-          throw new AppError('GameStation not found or is not active.', httpStatus.NOT_FOUND);
-        }
+      if (!station) {
+        throw new AppError('GameStation not found or is not active.', httpStatus.NOT_FOUND);
+      }
 
       const durationHours = station.defaultDurationHours;
       const endTime = addMinutes(startTime, durationHours * 60);
@@ -134,14 +116,13 @@ export const reservationStation = {
       );
 
       const staff = await ReservationRepo.findStaff(staffId, gamingCenterId, stationId, undefined, tx);
-        const staff = await ReservationRepo.findStaff(staffId, gamingCenterId, stationId, undefined, tx);
 
-        if (!staff) {
-          throw new AppError(
-            'Staff member not found or does not perform this station.',
-            httpStatus.NOT_FOUND
-          );
-        }
+      if (!staff) {
+        throw new AppError(
+          'Staff member not found or does not perform this station.',
+          httpStatus.NOT_FOUND
+        );
+      }
 
       const overlappingReservation = await ReservationRepo.findOverlappingReservation(
         gamingCenterId,
@@ -152,99 +133,71 @@ export const reservationStation = {
         tx,
         stationId
       );
-        const durationHours = station.defaultDurationHours;
-        const endTime = addMinutes(startTime, durationHours * 60);
 
-        const overlappingReservation = await ReservationRepo.findOverlappingReservation(
-          gamingCenterId,
-          staffId,
-          startTime,
-          endTime,
-          undefined,
-          tx,
-          stationId
-        );
-
-        if (overlappingReservation) {
-          throw new AppError('Selected time is not available.', httpStatus.CONFLICT, {
-            code: 'SLOT_NOT_AVAILABLE',
-          });
-        }
-
-        const { customerAccount, customerProfile } = await findOrCreateCustomerProfile(
-          tx,
-          gamingCenterId,
-        customer as { fullName: string; phone: string; email?: string }
-        );
-
-        await ReservationRepo.assertActiveReservationLimitNotExceeded(customerAccount.id, tx);
-
-      // 2. Calculate base price and applicable discount
-      const basePrice = durationHours * station.hourlyPrice;
-        const gamingCenter = await ReservationRepo.findGamingCenterWithSettings(gamingCenterId, tx);
-
-        if (!gamingCenter) {
-          throw new AppError('GamingCenter not found.', httpStatus.NOT_FOUND);
-        }
-
-        // 2. Calculate base price and applicable discount
-        const basePrice = durationHours * station.hourlyPrice;
-
-        const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
-          gamingCenterId,
-          stationId,
-          basePrice,
-          startTime,
-          tx
-        );
-
-        const finalPrice = Math.max(0, basePrice - discountAmount);
-
-        const reservation = await ReservationRepo.createReservation({
-          gamingCenterId,
-          stationId,
-          staffId,
-          customerProfileId: customerProfile.id,
-          customerAccountId: customerAccount.id,
-          createdByUserId,
-          startTime,
-          endTime,
-          note,
-          status: ReservationStatus.CONFIRMED,
-          stationSnapshot: {
-            name: station.name,
-            hourlyPrice: station.hourlyPrice,
-            stationType: station.stationType,
-          },
-          totalHours: durationHours,
-          totalPrice: finalPrice,
-          discountAmount,
-          discountId: applicableDiscount?.id,
-        }, tx);
-
-        return { reservation, gamingCenter, customerAccount };
-      }, {
-        isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
-      });
-
-      // Emit event
-      eventEmitter.emit(AppEvents.RESERVATION_CREATED, {
-        reservation: result.reservation,
-        gamingCenter: result.gamingCenter,
-        customerAccount: result.customerAccount,
-      });
-
-      Metrics.recordReservationCreated(true, result.reservation.gamingCenterId);
-
-      return result.reservation;
-    } catch (error: unknown) {
-      if (isExclusionConstraintViolation(error)) {
+      if (overlappingReservation) {
         throw new AppError('Selected time is not available.', httpStatus.CONFLICT, {
           code: 'SLOT_NOT_AVAILABLE',
         });
       }
-      throw error;
-    }
+
+      const { customerAccount, customerProfile } = await findOrCreateCustomerProfile(
+        tx,
+        gamingCenterId,
+        customer as { fullName: string; phone: string; email?: string }
+      );
+
+      await ReservationRepo.assertActiveReservationLimitNotExceeded(customerAccount.id, tx);
+
+      // 2. Calculate base price and applicable discount
+      const basePrice = durationHours * station.hourlyPrice;
+
+      const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
+        gamingCenterId,
+        stationId,
+        basePrice,
+        startTime,
+        tx
+      );
+
+      const finalPrice = Math.max(0, basePrice - discountAmount);
+
+      const reservation = await ReservationRepo.createReservation({
+        gamingCenterId,
+        stationId,
+        staffId,
+        customerProfileId: customerProfile.id,
+        customerAccountId: customerAccount.id,
+        createdByUserId,
+        startTime,
+        endTime,
+        note,
+        status: ReservationStatus.CONFIRMED,
+        stationSnapshot: {
+          name: station.name,
+          hourlyPrice: station.hourlyPrice,
+          stationType: station.stationType,
+        },
+        totalHours: durationHours,
+        totalPrice: finalPrice,
+        discountAmount,
+        discountId: applicableDiscount?.id,
+      }, tx);
+
+      return { reservation, gamingCenter, customerAccount };
+    }, {
+      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+    });
+
+    // Emit event
+    eventEmitter.emit(AppEvents.RESERVATION_CREATED, {
+      reservation: result.reservation,
+      gamingCenter: result.gamingCenter,
+      customerAccount: result.customerAccount,
+    });
+
+    Metrics.recordReservationCreated(true, result.reservation.gamingCenterId);
+
+    return result.reservation;
   },
 
   async createPublicReservation(gamingCenterSlug: string, input: CreatePublicReservationInput) {
@@ -392,7 +345,7 @@ export const reservationStation = {
       return result.reservation;
     } catch (error: unknown) {
       Metrics.recordReservationCreated(false, gamingCenterSlug);
-      if (isExclusionConstraintViolation(error)) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === '23P01' && 'message' in error && typeof error.message === 'string' && error.message.includes('Reservation_no_overlap_active')) {
         throw new AppError('This time slot is already booked.', httpStatus.CONFLICT, {
           code: 'SLOT_NOT_AVAILABLE',
         });
@@ -621,7 +574,7 @@ export const reservationStation = {
         return updatedReservation;
       });
     } catch (error: unknown) {
-      if (isExclusionConstraintViolation(error)) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === '23P01' && 'message' in error && typeof error.message === 'string' && error.message.includes('Reservation_no_overlap_active')) {
         throw new AppError('Reservation overlaps with another for the same staff member.', httpStatus.CONFLICT, {
           code: 'OVERLAP_CONFLICT',
         });

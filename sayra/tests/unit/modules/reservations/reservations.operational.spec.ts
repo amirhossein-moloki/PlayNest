@@ -7,7 +7,7 @@ import {
   resolveValidTimeZone,
 } from '../../../../src/modules/reservation/reservation.validation';
 import AppError from '../../../../src/common/errors/AppError';
-import { addMinutes, addHours } from 'date-fns';
+import { addMinutes } from 'date-fns';
 
 describe('Operational Reservation Validation Rules', () => {
   describe('validateLeadTime', () => {
@@ -18,9 +18,10 @@ describe('Operational Reservation Validation Rules', () => {
       expect(() => validateLeadTime(startTime, 30, now)).toThrow(AppError);
       try {
         validateLeadTime(startTime, 30, now);
-      } catch (err: any) {
-        expect(err.statusCode).toBe(400);
-        expect(err.code).toBe('LEAD_TIME_TOO_SHORT');
+      } catch (err: unknown) {
+        const error = err as AppError;
+        expect(error.statusCode).toBe(400);
+        expect(error.code).toBe('LEAD_TIME_TOO_SHORT');
       }
     });
 
@@ -69,9 +70,10 @@ describe('Operational Reservation Validation Rules', () => {
       expect(() => validateOperatingHours(startTime, endTime, '09:00', '23:00', 'UTC')).toThrow(AppError);
       try {
         validateOperatingHours(startTime, endTime, '09:00', '23:00', 'UTC');
-      } catch (err: any) {
-        expect(err.statusCode).toBe(409);
-        expect(err.code).toBe('CENTER_CLOSED');
+      } catch (err: unknown) {
+        const error = err as AppError;
+        expect(error.statusCode).toBe(409);
+        expect(error.code).toBe('CENTER_CLOSED');
       }
     });
 
@@ -82,9 +84,10 @@ describe('Operational Reservation Validation Rules', () => {
       expect(() => validateOperatingHours(startTime, endTime, '09:00', '23:00', 'UTC')).toThrow(AppError);
       try {
         validateOperatingHours(startTime, endTime, '09:00', '23:00', 'UTC');
-      } catch (err: any) {
-        expect(err.statusCode).toBe(409);
-        expect(err.code).toBe('CENTER_CLOSED');
+      } catch (err: unknown) {
+        const error = err as AppError;
+        expect(error.statusCode).toBe(409);
+        expect(error.code).toBe('CENTER_CLOSED');
       }
     });
 
@@ -118,9 +121,10 @@ describe('Operational Reservation Validation Rules', () => {
       expect(() => validateOperatingHours(startTimeLong, endTimeLong, '18:00', '02:00', 'UTC')).toThrow(AppError);
       try {
         validateOperatingHours(startTimeLong, endTimeLong, '18:00', '02:00', 'UTC');
-      } catch (err: any) {
-        expect(err.statusCode).toBe(409);
-        expect(err.code).toBe('CENTER_CLOSED');
+      } catch (err: unknown) {
+        const error = err as AppError;
+        expect(error.statusCode).toBe(409);
+        expect(error.code).toBe('CENTER_CLOSED');
       }
     });
 
@@ -152,9 +156,10 @@ describe('Operational Reservation Validation Rules', () => {
       expect(() => validateStationAvailability(activeStation, maintenances)).toThrow(AppError);
       try {
         validateStationAvailability(activeStation, maintenances);
-      } catch (err: any) {
-        expect(err.statusCode).toBe(409);
-        expect(err.code).toBe('STATION_UNDER_MAINTENANCE');
+      } catch (err: unknown) {
+        const error = err as AppError;
+        expect(error.statusCode).toBe(409);
+        expect(error.code).toBe('STATION_UNDER_MAINTENANCE');
       }
     });
   });
