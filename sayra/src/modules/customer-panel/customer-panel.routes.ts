@@ -7,6 +7,7 @@ import { validate } from '../../common/middleware/validate';
 import {
   getCustomerReservationSchema,
   customerCancelReservationSchema,
+  customerRescheduleReservationSchema,
   customerSubmitReviewSchema,
   proposalActionParamsSchema,
   listProposalsParamsSchema,
@@ -29,6 +30,12 @@ router.post(
   '/reservation/:reservationId/cancel',
   validate(customerCancelReservationSchema),
   asyncHandler<AppRequest>(CustomerPanelController.cancelMyReservation)
+);
+
+router.post(
+  '/reservation/:reservationId/reschedule',
+  validate(customerRescheduleReservationSchema),
+  asyncHandler<AppRequest>(CustomerPanelController.rescheduleMyReservation)
 );
 
 router.post(

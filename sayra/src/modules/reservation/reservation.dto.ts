@@ -45,6 +45,18 @@ export const cancelReservationSchema = z.object({
   }),
 });
 
+export const rescheduleReservationSchema = z.object({
+  params: z.object({
+    reservationId: z.string().cuid(CUID_MESSAGE),
+  }),
+  body: z.object({
+    startTime: z.string().datetime(),
+    stationId: z.string().cuid(CUID_MESSAGE).optional(),
+    staffId: z.string().cuid(CUID_MESSAGE).optional(),
+    reason: z.string().max(500).optional(),
+  }),
+});
+
 export const proposeTimeSchema = z.object({
   params: z.object({
     reservationId: z.string().cuid(CUID_MESSAGE),
@@ -116,6 +128,7 @@ export const createPublicReservationSchema = z.object({
 export type CreateReservationInput = z.infer<typeof createReservationSchema>['body'];
 export type UpdateReservationInput = z.infer<typeof updateReservationSchema>['body'];
 export type CancelReservationInput = z.infer<typeof cancelReservationSchema>['body'];
+export type RescheduleReservationInput = z.infer<typeof rescheduleReservationSchema>['body'];
 export type ProposeTimeInput = z.infer<typeof proposeTimeSchema>['body'];
 export type ListReservationQuery = z.infer<typeof listReservationQuerySchema>['query'];
 export type CreatePublicReservationInput = z.infer<typeof createPublicReservationSchema>['body'];

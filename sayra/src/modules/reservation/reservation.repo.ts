@@ -139,15 +139,34 @@ export const ReservationRepo = {
     const client = tx || prisma;
     const now = new Date();
 
-    const staleReservations = await client.reservation.updateMany({
+    const staleReservations = await client.reservation.findMany({
       where: {
         status: ReservationStatus.PENDING,
         expiresAt: { lte: now },
       },
-      data: {
-        status: ReservationStatus.EXPIRED,
-      },
+      select: { id: true, status: true },
     });
+
+    if (staleReservations.length === 0) return 0;
+
+    const staleIds = staleReservations.map((r) => r.id);
+
+    await client.reservation.updateMany({
+      where: { id: { in: staleIds } },
+      data: { status: ReservationStatus.EXPIRED },
+    });
+
+    for (const res of staleReservations) {
+      await client.reservationHistory.create({
+        data: {
+          reservationId: res.id,
+          fromStatus: res.status,
+          toStatus: ReservationStatus.EXPIRED,
+          action: 'EXPIRE',
+          reason: 'Pending reservation hold expired',
+        },
+      });
+    }
 
     await client.groupBooking.updateMany({
       where: {
@@ -159,7 +178,7 @@ export const ReservationRepo = {
       },
     });
 
-    return staleReservations.count;
+    return staleReservations.length;
   },
 
   async countActiveReservationsForCustomer(customerAccountId: string, tx: Prisma.TransactionClient): Promise<number> {
@@ -363,6 +382,19 @@ export const ReservationRepo = {
       data: {
         status: ReservationProposalStatus.CANCELLED,
       },
+    });
+  },
+
+  async createHistory(data: Prisma.ReservationHistoryUncheckedCreateInput, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.reservationHistory.create({ data });
+  },
+
+  async findHistoryByReservationId(reservationId: string, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.reservationHistory.findMany({
+      where: { reservationId },
+      orderBy: { createdAt: 'asc' },
     });
   },
 
