@@ -2,6 +2,7 @@ import { smsWorker } from './sms.worker';
 import { analyticsWorker } from './analytics.worker';
 import { cmsSyncMediaWorker } from './cmsSyncMedia.worker';
 import { reservationExpiryWorker } from './reservationExpiry.worker';
+import { waitlistExpiryWorker } from './waitlistExpiry.worker';
 import logger from '../../config/logger';
 import '../monitoring/queue-monitor';
 
@@ -13,4 +14,5 @@ export const initWorkers = () => {
   cmsSyncMediaWorker.on('ready', () => logger.info('CMS Sync Media Worker ready'));
 
   reservationExpiryWorker.start();
+  waitlistExpiryWorker.start();
 };

@@ -319,6 +319,13 @@ export const ReservationRepo = {
     }
   },
 
+  async findCustomerAccountById(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.customerAccount.findUnique({
+      where: { id },
+    });
+  },
+
   async findCustomerAccountByPhone(phone: string, tx?: Prisma.TransactionClient) {
     const client = tx || prisma;
     return client.customerAccount.findUnique({

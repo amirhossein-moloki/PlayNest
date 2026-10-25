@@ -312,6 +312,26 @@ enum NotificationType {
   RESERVATION_REJECTED
   RESERVATION_CANCELLED
   RESERVATION_TIME_PROPOSED
+  WAITLIST_OFFER_CREATED
+  WAITLIST_OFFER_EXPIRED
+  WAITLIST_ENTRY_CANCELLED
+}
+
+enum WaitlistStatus {
+  ACTIVE
+  OFFERED
+  CONVERTED
+  CANCELLED
+  EXPIRED
+  CLOSED
+}
+
+enum WaitlistOfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
 }
 
 enum DiscountTargetType {
@@ -411,6 +431,8 @@ model GamingCenter {
   refunds               Refund[]
   ledgerEntries         LedgerEntry[]
   reconciliationRecords ReconciliationRecord[]
+  waitlistEntries       WaitlistEntry[]
+  waitlistOffers        WaitlistOffer[]
 
   @@index([slug])
 }
@@ -510,6 +532,7 @@ model CustomerAccount {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   Ticket    Ticket[]
+  waitlistEntries WaitlistEntry[]
 
   @@index([phone])
 }
@@ -526,8 +549,9 @@ model CustomerProfile {
   displayName String?
   note        String?
 
-  reservations  Reservation[]
-  groupBookings GroupBooking[]
+  reservations    Reservation[]
+  groupBookings   GroupBooking[]
+  waitlistEntries WaitlistEntry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1108,6 +1132,8 @@ model GameStation {
   maintenances      StationMaintenance[]
   gamingSessions    GamingSession[]
   groupBookingItems GroupBookingItem[]
+  waitlistEntries   WaitlistEntry[]
+  waitlistOffers    WaitlistOffer[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1213,6 +1239,7 @@ model Reservation {
   groupBooking   GroupBooking? @relation(fields: [groupBookingId], references: [id], onDelete: SetNull)
 
   groupBookingItem GroupBookingItem?
+  waitlistOffers   WaitlistOffer[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1868,4 +1895,69 @@ model ReconciliationRecord {
 
   @@index([gamingCenterId, status, reconciledAt])
   @@index([paymentId])
+}
+
+model WaitlistEntry {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+
+  customerAccountId String
+  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+
+  customerProfileId String
+  customerProfile   CustomerProfile @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+
+  stationId String
+  station   GameStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  startTime DateTime @db.Timestamptz(6)
+  endTime   DateTime @db.Timestamptz(6)
+
+  status WaitlistStatus @default(ACTIVE)
+  note   String?
+
+  expiresAt DateTime? @db.Timestamptz(6)
+
+  convertedReservationId String?
+
+  offers WaitlistOffer[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gamingCenterId, stationId, status, startTime, endTime])
+  @@index([customerAccountId, status])
+  @@index([status, createdAt])
+}
+
+model WaitlistOffer {
+  id String @id @default(cuid())
+
+  waitlistEntryId String
+  waitlistEntry   WaitlistEntry @relation(fields: [waitlistEntryId], references: [id], onDelete: Cascade)
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+
+  stationId String
+  station   GameStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  offeredStartTime DateTime @db.Timestamptz(6)
+  offeredEndTime   DateTime @db.Timestamptz(6)
+
+  status WaitlistOfferStatus @default(PENDING)
+
+  expiresAt DateTime @db.Timestamptz(6)
+
+  reservationId String?
+  reservation   Reservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([waitlistEntryId, status])
+  @@index([gamingCenterId, status, expiresAt])
+  @@index([status, expiresAt])
 }
