@@ -49,9 +49,6 @@ describe('Discounts Unit Tests', () => {
     const gcDiscount: Discount = {
       id: 'd-gc',
       gamingCenterId,
-      code: null,
-      maxUses: null,
-      usedCount: 0,
       targetType: DiscountTargetType.GAMING_CENTER,
       targetId: gamingCenterId,
       valueType: DiscountValueType.PERCENTAGE,
@@ -67,9 +64,6 @@ describe('Discounts Unit Tests', () => {
     const stationDiscount: Discount = {
       id: 'd-st',
       gamingCenterId,
-      code: null,
-      maxUses: null,
-      usedCount: 0,
       targetType: DiscountTargetType.STATION,
       targetId: stationId,
       valueType: DiscountValueType.PERCENTAGE,

@@ -575,6 +575,87 @@ components:
         updatedAt:
           type: string
           format: date-time
+    WaitlistEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        gamingCenterId:
+          type: string
+        customerAccountId:
+          type: string
+        customerProfileId:
+          type: string
+        stationId:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - OFFERED
+          - CONVERTED
+          - CANCELLED
+          - EXPIRED
+          - CLOSED
+        note:
+          type: string
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        convertedReservationId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    WaitlistOffer:
+      type: object
+      properties:
+        id:
+          type: string
+        waitlistEntryId:
+          type: string
+        gamingCenterId:
+          type: string
+        stationId:
+          type: string
+        offeredStartTime:
+          type: string
+          format: date-time
+        offeredEndTime:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+          - PENDING
+          - ACCEPTED
+          - REJECTED
+          - EXPIRED
+          - CANCELLED
+        expiresAt:
+          type: string
+          format: date-time
+        reservationId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
 paths:
   /health:
     get:
@@ -3361,6 +3442,181 @@ paths:
                         type: string
                       refreshToken:
                         type: string
+  /gamingCenters/{gamingCenterId}/waitlist:
+    get:
+      summary: List waitlist entries
+      description: List waitlist entries for a gaming center
+      operationId: get_gamingCenters_gamingCenterId_waitlist
+      tags:
+      - Waitlist
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum:
+          - ACTIVE
+          - OFFERED
+          - CONVERTED
+          - CANCELLED
+          - EXPIRED
+          - CLOSED
+      - name: page
+        in: query
+        schema:
+          type: integer
+      - name: pageSize
+        in: query
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: List of waitlist entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pagination'
+  /gamingCenters/{gamingCenterId}/waitlist/offers:
+    get:
+      summary: List waitlist offers
+      description: List waitlist offers for a gaming center
+      operationId: get_gamingCenters_gamingCenterId_waitlist_offers
+      tags:
+      - Waitlist
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: List of waitlist offers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pagination'
+  /customer/waitlist:
+    post:
+      summary: Create customer waitlist entry
+      description: Create a customer waitlist entry
+      operationId: post_customer_waitlist
+      tags:
+      - Waitlist
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - stationId
+              - startTime
+              - endTime
+              properties:
+                stationId:
+                  type: string
+                startTime:
+                  type: string
+                  format: date-time
+                endTime:
+                  type: string
+                  format: date-time
+                note:
+                  type: string
+      responses:
+        '201':
+          description: Waitlist entry created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+    get:
+      summary: List my waitlist entries
+      description: List my waitlist entries
+      operationId: get_customer_waitlist
+      tags:
+      - Waitlist
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: List of entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pagination'
+  /customer/waitlist/offers:
+    get:
+      summary: List my waitlist offers
+      description: List my waitlist offers
+      operationId: get_customer_waitlist_offers
+      tags:
+      - Waitlist
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: List of offers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pagination'
+  /customer/waitlist/offers/{offerId}/accept:
+    post:
+      summary: Accept waitlist offer
+      description: Accept a waitlist offer and convert to reservation
+      operationId: post_customer_waitlist_offers_offerId_accept
+      tags:
+      - Waitlist
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: offerId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          description: Reservation created from offer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+  /customer/waitlist/offers/{offerId}/reject:
+    post:
+      summary: Reject waitlist offer
+      description: Reject a waitlist offer
+      operationId: post_customer_waitlist_offers_offerId_reject
+      tags:
+      - Waitlist
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: offerId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Offer rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
 tags:
 - name: Admin
   description: Administrative endpoints for system management
@@ -3408,6 +3664,8 @@ tags:
   description: System operations
 - name: Tickets
   description: Customer support ticket management
+- name: Waitlist
+  description: Reservation waitlist and offer management
 security:
 - ApiKeyAuth: []
   bearerAuth: []

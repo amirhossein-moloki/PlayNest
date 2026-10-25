@@ -21,34 +21,6 @@ export const DiscountsRepo = {
     });
   },
 
-  async findByCode(
-    code: string,
-    gamingCenterId: string,
-    tx?: Prisma.TransactionClient
-  ): Promise<Discount | null> {
-    const client = tx || prisma;
-    return client.discount.findFirst({
-      where: {
-        gamingCenterId,
-        code: code.toUpperCase(),
-      },
-    });
-  },
-
-  async incrementUsedCount(
-    id: string,
-    tx?: Prisma.TransactionClient
-  ): Promise<boolean> {
-    const client = tx || prisma;
-    const count = await client.$executeRaw`
-      UPDATE "Discount"
-      SET "usedCount" = "usedCount" + 1
-      WHERE "id" = ${id}
-        AND ("maxUses" IS NULL OR "usedCount" < "maxUses")
-    `;
-    return count > 0;
-  },
-
   async updateDiscount(
     id: string,
     gamingCenterId: string,

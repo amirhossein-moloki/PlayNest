@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import * as stationLogic from './station.station';
 import { CreateStationInput, UpdateStationInput } from './station.types';
-import { listStationsSchema, CreateMaintenanceInput, ListMaintenanceQuery } from './station.validator';
+import { listStationsSchema } from './station.validator';
 import { GamingCenter } from '@prisma/client';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
@@ -23,75 +23,6 @@ export async function createStation(
     const { gamingCenterId } = req.params;
     const newStation = await stationLogic.createStation(gamingCenterId, req.body);
     res.created(newStation);
-  } catch (error) {
-    next(error);
-  }
-}
-
-/**
- * Handle request to schedule a new maintenance window for a station.
- */
-export async function createStationMaintenance(
-  req: Request<{ gamingCenterId: string; stationId: string }, unknown, CreateMaintenanceInput>,
-  res: Response,
-  next: NextFunction
-) {
-  try {
-    const { gamingCenterId, stationId } = req.params;
-    const maintenance = await stationLogic.createStationMaintenance(
-      gamingCenterId,
-      stationId,
-      req.body,
-      (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
-      { ip: req.ip, userAgent: req.headers['user-agent'] }
-    );
-    res.created(maintenance);
-  } catch (error) {
-    next(error);
-  }
-}
-
-/**
- * Handle request to delete a maintenance record.
- */
-export async function deleteStationMaintenance(
-  req: Request<{ gamingCenterId: string; stationId: string; maintenanceId: string }>,
-  res: Response,
-  next: NextFunction
-) {
-  try {
-    const { gamingCenterId, stationId, maintenanceId } = req.params;
-    const result = await stationLogic.deleteStationMaintenance(
-      gamingCenterId,
-      stationId,
-      maintenanceId,
-      (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
-      { ip: req.ip, userAgent: req.headers['user-agent'] }
-    );
-    res.ok(result);
-  } catch (error) {
-    next(error);
-  }
-}
-
-/**
- * Handle request to get maintenance windows for a station.
- */
-export async function getStationMaintenances(
-  req: Request<{ gamingCenterId: string; stationId: string }, unknown, unknown, ListMaintenanceQuery>,
-  res: Response,
-  next: NextFunction
-) {
-  try {
-    const { gamingCenterId, stationId } = req.params;
-    const { startDate, endDate } = req.query;
-    const maintenances = await stationLogic.getStationMaintenances(
-      gamingCenterId,
-      stationId,
-      startDate,
-      endDate
-    );
-    res.ok(maintenances);
   } catch (error) {
     next(error);
   }

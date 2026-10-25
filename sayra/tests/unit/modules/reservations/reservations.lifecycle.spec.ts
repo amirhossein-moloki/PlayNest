@@ -2,22 +2,18 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { reservationStation } from '../../../../src/modules/reservation/reservation.station';
 import { ReservationRepo } from '../../../../src/modules/reservation/reservation.repo';
 import { walletService } from '../../../../src/modules/wallet/wallet.station';
+import { discountsStation } from '../../../../src/modules/discounts/discounts.station';
 import { ReservationStatus, SessionActorType, UserRole } from '@prisma/client';
 
 jest.mock('../../../../src/modules/reservation/reservation.repo');
 jest.mock('../../../../src/modules/wallet/wallet.station');
-jest.mock('../../../../src/modules/discounts/discounts.station', () => ({
-  discountsStation: {
-    calculateApplicableDiscount: jest.fn().mockImplementation(() =>
-      Promise.resolve({ applicableDiscount: null, discountAmount: 0 })
-    ),
-  },
-}));
+jest.mock('../../../../src/modules/discounts/discounts.station');
 jest.mock('../../../../src/modules/audit/audit.station');
 jest.mock('../../../../src/common/events/event-emitter');
 
 const MockedReservationRepo = ReservationRepo as jest.Mocked<typeof ReservationRepo>;
 const MockedWalletService = walletService as jest.Mocked<typeof walletService>;
+const MockedDiscountsStation = discountsStation as jest.Mocked<typeof discountsStation>;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -80,6 +76,7 @@ describe('Reservation Lifecycle & Rescheduling Application Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     MockedReservationRepo.transaction.mockImplementation(async (fn) => fn({} as any));
+    MockedDiscountsStation.calculateApplicableDiscount.mockResolvedValue({ applicableDiscount: null, discountAmount: 0 });
     MockedReservationRepo.findGamingCenterWithSettings.mockResolvedValue(mockGamingCenter as any);
     MockedReservationRepo.findStation.mockResolvedValue(mockStation as any);
     MockedReservationRepo.findStaff.mockResolvedValue({ id: staffId } as any);

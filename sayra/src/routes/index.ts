@@ -45,7 +45,11 @@ import { blogRouter } from '../modules/blog/blog.routes';
 import { publicBlogRouter } from '../modules/blog/public-blog.routes';
 import notificationsRouter from '../modules/notifications/notifications.routes';
 import { discountsRoutes } from '../modules/discounts/discounts.routes';
-import calendarRouter from '../modules/calendar/calendar.routes';
+import {
+  adminWaitlistRouter,
+  customerWaitlistRouter,
+  publicWaitlistRouter,
+} from '../modules/waitlist/waitlist.routes';
 
 const router = Router();
 
@@ -98,9 +102,10 @@ router.use('/gamingCenters/:gamingCenterId/commissions', commissionsRoutes);
 // --- Discounts Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/discounts', discountsRoutes);
 
-// --- Calendar Module Routes ---
-router.use('/gamingCenters/:gamingCenterId/calendar', calendarRouter);
-router.use('/gamingCenters/:gamingCenterId/admin/calendar', calendarRouter);
+// --- Waitlist Module Routes ---
+router.use('/gamingCenters/:gamingCenterId/waitlist', adminWaitlistRouter);
+router.use('/customer/waitlist', customerWaitlistRouter);
+router.use('/public/gamingCenters/:gamingCenterSlug/waitlist', resolveGamingCenterBySlug, publicWaitlistRouter);
 
 // --- Audit Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/audit-logs', auditRoutes);
