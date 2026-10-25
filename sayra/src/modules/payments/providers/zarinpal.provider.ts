@@ -1,4 +1,4 @@
-import { PaymentStatus } from '@prisma/client';
+import { PaymentStatus, RefundStatus } from '@prisma/client';
 import AppError from '../../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { env } from '../../../config/env';
@@ -8,10 +8,13 @@ import {
   InitiatePaymentResult,
   VerifyPaymentParams,
   VerifyPaymentResult,
+  RequestRefundResult,
+  VerifyRefundResult,
 } from './payment-provider.interface';
 
 export class ZarinPalProvider implements IPaymentProvider {
   readonly name = 'ZARINPAL';
+  readonly supportsRefunds = false;
 
   private getBaseUrls() {
     const isSandbox = env.ZARINPAL_SANDBOX;
@@ -117,5 +120,21 @@ export class ZarinPalProvider implements IPaymentProvider {
         failureReason: error instanceof Error ? error.message : 'Unknown verification error',
       };
     }
+  }
+
+  async requestRefund(): Promise<RequestRefundResult> {
+    return {
+      success: false,
+      status: RefundStatus.FAILED,
+      failureReason: 'ZarinPal API v4 does not support direct automated refunds; manual panel refund is required.',
+    };
+  }
+
+  async verifyRefund(): Promise<VerifyRefundResult> {
+    return {
+      success: false,
+      status: RefundStatus.FAILED,
+      failureReason: 'ZarinPal API v4 does not support direct automated refund verification.',
+    };
   }
 }
