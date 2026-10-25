@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { prismaMock } from '../../../mocks/prisma';
 import { commissionsStation, getTargetPeriod } from '../../../../src/modules/commissions/commissions.station';
-import { CommissionType, CommissionStatus, ReservationSource, ReservationPaymentState, PaymentProvider } from '@prisma/client';
+import { CommissionType, ReservationSource, ReservationPaymentState, PaymentProvider } from '@prisma/client';
 import AppError from '../../../../src/common/errors/AppError';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */

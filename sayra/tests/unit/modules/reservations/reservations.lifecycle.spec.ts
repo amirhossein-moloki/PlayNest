@@ -31,9 +31,6 @@ describe('Reservation Lifecycle & Rescheduling Application Tests', () => {
   const pastDate = new Date();
   pastDate.setUTCDate(pastDate.getUTCDate() - 1);
   pastDate.setUTCHours(10, 0, 0, 0); // Yesterday 10:00 AM UTC
-  const futureDate = new Date(Date.now() + 24 * 3600 * 1000); // Tomorrow
-  futureDate.setUTCHours(12, 0, 0, 0); // 12:00 UTC tomorrow
-  const pastDate = new Date(Date.now() - 2 * 3600 * 1000); // 2 hours ago
 
   const mockBaseReservation = {
     id: reservationId,

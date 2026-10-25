@@ -1,8 +1,7 @@
 
 import { addMinutes } from 'date-fns';
-import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
+import { toZonedTime } from 'date-fns-tz';
 import { Reservation, ReservationSource, ReservationStatus, ReservationProposalStatus, Prisma, SessionActorType, UserRole, OtpPurpose } from '@prisma/client';
-import { generateTrackingCode, normalizeTrackingCode } from '../../common/utils/trackingCode';
 import { ReservationRepo } from './reservation.repo';
 import { AuthRepository } from '../auth/auth.repository';
 import AppError from '../../common/errors/AppError';
@@ -176,7 +175,6 @@ export const reservationStation = {
         endTime,
         note,
         status: ReservationStatus.CONFIRMED,
-        trackingCode: generateTrackingCode(),
         stationSnapshot: {
           name: station.name,
           hourlyPrice: station.hourlyPrice,
@@ -333,7 +331,6 @@ export const reservationStation = {
           status,
           source: ReservationSource.ONLINE,
           expiresAt,
-          trackingCode: generateTrackingCode(),
           stationSnapshot: {
             name: station.name,
             hourlyPrice: station.hourlyPrice,
@@ -1232,170 +1229,5 @@ export const reservationStation = {
   async expireStaleReservations(now?: Date) {
     const batchResult = await this.processExpiryBatch({ now });
     return batchResult.expiredCount;
-  },
-
-  async lookupReservationByTrackingCode(gamingCenterId: string, inputCode: string) {
-    const normalizedCode = normalizeTrackingCode(inputCode);
-    if (!normalizedCode) {
-      throw new AppError('Tracking code is required.', httpStatus.BAD_REQUEST);
-    }
-
-    const reservation = await ReservationRepo.findReservationByTrackingCode(gamingCenterId, normalizedCode);
-
-    if (!reservation) {
-      throw new AppError('Reservation not found for this tracking code.', httpStatus.NOT_FOUND);
-    }
-
-    const gamingCenter = await ReservationRepo.findGamingCenterWithSettings(gamingCenterId);
-    const timeZone = gamingCenter?.settings?.timeZone || 'UTC';
-
-    let isEligibleForCheckIn = false;
-    let checkInIneligibilityReason: string | null = null;
-
-    if (reservation.checkedInAt) {
-      isEligibleForCheckIn = false;
-      checkInIneligibilityReason = 'Reservation has already been checked in.';
-    } else if (reservation.status === ReservationStatus.CANCELED) {
-      isEligibleForCheckIn = false;
-      checkInIneligibilityReason = 'Reservation is canceled.';
-    } else if (reservation.status === ReservationStatus.EXPIRED) {
-      isEligibleForCheckIn = false;
-      checkInIneligibilityReason = 'Reservation is expired.';
-    } else if (reservation.status === ReservationStatus.NO_SHOW) {
-      isEligibleForCheckIn = false;
-      checkInIneligibilityReason = 'Reservation is marked as no-show.';
-    } else if (reservation.status === ReservationStatus.COMPLETED) {
-      isEligibleForCheckIn = false;
-      checkInIneligibilityReason = 'Reservation is already completed.';
-    } else if (reservation.status === ReservationStatus.PENDING) {
-      isEligibleForCheckIn = false;
-      checkInIneligibilityReason = 'Reservation is pending confirmation.';
-    } else if (reservation.status === ReservationStatus.CONFIRMED || reservation.status === ReservationStatus.IN_PROGRESS) {
-      isEligibleForCheckIn = true;
-      checkInIneligibilityReason = null;
-    } else {
-      isEligibleForCheckIn = false;
-      checkInIneligibilityReason = 'Reservation is not eligible for check-in.';
-    }
-
-    const customerDisplayName =
-      reservation.customerProfile?.displayName ||
-      reservation.customerAccount?.fullName ||
-      'Guest Customer';
-
-    return {
-      id: reservation.id,
-      trackingCode: reservation.trackingCode,
-      status: reservation.status,
-      paymentState: reservation.paymentState,
-      startTime: reservation.startTime,
-      endTime: reservation.endTime,
-      siteTimezone: timeZone,
-      localStartTime: formatInTimeZone(reservation.startTime, timeZone, 'yyyy-MM-dd HH:mm'),
-      localEndTime: formatInTimeZone(reservation.endTime, timeZone, 'yyyy-MM-dd HH:mm'),
-      station: reservation.station
-        ? {
-          id: reservation.station.id,
-          name: reservation.station.name,
-          stationType: reservation.station.stationType,
-        }
-        : null,
-      customer: {
-        displayName: customerDisplayName,
-      },
-      checkedInAt: reservation.checkedInAt,
-      isEligibleForCheckIn,
-      checkInIneligibilityReason,
-    };
-  },
-
-  async checkInReservation(
-    reservationIdOrCode: string,
-    gamingCenterId: string,
-    actor: { id: string; role: UserRole; actorType: SessionActorType },
-    context?: { ip?: string; userAgent?: string }
-  ) {
-    return ReservationRepo.transaction(async (tx) => {
-      const normalizedCode = normalizeTrackingCode(reservationIdOrCode);
-      let initialReservation = await ReservationRepo.findReservationByTrackingCode(gamingCenterId, normalizedCode, tx) as Reservation | null;
-
-      if (!initialReservation) {
-        initialReservation = await ReservationRepo.findReservationById(reservationIdOrCode, gamingCenterId, tx);
-      }
-
-      if (!initialReservation) {
-        throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
-      }
-
-      // Lock reservation row to ensure concurrent check-in requests are serialized
-      await ReservationRepo.lockReservationForUpdate(initialReservation.id, tx);
-
-      // Re-fetch post-lock if available, otherwise use initialReservation
-      const reservation = (await ReservationRepo.findReservationById(initialReservation.id, gamingCenterId, tx)) || initialReservation;
-
-      if (reservation.checkedInAt) {
-        return reservation;
-      }
-
-      if (
-        reservation.status === ReservationStatus.CANCELED ||
-        reservation.status === ReservationStatus.EXPIRED ||
-        reservation.status === ReservationStatus.NO_SHOW ||
-        reservation.status === ReservationStatus.COMPLETED ||
-        reservation.status === ReservationStatus.PENDING
-      ) {
-        throw new AppError(
-          `Reservation in state ${reservation.status} is not eligible for check-in.`,
-          httpStatus.CONFLICT,
-          { code: 'CHECKIN_INELIGIBLE' }
-        );
-      }
-
-      const now = new Date();
-      const nextStatus = reservation.status === ReservationStatus.CONFIRMED ? ReservationStatus.IN_PROGRESS : reservation.status;
-
-      const updatedReservation = await ReservationRepo.updateReservation(
-        reservation.id,
-        gamingCenterId,
-        {
-          checkedInAt: now,
-          checkedInByUserId: actor.id,
-          status: nextStatus,
-        },
-        tx
-      );
-
-      if (!updatedReservation) {
-        throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
-      }
-
-      await ReservationRepo.createHistory(
-        {
-          reservationId: reservation.id,
-          fromStatus: reservation.status,
-          toStatus: nextStatus,
-          action: 'CHECK_IN',
-          actorId: actor.id,
-          actorType: actor.actorType,
-          reason: 'Customer arrived and checked in verbally with staff',
-        },
-        tx
-      );
-
-      if (reservation.status === ReservationStatus.CONFIRMED) {
-        await gamingSessionsStation.startSession(reservation.id, reservation.stationId, tx);
-      }
-
-      await auditService.log(
-        gamingCenterId,
-        actor,
-        'RESERVATION_CHECKIN',
-        { name: 'Reservation', id: reservation.id },
-        { old: reservation, new: updatedReservation },
-        context
-      );
-
-      return updatedReservation;
-    });
   },
 };

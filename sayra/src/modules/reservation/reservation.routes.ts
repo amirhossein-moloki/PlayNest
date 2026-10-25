@@ -9,15 +9,13 @@ import {
   listReservationQuerySchema,
   proposeTimeSchema,
   listProposalsParamsSchema,
-  lookupReservationSchema,
-  checkInReservationSchema,
 } from './reservation.dto';
 import { authMiddleware } from '../../common/middleware/auth';
 import { requireRole } from '../../common/middleware/requireRole';
 import { UserRole } from '@prisma/client';
 import { idParamSchema } from '../../common/validators/common.validators';
 import { tenantGuard } from '../../common/middleware/tenantGuard';
-import { privateApiRateLimiter, trackingCodeLookupRateLimiter } from '../../common/middleware/rateLimit';
+import { privateApiRateLimiter } from '../../common/middleware/rateLimit';
 import { env } from '../../config/env';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
 import { AppRequest } from '../../types/express';
@@ -38,31 +36,6 @@ router.post(
   requireRole(M_R),
   validate(createReservationSchema),
   asyncHandler<AppRequest>(reservationController.createReservation)
-);
-
-// 1b. Lookup Reservation by Tracking Code
-router.post(
-  '/lookup',
-  requireRole(M_R_S),
-  trackingCodeLookupRateLimiter,
-  validate(lookupReservationSchema),
-  asyncHandler<AppRequest>(reservationController.lookupReservation)
-);
-
-// 1c. Check-in Reservation by Tracking Code
-router.post(
-  '/check-in',
-  requireRole(M_R),
-  validate(checkInReservationSchema),
-  asyncHandler<AppRequest>(reservationController.checkInReservation)
-);
-
-// 1d. Check-in Reservation by ID
-router.post(
-  '/:reservationId/check-in',
-  requireRole(M_R),
-  validate(idParamSchema('reservationId')),
-  asyncHandler<AppRequest>(reservationController.checkInReservation)
 );
 
 // 2. List Reservation
