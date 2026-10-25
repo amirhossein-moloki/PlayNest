@@ -14,6 +14,7 @@ import { env } from '../../config/env';
 import { prisma } from '../../config/prisma';
 import { NotificationStation } from '../notifications/notifications.station';
 import { invalidateObsoleteReminders } from './reservation.reminders';
+import { waitlistStation } from '../waitlist/waitlist.station';
 
 type GamingCenterWithSettings = GamingCenter & { settings?: Settings | null };
 
@@ -145,8 +146,16 @@ export const initReservationEvents = () => {
     );
   });
 
-  eventEmitter.on(AppEvents.RESERVATION_UPDATED, async ({ updatedReservation }) => {
+  eventEmitter.on(AppEvents.RESERVATION_UPDATED, async ({ updatedReservation, oldReservation }) => {
     queueAnalyticsSync({ type: 'RESERVATION', entityId: updatedReservation.id }).catch(console.error);
+    if (oldReservation) {
+      waitlistStation.processAvailableSlot(
+        oldReservation.gamingCenterId,
+        oldReservation.stationId,
+        oldReservation.startTime,
+        oldReservation.endTime
+      ).catch(console.error);
+    }
   });
 
   eventEmitter.on(AppEvents.RESERVATION_CONFIRMED, async ({ reservation, gamingCenter, customerAccount }) => {
@@ -177,6 +186,24 @@ export const initReservationEvents = () => {
       `Reservation ${reservation.id} was cancelled.`,
       { reservationId: reservation.id, gamingCenterId: gamingCenter.id }
     );
+
+    await waitlistStation.processAvailableSlot(
+      reservation.gamingCenterId,
+      reservation.stationId,
+      reservation.startTime,
+      reservation.endTime
+    ).catch(console.error);
+  });
+
+  eventEmitter.on(AppEvents.RESERVATION_EXPIRED, async ({ reservation }) => {
+    if (reservation) {
+      waitlistStation.processAvailableSlot(
+        reservation.gamingCenterId,
+        reservation.stationId,
+        reservation.startTime,
+        reservation.endTime
+      ).catch(console.error);
+    }
   });
 
   eventEmitter.on(AppEvents.RESERVATION_COMPLETED, async ({ reservation }) => {
