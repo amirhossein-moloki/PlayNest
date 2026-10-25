@@ -62,6 +62,11 @@ const EnvSchema = z.object({
   // Proxy
   TRUST_PROXY: z.coerce.number().int().nonnegative().default(0),
 
+  // Reservation Expiry Background Worker
+  RESERVATION_EXPIRY_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
+  RESERVATION_EXPIRY_BATCH_SIZE: z.coerce.number().int().positive().default(50),
+  RESERVATION_EXPIRY_ENABLED: z.preprocess(toBool, z.boolean()).default(true),
+
   // Webhooks
   PAYMENT_PROVIDER_WEBHOOK_SECRET: z.string().min(1),
 

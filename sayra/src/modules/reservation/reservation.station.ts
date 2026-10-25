@@ -13,6 +13,8 @@ import { auditService } from '../audit/audit.station';
 import { normalizePhone } from '../../common/utils/phone';
 import { AppEvents, eventEmitter } from '../../common/events/event-emitter';
 import { Metrics } from '../../common/metrics/metrics';
+import logger from '../../config/logger';
+import { env } from '../../config/env';
 import { ReservationStateMachine } from './reservation.state-machine';
 import { discountsStation } from '../discounts/discounts.station';
 import {
@@ -1144,7 +1146,88 @@ export const reservationStation = {
     return ReservationRepo.listProposalsByReservationId(reservationId);
   },
 
-  async expireStaleReservations() {
-    return ReservationRepo.expireStaleReservations();
+  async processExpiryBatch(options?: { batchSize?: number; now?: Date }) {
+    const batchSize = options?.batchSize ?? env.RESERVATION_EXPIRY_BATCH_SIZE;
+    const now = options?.now ?? new Date();
+
+    const reservationCandidates = await ReservationRepo.findExpiryCandidateReservations(batchSize, now);
+    const remainingBatch = Math.max(0, batchSize - reservationCandidates.length);
+    const groupCandidates = remainingBatch > 0 ? await ReservationRepo.findExpiryCandidateGroupBookings(remainingBatch, now) : [];
+
+    const result = {
+      candidatesFound: reservationCandidates.length + groupCandidates.length,
+      expiredCount: 0,
+      skippedCount: 0,
+      failedCount: 0,
+    };
+
+    if (result.candidatesFound === 0) {
+      return result;
+    }
+
+    for (const candidate of reservationCandidates) {
+      try {
+        const expired = await ReservationRepo.transaction(async (tx) => {
+          return ReservationRepo.expireReservationCandidate(candidate.id, now, tx);
+        });
+
+        if (expired) {
+          result.expiredCount++;
+          eventEmitter.emit(AppEvents.RESERVATION_EXPIRED, {
+            reservationId: candidate.id,
+            gamingCenterId: candidate.gamingCenterId,
+          });
+        } else {
+          result.skippedCount++;
+          logger.info({
+            msg: 'Reservation expiry skipped as state changed concurrently',
+            reservationId: candidate.id,
+          });
+        }
+      } catch (error) {
+        result.failedCount++;
+        logger.error({
+          msg: 'Failed to expire reservation candidate',
+          reservationId: candidate.id,
+          error,
+        });
+      }
+    }
+
+    for (const groupCandidate of groupCandidates) {
+      try {
+        const expired = await ReservationRepo.transaction(async (tx) => {
+          return ReservationRepo.expireGroupBookingCandidate(groupCandidate.id, now, tx);
+        });
+
+        if (expired) {
+          result.expiredCount++;
+          eventEmitter.emit(AppEvents.RESERVATION_EXPIRED, {
+            groupBookingId: groupCandidate.id,
+            gamingCenterId: groupCandidate.gamingCenterId,
+          });
+        } else {
+          result.skippedCount++;
+          logger.info({
+            msg: 'GroupBooking expiry skipped as state changed concurrently',
+            groupBookingId: groupCandidate.id,
+          });
+        }
+      } catch (error) {
+        result.failedCount++;
+        logger.error({
+          msg: 'Failed to expire group booking candidate',
+          groupBookingId: groupCandidate.id,
+          error,
+        });
+      }
+    }
+
+    return result;
+  },
+
+  async expireStaleReservations(now?: Date) {
+    const batchResult = await this.processExpiryBatch({ now });
+    return batchResult.expiredCount;
   },
 };

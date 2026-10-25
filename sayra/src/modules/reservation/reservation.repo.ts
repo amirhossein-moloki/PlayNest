@@ -1,4 +1,4 @@
-import { Prisma, ReservationProposalStatus, ReservationStatus } from '@prisma/client';
+import { Prisma, ReservationPaymentState, ReservationProposalStatus, ReservationStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
@@ -135,6 +135,87 @@ export const ReservationRepo = {
     });
   },
 
+  async findExpiryCandidateReservations(batchSize: number, now: Date, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.reservation.findMany({
+      where: {
+        status: ReservationStatus.PENDING,
+        expiresAt: { lte: now },
+        paymentState: { not: ReservationPaymentState.PAID },
+      },
+      select: {
+        id: true,
+        gamingCenterId: true,
+        expiresAt: true,
+      },
+      take: batchSize,
+      orderBy: { expiresAt: 'asc' },
+    });
+  },
+
+  async findExpiryCandidateGroupBookings(batchSize: number, now: Date, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.groupBooking.findMany({
+      where: {
+        status: ReservationStatus.PENDING,
+        expiresAt: { lte: now },
+        paymentState: { not: ReservationPaymentState.PAID },
+      },
+      select: {
+        id: true,
+        gamingCenterId: true,
+        expiresAt: true,
+      },
+      take: batchSize,
+      orderBy: { expiresAt: 'asc' },
+    });
+  },
+
+  async expireReservationCandidate(id: string, now: Date, tx?: Prisma.TransactionClient): Promise<boolean> {
+    const client = tx || prisma;
+    const result = await client.reservation.updateMany({
+      where: {
+        id,
+        status: ReservationStatus.PENDING,
+        expiresAt: { lte: now },
+        paymentState: { not: ReservationPaymentState.PAID },
+      },
+      data: {
+        status: ReservationStatus.EXPIRED,
+      },
+    });
+    return result.count > 0;
+  },
+
+  async expireGroupBookingCandidate(id: string, now: Date, tx?: Prisma.TransactionClient): Promise<boolean> {
+    const client = tx || prisma;
+    const result = await client.groupBooking.updateMany({
+      where: {
+        id,
+        status: ReservationStatus.PENDING,
+        expiresAt: { lte: now },
+        paymentState: { not: ReservationPaymentState.PAID },
+      },
+      data: {
+        status: ReservationStatus.EXPIRED,
+      },
+    });
+
+    if (result.count > 0) {
+      await client.reservation.updateMany({
+        where: {
+          groupBookingId: id,
+          status: ReservationStatus.PENDING,
+        },
+        data: {
+          status: ReservationStatus.EXPIRED,
+        },
+      });
+      return true;
+    }
+    return false;
+  },
+
   async expireStaleReservations(tx?: Prisma.TransactionClient) {
     const client = tx || prisma;
     const now = new Date();
@@ -143,6 +224,7 @@ export const ReservationRepo = {
       where: {
         status: ReservationStatus.PENDING,
         expiresAt: { lte: now },
+        paymentState: { not: ReservationPaymentState.PAID },
       },
       select: { id: true, status: true },
     });
@@ -172,6 +254,7 @@ export const ReservationRepo = {
       where: {
         status: ReservationStatus.PENDING,
         expiresAt: { lte: now },
+        paymentState: { not: ReservationPaymentState.PAID },
       },
       data: {
         status: ReservationStatus.EXPIRED,

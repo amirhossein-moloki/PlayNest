@@ -3,6 +3,7 @@ import { prisma } from '../../config/prisma';
 import { validateReservationTransition, validatePaymentTransition } from './payments.state';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
+import logger from '../../config/logger';
 import { commissionsStation } from '../commissions/commissions.station';
 
 type Tx = Prisma.TransactionClient;
