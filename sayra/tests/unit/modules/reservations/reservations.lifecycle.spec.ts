@@ -229,7 +229,8 @@ describe('Reservation Lifecycle & Rescheduling Application Tests', () => {
     });
 
     it('should reschedule successfully when all constraints pass and record history', async () => {
-      const newStartAt = new Date(Date.now() + 5 * 3600 * 1000);
+      const newStartAt = new Date(Date.now() + 24 * 3600 * 1000);
+      newStartAt.setUTCHours(12, 0, 0, 0);
       MockedReservationRepo.findReservationById.mockResolvedValue(mockBaseReservation as any);
       MockedReservationRepo.updateReservation.mockResolvedValue({
         ...mockBaseReservation,
