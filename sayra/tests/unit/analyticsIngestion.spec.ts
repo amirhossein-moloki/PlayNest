@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { prismaMock } from '../mocks/prisma';
 import { AnalyticsIngestionService } from '../../src/modules/analytics/analyticsIngestionService';
