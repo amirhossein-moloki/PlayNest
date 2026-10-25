@@ -1,4 +1,3 @@
-
 import { prisma } from '../../config/prisma';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 
@@ -18,6 +17,165 @@ export const AnalyticsRepo = {
       },
     });
     return stats._sum;
+  },
+
+  async getLiveReservationStats(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
+    const [byStatus, byStation, totalCount] = await Promise.all([
+      prisma.reservation.groupBy({
+        by: ['status'],
+        where: { gamingCenterId, startTime: { gte: dayStart, lte: dayEnd } },
+        _count: { _all: true },
+        _sum: { totalPrice: true, totalHours: true },
+      }),
+      prisma.reservation.groupBy({
+        by: ['stationId'],
+        where: { gamingCenterId, startTime: { gte: dayStart, lte: dayEnd } },
+        _count: { _all: true },
+        _sum: { totalPrice: true, totalHours: true },
+      }),
+      prisma.reservation.count({
+        where: { gamingCenterId, startTime: { gte: dayStart, lte: dayEnd } },
+      }),
+    ]);
+
+    return { byStatus, byStation, totalCount };
+  },
+
+  async getLiveFinancialStats(gamingCenterId: string, dayStart: Date, dayEnd: Date, currencyFilter?: string) {
+    const wherePayments = {
+      gamingCenterId,
+      paidAt: { gte: dayStart, lte: dayEnd },
+      status: 'PAID' as const,
+      ...(currencyFilter ? { currency: currencyFilter } : {}),
+    };
+
+    const whereAllPayments = {
+      gamingCenterId,
+      createdAt: { gte: dayStart, lte: dayEnd },
+      ...(currencyFilter ? { currency: currencyFilter } : {}),
+    };
+
+    const whereRefunds = {
+      gamingCenterId,
+      processedAt: { gte: dayStart, lte: dayEnd },
+      status: 'SUCCESSFUL' as const,
+      ...(currencyFilter ? { currency: currencyFilter } : {}),
+    };
+
+    const whereLedger = {
+      gamingCenterId,
+      createdAt: { gte: dayStart, lte: dayEnd },
+      ...(currencyFilter ? { currency: currencyFilter } : {}),
+    };
+
+    const [paidPayments, paymentsByStatus, paymentsByMethod, paymentsByProvider, refunds, ledgerEntries] = await Promise.all([
+      prisma.payment.groupBy({
+        by: ['currency'],
+        where: wherePayments,
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      prisma.payment.groupBy({
+        by: ['status', 'currency'],
+        where: whereAllPayments,
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      prisma.payment.groupBy({
+        by: ['method', 'currency'],
+        where: wherePayments,
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      prisma.payment.groupBy({
+        by: ['provider', 'currency'],
+        where: wherePayments,
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      prisma.refund.groupBy({
+        by: ['currency'],
+        where: whereRefunds,
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      prisma.ledgerEntry.groupBy({
+        by: ['entryType', 'currency'],
+        where: whereLedger,
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+    ]);
+
+    return {
+      paidPayments,
+      paymentsByStatus,
+      paymentsByMethod,
+      paymentsByProvider,
+      refunds,
+      ledgerEntries,
+    };
+  },
+
+  async getWaitlistAnalyticsStats(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
+    const [entriesByStatus, offersByStatus, totalEntries] = await Promise.all([
+      prisma.waitlistEntry.groupBy({
+        by: ['status'],
+        where: { gamingCenterId, createdAt: { gte: dayStart, lte: dayEnd } },
+        _count: { _all: true },
+      }),
+      prisma.waitlistOffer.groupBy({
+        by: ['status'],
+        where: { gamingCenterId, createdAt: { gte: dayStart, lte: dayEnd } },
+        _count: { _all: true },
+      }),
+      prisma.waitlistEntry.count({
+        where: { gamingCenterId, createdAt: { gte: dayStart, lte: dayEnd } },
+      }),
+    ]);
+
+    return { entriesByStatus, offersByStatus, totalEntries };
+  },
+
+  async getNotificationAnalyticsStats(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
+    const [byStatus, byChannel, byType, totalLogs] = await Promise.all([
+      prisma.notificationLog.groupBy({
+        by: ['status'],
+        where: { gamingCenterId, createdAt: { gte: dayStart, lte: dayEnd } },
+        _count: { _all: true },
+      }),
+      prisma.notificationLog.groupBy({
+        by: ['channel'],
+        where: { gamingCenterId, createdAt: { gte: dayStart, lte: dayEnd } },
+        _count: { _all: true },
+      }),
+      prisma.notificationLog.groupBy({
+        by: ['type'],
+        where: { gamingCenterId, createdAt: { gte: dayStart, lte: dayEnd } },
+        _count: { _all: true },
+      }),
+      prisma.notificationLog.count({
+        where: { gamingCenterId, createdAt: { gte: dayStart, lte: dayEnd } },
+      }),
+    ]);
+
+    return { byStatus, byChannel, byType, totalLogs };
+  },
+
+  async getReservationListForTrends(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
+    return prisma.reservation.findMany({
+      where: {
+        gamingCenterId,
+        startTime: { gte: dayStart, lte: dayEnd },
+      },
+      select: {
+        startTime: true,
+        status: true,
+        totalPrice: true,
+        totalHours: true,
+      },
+      orderBy: { startTime: 'asc' },
+    });
   },
 
   async getStaffPerformanceStats(gamingCenterId: string, startDate: Date, endDate: Date) {
@@ -83,7 +241,7 @@ export const AnalyticsRepo = {
   async getStationDetails(gamingCenterId: string) {
     return prisma.gameStation.findMany({
       where: { gamingCenterId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, stationType: true, isActive: true, hourlyPrice: true },
     });
   },
 

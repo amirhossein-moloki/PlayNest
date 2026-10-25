@@ -1,4 +1,3 @@
-
 import { Router } from 'express';
 import { authMiddleware } from '../../common/middleware/auth';
 import { tenantGuard } from '../../common/middleware/tenantGuard';
@@ -12,9 +11,13 @@ const router = Router({ mergeParams: true });
 
 router.use(authMiddleware);
 router.use(tenantGuard);
-router.use(requireRole([UserRole.MANAGER]));
+router.use(requireRole([UserRole.MANAGER, UserRole.ADMIN]));
 
 router.get('/summary', validate(AnalyticsQuerySchema), AnalyticsController.getSummary);
+router.get('/reservations', validate(AnalyticsQuerySchema), AnalyticsController.getReservations);
+router.get('/financials', validate(AnalyticsQuerySchema), AnalyticsController.getFinancials);
+router.get('/operations/waitlist', validate(AnalyticsQuerySchema), AnalyticsController.getWaitlist);
+router.get('/operations/notifications', validate(AnalyticsQuerySchema), AnalyticsController.getNotifications);
 router.get('/staff', validate(AnalyticsQuerySchema), AnalyticsController.getStaffPerformance);
 router.get('/stations', validate(AnalyticsQuerySchema), AnalyticsController.getStationPerformance);
 router.get('/revenue-chart', validate(AnalyticsQuerySchema), AnalyticsController.getRevenueChart);

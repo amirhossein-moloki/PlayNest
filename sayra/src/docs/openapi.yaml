@@ -1366,6 +1366,138 @@ paths:
                 $ref: '#/components/schemas/Success'
       operationId: get_gamingCenters_gamingCenterId_analytics_revenue-chart
       description: Get revenue chart data
+  /gamingCenters/{gamingCenterId}/analytics/reservations:
+    get:
+      summary: Get detailed reservation analytics and status breakdown
+      tags:
+      - Analytics
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: Reservation analytics and metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_analytics_reservations
+      description: Get detailed reservation analytics and status breakdown
+  /gamingCenters/{gamingCenterId}/analytics/financials:
+    get:
+      summary: Get financial reporting and payment distribution analytics
+      tags:
+      - Analytics
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: currency
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Financial analytics and breakdown
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_analytics_financials
+      description: Get financial reporting and payment distribution analytics
+  /gamingCenters/{gamingCenterId}/analytics/operations/waitlist:
+    get:
+      summary: Get waitlist conversion and activity metrics
+      tags:
+      - Analytics
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: Waitlist operational metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_analytics_operations_waitlist
+      description: Get waitlist conversion and activity metrics
+  /gamingCenters/{gamingCenterId}/analytics/operations/notifications:
+    get:
+      summary: Get notification dispatch and failure summaries
+      tags:
+      - Analytics
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: Notification dispatch operational metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_analytics_operations_notifications
+      description: Get notification dispatch and failure summaries
   /gamingCenters/{gamingCenterId}/settings:
     get:
       summary: Get gamingCenter settings
