@@ -56,6 +56,31 @@ export const getReservationById = async (
   res.ok(reservation);
 };
 
+export const lookupReservation = async (
+  req: AppRequest,
+  res: Response
+) => {
+  const result = await reservationStation.lookupReservationByTrackingCode(
+    req.tenant.gamingCenterId,
+    req.body.trackingCode
+  );
+  res.ok(result);
+};
+
+export const checkInReservation = async (
+  req: AppRequest,
+  res: Response
+) => {
+  const reservationIdOrCode = req.params.reservationId || req.body?.trackingCode || req.body?.reservationId;
+  const reservation = await reservationStation.checkInReservation(
+    reservationIdOrCode,
+    req.tenant.gamingCenterId,
+    req.actor as { id: string; role: UserRole; actorType: SessionActorType },
+    { ip: req.ip, userAgent: req.headers['user-agent'] }
+  );
+  res.ok(reservation);
+};
+
 export const rescheduleReservation = async (
   req: AppRequest,
   res: Response
