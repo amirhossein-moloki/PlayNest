@@ -51,9 +51,10 @@ export const getAvailableSlots = async (
 
   const staffIds = staffToCheck.map(s => s.id);
 
-  // 3. Fetch all relevant staffShifts and reservation in one go
+  // 3. Fetch all relevant staffShifts, reservations, and station maintenances in one go
   const staffShifts = await AvailabilityRepo.findShifts(gamingCenterId, staffIds);
   const reservations = await AvailabilityRepo.findReservation(gamingCenterId, staffIds, startDate, endDate);
+  const maintenances = await AvailabilityRepo.findMaintenances(gamingCenterId, stationId, startDate, endDate);
 
   // --- Core Logic: Generate and Filter Slots ---
   const availableSlots: TimeSlot[] = [];
@@ -96,6 +97,19 @@ export const getAvailableSlots = async (
 
       availableSlots.push(...daySlots);
     }
+  }
+
+  // Filter out slots overlapping with Station Maintenance
+  if (maintenances && maintenances.length > 0) {
+    return availableSlots.filter((slot) => {
+      const slotStart = new Date(slot.time);
+      const slotEnd = add(slotStart, { minutes: stationDuration });
+      return !maintenances.some((m) => {
+        const mStart = new Date(m.startTime);
+        const mEnd = m.endTime ? new Date(m.endTime) : new Date(8640000000000000);
+        return slotStart < mEnd && slotEnd > mStart;
+      });
+    });
   }
 
   return availableSlots;
