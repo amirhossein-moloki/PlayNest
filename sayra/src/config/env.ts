@@ -70,6 +70,9 @@ const EnvSchema = z.object({
   // Webhooks
   PAYMENT_PROVIDER_WEBHOOK_SECRET: z.string().min(1),
 
+  // Payments
+  DEFAULT_PAYMENT_PROVIDER: z.enum(['ZARINPAL', 'FAKE', 'STRIPE']).default('ZARINPAL'),
+
   // ZarinPal
   ZARINPAL_MERCHANT_ID: z.string().min(1).default('00000000-0000-0000-0000-000000000000'),
   ZARINPAL_CALLBACK_URL: z.string().min(1).default('http://localhost:3000/api/v1/payments/callback'),

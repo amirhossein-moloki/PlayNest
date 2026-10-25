@@ -1182,6 +1182,7 @@ model Reservation {
   walletTransactions WalletTransaction[]
   gamingSessions     GamingSession[]
   proposals          ReservationTimeProposal[]
+  history            ReservationHistory[]
 
   groupBookingId String?
   groupBooking   GroupBooking? @relation(fields: [groupBookingId], references: [id], onDelete: SetNull)
@@ -1297,6 +1298,22 @@ model ReservationTimeProposal {
   updatedAt DateTime @updatedAt
 
   @@index([reservationId, status])
+  @@index([reservationId, createdAt])
+}
+
+model ReservationHistory {
+  id            String            @id @default(cuid())
+  reservationId String
+  reservation   Reservation       @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  fromStatus    ReservationStatus
+  toStatus      ReservationStatus
+  action        String
+  actorId       String?
+  actorType     SessionActorType?
+  reason        String?
+  metadata      Json?
+  createdAt     DateTime          @default(now()) @db.Timestamptz(6)
+
   @@index([reservationId, createdAt])
 }
 

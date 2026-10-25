@@ -36,6 +36,20 @@ export const cancelMyReservation = async (req: AppRequest, res: Response) => {
   res.ok(reservation);
 };
 
+export const rescheduleMyReservation = async (req: AppRequest, res: Response) => {
+  const customerAccountId = req.actor.id;
+  const { reservationId } = req.params;
+
+  const reservation = await CustomerPanelStation.rescheduleReservation(
+    reservationId,
+    customerAccountId,
+    req.body,
+    { ip: req.ip, userAgent: req.headers['user-agent'] }
+  );
+
+  res.ok(reservation);
+};
+
 export const submitMyReview = async (req: AppRequest, res: Response) => {
   const customerAccountId = req.actor.id;
   const { reservationId } = req.params;

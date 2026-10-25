@@ -56,6 +56,20 @@ export const getReservationById = async (
   res.ok(reservation);
 };
 
+export const rescheduleReservation = async (
+  req: AppRequest,
+  res: Response
+) => {
+  const reservation = await reservationStation.rescheduleReservation(
+    req.params.reservationId,
+    req.tenant.gamingCenterId,
+    req.body,
+    req.actor as { id: string; role?: UserRole; actorType: SessionActorType },
+    { ip: req.ip, userAgent: req.headers['user-agent'] }
+  );
+  res.ok(reservation);
+};
+
 export const proposeTime = async (
   req: AppRequest,
   res: Response
