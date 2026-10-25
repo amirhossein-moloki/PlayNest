@@ -12,6 +12,7 @@ export enum AppEvents {
   RESERVATION_NOSHOW = 'reservation.noshow',
   RESERVATION_TIME_PROPOSED = 'reservation.time_proposed',
   PAYMENT_SUCCESS = 'payment.success',
+  PAYMENT_FAILED = 'payment.failed',
   REVIEW_CREATED = 'rating.created',
 
   // CMS & Reaction Events

@@ -67,6 +67,12 @@ const EnvSchema = z.object({
   RESERVATION_EXPIRY_BATCH_SIZE: z.coerce.number().int().positive().default(50),
   RESERVATION_EXPIRY_ENABLED: z.preprocess(toBool, z.boolean()).default(true),
 
+  // Reservation Reminders Background Worker
+  RESERVATION_REMINDER_LEAD_TIME_MINUTES: z.coerce.number().int().positive().default(60),
+  RESERVATION_REMINDER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(10000),
+  RESERVATION_REMINDER_BATCH_SIZE: z.coerce.number().int().positive().default(50),
+  RESERVATION_REMINDER_ENABLED: z.preprocess(toBool, z.boolean()).default(true),
+
   // Webhooks
   PAYMENT_PROVIDER_WEBHOOK_SECRET: z.string().min(1),
 
@@ -100,6 +106,9 @@ const EnvSchema = z.object({
   SMSIR_RESERVATION_PENDING_TEMPLATE_ID: z.coerce.number().optional(),
   SMSIR_RESERVATION_CANCELED_TEMPLATE_ID: z.coerce.number().optional(),
   SMSIR_OWNER_RESERVATION_CREATED_TEMPLATE_ID: z.coerce.number().optional(),
+  SMSIR_RESERVATION_REMINDER_TEMPLATE_ID: z.coerce.number().optional(),
+  SMSIR_PAYMENT_SUCCESS_TEMPLATE_ID: z.coerce.number().optional(),
+  SMSIR_PAYMENT_FAILED_TEMPLATE_ID: z.coerce.number().optional(),
 
   // Sayra SMTP / Email (Optional)
   SAYRA_SMTP_HOST: z.string().optional(),

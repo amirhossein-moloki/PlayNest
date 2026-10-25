@@ -1,11 +1,19 @@
 import { AppEvents, eventEmitter } from '../../common/events/event-emitter';
 import { queueAnalyticsSync } from '../../jobs/producers/analytics.producer';
-import { queueSms } from '../../jobs/producers/sms.producer';
-import { Reservation, GamingCenter, Settings, ReservationStatus, UserRole, NotificationType, Prisma } from '@prisma/client';
+import {
+  Reservation,
+  GamingCenter,
+  Settings,
+  ReservationStatus,
+  UserRole,
+  NotificationType,
+  Prisma,
+} from '@prisma/client';
 import { formatInTimeZone } from 'date-fns-tz';
 import { env } from '../../config/env';
 import { prisma } from '../../config/prisma';
 import { NotificationStation } from '../notifications/notifications.station';
+import { invalidateObsoleteReminders } from './reservation.reminders';
 
 type GamingCenterWithSettings = GamingCenter & { settings?: Settings | null };
 
@@ -29,6 +37,7 @@ const notifyOwnerAndStaff = async (
 
     for (const manager of managers) {
       await NotificationStation.notifyUser({
+        gamingCenterId,
         userId: manager.id,
         type,
         title,
@@ -38,6 +47,9 @@ const notifyOwnerAndStaff = async (
         mobile: manager.phone,
         templateId: smsTemplateId,
         parameters: smsParams,
+        idempotencyKey: `staff_notif:${type}:${manager.id}:${(metadata as Record<string, unknown>)?.reservationId || Date.now()}`,
+        entityType: 'Reservation',
+        entityId: String((metadata as Record<string, unknown>)?.reservationId || ''),
       });
     }
   } catch (error) {
@@ -45,7 +57,12 @@ const notifyOwnerAndStaff = async (
   }
 };
 
-const sendReservationStatusSms = async (reservation: Reservation, gamingCenter: GamingCenterWithSettings, customerPhone: string, customerName: string) => {
+const sendReservationStatusSms = async (
+  reservation: Reservation,
+  gamingCenter: GamingCenterWithSettings,
+  customerPhone: string,
+  customerName: string
+) => {
   let templateId: number | undefined;
 
   if (reservation.status === ReservationStatus.CONFIRMED) {
@@ -61,19 +78,40 @@ const sendReservationStatusSms = async (reservation: Reservation, gamingCenter: 
   const timeZone = gamingCenter.settings?.timeZone || 'UTC';
   const dateStr = formatInTimeZone(reservation.startTime, timeZone, 'yyyy/MM/dd');
   const timeStr = formatInTimeZone(reservation.startTime, timeZone, 'HH:mm');
+  const stationName =
+    ((reservation.stationSnapshot as Record<string, unknown>)?.name as string | undefined) || 'N/A';
 
   const parameters = [
     { name: 'CUSTOMER_NAME', value: customerName },
-    { name: 'SERVICE_NAME', value: ((reservation.stationSnapshot as Record<string, unknown>)?.name as string | undefined || 'N/A') },
+    { name: 'SERVICE_NAME', value: stationName },
     { name: 'DATE', value: dateStr },
     { name: 'TIME', value: timeStr },
     { name: 'SALON_NAME', value: gamingCenter.name },
   ];
 
+  const idempotencyKey = `cust_sms:${reservation.status}:${reservation.id}`;
+
   try {
-    await queueSms({ mobile: customerPhone, templateId, parameters });
+    await NotificationStation.enqueueNotificationLog({
+      gamingCenterId: gamingCenter.id,
+      recipient: customerPhone,
+      channel: 'SMS',
+      type:
+        reservation.status === ReservationStatus.CONFIRMED
+          ? NotificationType.RESERVATION_CONFIRMED
+          : reservation.status === ReservationStatus.CANCELED
+            ? NotificationType.RESERVATION_CANCELLED
+            : NotificationType.RESERVATION_CREATED,
+      title: `Reservation ${reservation.status}`,
+      message: `Reservation ${reservation.id} status changed to ${reservation.status}`,
+      templateId,
+      parameters,
+      idempotencyKey,
+      entityType: 'Reservation',
+      entityId: reservation.id,
+    });
   } catch (error) {
-    console.error('Failed to queue reservation SMS:', error);
+    console.error('Failed to queue reservation SMS outbox log:', error);
   }
 };
 
@@ -81,10 +119,8 @@ export const initReservationEvents = () => {
   eventEmitter.on(AppEvents.RESERVATION_CREATED, async ({ reservation, gamingCenter, customerAccount }) => {
     queueAnalyticsSync({ type: 'RESERVATION', entityId: reservation.id }).catch(console.error);
 
-    // Customer SMS
     await sendReservationStatusSms(reservation, gamingCenter, customerAccount.phone, customerAccount.fullName || '');
 
-    // Owner / Manager Notification & Owner SMS
     const timeZone = gamingCenter.settings?.timeZone || 'UTC';
     const dateStr = formatInTimeZone(reservation.startTime, timeZone, 'yyyy/MM/dd');
     const timeStr = formatInTimeZone(reservation.startTime, timeZone, 'HH:mm');
@@ -128,6 +164,10 @@ export const initReservationEvents = () => {
 
   eventEmitter.on(AppEvents.RESERVATION_CANCELED, async ({ reservation, gamingCenter, customerAccount }) => {
     queueAnalyticsSync({ type: 'RESERVATION', entityId: reservation.id }).catch(console.error);
+
+    // Invalidate obsolete reminders
+    await invalidateObsoleteReminders(reservation.id);
+
     await sendReservationStatusSms(reservation, gamingCenter, customerAccount.phone, customerAccount.fullName || '');
 
     await notifyOwnerAndStaff(
@@ -141,14 +181,19 @@ export const initReservationEvents = () => {
 
   eventEmitter.on(AppEvents.RESERVATION_COMPLETED, async ({ reservation }) => {
     queueAnalyticsSync({ type: 'RESERVATION', entityId: reservation.id }).catch(console.error);
+    await invalidateObsoleteReminders(reservation.id);
   });
 
   eventEmitter.on(AppEvents.RESERVATION_NOSHOW, async ({ reservation }) => {
     queueAnalyticsSync({ type: 'RESERVATION', entityId: reservation.id }).catch(console.error);
+    await invalidateObsoleteReminders(reservation.id);
   });
 
   eventEmitter.on(AppEvents.RESERVATION_TIME_PROPOSED, async ({ reservationId, gamingCenterId, proposal }) => {
     queueAnalyticsSync({ type: 'RESERVATION', entityId: reservationId }).catch(console.error);
+
+    // Invalidate obsolete reminders on reschedule proposal
+    await invalidateObsoleteReminders(reservationId);
 
     if (gamingCenterId) {
       await notifyOwnerAndStaff(
@@ -158,6 +203,82 @@ export const initReservationEvents = () => {
         `A new time proposal was made for reservation ${reservationId}.`,
         { reservationId, proposalId: proposal?.id }
       );
+    }
+  });
+
+  eventEmitter.on(AppEvents.PAYMENT_SUCCESS, async ({ payment }) => {
+    if (!payment) return;
+
+    try {
+      const reservation = payment.reservationId
+        ? await prisma.reservation.findUnique({
+          where: { id: payment.reservationId },
+          include: { customerAccount: true, gamingCenter: true },
+        })
+        : null;
+
+      if (reservation && reservation.customerAccount?.phone) {
+        const templateId = env.SMSIR_PAYMENT_SUCCESS_TEMPLATE_ID;
+        const parameters = [
+          { name: 'CUSTOMER_NAME', value: reservation.customerAccount.fullName || 'Customer' },
+          { name: 'AMOUNT', value: String(payment.amount) },
+          { name: 'REF_CODE', value: payment.referenceCode || payment.id },
+        ];
+
+        await NotificationStation.enqueueNotificationLog({
+          gamingCenterId: payment.gamingCenterId,
+          recipient: reservation.customerAccount.phone,
+          channel: 'SMS',
+          type: NotificationType.PAYMENT_SUCCESS,
+          title: 'Payment Successful',
+          message: `Payment of ${payment.amount} ${payment.currency} succeeded. Ref: ${payment.referenceCode || payment.id}`,
+          templateId,
+          parameters,
+          idempotencyKey: `pay_success_sms:${payment.id}`,
+          entityType: 'Payment',
+          entityId: payment.id,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to handle PAYMENT_SUCCESS notification event:', error);
+    }
+  });
+
+  eventEmitter.on(AppEvents.PAYMENT_FAILED, async ({ payment, failureReason }) => {
+    if (!payment) return;
+
+    try {
+      const reservation = payment.reservationId
+        ? await prisma.reservation.findUnique({
+          where: { id: payment.reservationId },
+          include: { customerAccount: true, gamingCenter: true },
+        })
+        : null;
+
+      if (reservation && reservation.customerAccount?.phone) {
+        const templateId = env.SMSIR_PAYMENT_FAILED_TEMPLATE_ID;
+        const parameters = [
+          { name: 'CUSTOMER_NAME', value: reservation.customerAccount.fullName || 'Customer' },
+          { name: 'AMOUNT', value: String(payment.amount) },
+          { name: 'REASON', value: failureReason || 'Payment failed' },
+        ];
+
+        await NotificationStation.enqueueNotificationLog({
+          gamingCenterId: payment.gamingCenterId,
+          recipient: reservation.customerAccount.phone,
+          channel: 'SMS',
+          type: NotificationType.PAYMENT_FAILED,
+          title: 'Payment Failed',
+          message: `Payment of ${payment.amount} ${payment.currency} failed. Reason: ${failureReason || 'Declined'}`,
+          templateId,
+          parameters,
+          idempotencyKey: `pay_failed_sms:${payment.id}`,
+          entityType: 'Payment',
+          entityId: payment.id,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to handle PAYMENT_FAILED notification event:', error);
     }
   });
 };

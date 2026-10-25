@@ -312,6 +312,22 @@ enum NotificationType {
   RESERVATION_REJECTED
   RESERVATION_CANCELLED
   RESERVATION_TIME_PROPOSED
+  RESERVATION_REMINDER
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+}
+
+enum NotificationChannel {
+  IN_APP
+  SMS
+  EMAIL
+}
+
+enum NotificationDispatchStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED
 }
 
 enum DiscountTargetType {
@@ -1786,6 +1802,41 @@ model Notification {
 
   @@index([userId, isRead, createdAt])
   @@index([userId, createdAt])
+}
+
+model NotificationLog {
+  id             String                     @id @default(cuid())
+  gamingCenterId String?
+  userId         String?
+  recipient      String
+  channel        NotificationChannel        @default(SMS)
+  type           NotificationType
+  title          String?
+  message        String                     @db.Text
+  templateId     Int?
+  parameters     Json?
+  metadata       Json?
+  status         NotificationDispatchStatus @default(PENDING)
+  scheduledAt    DateTime                   @default(now()) @db.Timestamptz(6)
+  sentAt         DateTime?                  @db.Timestamptz(6)
+  attempts       Int                        @default(0)
+  maxAttempts    Int                        @default(3)
+  nextRetryAt    DateTime?                  @db.Timestamptz(6)
+  lastError      String?                    @db.Text
+  providerRefId  String?
+  idempotencyKey String                     @unique
+
+  entityType     String?
+  entityId       String?
+
+  createdAt      DateTime                   @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime                   @updatedAt @db.Timestamptz(6)
+
+  @@index([status, scheduledAt])
+  @@index([status, nextRetryAt])
+  @@index([entityType, entityId])
+  @@index([idempotencyKey])
+  @@index([gamingCenterId, createdAt])
 }
 
 model Refund {
