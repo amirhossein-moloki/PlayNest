@@ -99,8 +99,6 @@ export const discountsStation = {
 
     const discount = await DiscountsRepo.createDiscount({
       gamingCenterId,
-      code: input.code ? input.code.trim().toUpperCase() : undefined,
-      maxUses: input.maxUses,
       targetType: input.targetType,
       targetId: input.targetId,
       valueType: input.valueType,
@@ -191,8 +189,6 @@ export const discountsStation = {
     }
 
     const updateData: Prisma.DiscountUncheckedUpdateInput = {
-      code: input.code ? input.code.trim().toUpperCase() : undefined,
-      maxUses: input.maxUses,
       targetType: input.targetType,
       targetId: input.targetId,
       valueType: input.valueType,
@@ -280,38 +276,10 @@ export const discountsStation = {
     stationId: string,
     basePrice: number,
     reservationTime: Date = new Date(),
-    voucherCode?: string,
     tx?: Prisma.TransactionClient
   ): Promise<{ applicableDiscount: Discount | null; discountAmount: number }> {
     if (basePrice <= 0) {
       return { applicableDiscount: null, discountAmount: 0 };
-    }
-
-    if (voucherCode && voucherCode.trim().length > 0) {
-      const codeDiscount = await DiscountsRepo.findByCode(voucherCode.trim(), gamingCenterId, tx);
-      if (!codeDiscount || !codeDiscount.isActive) {
-        throw new AppError('Invalid or inactive voucher code.', httpStatus.BAD_REQUEST, { code: 'INVALID_VOUCHER' });
-      }
-
-      const resTimeMs = reservationTime.getTime();
-      if (resTimeMs < codeDiscount.startAt.getTime() || resTimeMs > codeDiscount.endAt.getTime()) {
-        throw new AppError('Voucher code is expired or not yet valid.', httpStatus.BAD_REQUEST, { code: 'EXPIRED_VOUCHER' });
-      }
-
-      if (codeDiscount.maxUses !== null && codeDiscount.usedCount >= codeDiscount.maxUses) {
-        throw new AppError('Voucher code usage limit reached.', httpStatus.BAD_REQUEST, { code: 'VOUCHER_LIMIT_REACHED' });
-      }
-
-      const matchesTarget =
-        (codeDiscount.targetType === DiscountTargetType.GAMING_CENTER && codeDiscount.targetId === gamingCenterId) ||
-        (codeDiscount.targetType === DiscountTargetType.STATION && codeDiscount.targetId === stationId);
-
-      if (!matchesTarget) {
-        throw new AppError('Voucher code is not applicable to this gaming center or station.', httpStatus.BAD_REQUEST, { code: 'VOUCHER_TARGET_MISMATCH' });
-      }
-
-      const discountAmount = calculateDiscountAmount(basePrice, codeDiscount.valueType, codeDiscount.value);
-      return { applicableDiscount: codeDiscount, discountAmount };
     }
 
     const activeDiscounts = await DiscountsRepo.findActiveApplicableDiscounts(
@@ -321,11 +289,6 @@ export const discountsStation = {
       tx
     );
 
-    // Filter out active discounts that exceeded maxUses
-    const availableDiscounts = activeDiscounts.filter(
-      (d) => d.maxUses === null || d.usedCount < d.maxUses
-    );
-
-    return selectBestDiscount(availableDiscounts, basePrice);
+    return selectBestDiscount(activeDiscounts, basePrice);
   },
 };

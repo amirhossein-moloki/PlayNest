@@ -4,7 +4,6 @@ import { GroupBookingRepo } from './group-booking.repo';
 import { ReservationRepo } from '../reservation/reservation.repo';
 import { AuthRepository } from '../auth/auth.repository';
 import { discountsStation } from '../discounts/discounts.station';
-import { DiscountsRepo } from '../discounts/discounts.repo';
 import { walletService } from '../wallet/wallet.station';
 import { auditService } from '../audit/audit.station';
 import AppError from '../../common/errors/AppError';
@@ -160,18 +159,8 @@ export const GroupBookingStation = {
           station.id,
           itemBasePrice,
           startTime,
-          undefined,
           tx
         );
-
-        if (applicableDiscount) {
-          const incremented = await DiscountsRepo.incrementUsedCount(applicableDiscount.id, tx);
-          if (!incremented) {
-            throw new AppError('Discount usage limit reached.', httpStatus.CONFLICT, {
-              code: 'DISCOUNT_LIMIT_REACHED',
-            });
-          }
-        }
 
         const itemFinalPrice = Math.max(0, itemBasePrice - discountAmount);
         aggregatePrice += itemFinalPrice;
@@ -333,18 +322,8 @@ export const GroupBookingStation = {
           station.id,
           itemBasePrice,
           startTime,
-          undefined,
           tx
         );
-
-        if (applicableDiscount) {
-          const incremented = await DiscountsRepo.incrementUsedCount(applicableDiscount.id, tx);
-          if (!incremented) {
-            throw new AppError('Discount usage limit reached.', httpStatus.CONFLICT, {
-              code: 'DISCOUNT_LIMIT_REACHED',
-            });
-          }
-        }
 
         const itemFinalPrice = Math.max(0, itemBasePrice - discountAmount);
         aggregatePrice += itemFinalPrice;
