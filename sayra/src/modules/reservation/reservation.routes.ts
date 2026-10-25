@@ -5,6 +5,7 @@ import {
   createReservationSchema,
   updateReservationSchema,
   cancelReservationSchema,
+  rescheduleReservationSchema,
   listReservationQuerySchema,
   proposeTimeSchema,
   listProposalsParamsSchema,
@@ -75,6 +76,14 @@ router.post(
   requireRole(M_R),
   validate(cancelReservationSchema),
   asyncHandler<AppRequest>(reservationController.cancelReservation)
+);
+
+// 6b. Reschedule Reservation
+router.post(
+  '/:reservationId/reschedule',
+  requireRole(M_R),
+  validate(rescheduleReservationSchema),
+  asyncHandler<AppRequest>(reservationController.rescheduleReservation)
 );
 
 // 7. Start Reservation
