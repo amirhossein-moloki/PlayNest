@@ -9,9 +9,7 @@ export class ReservationStateMachine {
       ReservationStatus.CANCELED,
       ReservationStatus.EXPIRED,
     ],
-    [ReservationStatus.EXPIRED]: [
-      ReservationStatus.CONFIRMED,
-    ],
+    [ReservationStatus.EXPIRED]: [],
     [ReservationStatus.CONFIRMED]: [
       ReservationStatus.IN_PROGRESS,
       ReservationStatus.COMPLETED,
@@ -20,6 +18,7 @@ export class ReservationStateMachine {
     ],
     [ReservationStatus.IN_PROGRESS]: [
       ReservationStatus.COMPLETED,
+      ReservationStatus.CANCELED,
     ],
     [ReservationStatus.COMPLETED]: [],
     [ReservationStatus.CANCELED]: [],
@@ -37,6 +36,12 @@ export class ReservationStateMachine {
         { code: 'INVALID_TRANSITION' }
       );
     }
+  }
+
+  static canTransition(current: ReservationStatus, next: ReservationStatus): boolean {
+    if (current === next) return true;
+    const allowed = this.transitions[current];
+    return !!(allowed && allowed.includes(next));
   }
 
   static isTerminalState(status: ReservationStatus): boolean {

@@ -21,6 +21,18 @@ export const customerCancelReservationSchema = z.object({
   }),
 });
 
+export const customerRescheduleReservationSchema = z.object({
+  params: z.object({
+    reservationId: z.string().cuid(CUID_MESSAGE),
+  }),
+  body: z.object({
+    startTime: z.string().datetime(),
+    stationId: z.string().cuid(CUID_MESSAGE).optional(),
+    staffId: z.string().cuid(CUID_MESSAGE).optional(),
+    reason: z.string().max(500).optional(),
+  }),
+});
+
 export const customerSubmitReviewSchema = z.object({
   params: z.object({
     reservationId: z.string().cuid(CUID_MESSAGE),

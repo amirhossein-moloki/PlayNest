@@ -11,6 +11,8 @@ import { AnalyticsRepo } from '../analytics/analytics.repo';
 import * as reviewsRepo from '../ratings/ratings.repo';
 import { ReservationStateMachine } from '../reservation/reservation.state-machine';
 import { ReservationRepo } from '../reservation/reservation.repo';
+import { reservationStation } from '../reservation/reservation.station';
+import { RescheduleReservationInput } from '../reservation/reservation.dto';
 import { getZonedStartAndEnd } from '../../common/utils/date';
 import { discountsStation } from '../discounts/discounts.station';
 
@@ -57,6 +59,26 @@ export const CustomerPanelStation = {
     return reservation;
   },
 
+  async rescheduleReservation(
+    reservationId: string,
+    customerAccountId: string,
+    data: RescheduleReservationInput,
+    context?: { ip?: string; userAgent?: string }
+  ) {
+    const reservation = await CustomerPanelRepo.findReservationById(reservationId, customerAccountId);
+    if (!reservation) {
+      throw new AppError('Reservation not found', httpStatus.NOT_FOUND);
+    }
+
+    return reservationStation.rescheduleReservation(
+      reservationId,
+      reservation.gamingCenterId,
+      data,
+      { id: customerAccountId, actorType: SessionActorType.CUSTOMER },
+      context
+    );
+  },
+
   async cancelReservation(
     reservationId: string,
     customerAccountId: string,
@@ -68,6 +90,10 @@ export const CustomerPanelStation = {
       throw new AppError('Reservation not found', httpStatus.NOT_FOUND);
     }
 
+    if (reservation.status === ReservationStatus.CANCELED) {
+      return reservation;
+    }
+
     ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.CANCELED);
 
     const updatedReservation = await CustomerPanelRepo.transaction(async (tx) => {
@@ -75,6 +101,16 @@ export const CustomerPanelStation = {
         status: ReservationStatus.CANCELED,
         canceledAt: new Date(),
         cancelReason: reason || 'Canceled by customer',
+      }, tx);
+
+      await ReservationRepo.createHistory({
+        reservationId,
+        fromStatus: reservation.status,
+        toStatus: ReservationStatus.CANCELED,
+        action: 'CANCEL',
+        actorId: customerAccountId,
+        actorType: SessionActorType.CUSTOMER,
+        reason: reason || 'Canceled by customer',
       }, tx);
 
       // Trigger refund if there are successful payments
@@ -254,6 +290,16 @@ export const CustomerPanelStation = {
         new Date(),
         tx
       );
+
+      await ReservationRepo.createHistory({
+        reservationId,
+        fromStatus: reservation.status,
+        toStatus: updatedReservation.status,
+        action: 'ACCEPT_PROPOSAL',
+        actorId: customerAccountId,
+        actorType: SessionActorType.CUSTOMER,
+        metadata: { proposalId },
+      }, tx);
 
       await auditService.log(
         reservation.gamingCenterId,
