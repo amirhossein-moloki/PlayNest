@@ -4,6 +4,13 @@ import { reservationStation } from '../../../../src/modules/reservation/reservat
 
 jest.mock('../../../../src/modules/reservation/reservation.station');
 
+interface BatchResult {
+  candidatesFound: number;
+  expiredCount: number;
+  skippedCount: number;
+  failedCount: number;
+}
+
 describe('ReservationExpiryWorker - Unit Tests', () => {
   const mockedReservationStation = reservationStation as jest.Mocked<typeof reservationStation>;
   let worker: ReservationExpiryWorker;
@@ -51,8 +58,8 @@ describe('ReservationExpiryWorker - Unit Tests', () => {
   });
 
   it('should prevent overlapping tick processing', async () => {
-    let resolveBatch: any;
-    const batchPromise = new Promise<any>((resolve) => {
+    let resolveBatch!: (value: BatchResult) => void;
+    const batchPromise = new Promise<BatchResult>((resolve) => {
       resolveBatch = resolve;
     });
 

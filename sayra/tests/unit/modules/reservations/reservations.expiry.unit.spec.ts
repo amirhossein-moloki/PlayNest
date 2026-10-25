@@ -20,7 +20,7 @@ describe('Reservation Expiry - Unit Tests', () => {
 
       MockedReservationRepo.findExpiryCandidateReservations.mockResolvedValue(candidates);
       MockedReservationRepo.findExpiryCandidateGroupBookings.mockResolvedValue([]);
-      MockedReservationRepo.transaction.mockImplementation(async (cb: any) => cb({}));
+      MockedReservationRepo.transaction.mockImplementation(async (cb: /* eslint-disable-line @typescript-eslint/no-explicit-any */ any) => cb({}));
       MockedReservationRepo.expireReservationCandidate.mockResolvedValue(true);
 
       const result = await reservationStation.processExpiryBatch({ batchSize: 50, now });
@@ -51,7 +51,7 @@ describe('Reservation Expiry - Unit Tests', () => {
 
       MockedReservationRepo.findExpiryCandidateReservations.mockResolvedValue(candidates);
       MockedReservationRepo.findExpiryCandidateGroupBookings.mockResolvedValue([]);
-      MockedReservationRepo.transaction.mockImplementation(async (cb: any) => cb({}));
+      MockedReservationRepo.transaction.mockImplementation(async (cb: /* eslint-disable-line @typescript-eslint/no-explicit-any */ any) => cb({}));
       MockedReservationRepo.expireReservationCandidate.mockResolvedValue(false);
 
       const result = await reservationStation.processExpiryBatch({ batchSize: 50, now });

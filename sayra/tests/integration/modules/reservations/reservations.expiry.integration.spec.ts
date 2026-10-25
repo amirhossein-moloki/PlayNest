@@ -1,17 +1,15 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { reservationStation } from '../../../../src/modules/reservation/reservation.station';
 import { ReservationRepo } from '../../../../src/modules/reservation/reservation.repo';
-import { PaymentsRepo } from '../../../../src/modules/payments/payments.repo';
 
 jest.mock('../../../../src/modules/reservation/reservation.repo');
-jest.mock('../../../../src/modules/payments/payments.repo');
 
 const MockedReservationRepo = ReservationRepo as jest.Mocked<typeof ReservationRepo>;
 
 describe('Reservation Expiry - Integration & Concurrency Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    MockedReservationRepo.transaction.mockImplementation(async (cb: any) => cb({}));
+    MockedReservationRepo.transaction.mockImplementation(async (cb: /* eslint-disable-line @typescript-eslint/no-explicit-any */ any) => cb({}));
   });
 
   describe('Multi-Worker Concurrency', () => {
