@@ -265,6 +265,7 @@ export const CustomerPanelStation = {
         reservation.stationId,
         basePrice,
         proposal.proposedStartTime,
+        undefined,
         tx
       );
 

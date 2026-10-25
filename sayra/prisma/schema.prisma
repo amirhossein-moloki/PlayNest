@@ -1733,6 +1733,10 @@ model Discount {
   gamingCenterId String
   gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
 
+  code     String?
+  maxUses  Int?
+  usedCount Int   @default(0)
+
   targetType DiscountTargetType
   targetId   String
 
@@ -1751,6 +1755,7 @@ model Discount {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([gamingCenterId, code])
   @@index([gamingCenterId, isActive, startAt, endAt])
   @@index([gamingCenterId, targetType, targetId])
 }

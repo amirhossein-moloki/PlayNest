@@ -18,6 +18,7 @@ export const createReservationSchema = z.object({
       phone: z.string().min(10), // E.164 normalization will be handled in the station
       email: z.string().email().optional(),
     }),
+    voucherCode: z.string().optional(),
     note: z.string().max(500).optional(),
   }),
 });
@@ -119,6 +120,7 @@ export const createPublicReservationSchema = z.object({
       phone: z.string().min(10), // E.164 normalization will be handled in the station
       email: z.string().email().optional(),
     }),
+    voucherCode: z.string().optional(),
     note: z.string().max(500).optional(),
   }),
 });
