@@ -43,14 +43,14 @@ describe('Reservation Lifecycle & Rescheduling Application Tests', () => {
 
   const mockGamingCenter = {
     id: gamingCenterId,
-    openingTime: '08:00',
-    closingTime: '23:00',
+    openingTime: '00:00',
+    closingTime: '23:59',
     settings: {
       minAdvanceBookingMinutes: 30,
       timeZone: 'UTC',
       preventOverlaps: true,
-      workStartTime: '08:00',
-      workEndTime: '23:00',
+      workStartTime: '00:00',
+      workEndTime: '23:59',
     },
   };
 
@@ -69,8 +69,8 @@ describe('Reservation Lifecycle & Rescheduling Application Tests', () => {
     gamingCenterId,
     userId: staffId,
     dayOfWeek: futureDate.getUTCDay(),
-    startTime: '08:00',
-    endTime: '23:00',
+    startTime: '00:00',
+    endTime: '23:59',
     isActive: true,
   };
 
@@ -230,8 +230,10 @@ describe('Reservation Lifecycle & Rescheduling Application Tests', () => {
     });
 
     it('should reschedule successfully when all constraints pass and record history', async () => {
-      const newStartAt = new Date(Date.now() + 24 * 3600 * 1000);
-      newStartAt.setUTCHours(12, 0, 0, 0);
+      const newStartAt = new Date();
+      newStartAt.setUTCDate(newStartAt.getUTCDate() + 1);
+      newStartAt.setUTCHours(10, 0, 0, 0);
+
       MockedReservationRepo.findReservationById.mockResolvedValue(mockBaseReservation as any);
       MockedReservationRepo.updateReservation.mockResolvedValue({
         ...mockBaseReservation,
