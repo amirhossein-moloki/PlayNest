@@ -155,7 +155,7 @@ export const initReservationEvents = () => {
     ).catch(console.error);
   });
 
-  eventEmitter.on(AppEvents.RESERVATION_EXPIRED, async ({ reservationId, gamingCenterId, reservation }) => {
+  eventEmitter.on(AppEvents.RESERVATION_EXPIRED, async ({ reservation }) => {
     if (reservation) {
       waitlistStation.processAvailableSlot(
         reservation.gamingCenterId,

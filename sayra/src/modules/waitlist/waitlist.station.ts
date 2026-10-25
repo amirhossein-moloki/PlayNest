@@ -9,7 +9,6 @@ import { validateLeadTime, validateOperatingHours, validateStationAvailability }
 import { discountsStation } from '../discounts/discounts.station';
 import { auditService } from '../audit/audit.station';
 import { NotificationStation } from '../notifications/notifications.station';
-import { AppEvents, eventEmitter } from '../../common/events/event-emitter';
 import { CreateWaitlistEntryInput, ListWaitlistQuery, ListWaitlistOffersQuery } from './waitlist.dto';
 
 const DEFAULT_OFFER_EXPIRATION_MINUTES = 15;
