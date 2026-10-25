@@ -233,8 +233,6 @@ describe('Reservation Lifecycle & Rescheduling Application Tests', () => {
       newStartAt.setUTCDate(newStartAt.getUTCDate() + 1);
       newStartAt.setUTCHours(10, 0, 0, 0);
 
-      const newStartAt = new Date(Date.now() + 24 * 3600 * 1000);
-      newStartAt.setUTCHours(12, 0, 0, 0);
       MockedReservationRepo.findReservationById.mockResolvedValue(mockBaseReservation as any);
       MockedReservationRepo.updateReservation.mockResolvedValue({
         ...mockBaseReservation,

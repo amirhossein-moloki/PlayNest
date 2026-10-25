@@ -1,7 +1,7 @@
 import { AnalyticsRepo } from './analytics.repo';
 import { resolveTimezoneAndBoundaries } from './analytics.validators';
 import { formatInTimeZone } from 'date-fns-tz';
-import { differenceInDays, max } from 'date-fns';
+import { differenceInDays } from 'date-fns';
 
 export const AnalyticsStation = {
   async getSummary(gamingCenterId: string, startDateInput: Date, endDateInput: Date) {
@@ -288,7 +288,7 @@ export const AnalyticsStation = {
   },
 
   async getStationPerformance(gamingCenterId: string, startDateInput: Date, endDateInput: Date) {
-    const { timeZone, dayStart, dayEnd } = await resolveTimezoneAndBoundaries(
+    const { dayStart, dayEnd } = await resolveTimezoneAndBoundaries(
       gamingCenterId,
       startDateInput,
       endDateInput
