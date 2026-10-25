@@ -1,0 +1,21 @@
+gantt
+    title چرخه‌ی حیات و جریان‌های اجرایی سیستم رزرو PlayNest / Sayra
+    dateFormat  YYYY-MM-DD
+
+section ثبت و تایید رزرو
+    ایجاد رزرو عمومی (Public Reservation)       :active, pub_res, 2026-10-01, 1d
+    ایجاد رزرو توسط پرسنل (Staff Booking)        :active, stf_res, 2026-10-01, 1d
+    تایید رزرو (Confirm Reservation)            :crit, cnf_res, after pub_res, 1d
+
+section زمان بازی و اجرا
+    شروع جلسه بازی (Start Gaming Session)        :active, str_ses, after cnf_res, 1d
+    اتمام جلسه و تکمیل (Complete Reservation)   :done, cmp_res, after str_ses, 1d
+
+section لغو و مالی
+    لغو رزرو و استرداد کیف پول (Cancel & Refund) :crit, cnc_res, 2026-10-02, 1d
+    پرداخت آنلاین و وب‌هوک (Payment Webhook)     :active, pay_web, 2026-10-01, 1d
+    انقضای رزرو معطل (Expire Stale)              :done, exp_res, 2026-10-01, 1d
+
+section پیشنهادات و رزرو گروهی
+    پیشنهاد زمان جدید (Propose Time)              :active, prp_time, 2026-10-01, 1d
+    رزرو گروهی همزمان (Group Booking)             :active, grp_book, 2026-10-01, 1d
