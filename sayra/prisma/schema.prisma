@@ -1049,6 +1049,7 @@ model Settings {
   requireOtpForPublicBooking Boolean @default(false)
 
   maxAdvanceBookingDays    Int   @default(7)
+  minAdvanceBookingMinutes Int   @default(30)
   cancellationHours        Int   @default(2)
   noShowPenaltyAmount      Float @default(0)
   autoReleaseUnpaidMinutes Int   @default(15)

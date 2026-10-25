@@ -1,5 +1,3 @@
-import { GameStation } from '@prisma/client';
-
 export interface StationSnapshot {
   name: string;
   hourlyPrice: number;
@@ -7,12 +5,16 @@ export interface StationSnapshot {
 }
 
 /**
- * Creates a station snapshot object from a GameStation model for immutable reservation history.
+ * Creates a station snapshot for reservation immutability.
  */
-export function createStationSnapshot(station: Pick<GameStation, 'name' | 'hourlyPrice' | 'stationType'>): StationSnapshot {
+export const createStationSnapshot = (station: {
+  name: string;
+  hourlyPrice: number;
+  stationType: string;
+}): StationSnapshot => {
   return {
     name: station.name,
     hourlyPrice: station.hourlyPrice,
     stationType: station.stationType,
   };
-}
+};
