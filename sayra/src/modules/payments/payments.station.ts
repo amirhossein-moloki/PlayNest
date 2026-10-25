@@ -1,17 +1,27 @@
-import { ReservationPaymentState, PaymentProvider, PaymentStatus } from '@prisma/client';
+import { ReservationPaymentState, PaymentProvider, PaymentStatus, ReservationStatus } from '@prisma/client';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { PaymentsRepo } from './payments.repo';
 import { env } from '../../config/env';
+import { PaymentProviderFactory } from './providers';
+
+const mapProviderEnum = (providerName: string): PaymentProvider => {
+  const upper = providerName.toUpperCase();
+  if (upper === 'ZARINPAL') return PaymentProvider.ZARINPAL;
+  if (upper === 'STRIPE') return PaymentProvider.STRIPE;
+  return PaymentProvider.MANUAL;
+};
 
 const initiatePayment = async ({
   gamingCenterId,
   reservationId,
   idempotencyKey,
+  providerName,
 }: {
   gamingCenterId: string;
   reservationId: string;
   idempotencyKey: string | null;
+  providerName?: string;
 }) => {
   // 1. Fetch the reservation
   const reservation = await PaymentsRepo.findReservationForUpdate(reservationId, gamingCenterId);
@@ -20,84 +30,200 @@ const initiatePayment = async ({
     throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
   }
 
-  // 2. Check if the reservation is already paid
+  // 2. Validate reservation state and payment eligibility
   if (reservation.paymentState === ReservationPaymentState.PAID) {
     throw new AppError('Reservation is already paid.', httpStatus.CONFLICT);
   }
 
-  // 3. Create the payment record
-  // The idempotency check is now handled by the idempotencyMiddleware.
-  // The idempotencyKey is still passed to the repo to enforce the DB constraint.
+  if (reservation.status === ReservationStatus.CANCELED || reservation.status === ReservationStatus.EXPIRED) {
+    throw new AppError('Reservation is canceled or expired and cannot be paid.', httpStatus.BAD_REQUEST);
+  }
+
+  // 3. Trusted server-side price & currency calculation
+  const calculatedAmount = Math.round(reservation.totalPrice);
+  if (calculatedAmount <= 0) {
+    throw new AppError('Invalid reservation total price for payment.', httpStatus.BAD_REQUEST);
+  }
+
+  const snapshotCurrency = (reservation.stationSnapshot as Record<string, unknown>)?.currency as string | undefined;
+  const currency = snapshotCurrency || 'IRR';
+
+  // 4. Resolve provider strategy
+  const provider = PaymentProviderFactory.getProvider(providerName);
+  const prismaProvider = mapProviderEnum(provider.name);
+
+  // 5. Create durable payment record
   const { payment } = await PaymentsRepo.createPaymentAndUpdateReservation({
     reservationId,
     paymentData: {
       gamingCenter: { connect: { id: gamingCenterId } },
       reservation: { connect: { id: reservationId } },
-      amount: reservation.totalPrice,
-      currency: ((reservation.stationSnapshot as Record<string, unknown>)?.currency as string | undefined || 'USD'),
-      provider: PaymentProvider.ZARINPAL, // Hardcoded for MVP
+      amount: calculatedAmount,
+      currency,
+      provider: prismaProvider,
       status: PaymentStatus.INITIATED,
       idempotencyKey,
     },
   });
 
-  // 5. Real ZarinPal API integration
+  // 6. Initiate with external provider adapter
   try {
-    const isSandbox = env.ZARINPAL_SANDBOX;
-    const baseUrl = isSandbox ? 'https://sandbox.zarinpal.com/pg/v4' : 'https://api.zarinpal.com/pg/v4';
-    const startPayUrl = isSandbox ? 'https://sandbox.zarinpal.com/pg/StartPay' : 'https://www.zarinpal.com/pg/StartPay';
-
-    const response = await fetch(`${baseUrl}/payment/request.json`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        merchant_id: env.ZARINPAL_MERCHANT_ID,
-        amount: reservation.totalPrice,
-        callback_url: env.ZARINPAL_CALLBACK_URL,
-        description: `Reservation for ${((reservation.stationSnapshot as Record<string, unknown>)?.currency as string | undefined || 'USD')} - ${reservation.id}`,
-        metadata: {
-          reservationId: reservation.id,
-          gamingCenterId: gamingCenterId,
-        },
-      }),
+    const callbackUrl = env.ZARINPAL_CALLBACK_URL;
+    const initiateResult = await provider.initiatePayment({
+      amount: calculatedAmount,
+      currency,
+      description: `Reservation ${reservation.id} - ${gamingCenterId}`,
+      callbackUrl,
+      reservationId: reservation.id,
+      gamingCenterId,
     });
 
-    const result = (await response.json()) as {
-      data: { authority: string; code: number; message: string; fee_type: string; fee: number };
-      errors: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
-    };
-
-    if (result.errors && (Array.isArray(result.errors) ? result.errors.length > 0 : Object.keys(result.errors).length > 0)) {
-      console.error('ZarinPal Error:', result.errors);
-      throw new AppError('Payment initiation failed with provider.', httpStatus.BAD_GATEWAY);
-    }
-
-    if (!result.data || !result.data.authority) {
-      console.error('ZarinPal Invalid Response:', result);
-      throw new AppError('Invalid response from payment provider.', httpStatus.BAD_GATEWAY);
-    }
-
-    const authority = result.data.authority;
-
-    // 6. Update payment with authority
+    // Save provider reference
     await PaymentsRepo.updatePayment(payment.id, {
-      providerPaymentId: authority,
+      providerPaymentId: initiateResult.providerPaymentId,
+      providerCheckoutId: initiateResult.providerCheckoutId,
     });
 
     return {
       paymentId: payment.id,
       paymentStatus: payment.status,
-      checkoutUrl: `${startPayUrl}/${authority}`,
+      providerPaymentId: initiateResult.providerPaymentId,
+      checkoutUrl: initiateResult.checkoutUrl,
     };
   } catch (error) {
+    // Record payment failure if initiation fails
+    await PaymentsRepo.transaction(async (tx) => {
+      await PaymentsRepo.handleFailedPayment(
+        tx,
+        payment.id,
+        PaymentStatus.FAILED,
+        error instanceof Error ? error.message : 'Provider initiation failed'
+      );
+    });
+
     if (error instanceof AppError) throw error;
     console.error('Payment initiation error:', error);
     throw new AppError('Internal error during payment initiation.', httpStatus.INTERNAL_SERVER_ERROR);
   }
 };
 
+const verifyPayment = async ({
+  gamingCenterId,
+  reservationId,
+  authority,
+  status,
+  providerName,
+}: {
+  gamingCenterId: string;
+  reservationId: string;
+  authority?: string;
+  status?: string;
+  providerName?: string;
+}) => {
+  // 1. Resolve payment record by authority or latest payment for reservation
+  const payment = authority
+    ? await PaymentsRepo.findPaymentByProviderPaymentId(authority)
+    : await PaymentsRepo.findLatestPaymentByReservation(reservationId, gamingCenterId);
+
+  if (!payment) {
+    throw new AppError('Payment record not found.', httpStatus.NOT_FOUND);
+  }
+
+  if (payment.gamingCenterId !== gamingCenterId) {
+    throw new AppError('Payment does not belong to the specified gaming center.', httpStatus.FORBIDDEN);
+  }
+
+  // 2. Idempotency check: If already paid, return existing success state
+  if (payment.status === PaymentStatus.PAID) {
+    return {
+      success: true,
+      paymentId: payment.id,
+      paymentStatus: PaymentStatus.PAID,
+      referenceCode: payment.referenceCode,
+      message: 'Payment already verified.',
+    };
+  }
+
+  // 3. User cancellation or gateway error return check
+  const isExplicitFailure = status && (status.toUpperCase() === 'NOK' || status.toUpperCase() === 'FAILED' || status.toUpperCase() === 'CANCELLED');
+  if (isExplicitFailure) {
+    const updated = await PaymentsRepo.transaction(async (tx) => {
+      return PaymentsRepo.handleFailedPayment(tx, payment.id, PaymentStatus.FAILED, 'Gateway returned non-OK status');
+    });
+
+    return {
+      success: false,
+      paymentId: payment.id,
+      paymentStatus: updated.status,
+      failureReason: 'Payment canceled or rejected by user/gateway.',
+    };
+  }
+
+  // 4. Server-to-server verification with provider
+  const provider = PaymentProviderFactory.getProvider(providerName || payment.provider);
+  const providerAuthority = authority || payment.providerPaymentId;
+
+  if (!providerAuthority) {
+    throw new AppError('Missing provider payment authority for verification.', httpStatus.BAD_REQUEST);
+  }
+
+  const verifyResult = await provider.verifyPayment({
+    authority: providerAuthority,
+    amount: payment.amount,
+  });
+
+  // 5. Atomic database status update based on provider result
+  const finalPayment = await PaymentsRepo.transaction(async (tx) => {
+    if (verifyResult.success) {
+      return PaymentsRepo.handleSuccessfulPayment(tx, payment.id, verifyResult.refId);
+    } else {
+      return PaymentsRepo.handleFailedPayment(
+        tx,
+        payment.id,
+        verifyResult.status,
+        verifyResult.failureReason
+      );
+    }
+  });
+
+  return {
+    success: verifyResult.success,
+    paymentId: payment.id,
+    paymentStatus: finalPayment.status,
+    referenceCode: finalPayment.referenceCode,
+    failureReason: finalPayment.failureReason,
+  };
+};
+
+const getPaymentStatus = async ({
+  gamingCenterId,
+  reservationId,
+}: {
+  gamingCenterId: string;
+  reservationId: string;
+}) => {
+  const payment = await PaymentsRepo.findLatestPaymentByReservation(reservationId, gamingCenterId);
+
+  if (!payment) {
+    throw new AppError('No payment record found for this reservation.', httpStatus.NOT_FOUND);
+  }
+
+  return {
+    paymentId: payment.id,
+    status: payment.status,
+    amount: payment.amount,
+    currency: payment.currency,
+    provider: payment.provider,
+    referenceCode: payment.referenceCode,
+    reservationPaymentState: payment.reservation?.paymentState,
+    reservationStatus: payment.reservation?.status,
+    createdAt: payment.createdAt,
+    paidAt: payment.paidAt,
+  };
+};
+
 export const PaymentsStation = {
   initiatePayment,
+  verifyPayment,
+  getPaymentStatus,
 };

@@ -1,16 +1,30 @@
-import { Prisma, ReservationPaymentState, PaymentStatus } from '@prisma/client';
+import { Prisma, ReservationPaymentState, PaymentStatus, ReservationStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { validateReservationTransition, validatePaymentTransition } from './payments.state';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { commissionsStation } from '../commissions/commissions.station';
-import { walletService } from '../wallet/wallet.station';
 
 type Tx = Prisma.TransactionClient;
 
 const findReservationForUpdate = (reservationId: string, gamingCenterId: string) => {
   return prisma.reservation.findFirst({
     where: { id: reservationId, gamingCenterId },
+  });
+};
+
+const findPaymentByProviderPaymentId = (providerPaymentId: string) => {
+  return prisma.payment.findFirst({
+    where: { providerPaymentId },
+    include: { reservation: true },
+  });
+};
+
+const findLatestPaymentByReservation = (reservationId: string, gamingCenterId: string) => {
+  return prisma.payment.findFirst({
+    where: { reservationId, gamingCenterId },
+    orderBy: { createdAt: 'desc' },
+    include: { reservation: true },
   });
 };
 
@@ -32,7 +46,7 @@ const createPaymentAndUpdateReservation = ({
   });
 };
 
-const handleSuccessfulPayment = async (tx: Tx, paymentId: string) => {
+const handleSuccessfulPayment = async (tx: Tx, paymentId: string, refId?: string) => {
   const payment = await tx.payment.findUnique({
     where: { id: paymentId },
     include: { reservation: true },
@@ -43,52 +57,80 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string) => {
   }
 
   // Idempotency check: If already paid, do nothing.
-  if (payment.status === PaymentStatus.PAID && payment.reservation.paymentState === ReservationPaymentState.PAID) {
-    return;
+  if (payment.status === PaymentStatus.PAID && payment.reservation?.paymentState === ReservationPaymentState.PAID) {
+    return payment;
   }
 
-  // Validate state transitions
+  // Validate state transitions for Payment
   validatePaymentTransition(payment.status, PaymentStatus.PAID);
 
-  try {
-    validateReservationTransition(payment.reservation.paymentState, ReservationPaymentState.PAID);
-
-    // Update records
-    await tx.payment.update({
+  if (!payment.reservation) {
+    return tx.payment.update({
       where: { id: paymentId },
-      data: { status: PaymentStatus.PAID, paidAt: new Date() },
+      data: { status: PaymentStatus.PAID, paidAt: new Date(), referenceCode: refId || payment.referenceCode },
     });
-
-    await tx.reservation.update({
-      where: { id: payment.reservationId },
-      data: { paymentState: ReservationPaymentState.PAID },
-    });
-  } catch (error) {
-    if (error instanceof AppError && error.statusCode === httpStatus.CONFLICT) {
-      // If reservation is in a state that doesn't allow transitioning to PAID (e.g., CANCELED)
-      // we still mark the payment as PAID but immediately refund it to the wallet.
-      await tx.payment.update({
-        where: { id: paymentId },
-        data: { status: PaymentStatus.PAID, paidAt: new Date() },
-      });
-
-      await walletService.refundReservationToWallet(payment.reservationId, tx);
-      return;
-    }
-    throw error;
   }
 
+  // Handle case where reservation was cancelled or expired before payment succeeded
+  if (
+    payment.reservation.status === ReservationStatus.CANCELED ||
+    payment.reservation.status === ReservationStatus.EXPIRED
+  ) {
+    console.warn(
+      `Payment ${paymentId} succeeded for ${payment.reservation.status} reservation ${payment.reservationId}. Payment marked PAID for reconciliation without resurrecting reservation.`
+    );
+
+    const updatedPayment = await tx.payment.update({
+      where: { id: paymentId },
+      data: {
+        status: PaymentStatus.PAID,
+        paidAt: new Date(),
+        referenceCode: refId || payment.referenceCode,
+        failureReason: `Paid after reservation ${payment.reservation.status.toLowerCase()}; logged for reconciliation`,
+      },
+    });
+
+    return updatedPayment;
+  }
+
+  // Active reservation path: Validate state transition for Reservation
+  validateReservationTransition(payment.reservation.paymentState, ReservationPaymentState.PAID);
+
+  const updatedPayment = await tx.payment.update({
+    where: { id: paymentId },
+    data: {
+      status: PaymentStatus.PAID,
+      paidAt: new Date(),
+      referenceCode: refId || payment.referenceCode,
+    },
+  });
+
+  const updateData: Prisma.ReservationUpdateInput = {
+    paymentState: ReservationPaymentState.PAID,
+  };
+
+  if (payment.reservation.status === ReservationStatus.PENDING) {
+    updateData.status = ReservationStatus.CONFIRMED;
+  }
+
+  await tx.reservation.update({
+    where: { id: payment.reservationId! },
+    data: updateData,
+  });
+
   // Trigger commission calculation (async, non-blocking for the transaction)
-  // We use the reservationId from the payment record
-  commissionsStation.calculateCommission(payment.reservationId).catch((err) => {
+  commissionsStation.calculateCommission(payment.reservationId!).catch((err) => {
     console.error('Failed to calculate commission for reservation after payment:', payment.reservationId, err);
   });
+
+  return updatedPayment;
 };
 
 const handleFailedPayment = async (
   tx: Tx,
   paymentId: string,
-  newStatus: PaymentStatus = PaymentStatus.FAILED
+  newStatus: PaymentStatus = PaymentStatus.FAILED,
+  failureReason?: string
 ) => {
   const payment = await tx.payment.findUnique({
     where: { id: paymentId },
@@ -99,26 +141,39 @@ const handleFailedPayment = async (
     throw new AppError('Payment not found.', httpStatus.NOT_FOUND);
   }
 
-  // Idempotency check: If already in a final failed/canceled state, do nothing.
+  // Idempotency check: If already in target status, do nothing.
   if (payment.status === newStatus) {
-    return;
+    return payment;
   }
 
-  // Validate state transitions
-  const newReservationState = newStatus === PaymentStatus.CANCELED ? ReservationPaymentState.CANCELED : ReservationPaymentState.FAILED;
   validatePaymentTransition(payment.status, newStatus);
-  validateReservationTransition(payment.reservation.paymentState, newReservationState);
 
-  // Update records
-  await tx.payment.update({
+  const updatedPayment = await tx.payment.update({
     where: { id: paymentId },
-    data: { status: newStatus },
+    data: {
+      status: newStatus,
+      failureReason: failureReason || payment.failureReason,
+    },
   });
 
-  await tx.reservation.update({
-    where: { id: payment.reservationId },
-    data: { paymentState: newReservationState },
-  });
+  if (payment.reservation && payment.reservation.paymentState !== ReservationPaymentState.PAID) {
+    const newReservationPaymentState =
+      newStatus === PaymentStatus.CANCELED
+        ? ReservationPaymentState.CANCELED
+        : ReservationPaymentState.FAILED;
+
+    try {
+      validateReservationTransition(payment.reservation.paymentState, newReservationPaymentState);
+      await tx.reservation.update({
+        where: { id: payment.reservationId! },
+        data: { paymentState: newReservationPaymentState },
+      });
+    } catch {
+      // Ignore transition error if reservation is already in a terminal payment state
+    }
+  }
+
+  return updatedPayment;
 };
 
 const updatePayment = (paymentId: string, data: Prisma.PaymentUpdateInput) => {
@@ -130,6 +185,8 @@ const updatePayment = (paymentId: string, data: Prisma.PaymentUpdateInput) => {
 
 export const PaymentsRepo = {
   findReservationForUpdate,
+  findPaymentByProviderPaymentId,
+  findLatestPaymentByReservation,
   createPaymentAndUpdateReservation,
   handleSuccessfulPayment,
   handleFailedPayment,

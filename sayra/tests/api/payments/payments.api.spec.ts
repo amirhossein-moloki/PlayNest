@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { env } from '../../../src/config/env';
 
@@ -14,8 +15,9 @@ jest.mock('../../../src/config/prisma', () => ({
     gamingCenter: { findUnique: jest.fn() },
     customerAccount: { findUnique: jest.fn() },
     session: { findUnique: jest.fn() },
-    reservation: { findFirst: jest.fn() }
-  }
+    reservation: { findFirst: jest.fn() },
+    payment: { findFirst: jest.fn(), findUnique: jest.fn() },
+  },
 }));
 
 describe('Payment API', () => {
@@ -29,25 +31,50 @@ describe('Payment API', () => {
 
   describe('POST /payments/init', () => {
     it('should return 401 if token is missing', async () => {
-      const res = await request(app).post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/init`).set('x-api-key', env.STATIC_API_KEY)
+      const res = await request(app)
+        .post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/init`)
+        .set('x-api-key', env.STATIC_API_KEY)
         .send({});
       expect(res.status).toBe(httpStatus.UNAUTHORIZED);
     });
 
     it('should return 404 for wrong tenant', async () => {
       const token = generateAccessToken({ sessionId: 's1', actorId: userId, actorType: 'USER' });
-      (prisma.user.findUnique /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).mockResolvedValue({ id: userId, gamingCenterId: 'other-gc', role: 'MANAGER' });
+      (prisma.user.findUnique as any).mockResolvedValue({ id: userId, gamingCenterId: 'other-gc', role: 'MANAGER' });
 
-      const res = await request(app).post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/init`).set('x-api-key', env.STATIC_API_KEY)
+      const res = await request(app)
+        .post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/init`)
+        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${token}`)
         .send({});
       expect(res.status).toBe(httpStatus.NOT_FOUND);
     });
   });
 
+  describe('GET /payments/verify', () => {
+    it('should return 401 if token is missing', async () => {
+      const res = await request(app)
+        .get(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/verify?Authority=A0001&Status=OK`)
+        .set('x-api-key', env.STATIC_API_KEY);
+      expect(res.status).toBe(httpStatus.UNAUTHORIZED);
+    });
+  });
+
+  describe('GET /payments/status', () => {
+    it('should return 401 if token is missing', async () => {
+      const res = await request(app)
+        .get(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/status`)
+        .set('x-api-key', env.STATIC_API_KEY);
+      expect(res.status).toBe(httpStatus.UNAUTHORIZED);
+    });
+  });
+
   describe('Webhooks', () => {
     it('should return 401 if webhook signature is missing', async () => {
-      const res = await request(app).post('/api/v1/webhooks/payments/zarinpal').set('x-api-key', env.STATIC_API_KEY).send({ authority: 'a' });
+      const res = await request(app)
+        .post('/api/v1/webhooks/payments/zarinpal')
+        .set('x-api-key', env.STATIC_API_KEY)
+        .send({ authority: 'a' });
       expect(res.status).toBe(httpStatus.UNAUTHORIZED);
     });
   });
