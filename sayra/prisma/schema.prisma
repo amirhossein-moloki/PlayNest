@@ -315,6 +315,7 @@ enum NotificationType {
   RESERVATION_REMINDER
   PAYMENT_SUCCESS
   PAYMENT_FAILED
+  WAITLIST_OFFER_CREATED
 }
 
 enum NotificationChannel {
