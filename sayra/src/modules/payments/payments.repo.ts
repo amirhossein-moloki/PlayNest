@@ -145,8 +145,8 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string, refId?: string
     description: `Payment collection for reservation ${payment.reservationId}`,
   });
 
-  // Trigger commission calculation (async, non-blocking for the transaction)
-  commissionsStation.calculateCommission(payment.reservationId!).catch((err) => {
+  // Trigger commission calculation within transaction
+  await commissionsStation.calculateCommission(payment.reservationId!, tx).catch((err) => {
     console.error('Failed to calculate commission for reservation after payment:', payment.reservationId, err);
   });
 

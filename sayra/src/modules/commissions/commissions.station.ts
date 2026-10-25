@@ -1,10 +1,22 @@
 
 import { ReservationSource, CommissionStatus, CommissionType, CommissionPaymentStatus, Prisma, SessionActorType, ReservationPaymentState, CommissionPaymentMethod, PaymentProvider } from '@prisma/client';
+import { formatInTimeZone } from 'date-fns-tz';
 import { CommissionsRepo } from './commissions.repo';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { ListCommissionsQuery, RecordCommissionPaymentInput, UpsertPolicyInput } from './commissions.validators';
 import { auditService } from '../audit/audit.station';
+
+export function getTargetPeriod(date: Date, timeZone?: string | null): string {
+  if (timeZone) {
+    try {
+      return formatInTimeZone(date, timeZone, 'yyyy-MM');
+    } catch {
+      // Fallback to UTC if timezone is invalid
+    }
+  }
+  return formatInTimeZone(date, 'UTC', 'yyyy-MM');
+}
 
 export const commissionsStation = {
   async getPolicy(gamingCenterId: string) {
@@ -23,11 +35,21 @@ export const commissionsStation = {
   ) {
     const existingPolicy = await CommissionsRepo.findPolicyByGamingCenterId(gamingCenterId);
 
+    const maxPercentBps = input.maxPercentBps ?? existingPolicy?.maxPercentBps ?? 10000;
+    if (input.percentBps !== undefined && input.percentBps > maxPercentBps) {
+      throw new AppError(
+        `Commission rate exceeds maximum configured limit of ${maxPercentBps / 100}%.`,
+        httpStatus.BAD_REQUEST
+      );
+    }
+
     const data: Prisma.CommissionPolicyCreateInput = {
       type: input.type,
       percentBps: input.percentBps,
       fixedAmount: input.fixedAmount,
       currency: input.currency,
+      monthlyTarget: input.monthlyTarget,
+      maxPercentBps,
       applyToOnlineOnly: input.applyToOnlineOnly ?? true,
       minimumFeeAmount: input.minimumFeeAmount,
       isActive: input.isActive ?? true,
@@ -48,63 +70,136 @@ export const commissionsStation = {
     return policy;
   },
 
-  async calculateCommission(reservationId: string) {
-    return CommissionsRepo.transaction(async (tx) => {
+  async getTargetProgress(gamingCenterId: string, periodInput?: string) {
+    const policy = await CommissionsRepo.findPolicyByGamingCenterId(gamingCenterId);
+    const settings = await CommissionsRepo.findSettingsByGamingCenterId(gamingCenterId);
+
+    const targetPeriod = periodInput || getTargetPeriod(new Date(), settings?.timeZone);
+    const monthlyTarget = policy?.monthlyTarget ?? null;
+
+    const paidReservationCount = await CommissionsRepo.countTargetContributions(gamingCenterId, targetPeriod);
+
+    let remainingCount: number | null = null;
+    let isTargetReached = false;
+
+    if (monthlyTarget !== null) {
+      if (monthlyTarget === 0) {
+        isTargetReached = true;
+        remainingCount = 0;
+      } else {
+        isTargetReached = paidReservationCount >= monthlyTarget;
+        remainingCount = Math.max(0, monthlyTarget - paidReservationCount);
+      }
+    }
+
+    return {
+      gamingCenterId,
+      targetPeriod,
+      monthlyTarget,
+      paidReservationCount,
+      remainingCount,
+      isTargetReached,
+    };
+  },
+
+  async calculateCommission(reservationId: string, externalTx?: Prisma.TransactionClient) {
+    const execute = async (tx: Prisma.TransactionClient) => {
       // 1. Fetch reservation
       const reservation = await CommissionsRepo.findReservationForEarning(reservationId, tx);
 
       if (!reservation) return null;
-      if (reservation.earning) return reservation.earning; // Already calculated
+      if (reservation.earning) return reservation.earning; // Already calculated (idempotency)
 
       // 2. Fetch policy
       const policy = await CommissionsRepo.findPolicyByGamingCenterId(reservation.gamingCenterId, tx);
 
       if (!policy || !policy.isActive) return null;
 
-      // 3. Apply filters
-      // We only take commission for ONLINE reservation.
-      if (reservation.source !== ReservationSource.ONLINE) {
+      // 3. Lock policy row for atomic concurrency control across instances
+      await CommissionsRepo.lockPolicyForUpdate(reservation.gamingCenterId, tx);
+
+      // Re-check earning after acquiring lock
+      const recheckedEarning = await CommissionsRepo.findEarning(reservationId, tx);
+      if (recheckedEarning) return recheckedEarning;
+
+      // 4. Apply filters (e.g. apply to online bookings only)
+      if (policy.applyToOnlineOnly && reservation.source !== ReservationSource.ONLINE) {
         return null;
       }
 
-      // 4. Calculate amount
-      let commissionAmount = 0;
+      // 5. Determine target period based on site timezone and payment paidAt date
+      const settings = await CommissionsRepo.findSettingsByGamingCenterId(reservation.gamingCenterId, tx);
+      const paymentPaidAt = reservation.payments?.[0]?.paidAt || new Date();
+      const targetPeriod = getTargetPeriod(paymentPaidAt, settings?.timeZone);
 
-      if (policy.type === CommissionType.PERCENT && policy.percentBps) {
-        commissionAmount = Math.floor((reservation.totalPrice * policy.percentBps) / 10000);
-      } else if (policy.type === CommissionType.FIXED && policy.fixedAmount) {
-        commissionAmount = policy.fixedAmount;
+      // 6. Read target progress
+      const currentContributionCount = await CommissionsRepo.countTargetContributions(reservation.gamingCenterId, targetPeriod, tx);
+
+      let targetReached = false;
+      let targetContribution = false;
+
+      if (policy.monthlyTarget !== null && policy.monthlyTarget !== undefined) {
+        if (policy.monthlyTarget === 0) {
+          targetReached = true;
+          targetContribution = false;
+        } else if (currentContributionCount >= policy.monthlyTarget) {
+          targetReached = true;
+          targetContribution = false;
+        } else {
+          targetReached = false;
+          targetContribution = true;
+        }
+      } else {
+        // Monthly target disabled
+        targetReached = false;
+        targetContribution = true;
       }
 
-      // Apply minimum fee
-      if (policy.minimumFeeAmount && commissionAmount < policy.minimumFeeAmount) {
-        commissionAmount = policy.minimumFeeAmount;
+      // 7. Calculate base price before discounts
+      const basePrice = Math.round(reservation.totalPrice + reservation.discountAmount);
+
+      // 8. Calculate commission amount
+      let commissionAmount = 0;
+      if (!targetReached) {
+        if (policy.type === CommissionType.PERCENT && policy.percentBps) {
+          commissionAmount = Math.round((basePrice * policy.percentBps) / 10000);
+        } else if (policy.type === CommissionType.FIXED && policy.fixedAmount) {
+          commissionAmount = policy.fixedAmount;
+        }
+
+        // Apply minimum fee if configured
+        if (policy.minimumFeeAmount && commissionAmount < policy.minimumFeeAmount) {
+          commissionAmount = policy.minimumFeeAmount;
+        }
       }
 
       const currency = policy.currency || 'USD';
 
-      // 5. Determine if it should be automatically settled
+      // 9. Determine auto-settlement
       const hasOnlinePayment = reservation.payments?.some(p => p.provider !== PaymentProvider.MANUAL);
       const shouldAutoSettle = reservation.paymentState === ReservationPaymentState.PAID && hasOnlinePayment;
       const status = shouldAutoSettle ? CommissionStatus.CHARGED : CommissionStatus.PENDING;
 
-      // 6. Create Earning record
+      // 10. Create Earning record
       const commission = await CommissionsRepo.createEarning({
         reservationId: reservation.id,
         gamingCenterId: reservation.gamingCenterId,
         status,
-        baseAmount: Math.floor(reservation.totalPrice),
+        baseAmount: basePrice,
         currency,
         type: policy.type,
         percentBps: policy.percentBps,
         fixedAmount: policy.fixedAmount,
-        commissionAmount: commissionAmount,
+        commissionAmount,
+        targetPeriod,
+        targetReached,
+        targetContribution,
         calculatedAt: new Date(),
         chargedAt: shouldAutoSettle ? new Date() : null,
       }, tx);
 
-      // 7. If auto-settled, record the payment
-      if (shouldAutoSettle) {
+      // 11. Record auto-settlement payment if applicable
+      if (shouldAutoSettle && commissionAmount > 0) {
         await CommissionsRepo.createEarningPayment({
           earningId: commission.id,
           amount: commissionAmount,
@@ -117,16 +212,22 @@ export const commissionsStation = {
       }
 
       return commission;
-    });
+    };
+
+    if (externalTx) {
+      return execute(externalTx);
+    }
+    return CommissionsRepo.transaction(execute);
   },
 
   async listEarnings(gamingCenterId: string, query: ListCommissionsQuery) {
-    const { page = 1, pageSize = 20, status, dateFrom, dateTo } = query;
+    const { page = 1, pageSize = 20, status, targetPeriod, dateFrom, dateTo } = query;
     const skip = (page - 1) * pageSize;
     const take = pageSize;
 
     const where: Prisma.EarningWhereInput = {
       status,
+      targetPeriod,
       createdAt: {
         gte: dateFrom ? new Date(dateFrom) : undefined,
         lte: dateTo ? new Date(dateTo) : undefined,

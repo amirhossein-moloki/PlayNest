@@ -24,8 +24,13 @@ describe('Reservation Lifecycle & Rescheduling Application Tests', () => {
   const staffId = 'staff-100';
   const actor = { id: 'usr-1', role: UserRole.MANAGER, actorType: SessionActorType.USER };
 
-  const futureDate = new Date(Date.now() + 2 * 3600 * 1000); // 2 hours from now
-  const pastDate = new Date(Date.now() - 2 * 3600 * 1000); // 2 hours ago
+  const futureDate = new Date();
+  futureDate.setUTCDate(futureDate.getUTCDate() + 1);
+  futureDate.setUTCHours(10, 0, 0, 0); // Tomorrow 10:00 AM UTC
+
+  const pastDate = new Date();
+  pastDate.setUTCDate(pastDate.getUTCDate() - 1);
+  pastDate.setUTCHours(10, 0, 0, 0); // Yesterday 10:00 AM UTC
 
   const mockBaseReservation = {
     id: reservationId,

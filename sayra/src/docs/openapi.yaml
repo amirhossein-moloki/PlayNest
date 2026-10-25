@@ -466,6 +466,11 @@ components:
           type: integer
         currency:
           type: string
+        monthlyTarget:
+          type: integer
+          nullable: true
+        maxPercentBps:
+          type: integer
         isActive:
           type: boolean
     Earning:
@@ -489,6 +494,13 @@ components:
           type: integer
         currency:
           type: string
+        targetPeriod:
+          type: string
+          nullable: true
+        targetReached:
+          type: boolean
+        targetContribution:
+          type: boolean
     Rating:
       type: object
       properties:
@@ -1599,6 +1611,33 @@ paths:
                 $ref: '#/components/schemas/Pagination'
       operationId: get_gamingCenters_gamingCenterId_commissions
       description: List reservation earnings (commissions)
+  /gamingCenters/{gamingCenterId}/commissions/target-progress:
+    get:
+      summary: Get monthly commission target progress
+      tags:
+      - Commissions
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: targetPeriod
+        in: query
+        schema:
+          type: string
+          example: "2026-10"
+      responses:
+        '200':
+          description: Monthly target progress details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_commissions_target-progress
+      description: Get monthly commission target progress
   /gamingCenters/{gamingCenterId}/commissions/policy:
     get:
       summary: Get commission policy
