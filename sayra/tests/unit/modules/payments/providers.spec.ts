@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { ZarinPalProvider } from '../../../../src/modules/payments/providers/zarinpal.provider';
 import { FakePaymentProvider } from '../../../../src/modules/payments/providers/fake.provider';

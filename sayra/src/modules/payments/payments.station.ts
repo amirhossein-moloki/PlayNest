@@ -121,7 +121,7 @@ const verifyPayment = async ({
   providerName?: string;
 }) => {
   // 1. Resolve payment record by authority or latest payment for reservation
-  let payment = authority
+  const payment = authority
     ? await PaymentsRepo.findPaymentByProviderPaymentId(authority)
     : await PaymentsRepo.findLatestPaymentByReservation(reservationId, gamingCenterId);
 
