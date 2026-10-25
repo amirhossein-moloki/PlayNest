@@ -1,4 +1,3 @@
-
 import { Router } from 'express';
 import { getAuditLogs } from './audit.controller';
 import { listAuditLogsSchema } from './audit.validators';
@@ -16,7 +15,7 @@ router.get(
   '/',
   authMiddleware,
   tenantGuard,
-  requireRole([UserRole.MANAGER]),
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
   validate(listAuditLogsSchema),
   asyncHandler<AppRequest>(getAuditLogs)
 );
