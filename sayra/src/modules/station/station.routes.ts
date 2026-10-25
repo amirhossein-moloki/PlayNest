@@ -5,6 +5,9 @@ import {
   createStationSchema,
   updateStationSchema,
   stationIdParamSchema,
+  createMaintenanceSchema,
+  deleteMaintenanceSchema,
+  listMaintenanceSchema,
 } from './station.validator';
 import { authMiddleware } from '../../common/middleware/auth';
 import { requireRole } from '../../common/middleware/requireRole';
@@ -54,6 +57,28 @@ privateStationRouter.delete(
   requireRole([UserRole.MANAGER]),
   validate(stationIdParamSchema),
   asyncHandler(StationController.deleteStation)
+);
+
+// --- Maintenance Sub-routes ---
+privateStationRouter.get(
+  '/:stationId/maintenance',
+  requireRole([UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]),
+  validate(listMaintenanceSchema),
+  asyncHandler(StationController.getStationMaintenances)
+);
+
+privateStationRouter.post(
+  '/:stationId/maintenance',
+  requireRole([UserRole.MANAGER, UserRole.SUPERVISOR]),
+  validate(createMaintenanceSchema),
+  asyncHandler(StationController.createStationMaintenance)
+);
+
+privateStationRouter.delete(
+  '/:stationId/maintenance/:maintenanceId',
+  requireRole([UserRole.MANAGER, UserRole.SUPERVISOR]),
+  validate(deleteMaintenanceSchema),
+  asyncHandler(StationController.deleteStationMaintenance)
 );
 
 // --- Public Router (to be mounted under /api/v1/public/gamingCenters/:gamingCenterSlug/stations) ---

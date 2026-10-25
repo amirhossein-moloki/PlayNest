@@ -124,3 +124,128 @@ export async function deactivateStation(stationId: string, gamingCenterId: strin
   });
   return findStationById(stationId, gamingCenterId);
 }
+
+/**
+ * Creates a new maintenance record for a station.
+ */
+export async function createMaintenance(
+  stationId: string,
+  data: { startTime: Date; endTime?: Date | null; reason: string; cost?: number | null }
+) {
+  return prisma.stationMaintenance.create({
+    data: {
+      stationId,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      reason: data.reason,
+      cost: data.cost,
+    },
+    include: {
+      station: {
+        select: { id: true, name: true, stationType: true },
+      },
+    },
+  });
+}
+
+/**
+ * Deletes a maintenance record.
+ */
+export async function deleteMaintenance(maintenanceId: string) {
+  return prisma.stationMaintenance.delete({
+    where: { id: maintenanceId },
+  });
+}
+
+/**
+ * Finds a maintenance record by ID and optionally checks stationId.
+ */
+export async function findMaintenanceById(maintenanceId: string, stationId?: string) {
+  return prisma.stationMaintenance.findFirst({
+    where: {
+      id: maintenanceId,
+      ...(stationId ? { stationId } : {}),
+    },
+    include: {
+      station: {
+        select: { id: true, gamingCenterId: true },
+      },
+    },
+  });
+}
+
+/**
+ * Retrieves maintenance windows for a station.
+ */
+export async function findMaintenancesByStationId(
+  stationId: string,
+  gamingCenterId: string,
+  startDate?: Date,
+  endDate?: Date
+) {
+  return prisma.stationMaintenance.findMany({
+    where: {
+      stationId,
+      station: { gamingCenterId },
+      ...(startDate || endDate
+        ? {
+            AND: [
+              startDate ? { OR: [{ endTime: null }, { endTime: { gte: startDate } }] } : {},
+              endDate ? { startTime: { lte: endDate } } : {},
+            ],
+          }
+        : {}),
+    },
+    orderBy: { startTime: 'desc' },
+    include: {
+      station: {
+        select: { id: true, name: true, stationType: true },
+      },
+    },
+  });
+}
+
+/**
+ * Finds any active reservations that overlap with a proposed maintenance window.
+ */
+export async function findOverlappingReservationsForMaintenance(
+  gamingCenterId: string,
+  stationId: string,
+  startTime: Date,
+  endTime?: Date | null
+) {
+  const now = new Date();
+
+  const activeStatusConditions: Prisma.ReservationWhereInput[] = [
+    { status: { in: ['CONFIRMED', 'IN_PROGRESS'] } },
+    {
+      status: 'PENDING',
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    },
+  ];
+
+  const timeOverlapCondition: Prisma.ReservationWhereInput = endTime
+    ? {
+        startTime: { lt: endTime },
+        endTime: { gt: startTime },
+      }
+    : {
+        endTime: { gt: startTime },
+      };
+
+  return prisma.reservation.findMany({
+    where: {
+      gamingCenterId,
+      stationId,
+      OR: activeStatusConditions,
+      AND: [timeOverlapCondition],
+    },
+    select: {
+      id: true,
+      status: true,
+      startTime: true,
+      endTime: true,
+      customerAccountId: true,
+    },
+  });
+}
