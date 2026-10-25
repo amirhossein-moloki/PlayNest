@@ -1419,6 +1419,7 @@ model WalletTransaction {
 
   createdAt DateTime @default(now())
 
+  @@unique([reservationId, type], name: "unique_reservation_transaction_type")
   @@index([customerAccountId])
   @@index([reservationId])
 }

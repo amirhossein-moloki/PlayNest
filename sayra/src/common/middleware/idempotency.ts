@@ -141,18 +141,40 @@ export const idempotencyMiddleware = async (
     return next(error);
   }
 
-  // 6. Wrap response methods to capture the result after business logic runs
+  // 6. Wrap response methods to capture the result after business logic runs (max 64KB)
+  const MAX_RESPONSE_BYTES = 64 * 1024;
   const originalJson = res.json;
   const originalSend = res.send;
   let responseBody: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   res.json = (body) => {
-    responseBody = body;
+    try {
+      const stringified = JSON.stringify(body);
+      if (Buffer.byteLength(stringified) <= MAX_RESPONSE_BYTES) {
+        responseBody = body;
+      } else {
+        logger.warn({
+          event: 'idempotency.response_too_large',
+          key: idempotencyKey,
+          scope,
+          sizeBytes: Buffer.byteLength(stringified),
+        });
+      }
+    } catch {
+      // Ignore serialization error for stream/circular response
+    }
     return originalJson.call(res, body);
   };
 
   res.send = (body) => {
-    responseBody = body;
+    try {
+      const stringified = typeof body === 'string' ? body : JSON.stringify(body);
+      if (Buffer.byteLength(stringified) <= MAX_RESPONSE_BYTES) {
+        responseBody = body;
+      }
+    } catch {
+      // Ignore serialization error
+    }
     return originalSend.call(res, body);
   };
 
