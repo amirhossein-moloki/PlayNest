@@ -40,8 +40,8 @@ export function resolveCalendarRangeBoundaries(
     throw new AppError('dateTo must be equal to or after dateFrom.', httpStatus.BAD_REQUEST);
   }
 
-  const rangeStartLocal = formatInTimeZone(rangeStartUtc, timeZone, "yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
-  const rangeEndLocal = formatInTimeZone(rangeEndUtc, timeZone, "yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
+  const rangeStartLocal = formatInTimeZone(rangeStartUtc, timeZone, 'yyyy-MM-dd\'T\'HH:mm:ss.SSSXXX');
+  const rangeEndLocal = formatInTimeZone(rangeEndUtc, timeZone, 'yyyy-MM-dd\'T\'HH:mm:ss.SSSXXX');
 
   return { rangeStartUtc, rangeEndUtc, rangeStartLocal, rangeEndLocal };
 }
@@ -104,8 +104,8 @@ export const CalendarStation = {
       groupBookingId: res.groupBookingId,
       startTimeUtc: res.startTime.toISOString(),
       endTimeUtc: res.endTime.toISOString(),
-      startTimeLocal: formatInTimeZone(res.startTime, timeZone, "yyyy-MM-dd'T'HH:mm:ss.SSSXXX"),
-      endTimeLocal: formatInTimeZone(res.endTime, timeZone, "yyyy-MM-dd'T'HH:mm:ss.SSSXXX"),
+      startTimeLocal: formatInTimeZone(res.startTime, timeZone, 'yyyy-MM-dd\'T\'HH:mm:ss.SSSXXX'),
+      endTimeLocal: formatInTimeZone(res.endTime, timeZone, 'yyyy-MM-dd\'T\'HH:mm:ss.SSSXXX'),
       note: res.note,
       createdAt: res.createdAt.toISOString(),
     }));
@@ -120,8 +120,8 @@ export const CalendarStation = {
       cost: m.cost,
       startTimeUtc: m.startTime.toISOString(),
       endTimeUtc: m.endTime ? m.endTime.toISOString() : null,
-      startTimeLocal: formatInTimeZone(m.startTime, timeZone, "yyyy-MM-dd'T'HH:mm:ss.SSSXXX"),
-      endTimeLocal: m.endTime ? formatInTimeZone(m.endTime, timeZone, "yyyy-MM-dd'T'HH:mm:ss.SSSXXX") : null,
+      startTimeLocal: formatInTimeZone(m.startTime, timeZone, 'yyyy-MM-dd\'T\'HH:mm:ss.SSSXXX'),
+      endTimeLocal: m.endTime ? formatInTimeZone(m.endTime, timeZone, 'yyyy-MM-dd\'T\'HH:mm:ss.SSSXXX') : null,
       createdAt: m.createdAt.toISOString(),
     }));
 

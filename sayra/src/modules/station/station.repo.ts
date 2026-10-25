@@ -183,18 +183,19 @@ export async function findMaintenancesByStationId(
   startDate?: Date,
   endDate?: Date
 ) {
+  const dateFilters: Prisma.StationMaintenanceWhereInput[] = [];
+  if (startDate) {
+    dateFilters.push({ OR: [{ endTime: null }, { endTime: { gte: startDate } }] });
+  }
+  if (endDate) {
+    dateFilters.push({ startTime: { lte: endDate } });
+  }
+
   return prisma.stationMaintenance.findMany({
     where: {
       stationId,
       station: { gamingCenterId },
-      ...(startDate || endDate
-        ? {
-            AND: [
-              startDate ? { OR: [{ endTime: null }, { endTime: { gte: startDate } }] } : {},
-              endDate ? { startTime: { lte: endDate } } : {},
-            ],
-          }
-        : {}),
+      ...(dateFilters.length > 0 ? { AND: dateFilters } : {}),
     },
     orderBy: { startTime: 'desc' },
     include: {
@@ -226,12 +227,12 @@ export async function findOverlappingReservationsForMaintenance(
 
   const timeOverlapCondition: Prisma.ReservationWhereInput = endTime
     ? {
-        startTime: { lt: endTime },
-        endTime: { gt: startTime },
-      }
+      startTime: { lt: endTime },
+      endTime: { gt: startTime },
+    }
     : {
-        endTime: { gt: startTime },
-      };
+      endTime: { gt: startTime },
+    };
 
   return prisma.reservation.findMany({
     where: {

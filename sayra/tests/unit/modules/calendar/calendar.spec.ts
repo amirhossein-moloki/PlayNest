@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { CalendarStation, resolveCalendarRangeBoundaries } from '../../../../src/modules/calendar/calendar.station';
 import { CalendarRepo } from '../../../../src/modules/calendar/calendar.repo';
