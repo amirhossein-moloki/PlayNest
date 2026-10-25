@@ -1,17 +1,10 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+export const SmsStation = {
+  async sendTemplateSms(mobile: string, templateId: number, parameters: Array<{ name: string; value: string }>) {
+    return Promise.resolve({ id: 'mock-sms-id' });
+  },
 
-// src/modules/notifications/__mocks__/sms.station.ts
-
-export class SmsStation {
-  constructor() {
-    // Mock constructor doesn't need API keys
-  }
-
-  async sendVerificationCode(phone: string, code: string): Promise<void> {
-    // Mock implementation, just log it for testing
-    console.log(`Mock SMS: Sending code ${code} to ${phone}`);
-    return Promise.resolve();
-  }
-}
-
-// Optional: Export a singleton instance if that's how it's used elsewhere
-export const smsStation = new SmsStation();
+  async sendVerificationCode(mobile: string, templateId: number, parameters: Array<{ name: string; value: string }>) {
+    return this.sendTemplateSms(mobile, templateId, parameters);
+  },
+};

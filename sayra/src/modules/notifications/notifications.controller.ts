@@ -3,6 +3,7 @@ import { NotificationStation } from './notifications.station';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { AppRequest } from '../../types/express';
+import { NotificationType, UserRole } from '@prisma/client';
 
 export const notificationsController = {
   async getNotifications(req: AppRequest, res: Response) {
@@ -45,6 +46,42 @@ export const notificationsController = {
     }
 
     const result = await NotificationStation.getUnreadCount(userId);
+    return res.ok(result);
+  },
+
+  async listNotificationLogs(req: AppRequest, res: Response) {
+    const role = req.actor?.role;
+    if (!role || (role !== UserRole.MANAGER && role !== UserRole.ADMIN)) {
+      throw new AppError('Forbidden: Access denied to notification logs', httpStatus.FORBIDDEN);
+    }
+
+    const { page, pageSize, status, type, channel, entityType, entityId, gamingCenterId } = req.query as Record<string, string | undefined>;
+
+    const effectiveGamingCenterId =
+      role === UserRole.ADMIN ? gamingCenterId : req.actor.gamingCenterId;
+
+    const result = await NotificationStation.listNotificationLogs({
+      page: page ? parseInt(page, 10) : undefined,
+      pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+      status,
+      type: type as NotificationType | undefined,
+      channel,
+      entityType,
+      entityId,
+      gamingCenterId: effectiveGamingCenterId,
+    });
+
+    return res.ok(result.items, { pagination: result.pagination });
+  },
+
+  async retryNotificationLog(req: AppRequest, res: Response) {
+    const role = req.actor?.role;
+    if (!role || (role !== UserRole.MANAGER && role !== UserRole.ADMIN)) {
+      throw new AppError('Forbidden: Access denied to retry notification log', httpStatus.FORBIDDEN);
+    }
+
+    const logId = req.params.id;
+    const result = await NotificationStation.retryNotificationLog(logId);
     return res.ok(result);
   },
 };
