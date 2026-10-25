@@ -68,18 +68,3 @@ export const publicReservationRateLimiter = env.NODE_ENV === 'test'
     validate: false,
     message: 'Too many reservation attempts from this IP for this gamingCenter, please try again after 15 minutes',
   });
-
-/**
- * Rate limiter for sensitive tracking code lookup attempts (enumeration protection).
- */
-export const trackingCodeLookupRateLimiter = env.NODE_ENV === 'test'
-  ? mockMiddleware
-  : rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 30,
-    standardHeaders: true,
-    legacyHeaders: false,
-    store: createStore('rl:trk:'),
-    validate: false,
-    message: 'Too many tracking code lookup attempts, please try again after 15 minutes',
-  });

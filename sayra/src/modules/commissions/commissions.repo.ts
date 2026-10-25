@@ -19,6 +19,28 @@ export const CommissionsRepo = {
     });
   },
 
+  async findSettingsByGamingCenterId(gamingCenterId: string, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.settings.findUnique({
+      where: { gamingCenterId },
+    });
+  },
+
+  async countTargetContributions(gamingCenterId: string, targetPeriod: string, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.earning.count({
+      where: {
+        gamingCenterId,
+        targetPeriod,
+        targetContribution: true,
+      },
+    });
+  },
+
+  async lockPolicyForUpdate(gamingCenterId: string, tx: Prisma.TransactionClient) {
+    return tx.$executeRaw`SELECT "id" FROM "CommissionPolicy" WHERE "gamingCenterId" = ${gamingCenterId} FOR UPDATE`;
+  },
+
   // Reservation Commission operations
   async findEarning(reservationId: string, tx?: Prisma.TransactionClient) {
     const client = tx || prisma;

@@ -11,6 +11,7 @@ import {
   upsertPolicySchema,
   listEarningsQuerySchema,
   recordCommissionPaymentSchema,
+  getTargetProgressQuerySchema,
 } from './commissions.validators';
 
 const router = Router({ mergeParams: true });
@@ -30,6 +31,20 @@ router.post(
   requireRole([UserRole.MANAGER]),
   validate(upsertPolicySchema),
   asyncHandler(commissionsController.upsertPolicy)
+);
+
+router.put(
+  '/policy',
+  requireRole([UserRole.MANAGER]),
+  validate(upsertPolicySchema),
+  asyncHandler(commissionsController.upsertPolicy)
+);
+
+router.get(
+  '/target-progress',
+  requireRole([UserRole.MANAGER]),
+  validate(getTargetProgressQuerySchema),
+  asyncHandler(commissionsController.getTargetProgress)
 );
 
 router.get(

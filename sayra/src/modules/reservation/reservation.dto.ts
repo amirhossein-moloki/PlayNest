@@ -84,22 +84,6 @@ export const listProposalsParamsSchema = z.object({
   }),
 });
 
-export const lookupReservationSchema = z.object({
-  body: z.object({
-    trackingCode: z.string().min(1).max(32),
-  }),
-});
-
-export const checkInReservationSchema = z.object({
-  params: z.object({
-    reservationId: z.string().optional(),
-  }).optional(),
-  body: z.object({
-    trackingCode: z.string().min(1).max(32).optional(),
-    reservationId: z.string().optional(),
-  }).optional(),
-});
-
 export const listReservationQuerySchema = z.object({
   query: z.object({
     page: z.preprocess(Number, z.number().int().min(1)).optional(),
@@ -148,5 +132,3 @@ export type RescheduleReservationInput = z.infer<typeof rescheduleReservationSch
 export type ProposeTimeInput = z.infer<typeof proposeTimeSchema>['body'];
 export type ListReservationQuery = z.infer<typeof listReservationQuerySchema>['query'];
 export type CreatePublicReservationInput = z.infer<typeof createPublicReservationSchema>['body'];
-export type LookupReservationInput = z.infer<typeof lookupReservationSchema>['body'];
-export type CheckInReservationInput = z.infer<typeof checkInReservationSchema>['body'];

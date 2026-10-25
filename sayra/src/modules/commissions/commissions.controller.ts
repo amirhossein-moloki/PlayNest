@@ -23,6 +23,18 @@ export const upsertPolicy = async (
   res.ok(policy);
 };
 
+export const getTargetProgress = async (
+  req: AppRequest,
+  res: Response
+) => {
+  const targetPeriod = req.query.targetPeriod as string | undefined;
+  const progress = await commissionsStation.getTargetProgress(
+    req.tenant.gamingCenterId,
+    targetPeriod
+  );
+  res.ok(progress);
+};
+
 export const listEarnings = async (
   req: AppRequest,
   res: Response

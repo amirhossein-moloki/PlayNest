@@ -298,13 +298,6 @@ components:
           type: number
         totalPrice:
           type: number
-        trackingCode:
-          type: string
-          example: "K7M9P2R4"
-        checkedInAt:
-          type: string
-          format: date-time
-          nullable: true
         stationSnapshot:
           type: object
           properties:
@@ -473,6 +466,11 @@ components:
           type: integer
         currency:
           type: string
+        monthlyTarget:
+          type: integer
+          nullable: true
+        maxPercentBps:
+          type: integer
         isActive:
           type: boolean
     Earning:
@@ -496,6 +494,13 @@ components:
           type: integer
         currency:
           type: string
+        targetPeriod:
+          type: string
+          nullable: true
+        targetReached:
+          type: boolean
+        targetContribution:
+          type: boolean
     Rating:
       type: object
       properties:
@@ -1606,6 +1611,33 @@ paths:
                 $ref: '#/components/schemas/Pagination'
       operationId: get_gamingCenters_gamingCenterId_commissions
       description: List reservation earnings (commissions)
+  /gamingCenters/{gamingCenterId}/commissions/target-progress:
+    get:
+      summary: Get monthly commission target progress
+      tags:
+      - Commissions
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: targetPeriod
+        in: query
+        schema:
+          type: string
+          example: "2026-10"
+      responses:
+        '200':
+          description: Monthly target progress details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_commissions_target-progress
+      description: Get monthly commission target progress
   /gamingCenters/{gamingCenterId}/commissions/policy:
     get:
       summary: Get commission policy
@@ -2282,115 +2314,6 @@ paths:
                 $ref: '#/components/schemas/Success'
       operationId: post_public_gamingCenters_gamingCenterSlug_reservation
       description: Create an online reservation
-  /gamingCenters/{gamingCenterId}/reservation/lookup:
-    post:
-      summary: Lookup reservation by tracking code (Staff/Manager)
-      tags:
-      - Reservation
-      security:
-      - bearerAuth: []
-      parameters:
-      - name: gamingCenterId
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - trackingCode
-              properties:
-                trackingCode:
-                  type: string
-                  example: "K7M9P2R4"
-      responses:
-        '200':
-          description: Reservation lookup details
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Success'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-      operationId: post_gamingCenters_gamingCenterId_reservation_lookup
-      description: Lookup reservation by tracking code for staff verification
-  /gamingCenters/{gamingCenterId}/reservation/check-in:
-    post:
-      summary: Perform check-in by tracking code or reservation ID (Staff/Manager)
-      tags:
-      - Reservation
-      security:
-      - bearerAuth: []
-      parameters:
-      - name: gamingCenterId
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                trackingCode:
-                  type: string
-                  example: "K7M9P2R4"
-                reservationId:
-                  type: string
-      responses:
-        '200':
-          description: Check-in completed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Success'
-        '409':
-          description: Reservation in ineligible state for check-in
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-      operationId: post_gamingCenters_gamingCenterId_reservation_check-in
-      description: Perform check-in using tracking code or reservation ID
-  /gamingCenters/{gamingCenterId}/reservation/{reservationId}/check-in:
-    post:
-      summary: Perform check-in by reservation ID (Staff/Manager)
-      tags:
-      - Reservation
-      security:
-      - bearerAuth: []
-      parameters:
-      - name: gamingCenterId
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: reservationId
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Check-in completed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Success'
-        '409':
-          description: Reservation in ineligible state for check-in
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-      operationId: post_gamingCenters_gamingCenterId_reservation_reservationId_check-in
-      description: Perform check-in for specified reservation ID
   /gamingCenters/{gamingCenterId}/reservation:
     get:
       summary: List reservation for a gamingCenter
