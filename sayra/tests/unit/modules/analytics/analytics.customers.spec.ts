@@ -73,6 +73,9 @@ describe('AnalyticsStation - Phase 3 Customer Analytics', () => {
       (AnalyticsRepo.getCompletedCustomerReservations as jest.Mock).mockResolvedValue(mockPeriodReservations);
       (AnalyticsRepo.getCustomerAllHistoricalFirstVisits as jest.Mock).mockResolvedValue(mockHistoricalFirstVisits);
       (AnalyticsRepo.getCustomerAllHistoricalVisits as jest.Mock).mockResolvedValue(mockHistoricalVisits);
+      (AnalyticsRepo.getRegisteredAccountsStats as jest.Mock).mockResolvedValue({ registeredInPeriod: 10, totalRegistered: 100 });
+      (AnalyticsRepo.getReservingCustomersCount as jest.Mock).mockResolvedValue(5);
+      (AnalyticsRepo.getPayingCustomersCount as jest.Mock).mockResolvedValue(4);
 
       const res = await AnalyticsStation.getCustomerSummary(gamingCenterId, startDate, endDate);
 
@@ -84,6 +87,33 @@ describe('AnalyticsStation - Phase 3 Customer Analytics', () => {
       expect(res.totalRecordedSpend).toBe(450000);
       expect(res.avgSpendPerActiveCustomer).toBe(225000);
       expect(res.avgSpendPerVisit).toBe(150000);
+
+      // Verify Entity Taxonomy Breakdown
+      expect(res.entityTaxonomyBreakdown.registeredAccountsInPeriod).toBe(10);
+      expect(res.entityTaxonomyBreakdown.totalRegisteredAccounts).toBe(100);
+      expect(res.entityTaxonomyBreakdown.reservingCustomersCount).toBe(5);
+      expect(res.entityTaxonomyBreakdown.payingCustomersCount).toBe(4);
+      expect(res.entityTaxonomyBreakdown.completedSessionCustomersCount).toBe(2);
+    });
+
+    it('should handle zero active customers safely without division errors', async () => {
+      (AnalyticsRepo.getCompletedCustomerReservations as jest.Mock).mockResolvedValue([]);
+      (AnalyticsRepo.getCustomerAllHistoricalFirstVisits as jest.Mock).mockResolvedValue([]);
+      (AnalyticsRepo.getCustomerAllHistoricalVisits as jest.Mock).mockResolvedValue([]);
+      (AnalyticsRepo.getRegisteredAccountsStats as jest.Mock).mockResolvedValue({ registeredInPeriod: 0, totalRegistered: 10 });
+      (AnalyticsRepo.getReservingCustomersCount as jest.Mock).mockResolvedValue(0);
+      (AnalyticsRepo.getPayingCustomersCount as jest.Mock).mockResolvedValue(0);
+
+      const res = await AnalyticsStation.getCustomerSummary(gamingCenterId, startDate, endDate);
+
+      expect(res.activeCustomers).toBe(0);
+      expect(res.newCustomers).toBe(0);
+      expect(res.returningCustomers).toBe(0);
+      expect(res.repeatCustomers).toBe(0);
+      expect(res.repeatVisitRate).toBe(0);
+      expect(res.totalRecordedSpend).toBe(0);
+      expect(res.avgSpendPerActiveCustomer).toBe(0);
+      expect(res.avgSpendPerVisit).toBe(0);
     });
   });
 
@@ -212,7 +242,17 @@ describe('AnalyticsStation - Phase 3 Customer Analytics', () => {
       expect(stage4?.count).toBe(1);
 
       expect(stage2?.conversionFromInitial).toBe(50);
+      expect(stage2?.droppedCount).toBe(1);
+
+      expect(stage3?.conversionFromInitial).toBe(50);
+      expect(stage3?.conversionFromPrevious).toBe(100);
+
       expect(stage4?.conversionFromInitial).toBe(50);
+      expect(stage4?.conversionFromPrevious).toBe(100);
+
+      expect(res.summary.totalReservationsCreated).toBe(2);
+      expect(res.summary.totalReservationsCompleted).toBe(1);
+      expect(res.summary.overallConversionRate).toBe(50);
     });
 
     it('should handle zero reservations safely without division by zero', async () => {
@@ -223,6 +263,31 @@ describe('AnalyticsStation - Phase 3 Customer Analytics', () => {
       expect(res.summary.totalReservationsCreated).toBe(0);
       expect(res.summary.overallConversionRate).toBe(0);
       expect(res.funnel[0].count).toBe(0);
+    });
+
+    it('should safely process out-of-order timestamps and late arriving events', async () => {
+      const createdAt = new Date('2026-03-01T10:00:00Z');
+      // paidAt before createdAt due to clock drift (should be ignored for lead time calculation)
+      const paidAt = new Date('2026-03-01T09:59:00Z');
+
+      const mockFunnelReservations = [
+        {
+          id: 'res_late',
+          createdAt,
+          status: 'COMPLETED',
+          paymentState: 'PAID',
+          completedAt: new Date('2026-03-01T11:00:00Z'),
+          payments: [{ id: 'p_late', paidAt, amount: 50000 }],
+          gamingSessions: [{ id: 'gs_late', startTime: new Date('2026-03-01T10:10:00Z'), actualHours: 1 }],
+        },
+      ];
+
+      (AnalyticsRepo.getFunnelReservations as jest.Mock).mockResolvedValue(mockFunnelReservations);
+
+      const res = await AnalyticsStation.getConversionFunnel(gamingCenterId, startDate, endDate);
+
+      expect(res.funnel[0].count).toBe(1);
+      expect(res.summary.overallConversionRate).toBe(100);
     });
   });
 
@@ -267,6 +332,17 @@ describe('AnalyticsStation - Phase 3 Customer Analytics', () => {
       expect(res.voucherCodeBreakdown[0].voucherCode).toBe('NOWRUZ2026');
 
       expect(res.causalityDisclaimer).toContain('do NOT prove campaign incrementality');
+    });
+
+    it('should handle zero discount reservations safely', async () => {
+      (AnalyticsRepo.getDiscountPerformanceReservations as jest.Mock).mockResolvedValue([]);
+
+      const res = await AnalyticsStation.getDiscountAnalytics(gamingCenterId, startDate, endDate);
+
+      expect(res.summary.totalReservations).toBe(0);
+      expect(res.summary.discountedReservationsCount).toBe(0);
+      expect(res.summary.discountPenetrationRate).toBe(0);
+      expect(res.summary.totalDiscountAmountGiven).toBe(0);
     });
   });
 
