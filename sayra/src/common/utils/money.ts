@@ -4,11 +4,17 @@ import { DiscountValueType } from '@prisma/client';
  * Rounds a floating-point financial value safely to an integer minor monetary unit.
  * Prevents IEEE 754 floating-point rounding inaccuracies (e.g., 0.1 + 0.2 = 0.30000000000000004).
  */
+import logger from '../../config/logger';
+
 export const toMinorUnits = (amount: number): number => {
   if (isNaN(amount) || !isFinite(amount)) {
     return 0;
   }
-  return Math.round(amount);
+  const rounded = Math.round(amount);
+  if (!Number.isSafeInteger(rounded)) {
+    logger.warn({ amount: rounded }, 'Monetary amount exceeds Number.MAX_SAFE_INTEGER threshold');
+  }
+  return rounded;
 };
 
 /**

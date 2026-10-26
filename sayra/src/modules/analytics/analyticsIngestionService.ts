@@ -70,15 +70,30 @@ export class AnalyticsIngestionService {
    */
   async runIngestionCycle(options?: IngestionOptions): Promise<Record<string, { recordsRead: number; recordsIngested: number; status: string }>> {
     const results: Record<string, { recordsRead: number; recordsIngested: number; status: string }> = {};
+    let hasFailure = false;
+    let firstError: unknown = null;
 
     for (const entity of ANALYTICS_ENTITIES) {
       try {
         const stats = await this.ingestEntity(entity, options);
         results[entity] = { ...stats, status: 'SUCCESS' };
       } catch (error: unknown) {
+        hasFailure = true;
+        if (!firstError) firstError = error;
         logger.error({ error, entity }, `Analytics ingestion failed for entity ${entity}`);
         results[entity] = { recordsRead: 0, recordsIngested: 0, status: 'FAILED' };
       }
+    }
+
+    if (hasFailure) {
+      const failedEntities = Object.entries(results)
+        .filter(([, val]) => val.status === 'FAILED')
+        .map(([key]) => key);
+      const errMessage = `Analytics ingestion cycle failed for entities: ${failedEntities.join(', ')}`;
+      const err = new Error(errMessage);
+      (err as any).results = results;
+      (err as any).cause = firstError;
+      throw err;
     }
 
     return results;

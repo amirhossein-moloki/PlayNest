@@ -65,9 +65,10 @@ export const AnalyticsStation = {
     const realizedCashFromPayments = financialStats.paidPayments.reduce((sum, p) => sum + (p._sum.amount || 0), 0);
     const realizedCash = stats?.realizedCash || realizedCashFromPayments;
 
+    const eligibleForCompletion = totalReservations - canceledReservations;
     const completionRate =
-      totalReservations > 0
-        ? Math.round((completedReservations / (totalReservations - canceledReservations || 1)) * 10000) / 100
+      eligibleForCompletion > 0
+        ? Math.round((completedReservations / eligibleForCompletion) * 10000) / 100
         : 0;
 
     const averageReservationValue = completedReservations > 0 ? Math.round(totalRevenue / completedReservations) : 0;

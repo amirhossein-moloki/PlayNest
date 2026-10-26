@@ -21,6 +21,11 @@ describe('Money Utilities (FIND-03 Data Integrity)', () => {
       expect(toMinorUnits(Infinity)).toBe(0);
       expect(toMinorUnits(-Infinity)).toBe(0);
     });
+
+    it('should handle large monetary amounts safely', () => {
+      const maxRials = 9000000000000; // 9 Trillion Rials
+      expect(toMinorUnits(maxRials)).toBe(maxRials);
+    });
   });
 
   describe('calculateBasePrice', () => {
