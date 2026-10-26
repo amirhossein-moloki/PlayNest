@@ -7,8 +7,9 @@ const config: Config = {
   testMatch: ['**/*.spec.ts', '**/*.test.ts'],
   testPathIgnorePatterns: ['/node_modules/', '/dist/', '/tests/e2e/'],
   transform: {
-    '^.+\\.tsx?$': 'ts-jest',
+    '^.+\\.[tj]sx?$': 'ts-jest',
   },
+  transformIgnorePatterns: ['node_modules/(?!(@paralleldrive|@noble/hashes)/)'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
