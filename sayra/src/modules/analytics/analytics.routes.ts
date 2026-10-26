@@ -5,7 +5,7 @@ import { requireRole } from '../../common/middleware/requireRole';
 import { UserRole } from '@prisma/client';
 import { validate } from '../../common/middleware/validate';
 import { AnalyticsController } from './analytics.controller';
-import { AnalyticsQuerySchema, CustomerAnalyticsQuerySchema } from './analytics.validators';
+import { AnalyticsQuerySchema, CustomerAnalyticsQuerySchema, FinancialReconciliationQuerySchema } from './analytics.validators';
 
 const router = Router({ mergeParams: true });
 
@@ -22,6 +22,11 @@ router.get('/staff', validate(AnalyticsQuerySchema), AnalyticsController.getStaf
 router.get('/stations', validate(AnalyticsQuerySchema), AnalyticsController.getStationPerformance);
 router.get('/revenue-chart', validate(AnalyticsQuerySchema), AnalyticsController.getRevenueChart);
 router.get('/ingestion-status', AnalyticsController.getIngestionStatus);
+
+// Financial Analytics & Reconciliation Endpoints (Phase 4)
+router.get('/financials/overview', validate(AnalyticsQuerySchema), AnalyticsController.getFinancialOverviewDetailed);
+router.get('/financials/reconciliation', validate(FinancialReconciliationQuerySchema), AnalyticsController.getFinancialReconciliation);
+router.post('/financials/reconciliation/run', AnalyticsController.runFinancialReconciliation);
 
 // Customer Analytics Endpoints (Phase 3)
 router.get('/customers/summary', validate(CustomerAnalyticsQuerySchema), AnalyticsController.getCustomerSummary);

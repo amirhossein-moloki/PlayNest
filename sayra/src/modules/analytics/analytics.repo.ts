@@ -542,4 +542,302 @@ export const AnalyticsRepo = {
       })),
     };
   },
+
+  // Phase 4 Financial Analytics & Reconciliation Methods
+  async getFinancialOverviewDetailed(gamingCenterId: string, dayStart: Date, dayEnd: Date, currencyFilter?: string) {
+    const paymentWhere = {
+      gamingCenterId,
+      createdAt: { gte: dayStart, lte: dayEnd },
+      ...(currencyFilter ? { currency: currencyFilter } : {}),
+    };
+
+    const refundWhere = {
+      gamingCenterId,
+      createdAt: { gte: dayStart, lte: dayEnd },
+      ...(currencyFilter ? { currency: currencyFilter } : {}),
+    };
+
+    const ledgerWhere = {
+      gamingCenterId,
+      createdAt: { gte: dayStart, lte: dayEnd },
+      ...(currencyFilter ? { currency: currencyFilter } : {}),
+    };
+
+    const earningWhere = {
+      gamingCenterId,
+      createdAt: { gte: dayStart, lte: dayEnd },
+    };
+
+    const customerWhere = {
+      profiles: {
+        some: { gamingCenterId },
+      },
+    };
+
+    const [
+      paymentsByStatus,
+      refundsByStatus,
+      ledgerByType,
+      walletByTypes,
+      earningsByStatus,
+      totalCustomerWalletBalances,
+    ] = await Promise.all([
+      prisma.payment.groupBy({
+        by: ['status', 'currency'],
+        where: paymentWhere,
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      prisma.refund.groupBy({
+        by: ['status', 'currency'],
+        where: refundWhere,
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      prisma.ledgerEntry.groupBy({
+        by: ['entryType', 'currency'],
+        where: ledgerWhere,
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      prisma.walletTransaction.groupBy({
+        by: ['type', 'currency'],
+        where: {
+          customerAccount: customerWhere,
+          createdAt: { gte: dayStart, lte: dayEnd },
+          ...(currencyFilter ? { currency: currencyFilter } : {}),
+        },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      prisma.earning.groupBy({
+        by: ['targetReached'],
+        where: earningWhere,
+        _sum: { baseAmount: true, commissionAmount: true },
+        _count: { _all: true },
+      }),
+      prisma.customerAccount.aggregate({
+        where: customerWhere,
+        _sum: { walletBalance: true },
+        _count: { _all: true },
+      }),
+    ]);
+
+    return {
+      paymentsByStatus,
+      refundsByStatus,
+      ledgerByType,
+      walletByTypes,
+      earningsByStatus,
+      totalCustomerWalletBalances: {
+        sum: totalCustomerWalletBalances._sum.walletBalance || 0,
+        count: totalCustomerWalletBalances._count._all,
+      },
+    };
+  },
+
+  async runFinancialReconciliationCheck(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
+    const findings: Array<{
+      ruleId: string;
+      ruleName: string;
+      severity: 'HIGH' | 'MEDIUM' | 'LOW';
+      status: 'MATCHED' | 'MISMATCH' | 'MISSING_COUNTERPART' | 'DUPLICATE_POSTING' | 'PENDING_REVIEW';
+      sourceEntity: string;
+      sourceId: string;
+      details: string;
+      expectedAmount?: number;
+      actualAmount?: number;
+      currency?: string;
+      timestamp: Date;
+    }> = [];
+
+    // Fetch operational records in target window
+    const [payments, refunds, ledgerEntries, walletTxns, earnings, commissionPolicy] = await Promise.all([
+      prisma.payment.findMany({
+        where: { gamingCenterId, createdAt: { gte: dayStart, lte: dayEnd } },
+        include: { ledgerEntries: true, refunds: true },
+      }),
+      prisma.refund.findMany({
+        where: { gamingCenterId, createdAt: { gte: dayStart, lte: dayEnd } },
+        include: { ledgerEntries: true, payment: true },
+      }),
+      prisma.ledgerEntry.findMany({
+        where: { gamingCenterId, createdAt: { gte: dayStart, lte: dayEnd } },
+      }),
+      prisma.walletTransaction.findMany({
+        where: {
+          customerAccount: { profiles: { some: { gamingCenterId } } },
+          createdAt: { gte: dayStart, lte: dayEnd },
+        },
+      }),
+      prisma.earning.findMany({
+        where: { gamingCenterId, createdAt: { gte: dayStart, lte: dayEnd } },
+      }),
+      prisma.commissionPolicy.findUnique({
+        where: { gamingCenterId },
+      }),
+    ]);
+
+    // Rule 1 & 2: Confirmed Payment Ledger Integrity
+    for (const payment of payments) {
+      if (payment.status === 'PAID') {
+        const collectionLedger = payment.ledgerEntries.find((e) => e.entryType === 'PAYMENT_COLLECTION');
+        if (!collectionLedger) {
+          findings.push({
+            ruleId: 'REC-001',
+            ruleName: 'Confirmed Payment Missing Ledger Posting',
+            severity: 'HIGH',
+            status: 'MISSING_COUNTERPART',
+            sourceEntity: 'Payment',
+            sourceId: payment.id,
+            details: `Payment ${payment.id} is marked PAID but lacks a corresponding PAYMENT_COLLECTION ledger entry.`,
+            expectedAmount: payment.amount,
+            actualAmount: 0,
+            currency: payment.currency,
+            timestamp: payment.createdAt,
+          });
+        } else if (collectionLedger.amount !== payment.amount) {
+          findings.push({
+            ruleId: 'REC-002',
+            ruleName: 'Payment Ledger Amount Mismatch',
+            severity: 'HIGH',
+            status: 'MISMATCH',
+            sourceEntity: 'Payment',
+            sourceId: payment.id,
+            details: `Payment ${payment.id} amount (${payment.amount}) differs from ledger collection entry amount (${collectionLedger.amount}).`,
+            expectedAmount: payment.amount,
+            actualAmount: collectionLedger.amount,
+            currency: payment.currency,
+            timestamp: payment.createdAt,
+          });
+        }
+      }
+    }
+
+    // Rule 3: Refund Source Integrity & Disbursement Ledger
+    for (const refund of refunds) {
+      if (!refund.payment) {
+        findings.push({
+          ruleId: 'REC-003',
+          ruleName: 'Orphaned Refund Source',
+          severity: 'HIGH',
+          status: 'MISSING_COUNTERPART',
+          sourceEntity: 'Refund',
+          sourceId: refund.id,
+          details: `Refund ${refund.id} references non-existent parent payment ${refund.paymentId}.`,
+          expectedAmount: refund.amount,
+          currency: refund.currency,
+          timestamp: refund.createdAt,
+        });
+      } else if (refund.status === 'SUCCESSFUL') {
+        const disbursementLedger = refund.ledgerEntries.find((e) => e.entryType === 'REFUND_DISBURSEMENT');
+        if (!disbursementLedger) {
+          findings.push({
+            ruleId: 'REC-003',
+            ruleName: 'Successful Refund Missing Ledger Posting',
+            severity: 'HIGH',
+            status: 'MISSING_COUNTERPART',
+            sourceEntity: 'Refund',
+            sourceId: refund.id,
+            details: `Refund ${refund.id} is SUCCESSFUL but lacks a corresponding REFUND_DISBURSEMENT ledger entry.`,
+            expectedAmount: refund.amount,
+            actualAmount: 0,
+            currency: refund.currency,
+            timestamp: refund.createdAt,
+          });
+        } else if (disbursementLedger.amount !== refund.amount) {
+          findings.push({
+            ruleId: 'REC-003',
+            ruleName: 'Refund Disbursement Amount Mismatch',
+            severity: 'HIGH',
+            status: 'MISMATCH',
+            sourceEntity: 'Refund',
+            sourceId: refund.id,
+            details: `Refund ${refund.id} amount (${refund.amount}) differs from ledger disbursement amount (${disbursementLedger.amount}).`,
+            expectedAmount: refund.amount,
+            actualAmount: disbursementLedger.amount,
+            currency: refund.currency,
+            timestamp: refund.createdAt,
+          });
+        }
+      }
+    }
+
+    // Rule 4: Duplicate Ledger Entry Check
+    const idempotencyMap = new Map<string, number>();
+    for (const entry of ledgerEntries) {
+      if (!entry.idempotencyKey) continue;
+      const key = entry.idempotencyKey;
+      idempotencyMap.set(key, (idempotencyMap.get(key) || 0) + 1);
+    }
+    for (const [key, count] of idempotencyMap.entries()) {
+      if (count > 1) {
+        const sampleEntry = ledgerEntries.find((e) => e.idempotencyKey === key)!;
+        findings.push({
+          ruleId: 'REC-004',
+          ruleName: 'Duplicate Financial Posting',
+          severity: 'HIGH',
+          status: 'DUPLICATE_POSTING',
+          sourceEntity: 'LedgerEntry',
+          sourceId: sampleEntry.id,
+          details: `Multiple ledger postings (${count}) found sharing idempotency key: ${key}.`,
+          expectedAmount: sampleEntry.amount,
+          currency: sampleEntry.currency,
+          timestamp: sampleEntry.createdAt,
+        });
+      }
+    }
+
+    // Rule 5: Wallet Transaction Integrity vs Balance
+    for (const wTx of walletTxns) {
+      if (wTx.type === 'DEPOSIT' && wTx.amount <= 0) {
+        findings.push({
+          ruleId: 'REC-005',
+          ruleName: 'Invalid Wallet Deposit Amount',
+          severity: 'MEDIUM',
+          status: 'MISMATCH',
+          sourceEntity: 'WalletTransaction',
+          sourceId: wTx.id,
+          details: `Wallet DEPOSIT transaction ${wTx.id} has non-positive amount (${wTx.amount}).`,
+          actualAmount: wTx.amount,
+          currency: wTx.currency,
+          timestamp: wTx.createdAt,
+        });
+      }
+    }
+
+    // Rule 6: Commission Policy & Calculation Consistency
+    if (commissionPolicy && commissionPolicy.percentBps) {
+      for (const earning of earnings) {
+        const expectedCommission = Math.round((earning.baseAmount * commissionPolicy.percentBps) / 10000);
+        if (Math.abs(earning.commissionAmount - expectedCommission) > 1) {
+          findings.push({
+            ruleId: 'REC-006',
+            ruleName: 'Commission Calculation Mismatch',
+            severity: 'MEDIUM',
+            status: 'MISMATCH',
+            sourceEntity: 'Earning',
+            sourceId: earning.id,
+            details: `Earning ${earning.id} commission amount (${earning.commissionAmount}) differs from policy calculated commission (${expectedCommission}).`,
+            expectedAmount: expectedCommission,
+            actualAmount: earning.commissionAmount,
+            timestamp: earning.createdAt,
+          });
+        }
+      }
+    }
+
+    return {
+      evaluatedAt: new Date(),
+      totalEvaluatedRecords: payments.length + refunds.length + ledgerEntries.length + walletTxns.length + earnings.length,
+      findingCount: findings.length,
+      statusCounts: {
+        MISMATCH: findings.filter((f) => f.status === 'MISMATCH').length,
+        MISSING_COUNTERPART: findings.filter((f) => f.status === 'MISSING_COUNTERPART').length,
+        DUPLICATE_POSTING: findings.filter((f) => f.status === 'DUPLICATE_POSTING').length,
+        PENDING_REVIEW: findings.filter((f) => f.status === 'PENDING_REVIEW').length,
+      },
+      findings,
+    };
+  },
 };

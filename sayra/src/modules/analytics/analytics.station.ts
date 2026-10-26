@@ -359,6 +359,91 @@ export const AnalyticsStation = {
     return AnalyticsRepo.getIngestionStatus();
   },
 
+  // Financial Analytics & Reconciliation Methods (Phase 4)
+  async getFinancialOverviewDetailed(gamingCenterId: string, startDateInput: Date, endDateInput: Date, currencyFilter?: string) {
+    const { timeZone, dayStart, dayEnd } = await resolveTimezoneAndBoundaries(
+      gamingCenterId,
+      startDateInput,
+      endDateInput
+    );
+
+    const detailedStats = await AnalyticsRepo.getFinancialOverviewDetailed(
+      gamingCenterId,
+      dayStart,
+      dayEnd,
+      currencyFilter
+    );
+
+    return {
+      period: { startDate: dayStart, endDate: dayEnd, timeZone },
+      payments: detailedStats.paymentsByStatus.map((p) => ({
+        status: p.status,
+        currency: p.currency,
+        count: p._count._all,
+        totalAmount: p._sum.amount || 0,
+      })),
+      refunds: detailedStats.refundsByStatus.map((r) => ({
+        status: r.status,
+        currency: r.currency,
+        count: r._count._all,
+        totalAmount: r._sum.amount || 0,
+      })),
+      ledger: detailedStats.ledgerByType.map((l) => ({
+        entryType: l.entryType,
+        currency: l.currency,
+        count: l._count._all,
+        totalAmount: l._sum.amount || 0,
+      })),
+      wallet: detailedStats.walletByTypes.map((w) => ({
+        type: w.type,
+        currency: w.currency,
+        count: w._count._all,
+        totalAmount: w._sum.amount || 0,
+      })),
+      customerWallets: detailedStats.totalCustomerWalletBalances,
+      commissions: detailedStats.earningsByStatus.map((e) => ({
+        targetReached: e.targetReached,
+        count: e._count._all,
+        totalBaseAmount: e._sum.baseAmount || 0,
+        totalCommissionAmount: e._sum.commissionAmount || 0,
+      })),
+    };
+  },
+
+  async getFinancialReconciliation(
+    gamingCenterId: string,
+    startDateInput: Date,
+    endDateInput: Date,
+    statusFilter = 'ALL',
+    ruleIdFilter?: string,
+    limit = 50
+  ) {
+    const { timeZone, dayStart, dayEnd } = await resolveTimezoneAndBoundaries(
+      gamingCenterId,
+      startDateInput,
+      endDateInput
+    );
+
+    const checkResult = await AnalyticsRepo.runFinancialReconciliationCheck(gamingCenterId, dayStart, dayEnd);
+
+    let filteredFindings = checkResult.findings;
+    if (statusFilter !== 'ALL') {
+      filteredFindings = filteredFindings.filter((f) => f.status === statusFilter);
+    }
+    if (ruleIdFilter) {
+      filteredFindings = filteredFindings.filter((f) => f.ruleId === ruleIdFilter);
+    }
+
+    return {
+      period: { startDate: dayStart, endDate: dayEnd, timeZone },
+      evaluatedAt: checkResult.evaluatedAt,
+      totalEvaluatedRecords: checkResult.totalEvaluatedRecords,
+      findingCount: filteredFindings.length,
+      statusCounts: checkResult.statusCounts,
+      findings: filteredFindings.slice(0, limit),
+    };
+  },
+
   // Customer Analytics Methods (Phase 3)
   async getCustomerSummary(gamingCenterId: string, startDateInput: Date, endDateInput: Date) {
     const { timeZone, dayStart, dayEnd } = await resolveTimezoneAndBoundaries(

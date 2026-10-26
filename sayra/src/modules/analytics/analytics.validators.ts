@@ -42,6 +42,27 @@ export const CustomerAnalyticsQuerySchema = z.object({
 
 export type CustomerAnalyticsQuery = z.infer<typeof CustomerAnalyticsQuerySchema>['query'];
 
+export const FinancialReconciliationQuerySchema = z.object({
+  query: z
+    .object({
+      startDate: z.coerce.date().default(() => subDays(new Date(), 30)),
+      endDate: z.coerce.date().default(() => new Date()),
+      ruleId: z.string().optional(),
+      status: z.enum(['MATCHED', 'MISMATCH', 'MISSING_COUNTERPART', 'DUPLICATE_POSTING', 'PENDING_REVIEW', 'ALL']).default('ALL'),
+      limit: z.coerce.number().int().min(1).max(100).default(50),
+    })
+    .refine((data) => data.startDate <= data.endDate, {
+      message: 'startDate must be less than or equal to endDate',
+      path: ['startDate'],
+    })
+    .refine((data) => Math.abs(differenceInDays(data.endDate, data.startDate)) <= 365, {
+      message: 'Date range cannot exceed 365 days',
+      path: ['endDate'],
+    }),
+});
+
+export type FinancialReconciliationQuery = z.infer<typeof FinancialReconciliationQuerySchema>['query'];
+
 export async function resolveTimezoneAndBoundaries(
   gamingCenterId: string,
   startDateInput: Date,
