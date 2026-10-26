@@ -23,6 +23,25 @@ export const AnalyticsQuerySchema = z.object({
 
 export type AnalyticsQuery = z.infer<typeof AnalyticsQuerySchema>['query'];
 
+export const CustomerAnalyticsQuerySchema = z.object({
+  query: z
+    .object({
+      startDate: z.coerce.date().default(() => subDays(new Date(), 30)),
+      endDate: z.coerce.date().default(() => new Date()),
+      limit: z.coerce.number().int().min(1).max(100).default(10),
+    })
+    .refine((data) => data.startDate <= data.endDate, {
+      message: 'startDate must be less than or equal to endDate',
+      path: ['startDate'],
+    })
+    .refine((data) => Math.abs(differenceInDays(data.endDate, data.startDate)) <= 365, {
+      message: 'Date range cannot exceed 365 days',
+      path: ['endDate'],
+    }),
+});
+
+export type CustomerAnalyticsQuery = z.infer<typeof CustomerAnalyticsQuerySchema>['query'];
+
 export async function resolveTimezoneAndBoundaries(
   gamingCenterId: string,
   startDateInput: Date,

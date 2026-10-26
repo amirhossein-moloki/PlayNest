@@ -261,6 +261,60 @@ export const AnalyticsRepo = {
     });
   },
 
+  // Customer Analytics Methods
+  async getCompletedCustomerReservations(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
+    return prisma.reservation.findMany({
+      where: {
+        gamingCenterId,
+        status: 'COMPLETED',
+        startTime: { gte: dayStart, lte: dayEnd },
+      },
+      select: {
+        id: true,
+        customerAccountId: true,
+        startTime: true,
+        endTime: true,
+        totalPrice: true,
+        customerAccount: {
+          select: {
+            phone: true,
+            fullName: true,
+          },
+        },
+      },
+      orderBy: { startTime: 'asc' },
+    });
+  },
+
+  async getCustomerAllHistoricalFirstVisits(gamingCenterId: string, dayEnd: Date) {
+    return prisma.reservation.groupBy({
+      by: ['customerAccountId'],
+      where: {
+        gamingCenterId,
+        status: 'COMPLETED',
+        startTime: { lte: dayEnd },
+      },
+      _min: {
+        startTime: true,
+      },
+    });
+  },
+
+  async getCustomerAllHistoricalVisits(gamingCenterId: string, dayEnd: Date) {
+    return prisma.reservation.findMany({
+      where: {
+        gamingCenterId,
+        status: 'COMPLETED',
+        startTime: { lte: dayEnd },
+      },
+      select: {
+        customerAccountId: true,
+        startTime: true,
+      },
+      orderBy: { startTime: 'asc' },
+    });
+  },
+
   async syncGamingCenterStats(gamingCenterId: string, date: Date) {
     const settings = await prisma.settings.findUnique({ where: { gamingCenterId } });
     const timeZone = settings?.timeZone || 'UTC';

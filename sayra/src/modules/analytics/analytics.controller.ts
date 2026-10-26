@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { AppRequest } from '../../types/express';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
 import { AnalyticsStation } from './analytics.station';
-import { AnalyticsQuery } from './analytics.validators';
+import { AnalyticsQuery, CustomerAnalyticsQuery } from './analytics.validators';
 
 const getSummary = asyncHandler(async (req: AppRequest, res: Response) => {
   const { startDate, endDate } = req.query as unknown as AnalyticsQuery;
@@ -66,6 +66,42 @@ const getIngestionStatus = asyncHandler(async (_req: AppRequest, res: Response) 
   res.ok(result);
 });
 
+// Customer Analytics Controllers (Phase 3)
+const getCustomerSummary = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { startDate, endDate } = req.query as unknown as CustomerAnalyticsQuery;
+  const result = await AnalyticsStation.getCustomerSummary(req.tenant.gamingCenterId, startDate, endDate);
+
+  res.ok(result);
+});
+
+const getCustomerActivity = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { startDate, endDate } = req.query as unknown as CustomerAnalyticsQuery;
+  const result = await AnalyticsStation.getCustomerActivity(req.tenant.gamingCenterId, startDate, endDate);
+
+  res.ok(result);
+});
+
+const getCustomerRetention = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { startDate, endDate } = req.query as unknown as CustomerAnalyticsQuery;
+  const result = await AnalyticsStation.getCustomerRetention(req.tenant.gamingCenterId, startDate, endDate);
+
+  res.ok(result);
+});
+
+const getCustomerSegmentation = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { startDate, endDate } = req.query as unknown as CustomerAnalyticsQuery;
+  const result = await AnalyticsStation.getCustomerSegmentation(req.tenant.gamingCenterId, startDate, endDate);
+
+  res.ok(result);
+});
+
+const getTopSpenders = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { startDate, endDate, limit } = req.query as unknown as CustomerAnalyticsQuery;
+  const result = await AnalyticsStation.getTopSpenders(req.tenant.gamingCenterId, startDate, endDate, limit);
+
+  res.ok(result);
+});
+
 export const AnalyticsController = {
   getSummary,
   getReservations,
@@ -76,4 +112,9 @@ export const AnalyticsController = {
   getStationPerformance,
   getRevenueChart,
   getIngestionStatus,
+  getCustomerSummary,
+  getCustomerActivity,
+  getCustomerRetention,
+  getCustomerSegmentation,
+  getTopSpenders,
 };
