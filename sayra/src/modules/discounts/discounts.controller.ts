@@ -34,7 +34,7 @@ export const getCampaignById = async (req: AppRequest, res: Response) => {
 
 export const listCampaigns = async (req: AppRequest, res: Response) => {
   const { gamingCenterId } = req.params;
-  const query = req.query as any;
+  const query = req.query as Record<string, string | undefined>;
   const result = await discountsStation.listCampaigns(gamingCenterId, {
     page: query.page ? Number(query.page) : 1,
     pageSize: query.pageSize ? Number(query.pageSize) : 20,

@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 
@@ -1152,7 +1153,7 @@ export const AnalyticsRepo = {
       },
     });
 
-    const usagesWhere: any = {
+    const usagesWhere: Prisma.DiscountUsageWhereInput = {
       reservation: { gamingCenterId },
     };
     if (dayStart && dayEnd) {

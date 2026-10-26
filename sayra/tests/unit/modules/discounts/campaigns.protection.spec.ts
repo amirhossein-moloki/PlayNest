@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { DiscountCampaign, DiscountFundingSource, DiscountTargetType, DiscountValueType } from '@prisma/client';
+import { CommissionType, DiscountCampaign, DiscountFundingSource, DiscountTargetType, DiscountValueType } from '@prisma/client';
 import {
   calculateCampaignDiscountAmount,
   validateCampaignForReservation,
@@ -173,7 +173,7 @@ describe('Campaign Discount Engine & Merchant Revenue Protection Tests', () => {
       MockedCommissionsRepo.findPolicyByGamingCenterId.mockResolvedValue({
         id: 'pol-1',
         gamingCenterId,
-        type: 'PERCENT' as any,
+        type: CommissionType.PERCENT,
         percentBps: 1000, // 10%
         fixedAmount: null,
         currency: 'IRR',
@@ -245,7 +245,7 @@ describe('Campaign Discount Engine & Merchant Revenue Protection Tests', () => {
       MockedCommissionsRepo.findPolicyByGamingCenterId.mockResolvedValue({
         id: 'pol-1',
         gamingCenterId,
-        type: 'PERCENT' as any,
+        type: CommissionType.PERCENT,
         percentBps: 1000, // 10% = 100k
         fixedAmount: null,
         currency: 'IRR',
