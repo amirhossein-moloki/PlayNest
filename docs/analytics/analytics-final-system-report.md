@@ -171,12 +171,34 @@ flowchart TD
 
 ---
 
-## 6. Final Readiness Decision
+## 6. Area-by-Area Final Release Decisions
 
-**Overall System Decision:**
-`READY WITH DOCUMENTED LIMITATIONS AND REQUIRED APPROVALS`
+Evaluating each domain independently based on verified code and test evidence:
 
-- **Internal Analytics:** `READY FOR CONTROLLED INTERNAL USE`
-- **Tenant-Facing Analytics:** `READY WITH DOCUMENTED LIMITATIONS AND REQUIRED APPROVALS`
-- **Financial Analytics:** `READY WITH DOCUMENTED LIMITATIONS AND REQUIRED APPROVALS`
-- **Cross-Tenant Benchmarking:** `READY WITH DOCUMENTED LIMITATIONS AND REQUIRED APPROVALS`
+1. **Internal Management Analytics:**
+   - **Decision:** `READY FOR CONTROLLED RELEASE`
+   - **Justification:** Executive summary, reservation trends, staff, station, and ingestion pipeline endpoints are 100% covered by passing automated API/unit tests. SSR Dashboard UI renders correctly.
+
+2. **Tenant-Facing Analytics:**
+   - **Decision:** `READY WITH DOCUMENTED LIMITATIONS`
+   - **Justification:** Server-side tenant isolation (`tenantGuard` 404 enumeration defense) and PII phone masking are verified in code and unit test suite `analytics.phase6.spec.ts`.
+
+3. **Financial Analytics:**
+   - **Decision:** `READY WITH DOCUMENTED LIMITATIONS`
+   - **Justification:** Minor integer unit handling (Rials) and non-mutative reconciliation rules `REC-001` through `REC-006` are verified in `analytics.financials.spec.ts`.
+
+4. **Cross-Tenant Benchmarking:**
+   - **Decision:** `READY WITH DOCUMENTED LIMITATIONS`
+   - **Justification:** $k$-Anonymity ($k \ge 5$) suppression, self-exclusion, and `ENABLE_ANALYTICS_BENCHMARKING` kill switch are fully implemented and verified in `analytics.benchmarks.spec.ts`.
+
+---
+
+## 7. Remaining Action Checklist & Closure Evidence Requirements
+
+| Priority | Task Description | Subsystem | Required Closure Evidence | Status |
+|---|---|---|---|---|
+| **P2** | `GAP-001`: Add Sentry error capture listener to `analyticsIngestionWorker` failure handler | Background Jobs | Sentry `captureException` call verified in unit test | Open |
+| **P2** | `GAP-002`: Clean up 17 unused component schema warnings in `src/docs/openapi.yaml` | OpenAPI Docs | `npm run api:validate` output with 0 warnings | Open |
+| **P2** | Execute staging database migration and initial analytics backfill | Database & Ops | Successful output of `npx prisma migrate deploy` and `npm run backfill:analytics` in staging | Pending Ops |
+| **P3** | Configure BullMQ Redis queue depth monitoring alerts | Infrastructure | Queue depth metrics visible in monitoring dashboard | Pending Ops |
+| **P3** | Periodically review peer cohort sizes ($k \ge 5$) as new tenants register | Governance | Quarterly privacy compliance log | Ongoing |
