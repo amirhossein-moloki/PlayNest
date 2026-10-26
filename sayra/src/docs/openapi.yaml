@@ -1628,6 +1628,320 @@ paths:
                 $ref: '#/components/schemas/Success'
       operationId: get_gamingCenters_gamingCenterId_analytics_growth_insights
       description: Get descriptive operational growth insights and benchmark comparisons
+  /gamingCenters/{gamingCenterId}/analytics/customers/summary:
+    get:
+      summary: Get customer analytics summary and distinct entity taxonomy
+      tags:
+      - Analytics
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: Customer summary analytics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_analytics_customers_summary
+      description: Get customer analytics summary with explicit entity taxonomy breakdown
+  /gamingCenters/{gamingCenterId}/analytics/customers/activity:
+    get:
+      summary: Get customer activity trends and visit frequency histogram
+      tags:
+      - Analytics
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: Customer activity trends
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_analytics_customers_activity
+      description: Get daily customer activity trends and visit frequency distribution
+  /gamingCenters/{gamingCenterId}/analytics/customers/retention:
+    get:
+      summary: Get customer cohort retention matrix
+      tags:
+      - Analytics
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: Cohort retention matrix
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_analytics_customers_retention
+      description: Get monthly customer cohort retention rates and repeat visit intervals
+  /gamingCenters/{gamingCenterId}/analytics/customers/segmentation:
+    get:
+      summary: Get customer segmentation
+      tags:
+      - Analytics
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: Customer segmentation breakdown
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_analytics_customers_segmentation
+      description: Get customer segments (New, Repeat, VIP, At-Risk)
+  /gamingCenters/{gamingCenterId}/analytics/customers/top-spenders:
+    get:
+      summary: Get top customer spenders with masked phone numbers
+      tags:
+      - Analytics
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: limit
+        in: query
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Top customer spenders
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_analytics_customers_top_spenders
+      description: Get top spending customers with privacy masking
+  /gamingCenters/{gamingCenterId}/analytics/financials/overview:
+    get:
+      summary: Get detailed financial overview across ledger, payments, and refunds
+      tags:
+      - Analytics
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: Detailed financial overview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_analytics_financials_overview
+      description: Get comprehensive financial overview
+  /gamingCenters/{gamingCenterId}/analytics/financials/reconciliation:
+    get:
+      summary: Get financial reconciliation findings and discrepancies
+      tags:
+      - Analytics
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: Financial reconciliation findings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_analytics_financials_reconciliation
+      description: Get financial reconciliation findings
+  /gamingCenters/{gamingCenterId}/analytics/funnel:
+    get:
+      summary: Get operational conversion funnel and web gap notice
+      tags:
+      - Analytics
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: Operational conversion funnel
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_analytics_funnel
+      description: Get operational reservation-to-completion conversion funnel
+  /gamingCenters/{gamingCenterId}/analytics/discounts:
+    get:
+      summary: Get discount code usage and performance comparison
+      tags:
+      - Analytics
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: Discount performance analytics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_analytics_discounts
+      description: Get discount performance comparison and voucher breakdown
+  /gamingCenters/{gamingCenterId}/analytics/instrumentation-gaps:
+    get:
+      summary: Get instrumentation gap catalog and web event specification
+      tags:
+      - Analytics
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Instrumentation gap specifications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_analytics_instrumentation_gaps
+      description: Get instrumentation gaps and web event collector specification
   /gamingCenters/{gamingCenterId}/settings:
     get:
       summary: Get gamingCenter settings

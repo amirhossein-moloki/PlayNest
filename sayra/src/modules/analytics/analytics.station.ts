@@ -634,7 +634,7 @@ export const AnalyticsStation = {
     };
   },
 
-  // Customer Analytics Methods (Phase 3)
+  // Customer Analytics Methods (Phase 3 & Refined Growth Analytics)
   async getCustomerSummary(gamingCenterId: string, startDateInput: Date, endDateInput: Date) {
     const { timeZone, dayStart, dayEnd } = await resolveTimezoneAndBoundaries(
       gamingCenterId,
@@ -642,14 +642,31 @@ export const AnalyticsStation = {
       endDateInput
     );
 
-    const [allPeriodReservations, allHistoricalFirstVisits] = await Promise.all([
+    const [
+      allPeriodReservations,
+      allHistoricalFirstVisits,
+      rawRegisteredAccountsStats,
+      rawReservingCustomersCount,
+      rawPayingCustomersCount,
+    ] = await Promise.all([
       AnalyticsRepo.getCompletedCustomerReservations(gamingCenterId, dayStart, dayEnd),
       AnalyticsRepo.getCustomerAllHistoricalFirstVisits(gamingCenterId, dayEnd),
+      AnalyticsRepo.getRegisteredAccountsStats(gamingCenterId, dayStart, dayEnd),
+      AnalyticsRepo.getReservingCustomersCount(gamingCenterId, dayStart, dayEnd),
+      AnalyticsRepo.getPayingCustomersCount(gamingCenterId, dayStart, dayEnd),
     ]);
 
+    const registeredAccountsStats = rawRegisteredAccountsStats || { registeredInPeriod: 0, totalRegistered: 0 };
+    const reservingCustomersCount = rawReservingCustomersCount || 0;
+    const payingCustomersCount = rawPayingCustomersCount || 0;
+
     // Exclude unlinked/walk-in reservations without customerAccountId
-    const periodReservations = allPeriodReservations.filter((r): r is typeof r & { customerAccountId: string } => Boolean(r.customerAccountId));
-    const historicalFirstVisits = allHistoricalFirstVisits.filter((h): h is typeof h & { customerAccountId: string } => Boolean(h.customerAccountId));
+    const periodReservations = allPeriodReservations.filter(
+      (r): r is typeof r & { customerAccountId: string } => Boolean(r.customerAccountId)
+    );
+    const historicalFirstVisits = allHistoricalFirstVisits.filter(
+      (h): h is typeof h & { customerAccountId: string } => Boolean(h.customerAccountId)
+    );
 
     const activeCustomerIds = new Set(periodReservations.map((r) => r.customerAccountId));
     const activeCustomersCount = activeCustomerIds.size;
@@ -688,13 +705,18 @@ export const AnalyticsStation = {
       if (visits >= 2) repeatCustomersCount++;
     }
 
-    const repeatVisitRate = activeCustomersCount > 0 ? Math.round((repeatCustomersCount / activeCustomersCount) * 10000) / 100 : 0;
-    const avgSpendPerActiveCustomer = activeCustomersCount > 0 ? Math.round(totalRecordedSpend / activeCustomersCount) : 0;
-    const avgSpendPerVisit = periodReservations.length > 0 ? Math.round(totalRecordedSpend / periodReservations.length) : 0;
+    const repeatVisitRate =
+      activeCustomersCount > 0 ? Math.round((repeatCustomersCount / activeCustomersCount) * 10000) / 100 : 0;
+    const avgSpendPerActiveCustomer =
+      activeCustomersCount > 0 ? Math.round(totalRecordedSpend / activeCustomersCount) : 0;
+    const avgSpendPerVisit =
+      periodReservations.length > 0 ? Math.round(totalRecordedSpend / periodReservations.length) : 0;
 
     // Calculate Average Time Between Visits for repeat active customers using historical data
     const rawHistoricalVisits = await AnalyticsRepo.getCustomerAllHistoricalVisits(gamingCenterId, dayEnd);
-    const allHistoricalVisits = rawHistoricalVisits.filter((v): v is typeof v & { customerAccountId: string } => Boolean(v.customerAccountId));
+    const allHistoricalVisits = rawHistoricalVisits.filter(
+      (v): v is typeof v & { customerAccountId: string } => Boolean(v.customerAccountId)
+    );
     const customerVisitsGrouped = new Map<string, Date[]>();
 
     for (const v of allHistoricalVisits) {
@@ -722,6 +744,13 @@ export const AnalyticsStation = {
 
     return {
       period: { startDate: dayStart, endDate: dayEnd, timeZone },
+      entityTaxonomyBreakdown: {
+        registeredAccountsInPeriod: registeredAccountsStats.registeredInPeriod,
+        totalRegisteredAccounts: registeredAccountsStats.totalRegistered,
+        reservingCustomersCount,
+        payingCustomersCount,
+        completedSessionCustomersCount: activeCustomersCount,
+      },
       activeCustomers: activeCustomersCount,
       newCustomers: newCustomersCount,
       returningCustomers: returningCustomersCount,
@@ -731,7 +760,336 @@ export const AnalyticsStation = {
       totalRecordedSpend,
       avgSpendPerActiveCustomer,
       avgSpendPerVisit,
-      ltvDisclaimer: 'Metric represents historical recorded spend during selected period, not predictive lifetime value (LTV).',
+      entityDistinctionNotice:
+        'Distinct entities are strictly separated: Registered Account = User profile created; Reserving Customer = Created 1+ reservations; Paying Customer = Made 1+ successful payments; Completed Session Customer = Finished 1+ gaming sessions.',
+      ltvDisclaimer:
+        'Metric represents historical recorded spend during selected period, not predictive lifetime value (LTV).',
+    };
+  },
+
+  // Operational Conversion Funnel Method
+  async getConversionFunnel(gamingCenterId: string, startDateInput: Date, endDateInput: Date) {
+    const { timeZone, dayStart, dayEnd } = await resolveTimezoneAndBoundaries(
+      gamingCenterId,
+      startDateInput,
+      endDateInput
+    );
+
+    const reservations = await AnalyticsRepo.getFunnelReservations(gamingCenterId, dayStart, dayEnd);
+
+    const totalCreated = reservations.length;
+    let paidCount = 0;
+    let sessionStartedCount = 0;
+    let completedCount = 0;
+
+    let totalLeadTimeCreatedToPaidMs = 0;
+    let paidLeadCount = 0;
+
+    let totalLeadTimePaidToSessionMs = 0;
+    let sessionLeadCount = 0;
+
+    let totalLeadTimeSessionToCompletedMs = 0;
+    let completedLeadCount = 0;
+
+    for (const r of reservations) {
+      const createdAt = r.createdAt;
+
+      // Stage 2: Payment Succeeded
+      const paidPayment = r.payments.find((p) => p.paidAt && p.paidAt >= createdAt);
+      if (paidPayment || r.paymentState === 'PAID') {
+        paidCount++;
+        if (paidPayment?.paidAt) {
+          totalLeadTimeCreatedToPaidMs += Math.max(0, paidPayment.paidAt.getTime() - createdAt.getTime());
+          paidLeadCount++;
+        }
+      }
+
+      // Stage 3: Gaming Session Started
+      const validSession = r.gamingSessions.find((gs) => gs.startTime >= createdAt);
+      if (validSession) {
+        sessionStartedCount++;
+        if (paidPayment?.paidAt) {
+          totalLeadTimePaidToSessionMs += Math.max(0, validSession.startTime.getTime() - paidPayment.paidAt.getTime());
+          sessionLeadCount++;
+        }
+      }
+
+      // Stage 4: Reservation Completed
+      if (r.status === 'COMPLETED') {
+        completedCount++;
+        if (validSession?.startTime && r.completedAt) {
+          totalLeadTimeSessionToCompletedMs += Math.max(
+            0,
+            r.completedAt.getTime() - validSession.startTime.getTime()
+          );
+          completedLeadCount++;
+        }
+      }
+    }
+
+    // Stage conversions
+    const stage1To2Conversion =
+      totalCreated > 0 ? Math.round((paidCount / totalCreated) * 10000) / 100 : 0;
+    const stage2To3Conversion =
+      paidCount > 0 ? Math.round((sessionStartedCount / paidCount) * 10000) / 100 : 0;
+    const stage3To4Conversion =
+      sessionStartedCount > 0 ? Math.round((completedCount / sessionStartedCount) * 10000) / 100 : 0;
+    const overallConversion =
+      totalCreated > 0 ? Math.round((completedCount / totalCreated) * 10000) / 100 : 0;
+
+    // Average durations in minutes
+    const avgMinutesCreatedToPaid =
+      paidLeadCount > 0 ? Math.round(totalLeadTimeCreatedToPaidMs / (paidLeadCount * 60 * 1000) * 10) / 10 : 0;
+    const avgMinutesPaidToSession =
+      sessionLeadCount > 0 ? Math.round(totalLeadTimePaidToSessionMs / (sessionLeadCount * 60 * 1000) * 10) / 10 : 0;
+    const avgMinutesSessionToCompleted =
+      completedLeadCount > 0
+        ? Math.round(totalLeadTimeSessionToCompletedMs / (completedLeadCount * 60 * 1000) * 10) / 10
+        : 0;
+
+    return {
+      period: { startDate: dayStart, endDate: dayEnd, timeZone },
+      webTrafficFunnelStatus: 'DATA_COLLECTION_MISSING',
+      webTrafficNotice:
+        'Web traffic, pageviews, and site search events are not instrumented on frontend. Operational conversion funnel below is constructed strictly from verified database state events.',
+      funnel: [
+        {
+          stageOrder: 1,
+          stageKey: 'RESERVATION_CREATED',
+          stageTitle: 'Reservation Created',
+          count: totalCreated,
+          conversionFromInitial: 100,
+          conversionFromPrevious: 100,
+          droppedCount: 0,
+          avgDurationFromPreviousMinutes: 0,
+        },
+        {
+          stageOrder: 2,
+          stageKey: 'PAYMENT_SUCCEEDED',
+          stageTitle: 'Payment Succeeded',
+          count: paidCount,
+          conversionFromInitial: stage1To2Conversion,
+          conversionFromPrevious: stage1To2Conversion,
+          droppedCount: Math.max(0, totalCreated - paidCount),
+          avgDurationFromPreviousMinutes: avgMinutesCreatedToPaid,
+        },
+        {
+          stageOrder: 3,
+          stageKey: 'SESSION_STARTED',
+          stageTitle: 'Gaming Session Started',
+          count: sessionStartedCount,
+          conversionFromInitial: totalCreated > 0 ? Math.round((sessionStartedCount / totalCreated) * 10000) / 100 : 0,
+          conversionFromPrevious: stage2To3Conversion,
+          droppedCount: Math.max(0, paidCount - sessionStartedCount),
+          avgDurationFromPreviousMinutes: avgMinutesPaidToSession,
+        },
+        {
+          stageOrder: 4,
+          stageKey: 'RESERVATION_COMPLETED',
+          stageTitle: 'Reservation Completed',
+          count: completedCount,
+          conversionFromInitial: overallConversion,
+          conversionFromPrevious: stage3To4Conversion,
+          droppedCount: Math.max(0, sessionStartedCount - completedCount),
+          avgDurationFromPreviousMinutes: avgMinutesSessionToCompleted,
+        },
+      ],
+      summary: {
+        totalReservationsCreated: totalCreated,
+        totalReservationsCompleted: completedCount,
+        overallConversionRate: overallConversion,
+      },
+    };
+  },
+
+  // Discount Effectiveness Method
+  async getDiscountAnalytics(gamingCenterId: string, startDateInput: Date, endDateInput: Date) {
+    const { timeZone, dayStart, dayEnd } = await resolveTimezoneAndBoundaries(
+      gamingCenterId,
+      startDateInput,
+      endDateInput
+    );
+
+    const reservations = await AnalyticsRepo.getDiscountPerformanceReservations(
+      gamingCenterId,
+      dayStart,
+      dayEnd
+    );
+
+    let discountedCount = 0;
+    let nonDiscountedCount = 0;
+
+    let totalDiscountAmount = 0;
+
+    let discountedCompletedCount = 0;
+    let nonDiscountedCompletedCount = 0;
+
+    let discountedRevenue = 0;
+    let nonDiscountedRevenue = 0;
+
+    const voucherBreakdownMap = new Map<
+      string,
+      { voucherCode: string; usageCount: number; totalDiscountGiven: number; totalRevenue: number }
+    >();
+
+    for (const r of reservations) {
+      const isDiscounted = r.discountAmount > 0 || r.discountId != null || Boolean(r.voucherCode);
+
+      if (isDiscounted) {
+        discountedCount++;
+        totalDiscountAmount += r.discountAmount;
+
+        if (r.status === 'COMPLETED') {
+          discountedCompletedCount++;
+          discountedRevenue += r.totalPrice;
+        }
+
+        if (r.voucherCode) {
+          const entry = voucherBreakdownMap.get(r.voucherCode) || {
+            voucherCode: r.voucherCode,
+            usageCount: 0,
+            totalDiscountGiven: 0,
+            totalRevenue: 0,
+          };
+          entry.usageCount += 1;
+          entry.totalDiscountGiven += r.discountAmount;
+          if (r.status === 'COMPLETED') entry.totalRevenue += r.totalPrice;
+          voucherBreakdownMap.set(r.voucherCode, entry);
+        }
+      } else {
+        nonDiscountedCount++;
+        if (r.status === 'COMPLETED') {
+          nonDiscountedCompletedCount++;
+          nonDiscountedRevenue += r.totalPrice;
+        }
+      }
+    }
+
+    const discountedCompletionRate =
+      discountedCount > 0 ? Math.round((discountedCompletedCount / discountedCount) * 10000) / 100 : 0;
+    const nonDiscountedCompletionRate =
+      nonDiscountedCount > 0 ? Math.round((nonDiscountedCompletedCount / nonDiscountedCount) * 10000) / 100 : 0;
+
+    const avgDiscountAmount = discountedCount > 0 ? Math.round(totalDiscountAmount / discountedCount) : 0;
+    const avgDiscountedOrderValue =
+      discountedCompletedCount > 0 ? Math.round(discountedRevenue / discountedCompletedCount) : 0;
+    const avgNonDiscountedOrderValue =
+      nonDiscountedCompletedCount > 0 ? Math.round(nonDiscountedRevenue / nonDiscountedCompletedCount) : 0;
+
+    return {
+      period: { startDate: dayStart, endDate: dayEnd, timeZone },
+      summary: {
+        totalReservations: reservations.length,
+        discountedReservationsCount: discountedCount,
+        nonDiscountedReservationsCount: nonDiscountedCount,
+        discountPenetrationRate:
+          reservations.length > 0 ? Math.round((discountedCount / reservations.length) * 10000) / 100 : 0,
+        totalDiscountAmountGiven: Math.round(totalDiscountAmount),
+        avgDiscountAmount,
+      },
+      performanceComparison: {
+        discounted: {
+          reservationCount: discountedCount,
+          completedCount: discountedCompletedCount,
+          completionRate: discountedCompletionRate,
+          totalRevenue: discountedRevenue,
+          avgOrderValue: avgDiscountedOrderValue,
+        },
+        nonDiscounted: {
+          reservationCount: nonDiscountedCount,
+          completedCount: nonDiscountedCompletedCount,
+          completionRate: nonDiscountedCompletionRate,
+          totalRevenue: nonDiscountedRevenue,
+          avgOrderValue: avgNonDiscountedOrderValue,
+        },
+      },
+      voucherCodeBreakdown: Array.from(voucherBreakdownMap.values()),
+      causalityDisclaimer:
+        'Discount code usage metrics report redemption patterns and revenue correlation, but do NOT prove campaign incrementality or ROAS. Establishing causality requires randomized or controlled experiment design.',
+    };
+  },
+
+  // Instrumentation Gap & Event Collector Specification Method
+  async getInstrumentationGaps() {
+    return {
+      statusOverview: {
+        webTrafficTracking: 'DATA_COLLECTION_MISSING',
+        campaignAttribution: 'PARTIALLY_COLLECTED',
+        loyaltyPointsLedger: 'MISSING_LEDGER',
+      },
+      gapDetails: [
+        {
+          gapKey: 'GAP-WEB-001',
+          domain: 'WEB_TRAFFIC',
+          title: 'Missing Frontend Pageview and Search Tracking',
+          status: 'DATA_COLLECTION_MISSING',
+          impact: 'Website visitor count and visitor-to-reservation conversion rate cannot be calculated.',
+          recommendedAction: 'Deploy Web Event Collector script to capture page_view and center_search events.',
+        },
+        {
+          gapKey: 'GAP-MKT-001',
+          domain: 'CAMPAIGN_ATTRIBUTION',
+          title: 'Unbound Campaign/UTM Parameters in Reservations',
+          status: 'PARTIALLY_COLLECTED',
+          impact: 'Campaign attribution window and multi-channel return on ad spend (ROAS) cannot be claimed conclusively.',
+          recommendedAction: 'Add utm_source, utm_medium, utm_campaign to Reservation schema and session cookie.',
+        },
+        {
+          gapKey: 'GAP-LOY-001',
+          domain: 'LOYALTY_PROGRAM',
+          title: 'Absence of Loyalty Points Transaction Ledger',
+          status: 'MISSING_LEDGER',
+          impact: 'Current membership status exists but historical earn/spend/expiration history is untracked.',
+          recommendedAction: 'Implement LoyaltyPointsLedger model with earned, spent, expired point transactions.',
+        },
+      ],
+      requiredEventCatalog: [
+        {
+          eventName: 'page_view',
+          trigger: 'User loads public website page',
+          minimalPayloadSchema: { url: 'string', referrer: 'string', deviceType: 'string' },
+          pseudonymousActorKey: 'visitor_session_id',
+          consentRequirement: 'Essential / Anonymized Analytics Consent',
+          retentionPolicy: '90 days raw, 365 days aggregated',
+          deduplicationKey: 'visitor_session_id + page_path + minute_timestamp',
+          qaAcceptanceCriteria: 'Event fires within 500ms of DOM load with valid session ID.',
+        },
+        {
+          eventName: 'center_search',
+          trigger: 'User executes search or station filter on public page',
+          minimalPayloadSchema: { query: 'string', stationType: 'string', dateFilter: 'string' },
+          pseudonymousActorKey: 'visitor_session_id',
+          consentRequirement: 'Analytics Consent',
+          retentionPolicy: '90 days raw',
+          deduplicationKey: 'visitor_session_id + search_query + timestamp',
+          qaAcceptanceCriteria: 'Fires upon query submit with non-empty payload.',
+        },
+        {
+          eventName: 'booking_started',
+          trigger: 'User clicks reserve button for a specific time slot',
+          minimalPayloadSchema: { gamingCenterId: 'string', stationId: 'string', startTime: 'string' },
+          pseudonymousActorKey: 'visitor_session_id',
+          consentRequirement: 'Analytics Consent',
+          retentionPolicy: '180 days',
+          deduplicationKey: 'visitor_session_id + stationId + startTime',
+          qaAcceptanceCriteria: 'Fires on checkout page open before payment initiation.',
+        },
+        {
+          eventName: 'booking_completed',
+          trigger: 'Payment or reservation confirmation succeeds',
+          minimalPayloadSchema: { reservationId: 'string', totalPrice: 'number', discountCode: 'string?' },
+          pseudonymousActorKey: 'customer_account_id',
+          consentRequirement: 'Contractual / Service Execution',
+          retentionPolicy: '7 years (financial audit compliance)',
+          deduplicationKey: 'reservationId',
+          qaAcceptanceCriteria: 'Fires exactly once per successful reservation confirmation.',
+        },
+      ],
+      openDecisionsRequired: [
+        'Define default campaign attribution window (e.g., 7-day or 30-day last-touch).',
+        'Establish user consent banner policy for public web analytics cookies in Iran/EU compliance contexts.',
+        'Formalize loyalty points earn rate per 1,000 IRR spend.',
+      ],
     };
   },
 

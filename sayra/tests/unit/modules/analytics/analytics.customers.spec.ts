@@ -166,4 +166,119 @@ describe('AnalyticsStation - Phase 3 Customer Analytics', () => {
       expect(atRiskSeg?.count).toBe(1);
     });
   });
+
+  describe('getConversionFunnel', () => {
+    it('should compute operational state transitions, stage conversion rates, and handle missing web tracking notice', async () => {
+      const createdAt = new Date('2026-03-01T10:00:00Z');
+      const paidAt = new Date('2026-03-01T10:05:00Z');
+      const sessionStart = new Date('2026-03-01T10:15:00Z');
+
+      const mockFunnelReservations = [
+        {
+          id: 'res_1',
+          createdAt,
+          status: 'COMPLETED',
+          paymentState: 'PAID',
+          completedAt: new Date('2026-03-01T12:00:00Z'),
+          payments: [{ id: 'p_1', paidAt, amount: 100000 }],
+          gamingSessions: [{ id: 'gs_1', startTime: sessionStart, actualHours: 2 }],
+        },
+        {
+          id: 'res_2',
+          createdAt,
+          status: 'CANCELED',
+          paymentState: 'UNPAID',
+          completedAt: null,
+          payments: [],
+          gamingSessions: [],
+        },
+      ];
+
+      (AnalyticsRepo.getFunnelReservations as jest.Mock).mockResolvedValue(mockFunnelReservations);
+
+      const res = await AnalyticsStation.getConversionFunnel(gamingCenterId, startDate, endDate);
+
+      expect(res.webTrafficFunnelStatus).toBe('DATA_COLLECTION_MISSING');
+      expect(res.funnel).toHaveLength(4);
+
+      const stage1 = res.funnel.find((f) => f.stageKey === 'RESERVATION_CREATED');
+      const stage2 = res.funnel.find((f) => f.stageKey === 'PAYMENT_SUCCEEDED');
+      const stage3 = res.funnel.find((f) => f.stageKey === 'SESSION_STARTED');
+      const stage4 = res.funnel.find((f) => f.stageKey === 'RESERVATION_COMPLETED');
+
+      expect(stage1?.count).toBe(2);
+      expect(stage2?.count).toBe(1);
+      expect(stage3?.count).toBe(1);
+      expect(stage4?.count).toBe(1);
+
+      expect(stage2?.conversionFromInitial).toBe(50);
+      expect(stage4?.conversionFromInitial).toBe(50);
+    });
+
+    it('should handle zero reservations safely without division by zero', async () => {
+      (AnalyticsRepo.getFunnelReservations as jest.Mock).mockResolvedValue([]);
+
+      const res = await AnalyticsStation.getConversionFunnel(gamingCenterId, startDate, endDate);
+
+      expect(res.summary.totalReservationsCreated).toBe(0);
+      expect(res.summary.overallConversionRate).toBe(0);
+      expect(res.funnel[0].count).toBe(0);
+    });
+  });
+
+  describe('getDiscountAnalytics', () => {
+    it('should calculate discount usage, completion rates, and include causality disclaimer', async () => {
+      const mockDiscountReservations = [
+        {
+          id: 'res_disc_1',
+          totalPrice: 80000,
+          discountAmount: 20000,
+          voucherCode: 'NOWRUZ2026',
+          discountId: 'disc_1',
+          status: 'COMPLETED',
+          paymentState: 'PAID',
+        },
+        {
+          id: 'res_nodisc_1',
+          totalPrice: 100000,
+          discountAmount: 0,
+          voucherCode: null,
+          discountId: null,
+          status: 'COMPLETED',
+          paymentState: 'PAID',
+        },
+      ];
+
+      (AnalyticsRepo.getDiscountPerformanceReservations as jest.Mock).mockResolvedValue(mockDiscountReservations);
+
+      const res = await AnalyticsStation.getDiscountAnalytics(gamingCenterId, startDate, endDate);
+
+      expect(res.summary.totalReservations).toBe(2);
+      expect(res.summary.discountedReservationsCount).toBe(1);
+      expect(res.summary.nonDiscountedReservationsCount).toBe(1);
+      expect(res.summary.discountPenetrationRate).toBe(50);
+      expect(res.summary.totalDiscountAmountGiven).toBe(20000);
+      expect(res.summary.avgDiscountAmount).toBe(20000);
+
+      expect(res.performanceComparison.discounted.completedCount).toBe(1);
+      expect(res.performanceComparison.nonDiscounted.completedCount).toBe(1);
+
+      expect(res.voucherCodeBreakdown).toHaveLength(1);
+      expect(res.voucherCodeBreakdown[0].voucherCode).toBe('NOWRUZ2026');
+
+      expect(res.causalityDisclaimer).toContain('do NOT prove campaign incrementality');
+    });
+  });
+
+  describe('getInstrumentationGaps', () => {
+    it('should return catalog of missing web events and architectural open decisions', async () => {
+      const res = await AnalyticsStation.getInstrumentationGaps();
+
+      expect(res.statusOverview.webTrafficTracking).toBe('DATA_COLLECTION_MISSING');
+      expect(res.gapDetails.length).toBeGreaterThanOrEqual(3);
+      expect(res.requiredEventCatalog.map((e) => e.eventName)).toContain('page_view');
+      expect(res.requiredEventCatalog.map((e) => e.eventName)).toContain('booking_completed');
+      expect(res.openDecisionsRequired.length).toBeGreaterThanOrEqual(2);
+    });
+  });
 });
