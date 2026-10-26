@@ -56,6 +56,9 @@ jest.mock('../../../src/config/prisma', () => ({
     customerProfile: {
       count: jest.fn(),
     },
+    customerAccount: {
+      count: jest.fn(),
+    },
     user: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
@@ -111,6 +114,7 @@ describe('Analytics API Integration Tests', () => {
     });
 
     (prisma.settings.findUnique as any).mockResolvedValue({ timeZone: 'UTC' });
+    (prisma.customerAccount.count as any).mockResolvedValue(0);
     (prisma.analyticsWatermark.findMany as any).mockResolvedValue([]);
     (prisma.analyticsIngestionRun.findMany as any).mockResolvedValue([]);
     (prisma.stationMaintenance.findMany as any).mockResolvedValue([]);
