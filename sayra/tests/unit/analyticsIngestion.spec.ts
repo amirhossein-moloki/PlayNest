@@ -61,6 +61,21 @@ describe('AnalyticsIngestionService Unit Tests', () => {
     });
   });
 
+  describe('runIngestionCycle failure semantics', () => {
+    it('should throw error when any entity ingestion fails so BullMQ worker marks job as failed', async () => {
+      jest.spyOn(service, 'ingestEntity').mockImplementation(async (entity) => {
+        if (entity === 'Reservation') {
+          throw new Error('Database connection reset during Reservation ingestion');
+        }
+        return { recordsRead: 5, recordsIngested: 5 };
+      });
+
+      await expect(service.runIngestionCycle()).rejects.toThrow(
+        'Analytics ingestion cycle failed for entities: Reservation'
+      );
+    });
+  });
+
   describe('ingestEntity - Reservation', () => {
     it('should query reservations within lookback window and upsert records into AnalyticsReservation', async () => {
       const mockWatermark = new Date('2026-12-10T10:00:00.000Z');
