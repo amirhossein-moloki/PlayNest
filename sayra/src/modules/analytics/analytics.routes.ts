@@ -44,4 +44,12 @@ router.get('/funnel', validate(AnalyticsQuerySchema), AnalyticsController.getCon
 router.get('/discounts', validate(AnalyticsQuerySchema), AnalyticsController.getDiscountAnalytics);
 router.get('/instrumentation-gaps', AnalyticsController.getInstrumentationGaps);
 
+// Operations & Reliability Analytics Endpoints
+router.get('/operations/jobs', AnalyticsController.getJobsHealth);
+router.get('/operations/errors', validate(AnalyticsQuerySchema), AnalyticsController.getSystemErrors);
+router.get('/operations/data-quality', AnalyticsController.getDataQuality);
+router.get('/operations/support', validate(AnalyticsQuerySchema), AnalyticsController.getSupportQuality);
+router.get('/operations/feature-adoption', validate(AnalyticsQuerySchema), AnalyticsController.getFeatureAdoption);
+router.get('/operations/issue-matrix', AnalyticsController.getIssueMatrix);
+
 export const analyticsRoutes = router;
