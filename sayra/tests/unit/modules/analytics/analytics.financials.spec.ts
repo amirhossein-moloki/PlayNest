@@ -1,5 +1,3 @@
-import request from 'supertest';
-import app from '../../../../src/app';
 import { AnalyticsRepo } from '../../../../src/modules/analytics/analytics.repo';
 import { AnalyticsStation } from '../../../../src/modules/analytics/analytics.station';
 
