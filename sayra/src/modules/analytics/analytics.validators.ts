@@ -63,6 +63,25 @@ export const FinancialReconciliationQuerySchema = z.object({
 
 export type FinancialReconciliationQuery = z.infer<typeof FinancialReconciliationQuerySchema>['query'];
 
+export const BenchmarkQuerySchema = z.object({
+  query: z
+    .object({
+      startDate: z.coerce.date().default(() => subDays(new Date(), 30)),
+      endDate: z.coerce.date().default(() => new Date()),
+      peerGroupCategory: z.enum(['ALL', 'STANDARD', 'PREMIUM']).default('ALL'),
+    })
+    .refine((data) => data.startDate <= data.endDate, {
+      message: 'startDate must be less than or equal to endDate',
+      path: ['startDate'],
+    })
+    .refine((data) => Math.abs(differenceInDays(data.endDate, data.startDate)) <= 365, {
+      message: 'Date range cannot exceed 365 days',
+      path: ['endDate'],
+    }),
+});
+
+export type BenchmarkQuery = z.infer<typeof BenchmarkQuerySchema>['query'];
+
 export async function resolveTimezoneAndBoundaries(
   gamingCenterId: string,
   startDateInput: Date,

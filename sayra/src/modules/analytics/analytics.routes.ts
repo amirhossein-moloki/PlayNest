@@ -5,7 +5,7 @@ import { requireRole } from '../../common/middleware/requireRole';
 import { UserRole } from '@prisma/client';
 import { validate } from '../../common/middleware/validate';
 import { AnalyticsController } from './analytics.controller';
-import { AnalyticsQuerySchema, CustomerAnalyticsQuerySchema, FinancialReconciliationQuerySchema } from './analytics.validators';
+import { AnalyticsQuerySchema, BenchmarkQuerySchema, CustomerAnalyticsQuerySchema, FinancialReconciliationQuerySchema } from './analytics.validators';
 
 const router = Router({ mergeParams: true });
 
@@ -34,5 +34,9 @@ router.get('/customers/activity', validate(CustomerAnalyticsQuerySchema), Analyt
 router.get('/customers/retention', validate(CustomerAnalyticsQuerySchema), AnalyticsController.getCustomerRetention);
 router.get('/customers/segmentation', validate(CustomerAnalyticsQuerySchema), AnalyticsController.getCustomerSegmentation);
 router.get('/customers/top-spenders', validate(CustomerAnalyticsQuerySchema), AnalyticsController.getTopSpenders);
+
+// Phase 7 Benchmarking & Growth Insights Endpoints
+router.get('/benchmarks', validate(BenchmarkQuerySchema), AnalyticsController.getBenchmarks);
+router.get('/growth-insights', validate(BenchmarkQuerySchema), AnalyticsController.getGrowthInsights);
 
 export const analyticsRoutes = router;

@@ -54,8 +54,14 @@ jest.mock('../../../src/config/prisma', () => ({
       findUnique: jest.fn(),
       findMany: jest.fn(),
     },
+    gamingCenter: {
+      findMany: jest.fn(),
+    },
     gameStation: {
       findMany: jest.fn(),
+    },
+    gamingSession: {
+      groupBy: jest.fn(),
     },
     session: {
       findUnique: jest.fn(),
@@ -234,6 +240,53 @@ describe('Analytics API Integration Tests', () => {
       expect(res.status).toBe(200);
       expect(res.body.data.totalLogs).toBe(5);
       expect(res.body.data.failureRate).toBe(0);
+    });
+  });
+
+  describe('GET /api/v1/gamingCenters/:gamingCenterId/analytics/benchmarks', () => {
+    it('should return suppressed benchmarks when peer cohort size < 5', async () => {
+      (prisma.gamingCenter.findMany as any).mockResolvedValue([
+        { id: 'gc-peer-1', name: 'Peer 1' },
+      ]);
+      (prisma.gamingCenterAnalytics.aggregate as any).mockResolvedValue({ _sum: {} });
+      (prisma.reservation.groupBy as any).mockResolvedValue([]);
+      (prisma.reservation.count as any).mockResolvedValue(0);
+      (prisma.customerProfile.count as any).mockResolvedValue(0);
+      (prisma.payment.groupBy as any).mockResolvedValue([]);
+      (prisma.refund.groupBy as any).mockResolvedValue([]);
+      (prisma.ledgerEntry.groupBy as any).mockResolvedValue([]);
+      (prisma.gameStation.findMany as any).mockResolvedValue([]);
+
+      const res = await request(app)
+        .get('/api/v1/gamingCenters/gc-1/analytics/benchmarks')
+        .set('x-api-key', env.STATIC_API_KEY)
+        .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.status).toBe('SUPPRESSED');
+      expect(res.body.data.isSuppressed).toBe(true);
+    });
+  });
+
+  describe('GET /api/v1/gamingCenters/:gamingCenterId/analytics/growth-insights', () => {
+    it('should return growth insights for manager role', async () => {
+      (prisma.gamingCenter.findMany as any).mockResolvedValue([]);
+      (prisma.gamingCenterAnalytics.aggregate as any).mockResolvedValue({ _sum: { totalReservations: 10 } });
+      (prisma.reservation.groupBy as any).mockResolvedValue([]);
+      (prisma.reservation.count as any).mockResolvedValue(10);
+      (prisma.customerProfile.count as any).mockResolvedValue(2);
+      (prisma.payment.groupBy as any).mockResolvedValue([]);
+      (prisma.refund.groupBy as any).mockResolvedValue([]);
+      (prisma.ledgerEntry.groupBy as any).mockResolvedValue([]);
+      (prisma.gameStation.findMany as any).mockResolvedValue([]);
+
+      const res = await request(app)
+        .get('/api/v1/gamingCenters/gc-1/analytics/growth-insights')
+        .set('x-api-key', env.STATIC_API_KEY)
+        .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.insightCount).toBeGreaterThan(0);
     });
   });
 

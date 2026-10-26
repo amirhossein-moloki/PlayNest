@@ -808,4 +808,285 @@ export const AnalyticsStation = {
       topSpenders,
     };
   },
+
+  // Phase 7 Privacy-Preserving Benchmarking & Growth Insights Methods
+  async getBenchmarks(
+    gamingCenterId: string,
+    startDateInput: Date,
+    endDateInput: Date,
+    peerGroupCategory = 'ALL'
+  ) {
+    if (process.env.ENABLE_ANALYTICS_BENCHMARKING === 'false') {
+      return {
+        status: 'DISABLED',
+        message: 'Cross-tenant benchmarking is currently disabled by administrative policy.',
+        isSuppressed: true,
+      };
+    }
+
+    const { timeZone, dayStart, dayEnd } = await resolveTimezoneAndBoundaries(
+      gamingCenterId,
+      startDateInput,
+      endDateInput
+    );
+
+    // 1. Calculate Requesting Tenant's Own Metrics
+    const tenantSummary = await this.getSummary(gamingCenterId, startDateInput, endDateInput);
+    const tenantReservationReport = await this.getReservationReport(gamingCenterId, startDateInput, endDateInput);
+    const tenantCustomerSummary = await this.getCustomerSummary(gamingCenterId, startDateInput, endDateInput);
+
+    const daysCount = Math.max(differenceInDays(dayEnd, dayStart), 1);
+    const tenantStations = await AnalyticsRepo.getStationDetails(gamingCenterId);
+    const tenantStationCount = tenantStations.length;
+    const maxPossibleTenantHours = tenantStationCount * daysCount * 24;
+
+    const tenantCompletionRate = tenantSummary.completionRate; // percentage (0-100)
+    const tenantAvgSessionDuration = tenantReservationReport.metrics.averageDurationHours;
+    const tenantStationUtilization = maxPossibleTenantHours > 0
+      ? Math.round(((tenantReservationReport.statusDistribution.find(s => s.status === 'COMPLETED')?.totalHours || 0) / maxPossibleTenantHours) * 10000) / 100
+      : 0;
+    const tenantRepeatVisitRate = tenantCustomerSummary.repeatVisitRate;
+
+    const tenantMetrics = {
+      completionRate: tenantCompletionRate,
+      averageSessionDurationHours: tenantAvgSessionDuration,
+      stationUtilizationRate: tenantStationUtilization,
+      repeatVisitRate: tenantRepeatVisitRate,
+    };
+
+    // 2. Fetch Eligible Peer Gaming Centers (excluding requesting tenant)
+    const peers = await AnalyticsRepo.getEligiblePeerGamingCenters(gamingCenterId);
+    const peerIds = peers.map((p) => p.id);
+    const k = peerIds.length;
+
+    // Minimum cohort threshold check (k >= 5)
+    if (k < 5) {
+      return {
+        status: 'SUPPRESSED',
+        isSuppressed: true,
+        suppressionReason: 'Peer cohort size is below the minimum privacy threshold (k >= 5 required).',
+        peerCohortCount: k,
+        minimumCohortThreshold: 5,
+        peerGroupCategory,
+        period: { startDate: dayStart, endDate: dayEnd, timeZone },
+        tenantMetrics,
+        benchmarks: null,
+        dataFreshness: 'FRESH',
+      };
+    }
+
+    // 3. Compute Peer Cohort Metrics
+    const [rawPeerReservations, rawPeerStations, rawPeerCustomers] = await Promise.all([
+      AnalyticsRepo.getCrossTenantReservationStats(peerIds, dayStart, dayEnd),
+      AnalyticsRepo.getCrossTenantStationCounts(peerIds),
+      AnalyticsRepo.getCrossTenantCustomerStats(peerIds, dayStart, dayEnd),
+    ]);
+
+    // Group peer metrics by tenant
+    const peerCompletionRates: number[] = [];
+    const peerAvgDurations: number[] = [];
+    const peerStationUtilizations: number[] = [];
+    const peerRepeatVisitRates: number[] = [];
+
+    const stationCountMap = new Map<string, number>();
+    for (const sc of rawPeerStations) {
+      stationCountMap.set(sc.gamingCenterId, sc._count._all);
+    }
+
+    for (const peerId of peerIds) {
+      const tenantRes = rawPeerReservations.filter((r) => r.gamingCenterId === peerId);
+      const totalRes = tenantRes.reduce((acc, r) => acc + r._count._all, 0);
+      const completedRes = tenantRes.find((r) => r.status === 'COMPLETED');
+      const completedCount = completedRes?._count._all || 0;
+      const completedHours = completedRes?._sum.totalHours || 0;
+
+      if (totalRes > 0) {
+        const compRate = Math.round((completedCount / totalRes) * 10000) / 100;
+        peerCompletionRates.push(compRate);
+      }
+
+      if (completedCount > 0) {
+        const avgDur = Math.round((completedHours / completedCount) * 100) / 100;
+        peerAvgDurations.push(avgDur);
+      }
+
+      const stCount = stationCountMap.get(peerId) || 0;
+      if (stCount > 0) {
+        const maxHours = stCount * daysCount * 24;
+        const utilRate = Math.round((completedHours / maxHours) * 10000) / 100;
+        peerStationUtilizations.push(utilRate);
+      }
+
+      const peerCustRes = rawPeerCustomers.filter((c) => c.gamingCenterId === peerId);
+      const activeCusts = peerCustRes.length;
+      if (activeCusts > 0) {
+        const repeatCusts = peerCustRes.filter((c) => c._count._all >= 2).length;
+        const repRate = Math.round((repeatCusts / activeCusts) * 10000) / 100;
+        peerRepeatVisitRates.push(repRate);
+      }
+    }
+
+    const completionRateAggregate = computeAggregateStats(peerCompletionRates);
+    const avgDurationAggregate = computeAggregateStats(peerAvgDurations);
+    const utilizationAggregate = computeAggregateStats(peerStationUtilizations);
+    const repeatVisitAggregate = computeAggregateStats(peerRepeatVisitRates);
+
+    return {
+      status: 'PUBLISHED',
+      isSuppressed: false,
+      peerCohortCount: k,
+      peerGroupCategory,
+      period: { startDate: dayStart, endDate: dayEnd, timeZone },
+      tenantMetrics,
+      benchmarks: {
+        completionRate: completionRateAggregate ? {
+          ...completionRateAggregate,
+          unit: 'PERCENTAGE',
+          diffFromMedian: Math.round((tenantCompletionRate - completionRateAggregate.median) * 100) / 100,
+        } : null,
+        averageSessionDurationHours: avgDurationAggregate ? {
+          ...avgDurationAggregate,
+          unit: 'HOURS',
+          diffFromMedian: Math.round((tenantAvgSessionDuration - avgDurationAggregate.median) * 100) / 100,
+        } : null,
+        stationUtilizationRate: utilizationAggregate ? {
+          ...utilizationAggregate,
+          unit: 'PERCENTAGE',
+          diffFromMedian: Math.round((tenantStationUtilization - utilizationAggregate.median) * 100) / 100,
+        } : null,
+        repeatVisitRate: repeatVisitAggregate ? {
+          ...repeatVisitAggregate,
+          unit: 'PERCENTAGE',
+          diffFromMedian: Math.round((tenantRepeatVisitRate - repeatVisitAggregate.median) * 100) / 100,
+        } : null,
+      },
+      dataFreshness: 'FRESH',
+      disclaimer: 'Benchmark aggregates exclude the requesting tenant\'s own metrics. Values are privacy-preserved using k-anonymity (k>=5).',
+    };
+  },
+
+  async getGrowthInsights(
+    gamingCenterId: string,
+    startDateInput: Date,
+    endDateInput: Date,
+    peerGroupCategory = 'ALL'
+  ) {
+    const { timeZone, dayStart, dayEnd } = await resolveTimezoneAndBoundaries(
+      gamingCenterId,
+      startDateInput,
+      endDateInput
+    );
+
+    const rangeDays = Math.max(differenceInDays(dayEnd, dayStart), 1);
+    const priorStart = subDays(dayStart, rangeDays);
+    const priorEnd = subDays(dayEnd, rangeDays);
+
+    const [currentSummary, priorSummary, benchmarksResult] = await Promise.all([
+      this.getSummary(gamingCenterId, startDateInput, endDateInput),
+      this.getSummary(gamingCenterId, priorStart, priorEnd),
+      this.getBenchmarks(gamingCenterId, startDateInput, endDateInput, peerGroupCategory),
+    ]);
+
+    const insights: Array<{
+      id: string;
+      title: string;
+      metric: string;
+      direction: 'IMPROVED' | 'DECLINED' | 'STABLE';
+      insightType: 'TREND_VS_PRIOR_PERIOD' | 'BENCHMARK_COMPARISON';
+      observedChange: string;
+      evidenceBasis: string;
+    }> = [];
+
+    // Trend Insight 1: Reservation Volume
+    const resDiff = currentSummary.totalReservations - priorSummary.totalReservations;
+    const resPctChange = priorSummary.totalReservations > 0
+      ? Math.round((resDiff / priorSummary.totalReservations) * 1000) / 10
+      : 0;
+
+    insights.push({
+      id: 'INSIGHT-001',
+      title: 'Reservation Volume Trend',
+      metric: 'totalReservations',
+      direction: resDiff > 0 ? 'IMPROVED' : resDiff < 0 ? 'DECLINED' : 'STABLE',
+      insightType: 'TREND_VS_PRIOR_PERIOD',
+      observedChange: `${resDiff >= 0 ? '+' : ''}${resDiff} reservations (${resPctChange >= 0 ? '+' : ''}${resPctChange}%)`,
+      evidenceBasis: `Current period: ${currentSummary.totalReservations} vs Prior period: ${priorSummary.totalReservations}`,
+    });
+
+    // Trend Insight 2: Completion Rate
+    const compDiff = Math.round((currentSummary.completionRate - priorSummary.completionRate) * 100) / 100;
+    insights.push({
+      id: 'INSIGHT-002',
+      title: 'Completion Rate Trend',
+      metric: 'completionRate',
+      direction: compDiff > 0 ? 'IMPROVED' : compDiff < 0 ? 'DECLINED' : 'STABLE',
+      insightType: 'TREND_VS_PRIOR_PERIOD',
+      observedChange: `${compDiff >= 0 ? '+' : ''}${compDiff}% percentage points`,
+      evidenceBasis: `Current completion rate: ${currentSummary.completionRate}% vs Prior completion rate: ${priorSummary.completionRate}%`,
+    });
+
+    // Benchmark Insights (if published)
+    if (benchmarksResult.status === 'PUBLISHED' && benchmarksResult.benchmarks) {
+      const bm = benchmarksResult.benchmarks;
+
+      if (bm.completionRate) {
+        const diff = bm.completionRate.diffFromMedian;
+        insights.push({
+          id: 'INSIGHT-003',
+          title: 'Completion Rate vs Peer Benchmark',
+          metric: 'completionRate',
+          direction: diff > 0 ? 'IMPROVED' : diff < 0 ? 'DECLINED' : 'STABLE',
+          insightType: 'BENCHMARK_COMPARISON',
+          observedChange: `${diff >= 0 ? '+' : ''}${diff}% relative to peer median (${bm.completionRate.median}%)`,
+          evidenceBasis: `Tenant: ${currentSummary.completionRate}% vs Peer Median: ${bm.completionRate.median}% across ${benchmarksResult.peerCohortCount} peers`,
+        });
+      }
+
+      if (bm.repeatVisitRate) {
+        const diff = bm.repeatVisitRate.diffFromMedian;
+        insights.push({
+          id: 'INSIGHT-004',
+          title: 'Customer Repeat Visit Rate vs Peer Benchmark',
+          metric: 'repeatVisitRate',
+          direction: diff > 0 ? 'IMPROVED' : diff < 0 ? 'DECLINED' : 'STABLE',
+          insightType: 'BENCHMARK_COMPARISON',
+          observedChange: `${diff >= 0 ? '+' : ''}${diff}% relative to peer median (${bm.repeatVisitRate.median}%)`,
+          evidenceBasis: `Tenant repeat visit rate: ${benchmarksResult.tenantMetrics.repeatVisitRate}% vs Peer Median: ${bm.repeatVisitRate.median}%`,
+        });
+      }
+    }
+
+    return {
+      period: { startDate: dayStart, endDate: dayEnd, timeZone },
+      priorPeriod: { startDate: priorStart, endDate: priorEnd },
+      insightCount: insights.length,
+      insights,
+      dataFreshness: 'FRESH',
+      disclaimer: 'Growth insights are descriptive observations grounded in historical operational data and peer benchmark aggregates.',
+    };
+  },
 };
+
+function computeAggregateStats(values: number[]): { median: number; mean: number; p25: number; p75: number } | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const sum = sorted.reduce((acc, v) => acc + v, 0);
+  const mean = Math.round((sum / sorted.length) * 100) / 100;
+
+  const median = percentile(sorted, 50);
+  const p25 = percentile(sorted, 25);
+  const p75 = percentile(sorted, 75);
+
+  return { median, mean, p25, p75 };
+}
+
+function percentile(sortedAsc: number[], p: number): number {
+  if (sortedAsc.length === 0) return 0;
+  if (sortedAsc.length === 1) return sortedAsc[0];
+  const rank = (p / 100) * (sortedAsc.length - 1);
+  const lower = Math.floor(rank);
+  const upper = Math.ceil(rank);
+  const weight = rank - lower;
+  const val = sortedAsc[lower] + weight * (sortedAsc[upper] - sortedAsc[lower]);
+  return Math.round(val * 100) / 100;
+}

@@ -840,4 +840,75 @@ export const AnalyticsRepo = {
       findings,
     };
   },
+
+  // Phase 7 Privacy-Preserving Benchmarking Cross-Tenant Queries
+  async getEligiblePeerGamingCenters(requestingGamingCenterId: string) {
+    return prisma.gamingCenter.findMany({
+      where: {
+        id: { not: requestingGamingCenterId },
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+  },
+
+  async getCrossTenantReservationStats(peerGamingCenterIds: string[], dayStart: Date, dayEnd: Date) {
+    if (peerGamingCenterIds.length === 0) return [];
+
+    return prisma.reservation.groupBy({
+      by: ['gamingCenterId', 'status'],
+      where: {
+        gamingCenterId: { in: peerGamingCenterIds },
+        startTime: { gte: dayStart, lte: dayEnd },
+      },
+      _count: { _all: true },
+      _sum: { totalPrice: true, totalHours: true },
+    });
+  },
+
+  async getCrossTenantGamingSessionStats(peerGamingCenterIds: string[], dayStart: Date, dayEnd: Date) {
+    if (peerGamingCenterIds.length === 0) return [];
+
+    return prisma.gamingSession.groupBy({
+      by: ['reservationId'],
+      where: {
+        reservation: {
+          gamingCenterId: { in: peerGamingCenterIds },
+          startTime: { gte: dayStart, lte: dayEnd },
+        },
+      },
+      _count: { _all: true },
+      _sum: { actualHours: true },
+    });
+  },
+
+  async getCrossTenantStationCounts(peerGamingCenterIds: string[]) {
+    if (peerGamingCenterIds.length === 0) return [];
+
+    return prisma.gameStation.groupBy({
+      by: ['gamingCenterId'],
+      where: {
+        gamingCenterId: { in: peerGamingCenterIds },
+        isActive: true,
+      },
+      _count: { _all: true },
+    });
+  },
+
+  async getCrossTenantCustomerStats(peerGamingCenterIds: string[], dayStart: Date, dayEnd: Date) {
+    if (peerGamingCenterIds.length === 0) return [];
+
+    return prisma.reservation.groupBy({
+      by: ['gamingCenterId', 'customerAccountId'],
+      where: {
+        gamingCenterId: { in: peerGamingCenterIds },
+        status: 'COMPLETED',
+        startTime: { gte: dayStart, lte: dayEnd },
+      },
+      _count: { _all: true },
+    });
+  },
 };
