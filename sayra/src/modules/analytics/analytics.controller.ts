@@ -155,6 +155,26 @@ const runFinancialReconciliation = asyncHandler(async (req: AppRequest, res: Res
   res.ok(result);
 });
 
+const getConversionFunnel = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { startDate, endDate } = req.query as unknown as AnalyticsQuery;
+  const result = await AnalyticsStation.getConversionFunnel(req.tenant.gamingCenterId, startDate, endDate);
+
+  res.ok(result);
+});
+
+const getDiscountAnalytics = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { startDate, endDate } = req.query as unknown as AnalyticsQuery;
+  const result = await AnalyticsStation.getDiscountAnalytics(req.tenant.gamingCenterId, startDate, endDate);
+
+  res.ok(result);
+});
+
+const getInstrumentationGaps = asyncHandler(async (_req: AppRequest, res: Response) => {
+  const result = await AnalyticsStation.getInstrumentationGaps();
+
+  res.ok(result);
+});
+
 export const AnalyticsController = {
   getSummary,
   getReservations,
@@ -175,4 +195,7 @@ export const AnalyticsController = {
   runFinancialReconciliation,
   getBenchmarks,
   getGrowthInsights,
+  getConversionFunnel,
+  getDiscountAnalytics,
+  getInstrumentationGaps,
 };

@@ -62,6 +62,9 @@ describe('AnalyticsStation Phase 7 Benchmarking & Growth Insights Unit Tests', (
     jest.spyOn(AnalyticsRepo, 'getCompletedCustomerReservations').mockResolvedValue([]);
     jest.spyOn(AnalyticsRepo, 'getCustomerAllHistoricalFirstVisits').mockResolvedValue([]);
     jest.spyOn(AnalyticsRepo, 'getCustomerAllHistoricalVisits').mockResolvedValue([]);
+    jest.spyOn(AnalyticsRepo, 'getRegisteredAccountsStats').mockResolvedValue({ registeredInPeriod: 5, totalRegistered: 20 });
+    jest.spyOn(AnalyticsRepo, 'getReservingCustomersCount').mockResolvedValue(8);
+    jest.spyOn(AnalyticsRepo, 'getPayingCustomersCount').mockResolvedValue(8);
   });
 
   describe('getBenchmarks', () => {

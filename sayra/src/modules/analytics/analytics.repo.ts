@@ -1012,4 +1012,109 @@ export const AnalyticsRepo = {
       },
     });
   },
+
+  // Extended Customer Entities & Funnel/Discount Repo Methods
+  async getRegisteredAccountsStats(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
+    const [registeredInPeriod, totalRegistered] = await Promise.all([
+      prisma.customerAccount.count({
+        where: {
+          profiles: { some: { gamingCenterId } },
+          createdAt: { gte: dayStart, lte: dayEnd },
+        },
+      }),
+      prisma.customerAccount.count({
+        where: {
+          profiles: { some: { gamingCenterId } },
+          createdAt: { lte: dayEnd },
+        },
+      }),
+    ]);
+
+    return { registeredInPeriod, totalRegistered };
+  },
+
+  async getReservingCustomersCount(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
+    const result = await prisma.reservation.groupBy({
+      by: ['customerAccountId'],
+      where: {
+        gamingCenterId,
+        startTime: { gte: dayStart, lte: dayEnd },
+      },
+    });
+    return result.filter((r) => Boolean(r.customerAccountId)).length;
+  },
+
+  async getPayingCustomersCount(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
+    const result = await prisma.payment.groupBy({
+      by: ['reservationId'],
+      where: {
+        gamingCenterId,
+        status: 'PAID',
+        paidAt: { gte: dayStart, lte: dayEnd },
+        reservationId: { not: null },
+      },
+    });
+
+    if (result.length === 0) return 0;
+
+    const reservationIds = result.map((r) => r.reservationId!).filter(Boolean);
+    const reservations = await prisma.reservation.findMany({
+      where: { id: { in: reservationIds } },
+      select: { customerAccountId: true },
+    });
+
+    const uniqueCustomerIds = new Set(reservations.map((r) => r.customerAccountId).filter(Boolean));
+    return uniqueCustomerIds.size;
+  },
+
+  async getFunnelReservations(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
+    return prisma.reservation.findMany({
+      where: {
+        gamingCenterId,
+        createdAt: { gte: dayStart, lte: dayEnd },
+      },
+      select: {
+        id: true,
+        customerAccountId: true,
+        createdAt: true,
+        startTime: true,
+        endTime: true,
+        status: true,
+        paymentState: true,
+        completedAt: true,
+        canceledAt: true,
+        payments: {
+          where: { status: 'PAID' },
+          select: { id: true, amount: true, paidAt: true, createdAt: true },
+          orderBy: { paidAt: 'asc' },
+        },
+        gamingSessions: {
+          select: { id: true, startTime: true, endTime: true, actualHours: true, status: true },
+          orderBy: { startTime: 'asc' },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  },
+
+  async getDiscountPerformanceReservations(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
+    return prisma.reservation.findMany({
+      where: {
+        gamingCenterId,
+        startTime: { gte: dayStart, lte: dayEnd },
+      },
+      select: {
+        id: true,
+        totalPrice: true,
+        discountAmount: true,
+        voucherCode: true,
+        discountId: true,
+        status: true,
+        paymentState: true,
+        discount: {
+          select: { id: true, targetType: true, valueType: true, value: true },
+        },
+      },
+    });
+  },
 };

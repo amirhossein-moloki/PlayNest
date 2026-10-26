@@ -39,4 +39,9 @@ router.get('/customers/top-spenders', validate(CustomerAnalyticsQuerySchema), An
 router.get('/benchmarks', validate(BenchmarkQuerySchema), AnalyticsController.getBenchmarks);
 router.get('/growth-insights', validate(BenchmarkQuerySchema), AnalyticsController.getGrowthInsights);
 
+// Growth Analytics, Funnel, Discount & Instrumentation Gap Endpoints
+router.get('/funnel', validate(AnalyticsQuerySchema), AnalyticsController.getConversionFunnel);
+router.get('/discounts', validate(AnalyticsQuerySchema), AnalyticsController.getDiscountAnalytics);
+router.get('/instrumentation-gaps', AnalyticsController.getInstrumentationGaps);
+
 export const analyticsRoutes = router;
