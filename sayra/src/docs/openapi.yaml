@@ -681,6 +681,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
       operationId: get_health
       description: Health Check
   /gamingCenters/{gamingCenterId}/discounts:
@@ -725,7 +727,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Pagination'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Discount'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -819,7 +831,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Discount'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -995,7 +1013,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Pagination'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
       operationId: get_notifications
@@ -1115,7 +1143,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ReservationTimeProposal'
       operationId: get_gamingCenters_gamingCenterId_reservation_reservationId_proposals
       description: List time proposals for reservation (Owner/Staff)
   /gamingCenters/{gamingCenterId}/reservations/{reservationId}/sessions/pause:
@@ -1164,7 +1200,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ReservationTimeProposal'
       operationId: get_customer_reservation_reservationId_proposals
       description: List my reservation time proposals
   /customer/reservation/{reservationId}/proposals/{proposalId}/accept:
@@ -1603,7 +1647,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Settings'
       operationId: get_gamingCenters_gamingCenterId_settings
       description: Get gamingCenter settings
     put:
@@ -1682,7 +1732,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Pagination'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Earning'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
       operationId: get_gamingCenters_gamingCenterId_commissions
       description: List reservation earnings (commissions)
   /gamingCenters/{gamingCenterId}/commissions/target-progress:
@@ -1731,7 +1791,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/CommissionPolicy'
       operationId: get_gamingCenters_gamingCenterId_commissions_policy
       description: Get commission policy
     post:
@@ -1891,7 +1957,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/SiteSettings'
       operationId: get_gamingCenters_gamingCenterId_site-settings
       description: Get site settings
     patch:
@@ -1998,7 +2070,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/GamingCenter'
       operationId: get_public_gamingCenters_gamingCenterSlug
       description: Get public gaming center info
   /public/gamingCenters/{gamingCenterSlug}/pages/{pageSlug}:
@@ -2103,7 +2181,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Rating'
       operationId: get_public_gamingCenters_gamingCenterSlug_ratings
       description: List public ratings
   /public/gamingCenters/{gamingCenterSlug}/reservation/{reservationId}/ratings:
@@ -2504,7 +2590,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Reservation'
       operationId: get_gamingCenters_gamingCenterId_reservation_reservationId
       description: Get reservation by ID
     patch:
@@ -2656,7 +2748,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Customer'
       operationId: get_customer_me
       description: Get current customer info
   /customer/reservation:
@@ -2773,7 +2871,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Staff'
       operationId: get_gamingCenters_gamingCenterId_staff
       description: List staff for a gamingCenter
     post:
@@ -2844,7 +2950,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GameStation'
       operationId: get_gamingCenters_gamingCenterId_stations
       description: List stations for a gamingCenter
     post:
@@ -3035,7 +3149,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Pagination'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Ticket'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
       operationId: get_tickets
       description: List own tickets (Customer)
     post:
@@ -3100,7 +3224,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Ticket'
       operationId: get_tickets_ticketId
       description: Get ticket details (Customer)
   /tickets/{ticketId}/messages:
@@ -3727,7 +3857,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Pagination'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WaitlistEntry'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
   /gamingCenters/{gamingCenterId}/waitlist/offers:
     get:
       summary: List waitlist offers
@@ -3749,7 +3889,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Pagination'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WaitlistOffer'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
   /customer/waitlist:
     post:
       summary: Create customer waitlist entry
@@ -3801,7 +3951,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Pagination'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WaitlistEntry'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
   /customer/waitlist/offers:
     get:
       summary: List my waitlist offers
@@ -3817,7 +3977,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Pagination'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WaitlistOffer'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
   /customer/waitlist/offers/{offerId}/accept:
     post:
       summary: Accept waitlist offer

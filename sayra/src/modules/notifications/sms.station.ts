@@ -1,12 +1,13 @@
 import { Smsir } from 'smsir-js';
 import { env } from '../../config/env';
+import logger from '../../config/logger';
 
 const apiKey = env.SMSIR_API_KEY;
 const lineNumber = env.SMSIR_LINE_NUMBER;
 const smsir = apiKey && lineNumber ? new Smsir(apiKey, lineNumber) : null;
 
 if (!smsir) {
-  console.warn('SMSIR_API_KEY and SMSIR_LINE_NUMBER are not set. SMS station will run in MOCK mode.');
+  logger.warn('SMSIR_API_KEY and SMSIR_LINE_NUMBER are not set. SMS station will run in MOCK mode.');
 }
 
 export const SmsStation = {

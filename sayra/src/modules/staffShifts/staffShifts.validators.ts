@@ -10,7 +10,7 @@ const shiftSchema = z.object({
 
 // Validation for the array of staffShifts in the request body
 export const upsertShiftsSchema = z.object({
-  body: z.array(shiftSchema).nonempty('Shifts array cannot be empty.'),
+  body: z.array(shiftSchema).nonempty('Shifts array cannot be empty.').max(50, 'Shifts array cannot exceed 50 items'),
 });
 
 export type UpsertShiftsInput = z.infer<typeof upsertShiftsSchema>['body'];
