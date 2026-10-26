@@ -8,6 +8,37 @@ function maskPhone(phone?: string | null): string {
   return phone.slice(0, 4) + '***' + phone.slice(-4);
 }
 
+function calculateOverlapHours(
+  startA: Date,
+  endA: Date | null | undefined,
+  startWindow: Date,
+  endWindow: Date
+): number {
+  const effectiveEndA = endA || endWindow;
+  const overlapStart = startA > startWindow ? startA : startWindow;
+  const overlapEnd = effectiveEndA < endWindow ? effectiveEndA : endWindow;
+
+  if (overlapEnd <= overlapStart) return 0;
+  return Math.round(((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60)) * 100) / 100;
+}
+
+function calculateDailyOperatingHours(openingTime?: string | null, closingTime?: string | null): number {
+  if (!openingTime || !closingTime) return 24;
+  const [openH, openM] = openingTime.split(':').map(Number);
+  const [closeH, closeM] = closingTime.split(':').map(Number);
+
+  if (isNaN(openH) || isNaN(openM) || isNaN(closeH) || isNaN(closeM)) return 24;
+
+  const openMinutes = openH * 60 + openM;
+  const closeMinutes = closeH * 60 + closeM;
+
+  if (closeMinutes <= openMinutes) {
+    return Math.round((((24 * 60 - openMinutes) + closeMinutes) / 60) * 100) / 100;
+  }
+
+  return Math.round(((closeMinutes - openMinutes) / 60) * 100) / 100;
+}
+
 export const AnalyticsStation = {
   async getSummary(gamingCenterId: string, startDateInput: Date, endDateInput: Date) {
     const { timeZone, dayStart, dayEnd } = await resolveTimezoneAndBoundaries(
@@ -65,11 +96,15 @@ export const AnalyticsStation = {
       endDateInput
     );
 
-    const [liveResStats, rawReservations, stationsList] = await Promise.all([
-      AnalyticsRepo.getLiveReservationStats(gamingCenterId, dayStart, dayEnd),
-      AnalyticsRepo.getReservationListForTrends(gamingCenterId, dayStart, dayEnd),
-      AnalyticsRepo.getStationDetails(gamingCenterId),
-    ]);
+    const [liveResStats, rawReservations, stationsList, leadTimeData, canceledWithPaidData, gamingSessionsData] =
+      await Promise.all([
+        AnalyticsRepo.getLiveReservationStats(gamingCenterId, dayStart, dayEnd),
+        AnalyticsRepo.getReservationListForTrends(gamingCenterId, dayStart, dayEnd),
+        AnalyticsRepo.getStationDetails(gamingCenterId),
+        AnalyticsRepo.getReservationLeadTimeStats(gamingCenterId, dayStart, dayEnd),
+        AnalyticsRepo.getCanceledWithPaidStats(gamingCenterId, dayStart, dayEnd),
+        AnalyticsRepo.getStationGamingSessionStats(gamingCenterId, dayStart, dayEnd),
+      ]);
 
     const allStatuses = ['CONFIRMED', 'COMPLETED', 'CANCELED', 'NO_SHOW', 'EXPIRED', 'PENDING', 'IN_PROGRESS'];
     const statusDistribution = allStatuses.map((st) => {
@@ -86,20 +121,79 @@ export const AnalyticsStation = {
     const completed = statusDistribution.find((s) => s.status === 'COMPLETED');
     const canceled = statusDistribution.find((s) => s.status === 'CANCELED');
     const noShow = statusDistribution.find((s) => s.status === 'NO_SHOW');
+    const expired = statusDistribution.find((s) => s.status === 'EXPIRED');
 
     const completedCount = completed?.count || 0;
     const canceledCount = canceled?.count || 0;
     const noShowCount = noShow?.count || 0;
+    const expiredCount = expired?.count || 0;
 
-    const completionRate = totalReservations > 0 ? Math.round((completedCount / totalReservations) * 10000) / 100 : 0;
-    const cancellationRate = totalReservations > 0 ? Math.round((canceledCount / totalReservations) * 10000) / 100 : 0;
-    const noShowRate = totalReservations > 0 ? Math.round((noShowCount / totalReservations) * 10000) / 100 : 0;
+    // Explicit denominator definitions:
+    // completionRate: completed / eligibleForCompletion (COMPLETED + CANCELED + NO_SHOW + EXPIRED)
+    const eligibleForCompletion = completedCount + canceledCount + noShowCount + expiredCount;
+    const completionRate =
+      eligibleForCompletion > 0 ? Math.round((completedCount / eligibleForCompletion) * 10000) / 100 : 0;
 
-    const averageDurationHours = completedCount > 0 ? Math.round(((completed?.totalHours || 0) / completedCount) * 100) / 100 : 0;
-    const averageReservationValue = completedCount > 0 ? Math.round((completed?.totalPrice || 0) / completedCount) : 0;
+    // cancellationRate: canceled / totalReservations created
+    const cancellationRate =
+      totalReservations > 0 ? Math.round((canceledCount / totalReservations) * 10000) / 100 : 0;
+
+    // noShowRate: noShow / eligibleForAttendance (COMPLETED + CANCELED + NO_SHOW)
+    const eligibleForAttendance = completedCount + canceledCount + noShowCount;
+    const noShowRate =
+      eligibleForAttendance > 0 ? Math.round((noShowCount / eligibleForAttendance) * 10000) / 100 : 0;
+
+    const averageDurationHours =
+      completedCount > 0 ? Math.round(((completed?.totalHours || 0) / completedCount) * 100) / 100 : 0;
+    const averageReservationValue =
+      completedCount > 0 ? Math.round((completed?.totalPrice || 0) / completedCount) : 0;
+
+    // Lead time calculation (startTime - createdAt)
+    const leadTimeMinutesList = leadTimeData
+      .map((r) => {
+        const diffMs = r.startTime.getTime() - r.createdAt.getTime();
+        return diffMs > 0 ? Math.round(diffMs / (1000 * 60)) : 0;
+      })
+      .sort((a, b) => a - b);
+
+    const leadTimeCount = leadTimeMinutesList.length;
+    const totalLeadTimeMinutes = leadTimeMinutesList.reduce((acc, m) => acc + m, 0);
+    const averageLeadTimeMinutes = leadTimeCount > 0 ? Math.round(totalLeadTimeMinutes / leadTimeCount) : 0;
+
+    let medianLeadTimeMinutes = 0;
+    if (leadTimeCount > 0) {
+      const mid = Math.floor(leadTimeCount / 2);
+      medianLeadTimeMinutes =
+        leadTimeCount % 2 !== 0
+          ? leadTimeMinutesList[mid]
+          : Math.round((leadTimeMinutesList[mid - 1] + leadTimeMinutesList[mid]) / 2);
+    }
+
+    // Planned vs Actual Duration
+    const totalPlannedHours = liveResStats.byStatus.reduce((acc, s) => acc + (s._sum.totalHours || 0), 0);
+    const totalActualHours = gamingSessionsData.reduce((acc, gs) => {
+      if (gs.actualHours && gs.actualHours > 0) {
+        return acc + gs.actualHours;
+      }
+      return acc + calculateOverlapHours(gs.startTime, gs.endTime, dayStart, dayEnd);
+    }, 0);
+
+    // Canceled reservations with paid status tracking
+    const canceledWithPaidCount = canceledWithPaidData.length;
+    const unrefundedCanceledAmount = canceledWithPaidData.reduce((acc, res) => {
+      const totalPaid = res.payments.reduce((pAcc, p) => pAcc + p.amount, 0);
+      const totalRefunded = res.payments.reduce(
+        (pAcc, p) => pAcc + p.refunds.reduce((rAcc, r) => rAcc + r.amount, 0),
+        0
+      );
+      return acc + Math.max(0, totalPaid - totalRefunded);
+    }, 0);
 
     // Trends calculation
-    const trendsMap = new Map<string, { date: string; total: number; completed: number; canceled: number; revenue: number }>();
+    const trendsMap = new Map<
+      string,
+      { date: string; total: number; completed: number; canceled: number; revenue: number }
+    >();
     for (const r of rawReservations) {
       const dateStr = formatInTimeZone(r.startTime, timeZone, 'yyyy-MM-dd');
       const entry = trendsMap.get(dateStr) || { date: dateStr, total: 0, completed: 0, canceled: 0, revenue: 0 };
@@ -136,6 +230,14 @@ export const AnalyticsStation = {
         noShowRate,
         averageDurationHours,
         averageReservationValue,
+        averageLeadTimeMinutes,
+        medianLeadTimeMinutes,
+        totalPlannedHours: Math.round(totalPlannedHours * 100) / 100,
+        totalActualHours: Math.round(totalActualHours * 100) / 100,
+      },
+      anomalies: {
+        canceledWithPaidCount,
+        unrefundedCanceledAmount: Math.round(unrefundedCanceledAmount),
       },
       statusDistribution,
       stationBreakdown,
@@ -299,22 +401,61 @@ export const AnalyticsStation = {
       endDateInput
     );
 
-    const [liveResStats, stationsList] = await Promise.all([
+    const [liveResStats, stationsList, centerDetails, maintenanceList, sessionList] = await Promise.all([
       AnalyticsRepo.getLiveReservationStats(gamingCenterId, dayStart, dayEnd),
       AnalyticsRepo.getStationDetails(gamingCenterId),
+      AnalyticsRepo.getGamingCenterDetails(gamingCenterId),
+      AnalyticsRepo.getStationMaintenanceStats(gamingCenterId, dayStart, dayEnd),
+      AnalyticsRepo.getStationGamingSessionStats(gamingCenterId, dayStart, dayEnd),
     ]);
 
     const daysCount = Math.max(differenceInDays(dayEnd, dayStart), 1);
+    const dailyOperatingHours = calculateDailyOperatingHours(
+      centerDetails?.openingTime,
+      centerDetails?.closingTime
+    );
+    const totalOperatingHours = Math.round(daysCount * dailyOperatingHours * 100) / 100;
 
     const performance = stationsList.map((station) => {
       const found = liveResStats.byStation.find((s) => s.stationId === station.id);
-      const totalHours = found?._sum.totalHours || 0;
+      const plannedHoursBooked = found?._sum.totalHours || 0;
       const revenue = found?._sum.totalPrice || 0;
       const reservationCount = found?._count._all || 0;
 
-      // Assuming 24 hours per day max availability per station
-      const maxPossibleHours = daysCount * 24;
-      const utilizationRate = maxPossibleHours > 0 ? Math.round((totalHours / maxPossibleHours) * 10000) / 100 : 0;
+      // Station maintenance downtime
+      const stationMaintenances = maintenanceList.filter((m) => m.stationId === station.id);
+      const downtimeHours = stationMaintenances.reduce((acc, m) => {
+        return acc + calculateOverlapHours(m.startTime, m.endTime, dayStart, dayEnd);
+      }, 0);
+
+      // Available operational capacity (Operating Hours - Downtime)
+      const availableOperationalHours = Math.max(0, Math.round((totalOperatingHours - downtimeHours) * 100) / 100);
+
+      // Actual gaming session usage
+      const stationSessions = sessionList.filter((s) => s.stationId === station.id);
+      const actualSessionHours = stationSessions.reduce((acc, gs) => {
+        if (gs.actualHours && gs.actualHours > 0) {
+          return acc + gs.actualHours;
+        }
+        return acc + calculateOverlapHours(gs.startTime, gs.endTime, dayStart, dayEnd);
+      }, 0);
+
+      // Rates calculation with zero-denominator protection
+      // 1. bookingRate (planned hours booked / available capacity)
+      const bookingRate =
+        availableOperationalHours > 0
+          ? Math.min(100, Math.round((plannedHoursBooked / availableOperationalHours) * 10000) / 100)
+          : 0;
+
+      // 2. utilizationRate (actual session hours / available capacity)
+      const utilizationRate =
+        availableOperationalHours > 0
+          ? Math.min(100, Math.round((actualSessionHours / availableOperationalHours) * 10000) / 100)
+          : 0;
+
+      // Revenue per available station hour
+      const revenuePerAvailableStationHour =
+        availableOperationalHours > 0 ? Math.round(revenue / availableOperationalHours) : 0;
 
       return {
         stationId: station.id,
@@ -322,8 +463,13 @@ export const AnalyticsStation = {
         stationType: station.stationType,
         isActive: station.isActive,
         reservationCount,
-        totalHoursBooked: totalHours,
+        plannedHoursBooked: Math.round(plannedHoursBooked * 100) / 100,
+        actualSessionHours: Math.round(actualSessionHours * 100) / 100,
+        downtimeHours: Math.round(downtimeHours * 100) / 100,
+        availableOperationalHours,
         revenue,
+        revenuePerAvailableStationHour,
+        bookingRate,
         utilizationRate,
       };
     });

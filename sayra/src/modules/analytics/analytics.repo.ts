@@ -911,4 +911,105 @@ export const AnalyticsRepo = {
       _count: { _all: true },
     });
   },
+
+  async getGamingCenterDetails(gamingCenterId: string) {
+    return prisma.gamingCenter.findUnique({
+      where: { id: gamingCenterId },
+      select: {
+        id: true,
+        name: true,
+        openingTime: true,
+        closingTime: true,
+        pcCount: true,
+        consoleCount: true,
+        isActive: true,
+      },
+    });
+  },
+
+  async getStationMaintenanceStats(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
+    return prisma.stationMaintenance.findMany({
+      where: {
+        station: { gamingCenterId },
+        startTime: { lte: dayEnd },
+        OR: [{ endTime: { gte: dayStart } }, { endTime: null }],
+      },
+      select: {
+        id: true,
+        stationId: true,
+        startTime: true,
+        endTime: true,
+        reason: true,
+        cost: true,
+      },
+    });
+  },
+
+  async getStationGamingSessionStats(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
+    return prisma.gamingSession.findMany({
+      where: {
+        station: { gamingCenterId },
+        startTime: { lte: dayEnd },
+        OR: [{ endTime: { gte: dayStart } }, { endTime: null }],
+      },
+      select: {
+        id: true,
+        stationId: true,
+        reservationId: true,
+        startTime: true,
+        endTime: true,
+        actualHours: true,
+        pausedMinutes: true,
+        status: true,
+      },
+    });
+  },
+
+  async getReservationLeadTimeStats(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
+    return prisma.reservation.findMany({
+      where: {
+        gamingCenterId,
+        startTime: { gte: dayStart, lte: dayEnd },
+      },
+      select: {
+        id: true,
+        createdAt: true,
+        startTime: true,
+        endTime: true,
+        totalHours: true,
+        status: true,
+      },
+    });
+  },
+
+  async getCanceledWithPaidStats(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
+    return prisma.reservation.findMany({
+      where: {
+        gamingCenterId,
+        status: 'CANCELED',
+        paymentState: 'PAID',
+        startTime: { gte: dayStart, lte: dayEnd },
+      },
+      select: {
+        id: true,
+        totalPrice: true,
+        startTime: true,
+        createdAt: true,
+        canceledAt: true,
+        cancelReason: true,
+        payments: {
+          where: { status: 'PAID' },
+          select: {
+            id: true,
+            amount: true,
+            paidAt: true,
+            refunds: {
+              where: { status: 'SUCCESSFUL' },
+              select: { id: true, amount: true, processedAt: true },
+            },
+          },
+        },
+      },
+    });
+  },
 };
