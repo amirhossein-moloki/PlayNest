@@ -1,7 +1,122 @@
-import { Prisma, Discount } from '@prisma/client';
+import { Prisma, Discount, DiscountCampaign, DiscountUsage } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
 export const DiscountsRepo = {
+  // Campaign methods
+  async createCampaign(
+    data: Prisma.DiscountCampaignUncheckedCreateInput,
+    tx?: Prisma.TransactionClient
+  ): Promise<DiscountCampaign> {
+    const client = tx || prisma;
+    return client.discountCampaign.create({ data });
+  },
+
+  async findCampaignById(
+    id: string,
+    gamingCenterId?: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<DiscountCampaign | null> {
+    const client = tx || prisma;
+    const where: Prisma.DiscountCampaignWhereInput = { id };
+    if (gamingCenterId) {
+      where.OR = [
+        { gamingCenterId },
+        { gamingCenterId: null },
+      ];
+    }
+    return client.discountCampaign.findFirst({ where });
+  },
+
+  async findCampaignByCode(
+    code: string,
+    gamingCenterId?: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<DiscountCampaign | null> {
+    const client = tx || prisma;
+    const where: Prisma.DiscountCampaignWhereInput = {
+      code: { equals: code, mode: 'insensitive' },
+      isActive: true,
+    };
+    if (gamingCenterId) {
+      where.OR = [
+        { gamingCenterId },
+        { gamingCenterId: null },
+      ];
+    }
+    return client.discountCampaign.findFirst({ where });
+  },
+
+  async findCampaignByCodeForUpdate(
+    code: string,
+    gamingCenterId: string,
+    tx: Prisma.TransactionClient
+  ): Promise<DiscountCampaign | null> {
+    // Acquire row-level lock via RAW query to prevent concurrent double-spend/over-budget
+    const results = await tx.$queryRaw<DiscountCampaign[]>`
+      SELECT * FROM "DiscountCampaign"
+      WHERE LOWER("code") = LOWER(${code})
+        AND "isActive" = true
+        AND ("gamingCenterId" = ${gamingCenterId} OR "gamingCenterId" IS NULL)
+      FOR UPDATE
+    `;
+    return results[0] || null;
+  },
+
+  async updateCampaign(
+    id: string,
+    data: Prisma.DiscountCampaignUncheckedUpdateInput,
+    tx?: Prisma.TransactionClient
+  ): Promise<DiscountCampaign> {
+    const client = tx || prisma;
+    return client.discountCampaign.update({
+      where: { id },
+      data,
+    });
+  },
+
+  async findManyCampaigns(
+    where: Prisma.DiscountCampaignWhereInput,
+    skip?: number,
+    take?: number,
+    orderBy: Prisma.DiscountCampaignOrderByWithRelationInput = { createdAt: 'desc' },
+    tx?: Prisma.TransactionClient
+  ): Promise<DiscountCampaign[]> {
+    const client = tx || prisma;
+    return client.discountCampaign.findMany({
+      where,
+      skip,
+      take,
+      orderBy,
+    });
+  },
+
+  async countCampaigns(
+    where: Prisma.DiscountCampaignWhereInput,
+    tx?: Prisma.TransactionClient
+  ): Promise<number> {
+    const client = tx || prisma;
+    return client.discountCampaign.count({ where });
+  },
+
+  async countUserCampaignUsages(
+    campaignId: string,
+    customerAccountId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<number> {
+    const client = tx || prisma;
+    return client.discountUsage.count({
+      where: { campaignId, customerAccountId },
+    });
+  },
+
+  async createDiscountUsage(
+    data: Prisma.DiscountUsageUncheckedCreateInput,
+    tx?: Prisma.TransactionClient
+  ): Promise<DiscountUsage> {
+    const client = tx || prisma;
+    return client.discountUsage.create({ data });
+  },
+
   async createDiscount(
     data: Prisma.DiscountUncheckedCreateInput,
     tx?: Prisma.TransactionClient

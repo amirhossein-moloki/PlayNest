@@ -359,6 +359,17 @@ enum DiscountValueType {
   FIXED_AMOUNT
 }
 
+enum DiscountFundingSource {
+  PLATFORM
+  CAMPAIGN_BUDGET
+  MERCHANT_FUNDED
+}
+
+enum DiscountCodeType {
+  PROMO_CODE
+  AUTOMATIC
+}
+
 enum RefundStatus {
   PENDING
   SUCCESSFUL
@@ -434,6 +445,7 @@ model GamingCenter {
   earnings         Earning[]
   auditLogs        AuditLog[]
   discounts        Discount[]
+  discountCampaigns DiscountCampaign[]
 
   // New features
   tournaments Tournament[]
@@ -487,6 +499,7 @@ model User {
   canceledReservations Reservation[]  @relation("ReservationCanceler")
   proposalsCreated     ReservationTimeProposal[] @relation("ProposalCreator")
   discountsCreated     Discount[]     @relation("DiscountCreator")
+  campaignsCreated     DiscountCampaign[] @relation("CampaignCreator")
   groupBookingsCreated GroupBooking[] @relation("GroupBookingCreator")
   canceledGroupBookings GroupBooking[] @relation("GroupBookingCanceler")
 
@@ -543,6 +556,7 @@ model CustomerAccount {
   auditLogs          AuditLog[]
   memberships        Membership[]
   groupBookings      GroupBooking[]
+  discountUsages     DiscountUsage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1223,9 +1237,17 @@ model Reservation {
   totalHours     Float
   totalPrice     Float
   discountAmount Float                   @default(0)
+  originalAmount Float                   @default(0)
+  customerPayableAmount Float            @default(0)
+  platformFundedDiscount Float           @default(0)
+  merchantPayoutAmount Float             @default(0)
+  discountFundingSource DiscountFundingSource?
   voucherCode    String?
   discountId     String?
   discount       Discount?               @relation(fields: [discountId], references: [id], onDelete: SetNull)
+  campaignId     String?
+  campaign       DiscountCampaign?       @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  discountUsages DiscountUsage[]
   paymentState   ReservationPaymentState @default(UNPAID)
 
   status ReservationStatus @default(CONFIRMED)
@@ -1807,6 +1829,71 @@ model Discount {
   @@index([gamingCenterId, targetType, targetId])
 }
 
+model DiscountCampaign {
+  id             String                @id @default(cuid())
+  gamingCenterId String?
+  gamingCenter   GamingCenter?         @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+
+  name           String
+  code           String?               @unique
+  codeType       DiscountCodeType      @default(PROMO_CODE)
+  description    String?
+
+  targetType     DiscountTargetType    @default(GAMING_CENTER)
+  targetId       String?
+
+  valueType      DiscountValueType     @default(PERCENTAGE)
+  value          Float
+  maxDiscountAmount Float?
+  minReservationAmount Float?
+
+  fundingSource  DiscountFundingSource @default(PLATFORM)
+
+  totalBudget    Float?
+  usedBudget     Float                 @default(0)
+
+  maxUsageCount  Int?
+  currentUsageCount Int                @default(0)
+
+  maxUsagePerUser Int                  @default(1)
+
+  startAt        DateTime              @db.Timestamptz(6)
+  endAt          DateTime              @db.Timestamptz(6)
+  isActive       Boolean               @default(true)
+
+  createdByUserId String?
+  createdBy       User?                @relation("CampaignCreator", fields: [createdByUserId], references: [id])
+
+  reservations   Reservation[]
+  usages         DiscountUsage[]
+
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@index([gamingCenterId, isActive, startAt, endAt])
+  @@index([code])
+}
+
+model DiscountUsage {
+  id                String                @id @default(cuid())
+  campaignId        String
+  campaign          DiscountCampaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  reservationId     String
+  reservation       Reservation           @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  customerAccountId String
+  customerAccount   CustomerAccount       @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+
+  discountAmount    Float
+  fundingSource     DiscountFundingSource @default(PLATFORM)
+
+  createdAt         DateTime              @default(now())
+
+  @@index([campaignId, customerAccountId])
+  @@index([reservationId])
+}
+
 model TicketMessage {
   id String @id @default(cuid())
 
@@ -2110,6 +2197,12 @@ model AnalyticsReservation {
   totalHours        Float
   totalPrice        Float
   discountAmount    Float                   @default(0)
+  originalAmount    Float                   @default(0)
+  customerPayableAmount Float            @default(0)
+  platformFundedDiscount Float           @default(0)
+  merchantPayoutAmount Float             @default(0)
+  discountFundingSource DiscountFundingSource?
+  campaignId        String?
   paymentState      ReservationPaymentState @default(UNPAID)
   status            ReservationStatus       @default(CONFIRMED)
   source            ReservationSource       @default(WALK_IN)

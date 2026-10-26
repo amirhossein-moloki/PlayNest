@@ -40,7 +40,7 @@ const initiatePayment = async ({
   }
 
   // 3. Trusted server-side price & currency calculation
-  const calculatedAmount = Math.round(reservation.totalPrice);
+  const calculatedAmount = Math.round(reservation.customerPayableAmount > 0 ? reservation.customerPayableAmount : reservation.totalPrice);
   if (calculatedAmount <= 0) {
     throw new AppError('Invalid reservation total price for payment.', httpStatus.BAD_REQUEST);
   }
