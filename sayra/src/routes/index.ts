@@ -124,6 +124,7 @@ router.use('/admin/tickets', ticketAdminRouter);
 
 // --- Analytics Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/analytics', analyticsRoutes);
+router.use('/gamingCenters/:gamingCenterId', dashboardAdminUiRouter);
 router.use('/admin', dashboardAdminUiRouter);
 
 // --- Gaming Sessions Module Routes ---
