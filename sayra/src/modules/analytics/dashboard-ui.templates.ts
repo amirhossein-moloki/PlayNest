@@ -168,6 +168,45 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
         background: var(--primary-hover);
       }
 
+      .btn-secondary {
+        background: #f1f5f9;
+        color: var(--text-primary);
+        border-color: #cbd5e1;
+      }
+
+      .btn-secondary:hover {
+        background: #e2e8f0;
+      }
+
+      .btn-export {
+        font-size: 11px;
+        padding: 4px 10px;
+        background: #f8fafc;
+        color: var(--primary);
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+
+      .btn-export:hover {
+        background: #eff6ff;
+      }
+
+      .info-icon {
+        display: inline-block;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        background: #cbd5e1;
+        color: #0f172a;
+        font-size: 10px;
+        line-height: 15px;
+        text-align: center;
+        margin-left: 4px;
+        cursor: help;
+        font-weight: bold;
+      }
+
       .grid-kpi {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -190,6 +229,9 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
         letter-spacing: 0.05em;
         color: var(--text-secondary);
         margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
       }
 
       .kpi-card .kpi-value {
@@ -197,6 +239,7 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
         font-weight: 700;
         color: var(--text-primary);
         letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
       }
 
       .kpi-card .kpi-subtext {
@@ -252,12 +295,12 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
         font-weight: 600;
       }
 
-      .status-COMPLETED, .status-PAID, .status-SUCCESSFUL {
+      .status-COMPLETED, .status-PAID, .status-SUCCESSFUL, .status-PUBLISHED {
         background: #dcfce7;
         color: #15803d;
       }
 
-      .status-CANCELED, .status-FAILED {
+      .status-CANCELED, .status-FAILED, .status-SUPPRESSED {
         background: #fee2e2;
         color: #b91c1c;
       }
@@ -289,6 +332,28 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
         font-size: 13px;
       }
 
+      .insight-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin-bottom: 10px;
+      }
+
+      .insight-title {
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .insight-body {
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+
       @media (max-width: 768px) {
         main { padding: 16px; }
         .grid-sections { grid-template-columns: 1fr; }
@@ -299,7 +364,7 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
     <header>
       <div class="header-title">
         <h1>Internal Management Dashboard</h1>
-        <div class="subtitle">GamingCenter ID: ${gamingCenterId} • Operational & Customer Analytics</div>
+        <div class="subtitle">GamingCenter ID: ${gamingCenterId} • Operational, Financial & Customer Analytics</div>
       </div>
       <div class="header-controls">
         <div id="freshnessBadge" class="freshness-badge">
@@ -320,13 +385,14 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
           <input type="date" id="startDate" />
           <label for="endDate">End Date:</label>
           <input type="date" id="endDate" />
-          <button id="applyFilterBtn" class="btn">Apply Filter</button>
+          <button id="applyFilterBtn" class="btn btn-primary">Apply Filter</button>
+          <button id="resetFilterBtn" class="btn btn-secondary">Reset Filters</button>
         </div>
         <div class="filter-group">
           <label for="currencyFilter">Currency:</label>
           <select id="currencyFilter">
             <option value="IRR">IRR (Rials)</option>
-            <option value="IRT">IRT (Toman)</option>
+            <option value="IRT">IRT (Tomans)</option>
           </select>
         </div>
       </div>
@@ -334,24 +400,69 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
       <!-- KPI Summary Cards -->
       <div class="grid-kpi">
         <div class="card kpi-card">
-          <div class="kpi-title">Total Revenue (Recognized)</div>
+          <div class="kpi-title">
+            <span>Total Revenue (Recognized)</span>
+            <span class="info-icon" title="Sum of totalPrice for completed reservations in selected period.">?</span>
+          </div>
           <div class="kpi-value" id="kpiTotalRevenue">-</div>
           <div class="kpi-subtext" id="kpiAverageOrder">-</div>
         </div>
         <div class="card kpi-card">
-          <div class="kpi-title">Realized Cash Collected</div>
+          <div class="kpi-title">
+            <span>Realized Cash Collected</span>
+            <span class="info-icon" title="Actual gross cash payment transactions paid in selected period.">?</span>
+          </div>
           <div class="kpi-value" id="kpiRealizedCash">-</div>
-          <div class="kpi-subtext">Gross paid payments</div>
+          <div class="kpi-subtext">Gross paid transactions</div>
         </div>
         <div class="card kpi-card">
-          <div class="kpi-title">Active Customers</div>
+          <div class="kpi-title">
+            <span>Active Customers</span>
+            <span class="info-icon" title="Unique customer accounts with at least one completed reservation in period.">?</span>
+          </div>
           <div class="kpi-value" id="kpiActiveCustomers">-</div>
           <div class="kpi-subtext" id="kpiNewVsReturning">-</div>
         </div>
         <div class="card kpi-card">
-          <div class="kpi-title">Repeat Visit Rate</div>
+          <div class="kpi-title">
+            <span>Repeat Visit Rate</span>
+            <span class="info-icon" title="Percentage of active customers in period who booked 2 or more reservations.">?</span>
+          </div>
           <div class="kpi-value" id="kpiRepeatRate">-</div>
           <div class="kpi-subtext" id="kpiAvgDaysBetween">-</div>
+        </div>
+      </div>
+
+      <!-- Phase 7 Peer Benchmarking & Growth Insights Section -->
+      <div class="grid-sections">
+        <div class="card">
+          <div class="section-title">
+            <span>
+              Peer Benchmarks (Phase 7)
+              <span class="info-icon" title="Privacy-preserving cross-tenant benchmark median comparison enforcing k-anonymity (k >= 5) cohort suppression.">?</span>
+            </span>
+            <span id="benchmarkStatusBadge" class="status-badge status-PUBLISHED">Checking...</span>
+          </div>
+          <table id="tblBenchmarks">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th>Tenant Value</th>
+                <th class="amount-col">Peer Median</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="section-title">
+            <span>
+              Growth Insights (Phase 7)
+              <span class="info-icon" title="Automated, fact-backed insights comparing current period vs prior period performance and peer benchmarks.">?</span>
+            </span>
+          </div>
+          <div id="containerGrowthInsights"></div>
         </div>
       </div>
 
@@ -359,7 +470,12 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
       <div class="grid-sections">
         <!-- Customer Segmentation -->
         <div class="card">
-          <div class="section-title">Customer Segments</div>
+          <div class="section-title">
+            <span>
+              Customer Segments
+              <span class="info-icon" title="Deterministic segmentation rules: NEW (1st visit), REPEAT (>=2 visits), VIP (top 10% spend), AT_RISK (inactive > 45 days).">?</span>
+            </span>
+          </div>
           <table id="tblCustomerSegments">
             <thead>
               <tr>
@@ -375,8 +491,11 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
         <!-- Top Spenders -->
         <div class="card">
           <div class="section-title">
-            Top Customer Spenders
-            <span class="status-badge status-PAID">Masked PII</span>
+            <span>
+              Top Customer Spenders
+              <span class="status-badge status-PAID" title="Phone numbers are masked to protect PII">Masked PII</span>
+            </span>
+            <button id="exportTopSpendersBtn" class="btn-export">Export CSV</button>
           </div>
           <table id="tblTopSpenders">
             <thead>
@@ -396,8 +515,14 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
       <div class="grid-sections">
         <div class="card" style="grid-column: span 2;">
           <div class="section-title">
-            Financial Reconciliation Diagnostics (Phase 4)
-            <button id="runReconciliationBtn" class="btn btn-primary" style="font-size: 11px; padding: 4px 10px;">Run Audit Check</button>
+            <span>
+              Financial Reconciliation Diagnostics (Phase 4)
+              <span class="info-icon" title="Non-mutative diagnostic checks matching payments against ledger entries, refunds, and wallet balances (Rules REC-001 through REC-006).">?</span>
+            </span>
+            <div>
+              <button id="runReconciliationBtn" class="btn btn-primary" style="font-size: 11px; padding: 4px 10px; margin-right: 6px;">Run Audit Check</button>
+              <button id="exportReconciliationBtn" class="btn-export">Export CSV</button>
+            </div>
           </div>
           <table id="tblReconciliationFindings">
             <thead>
@@ -421,13 +546,16 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
         <!-- Financial Overview -->
         <div class="card">
           <div class="section-title">
-            Financial Breakdown
-            <span id="financialCurrencyBadge" class="status-badge status-PAID">IRR</span>
+            <span>
+              Financial Breakdown
+              <span id="financialCurrencyBadge" class="status-badge status-PAID">IRR</span>
+            </span>
+            <button id="exportFinancialsBtn" class="btn-export">Export CSV</button>
           </div>
-          <table>
+          <table id="tblFinancialSummary">
             <tbody>
               <tr>
-                <td>Gross Collected (Paid Payments)</td>
+                <td>Gross Collected (Paid Transactions)</td>
                 <td class="amount-col" id="finGrossCollected">-</td>
               </tr>
               <tr>
@@ -458,7 +586,12 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
 
         <!-- Station Performance -->
         <div class="card">
-          <div class="section-title">Game Station Utilization</div>
+          <div class="section-title">
+            <span>
+              Game Station Utilization
+              <span class="info-icon" title="Hourly utilization rate calculated as (hours booked / available operating hours in period) * 100.">?</span>
+            </span>
+          </div>
           <table id="tblStationPerformance">
             <thead>
               <tr>
@@ -477,7 +610,9 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
       <div class="grid-sections">
         <!-- Operations (Waitlist & Notifications) -->
         <div class="card">
-          <div class="section-title">Operational Health</div>
+          <div class="section-title">
+            <span>Operational Health</span>
+          </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
             <div style="background: var(--bg-main); padding: 12px; border-radius: 8px; text-align: center;">
               <div style="font-size: 11px; color: var(--text-secondary);">WAITLIST CONVERSION</div>
@@ -530,6 +665,7 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
       const authTokenInput = document.getElementById('authToken');
       const errorBox = document.getElementById('errorBox');
       const loadingOverlay = document.getElementById('loadingOverlay');
+      const currencyFilterSelect = document.getElementById('currencyFilter');
 
       // Date Defaults (Last 30 days)
       const endDateInput = document.getElementById('endDate');
@@ -537,8 +673,12 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
       const today = new Date().toISOString().split('T')[0];
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-      endDateInput.value = today;
-      startDateInput.value = thirtyDaysAgo;
+      function setDateDefaults() {
+        endDateInput.value = today;
+        startDateInput.value = thirtyDaysAgo;
+        currencyFilterSelect.value = 'IRR';
+      }
+      setDateDefaults();
 
       // Token Persistence
       const storedToken = localStorage.getItem('sayraAdminToken');
@@ -547,8 +687,14 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
         localStorage.setItem('sayraAdminToken', authTokenInput.value.trim());
       });
 
-      function formatIRR(amount) {
-        return (amount || 0).toLocaleString('fa-IR') + ' Rial';
+      function formatMoney(amount) {
+        const curr = currencyFilterSelect.value;
+        const val = amount || 0;
+        if (curr === 'IRT') {
+          // Backend converts IRR minor units to IRT when currency=IRT parameter is passed, or client converts
+          return val.toLocaleString('fa-IR') + ' Toman';
+        }
+        return val.toLocaleString('fa-IR') + ' Rial';
       }
 
       function getAuthHeaders() {
@@ -562,9 +708,38 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({ message: res.statusText }));
-          throw new Error(err.message || 'API Request failed');
+          const status = res.status;
+          let msg = err.message || 'API Request failed';
+          if (status === 401) msg = 'Unauthorized (401): Please paste a valid Bearer token.';
+          if (status === 403) msg = 'Access Denied (403): Your account role does not have permission to view analytics.';
+          if (status === 404) msg = 'Tenant Not Found (404): Gaming center ID does not exist or belongs to another tenant.';
+          throw new Error(msg);
         }
         return (await res.json()).data;
+      }
+
+      function downloadCSV(csvContent, fileName) {
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute('download', fileName);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      function exportTableToCSV(tableId, fileName) {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+        const rows = Array.from(table.querySelectorAll('tr'));
+        const csvLines = rows.map(row => {
+          const cols = Array.from(row.querySelectorAll('th, td'));
+          return cols.map(c => {
+            let text = c.innerText.replace(/"/g, '""').trim();
+            return '"' + text + '"';
+          }).join(',');
+        });
+        downloadCSV(csvLines.join('\\n'), fileName);
       }
 
       async function loadDashboard() {
@@ -573,10 +748,16 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
 
         const start = startDateInput.value;
         const end = endDateInput.value;
-        const query = '?startDate=' + start + '&endDate=' + end;
+        const currency = currencyFilterSelect.value;
+        const query = '?startDate=' + start + '&endDate=' + end + '&currency=' + currency;
+
+        document.getElementById('financialCurrencyBadge').textContent = currency;
 
         try {
-          const [summary, custSummary, custSegments, custSpenders, financials, reconciliation, stations, waitlist, notifications, staff, ingestion] = await Promise.all([
+          const [
+            summary, custSummary, custSegments, custSpenders, financials, reconciliation,
+            stations, waitlist, notifications, staff, ingestion, benchmarks, growth
+          ] = await Promise.all([
             fetchAPI('/summary' + query),
             fetchAPI('/customers/summary' + query),
             fetchAPI('/customers/segmentation' + query),
@@ -587,7 +768,9 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
             fetchAPI('/operations/waitlist' + query),
             fetchAPI('/operations/notifications' + query),
             fetchAPI('/staff' + query),
-            fetchAPI('/ingestion-status')
+            fetchAPI('/ingestion-status'),
+            fetchAPI('/benchmarks' + query).catch(() => null),
+            fetchAPI('/growth-insights' + query).catch(() => null)
           ]);
 
           // Freshness Badge
@@ -602,15 +785,65 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
           }
 
           // Summary KPIs
-          document.getElementById('kpiTotalRevenue').textContent = formatIRR(summary.totalRevenue);
-          document.getElementById('kpiAverageOrder').textContent = 'Avg order: ' + formatIRR(summary.averageReservationValue);
-          document.getElementById('kpiRealizedCash').textContent = formatIRR(summary.realizedCash);
+          document.getElementById('kpiTotalRevenue').textContent = formatMoney(summary.totalRevenue);
+          document.getElementById('kpiAverageOrder').textContent = 'Avg order: ' + formatMoney(summary.averageReservationValue);
+          document.getElementById('kpiRealizedCash').textContent = formatMoney(summary.realizedCash);
 
           // Phase 3 Customer KPIs
           document.getElementById('kpiActiveCustomers').textContent = custSummary.activeCustomers;
           document.getElementById('kpiNewVsReturning').textContent = custSummary.newCustomers + ' new • ' + custSummary.returningCustomers + ' returning';
           document.getElementById('kpiRepeatRate').textContent = custSummary.repeatVisitRate + '%';
           document.getElementById('kpiAvgDaysBetween').textContent = 'Avg ' + custSummary.avgDaysBetweenVisits + ' days between visits';
+
+          // Phase 7 Benchmarks
+          const benchBadge = document.getElementById('benchmarkStatusBadge');
+          const tblBench = document.querySelector('#tblBenchmarks tbody');
+          if (benchmarks) {
+            benchBadge.textContent = benchmarks.status;
+            benchBadge.className = 'status-badge ' + (benchmarks.isSuppressed ? 'status-SUPPRESSED' : 'status-PUBLISHED');
+            if (benchmarks.isSuppressed) {
+              tblBench.innerHTML = '<tr><td colspan="3" style="text-align:center; color: var(--danger); padding:16px;">Cohort size too small (k &lt; 5). Cross-tenant benchmarks suppressed for privacy.</td></tr>';
+            } else {
+              const b = benchmarks.benchmarks || {};
+              const t = benchmarks.tenantMetrics || {};
+              tblBench.innerHTML = \`
+                <tr>
+                  <td>Completion Rate</td>
+                  <td>\${t.completionRate || 0}%</td>
+                  <td class="amount-col">\${b.completionRate ? b.completionRate.median + '%' : '-'}</td>
+                </tr>
+                <tr>
+                  <td>Station Utilization Rate</td>
+                  <td>\${t.stationUtilizationRate || 0}%</td>
+                  <td class="amount-col">\${b.stationUtilizationRate ? b.stationUtilizationRate.median + '%' : '-'}</td>
+                </tr>
+                <tr>
+                  <td>Repeat Visit Rate</td>
+                  <td>\${t.repeatVisitRate || 0}%</td>
+                  <td class="amount-col">\${b.repeatVisitRate ? b.repeatVisitRate.median + '%' : '-'}</td>
+                </tr>
+              \`;
+            }
+          } else {
+            benchBadge.textContent = 'UNAVAILABLE';
+            tblBench.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#94a3b8;">Benchmark data unavailable</td></tr>';
+          }
+
+          // Phase 7 Growth Insights
+          const insightsContainer = document.getElementById('containerGrowthInsights');
+          if (growth && growth.insights && growth.insights.length > 0) {
+            insightsContainer.innerHTML = growth.insights.map(i => \`
+              <div class="insight-card">
+                <div class="insight-title">
+                  <span>\${i.title}</span>
+                  <span class="status-badge \${i.direction === 'POSITIVE' ? 'status-COMPLETED' : 'status-PENDING'}">\${i.observedChange}</span>
+                </div>
+                <div class="insight-body">\${i.evidenceBasis}</div>
+              </div>
+            \`).join('');
+          } else {
+            insightsContainer.innerHTML = '<div style="text-align:center; color:#94a3b8; padding: 20px;">No growth insights generated for selected period.</div>';
+          }
 
           // Customer Segments Table
           const tblSegments = document.querySelector('#tblCustomerSegments tbody');
@@ -629,23 +862,23 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
               <td>\${sp.fullName || 'Anonymous Customer'}</td>
               <td>\${sp.phone}</td>
               <td>\${sp.visits} visits</td>
-              <td class="amount-col">\${formatIRR(sp.totalSpend)}</td>
+              <td class="amount-col">\${formatMoney(sp.totalSpend)}</td>
             </tr>
           \`).join('') || '<tr><td colspan="4" style="text-align:center; color:#94a3b8;">No customer spend records</td></tr>';
 
           // Financials Overview
           const paidPaymentsSum = (financials.payments || []).filter(p => p.status === 'PAID').reduce((acc, p) => acc + p.totalAmount, 0);
           const refundsSum = (financials.refunds || []).filter(r => r.status === 'SUCCESSFUL').reduce((acc, r) => acc + r.totalAmount, 0);
-          document.getElementById('finGrossCollected').textContent = formatIRR(paidPaymentsSum);
-          document.getElementById('finTotalRefunded').textContent = formatIRR(refundsSum);
-          document.getElementById('finNetCollected').textContent = formatIRR(paidPaymentsSum - refundsSum);
+          document.getElementById('finGrossCollected').textContent = formatMoney(paidPaymentsSum);
+          document.getElementById('finTotalRefunded').textContent = formatMoney(refundsSum);
+          document.getElementById('finNetCollected').textContent = formatMoney(paidPaymentsSum - refundsSum);
 
           const tblMethods = document.querySelector('#tblPaymentMethods tbody');
           tblMethods.innerHTML = (financials.payments || []).map(m => \`
             <tr>
               <td>\${m.status}</td>
               <td>\${m.count}</td>
-              <td class="amount-col">\${formatIRR(m.totalAmount)}</td>
+              <td class="amount-col">\${formatMoney(m.totalAmount)}</td>
             </tr>
           \`).join('') || '<tr><td colspan="3" style="text-align:center; color:#94a3b8;">No payment records</td></tr>';
 
@@ -657,9 +890,9 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
               <td>\${f.ruleName}</td>
               <td><span class="status-badge \${f.severity === 'HIGH' ? 'status-FAILED' : 'status-PENDING'}">\${f.severity}</span></td>
               <td><span class="status-badge status-PENDING">\${f.status}</span></td>
-              <td>\${f.sourceEntity} (\${f.sourceId.substring(0, 8)}...)</td>
+              <td>\${f.sourceEntity} (\${f.sourceId ? f.sourceId.substring(0, 8) + '...' : '-'})</td>
               <td style="color: var(--text-secondary); max-width: 300px;">\${f.details}</td>
-              <td class="amount-col">\${formatIRR(f.expectedAmount || 0)} / \${formatIRR(f.actualAmount || 0)}</td>
+              <td class="amount-col">\${formatMoney(f.expectedAmount || 0)} / \${formatMoney(f.actualAmount || 0)}</td>
             </tr>
           \`).join('') || '<tr><td colspan="7" style="text-align:center; color:#15803d; font-weight:600; padding:16px;">✓ No financial discrepancies or reconciliation findings detected</td></tr>';
 
@@ -671,7 +904,7 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
               <td>\${s.stationType}</td>
               <td>\${s.totalHoursBooked} hrs</td>
               <td>\${s.utilizationRate}%</td>
-              <td class="amount-col">\${formatIRR(s.revenue)}</td>
+              <td class="amount-col">\${formatMoney(s.revenue)}</td>
             </tr>
           \`).join('') || '<tr><td colspan="5" style="text-align:center; color:#94a3b8;">No stations found</td></tr>';
 
@@ -685,7 +918,7 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
               <td>\${st.staffName}</td>
               <td>\${st.reservationCount}</td>
               <td>\${st.averageRating || '-'} ★</td>
-              <td class="amount-col">\${formatIRR(st.revenue)}</td>
+              <td class="amount-col">\${formatMoney(st.revenue)}</td>
             </tr>
           \`).join('') || '<tr><td colspan="4" style="text-align:center; color:#94a3b8;">No staff activity recorded</td></tr>';
 
@@ -707,8 +940,39 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
         }
       }
 
+      async function triggerReconciliationRun() {
+        const start = startDateInput.value;
+        const end = endDateInput.value;
+        loadingOverlay.style.display = 'flex';
+        try {
+          const res = await fetch('/api/v1/gamingCenters/' + gamingCenterId + '/analytics/financials/reconciliation/run', {
+            method: 'POST',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, getAuthHeaders()),
+            body: JSON.stringify({ startDate: start, endDate: end })
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({ message: res.statusText }));
+            throw new Error(err.message || 'Audit check failed');
+          }
+          await loadDashboard();
+        } catch (err) {
+          alert('Failed to run reconciliation check: ' + err.message);
+        } finally {
+          loadingOverlay.style.display = 'none';
+        }
+      }
+
       document.getElementById('refreshBtn').addEventListener('click', loadDashboard);
       document.getElementById('applyFilterBtn').addEventListener('click', loadDashboard);
+      document.getElementById('resetFilterBtn').addEventListener('click', () => {
+        setDateDefaults();
+        loadDashboard();
+      });
+      document.getElementById('runReconciliationBtn').addEventListener('click', triggerReconciliationRun);
+
+      document.getElementById('exportTopSpendersBtn').addEventListener('click', () => exportTableToCSV('tblTopSpenders', 'top_spenders_' + gamingCenterId + '.csv'));
+      document.getElementById('exportReconciliationBtn').addEventListener('click', () => exportTableToCSV('tblReconciliationFindings', 'reconciliation_findings_' + gamingCenterId + '.csv'));
+      document.getElementById('exportFinancialsBtn').addEventListener('click', () => exportTableToCSV('tblFinancialSummary', 'financial_summary_' + gamingCenterId + '.csv'));
 
       // Initial load
       loadDashboard();
