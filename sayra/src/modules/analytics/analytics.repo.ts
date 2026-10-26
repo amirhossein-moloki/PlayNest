@@ -1127,4 +1127,285 @@ export const AnalyticsRepo = {
     });
     return res || [];
   },
+
+  // Operations & Reliability Analytics Repo Methods
+  async getJobsHealthData() {
+    const [watermarks, runs, notificationStats] = await Promise.all([
+      prisma.analyticsWatermark.findMany(),
+      prisma.analyticsIngestionRun.findMany({
+        take: 200,
+        orderBy: { startedAt: 'desc' },
+      }),
+      prisma.notificationLog.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      }),
+    ]);
+
+    return { watermarks, runs, notificationStats };
+  },
+
+  async getSystemErrorsData(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
+    const [failedNotifications, failedPayments, failedRefunds, auditErrorLogs] = await Promise.all([
+      prisma.notificationLog.findMany({
+        where: {
+          gamingCenterId,
+          createdAt: { gte: dayStart, lte: dayEnd },
+          status: 'FAILED',
+        },
+        select: {
+          id: true,
+          type: true,
+          channel: true,
+          recipient: true,
+          lastError: true,
+          attempts: true,
+          createdAt: true,
+        },
+        take: 50,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.payment.findMany({
+        where: {
+          gamingCenterId,
+          createdAt: { gte: dayStart, lte: dayEnd },
+          status: 'FAILED',
+        },
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          provider: true,
+          failureReason: true,
+          createdAt: true,
+        },
+        take: 50,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.refund.findMany({
+        where: {
+          gamingCenterId,
+          createdAt: { gte: dayStart, lte: dayEnd },
+          status: 'FAILED',
+        },
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          failureReason: true,
+          createdAt: true,
+        },
+        take: 50,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.auditLog.findMany({
+        where: {
+          gamingCenterId,
+          createdAt: { gte: dayStart, lte: dayEnd },
+          action: { in: ['SETTINGS_UPDATE', 'MANUAL_REFUND', 'MANUAL_BALANCE_ADJUSTMENT', 'RESERVATION_CANCEL'] },
+        },
+        select: {
+          id: true,
+          action: true,
+          entity: true,
+          entityId: true,
+          userId: true,
+          createdAt: true,
+        },
+        take: 50,
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    return {
+      failedNotifications,
+      failedPayments,
+      failedRefunds,
+      auditErrorLogs,
+    };
+  },
+
+  async getSupportAnalyticsStats(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
+    const tickets = await prisma.ticket.findMany({
+      where: {
+        customerAccount: {
+          profiles: { some: { gamingCenterId } },
+        },
+        createdAt: { gte: dayStart, lte: dayEnd },
+      },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return tickets || [];
+  },
+
+  async getFeatureAdoptionStats(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
+    const [
+      waitlistEntries,
+      waitlistOffers,
+      proposals,
+      discounts,
+      groupBookings,
+      ratings,
+      notificationLogs,
+    ] = await Promise.all([
+      prisma.waitlistEntry.findMany({
+        where: { gamingCenterId, createdAt: { gte: dayStart, lte: dayEnd } },
+        select: { id: true, status: true, createdAt: true },
+      }),
+      prisma.waitlistOffer.findMany({
+        where: { gamingCenterId, createdAt: { gte: dayStart, lte: dayEnd } },
+        select: { id: true, status: true, createdAt: true },
+      }),
+      prisma.reservationTimeProposal.findMany({
+        where: {
+          reservation: { gamingCenterId },
+          createdAt: { gte: dayStart, lte: dayEnd },
+        },
+        select: { id: true, status: true, createdAt: true },
+      }),
+      prisma.discount.findMany({
+        where: { gamingCenterId },
+        select: { id: true, isActive: true, startAt: true, endAt: true },
+      }),
+      prisma.groupBooking.findMany({
+        where: { gamingCenterId, createdAt: { gte: dayStart, lte: dayEnd } },
+        select: { id: true, status: true, totalPrice: true },
+      }),
+      prisma.rating.findMany({
+        where: { gamingCenterId, createdAt: { gte: dayStart, lte: dayEnd } },
+        select: { id: true, rating: true, status: true },
+      }),
+      prisma.notificationLog.findMany({
+        where: { gamingCenterId, createdAt: { gte: dayStart, lte: dayEnd } },
+        select: { id: true, channel: true, status: true },
+      }),
+    ]);
+
+    return {
+      waitlistEntries,
+      waitlistOffers,
+      proposals,
+      discounts,
+      groupBookings,
+      ratings,
+      notificationLogs,
+    };
+  },
+
+  async getOperationalDataQualityChecks(gamingCenterId: string) {
+    const [
+      orphanPayments,
+      canceledPaidReservations,
+      inProgressSessions,
+      duplicateWaitlists,
+      nullFieldReservations,
+      currencyInconsistencies,
+      orphanRatings,
+      watermarks,
+    ] = await Promise.all([
+      // DQ-001: Orphan Payments without reservation or groupBooking
+      prisma.payment.findMany({
+        where: {
+          gamingCenterId,
+          reservationId: null,
+          groupBookingId: null,
+          status: 'PAID',
+        },
+        select: { id: true, amount: true, currency: true, createdAt: true },
+        take: 20,
+      }),
+      // DQ-002: Canceled Reservation with Unrefunded Paid Status
+      prisma.reservation.findMany({
+        where: {
+          gamingCenterId,
+          status: 'CANCELED',
+          paymentState: 'PAID',
+        },
+        select: {
+          id: true,
+          totalPrice: true,
+          canceledAt: true,
+          payments: {
+            where: { status: 'PAID' },
+            select: { id: true, amount: true, refunds: { where: { status: 'SUCCESSFUL' }, select: { amount: true } } },
+          },
+        },
+        take: 20,
+      }),
+      // DQ-003: In Progress Reservation without active gaming session
+      prisma.reservation.findMany({
+        where: {
+          gamingCenterId,
+          status: 'IN_PROGRESS',
+          gamingSessions: { none: { status: 'ACTIVE' } },
+        },
+        select: { id: true, startTime: true, endTime: true },
+        take: 20,
+      }),
+      // DQ-004: Duplicate Active Waitlist Entries for same customer/station/time
+      prisma.waitlistEntry.groupBy({
+        by: ['customerAccountId', 'stationId', 'startTime'],
+        where: { gamingCenterId, status: 'ACTIVE' },
+        _count: { _all: true },
+        having: { id: { _count: { gt: 1 } } },
+      }),
+      // DQ-005: Null Essential Fields in Completed Reservations
+      prisma.reservation.findMany({
+        where: {
+          gamingCenterId,
+          status: 'COMPLETED',
+          OR: [
+            { stationId: '' },
+            { customerAccountId: '' },
+            { totalPrice: { lt: 0 } },
+            { totalHours: { lte: 0 } },
+          ],
+        },
+        select: { id: true, totalPrice: true, totalHours: true, stationId: true },
+        take: 20,
+      }),
+      // DQ-006: Currency inconsistency in payments vs refunds
+      prisma.payment.findMany({
+        where: {
+          gamingCenterId,
+          status: 'PAID',
+          refunds: { some: {} },
+        },
+        select: {
+          id: true,
+          currency: true,
+          refunds: { select: { id: true, currency: true } },
+        },
+        take: 20,
+      }),
+      // DQ-007: Orphan Rating without completed reservation
+      prisma.rating.findMany({
+        where: {
+          gamingCenterId,
+          reservation: { status: { not: 'COMPLETED' } },
+        },
+        select: { id: true, rating: true, reservationId: true },
+        take: 20,
+      }),
+      // DQ-008: Analytics Watermark lag
+      prisma.analyticsWatermark.findMany(),
+    ]);
+
+    return {
+      orphanPayments,
+      canceledPaidReservations,
+      inProgressSessions,
+      duplicateWaitlists,
+      nullFieldReservations,
+      currencyInconsistencies,
+      orphanRatings,
+      watermarks,
+    };
+  },
 };

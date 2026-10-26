@@ -175,6 +175,46 @@ const getInstrumentationGaps = asyncHandler(async (_req: AppRequest, res: Respon
   res.ok(result);
 });
 
+// Operations & Reliability Analytics Controllers
+const getJobsHealth = asyncHandler(async (_req: AppRequest, res: Response) => {
+  const result = await AnalyticsStation.getJobsHealth();
+
+  res.ok(result);
+});
+
+const getSystemErrors = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { startDate, endDate } = req.query as unknown as AnalyticsQuery;
+  const result = await AnalyticsStation.getSystemErrors(req.tenant.gamingCenterId, startDate, endDate);
+
+  res.ok(result);
+});
+
+const getDataQuality = asyncHandler(async (req: AppRequest, res: Response) => {
+  const result = await AnalyticsStation.getDataQuality(req.tenant.gamingCenterId);
+
+  res.ok(result);
+});
+
+const getSupportQuality = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { startDate, endDate } = req.query as unknown as AnalyticsQuery;
+  const result = await AnalyticsStation.getSupportQuality(req.tenant.gamingCenterId, startDate, endDate);
+
+  res.ok(result);
+});
+
+const getFeatureAdoption = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { startDate, endDate } = req.query as unknown as AnalyticsQuery;
+  const result = await AnalyticsStation.getFeatureAdoption(req.tenant.gamingCenterId, startDate, endDate);
+
+  res.ok(result);
+});
+
+const getIssueMatrix = asyncHandler(async (_req: AppRequest, res: Response) => {
+  const result = await AnalyticsStation.getIssueMatrix();
+
+  res.ok(result);
+});
+
 export const AnalyticsController = {
   getSummary,
   getReservations,
@@ -198,4 +238,10 @@ export const AnalyticsController = {
   getConversionFunnel,
   getDiscountAnalytics,
   getInstrumentationGaps,
+  getJobsHealth,
+  getSystemErrors,
+  getDataQuality,
+  getSupportQuality,
+  getFeatureAdoption,
+  getIssueMatrix,
 };
