@@ -2,11 +2,26 @@ import { Response } from 'express';
 import { AppRequest } from '../../types/express';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
 import { AnalyticsStation } from './analytics.station';
-import { AnalyticsQuery, CustomerAnalyticsQuery, FinancialReconciliationQuery } from './analytics.validators';
+import { AnalyticsQuery, BenchmarkQuery, CustomerAnalyticsQuery, FinancialReconciliationQuery } from './analytics.validators';
 
 const getSummary = asyncHandler(async (req: AppRequest, res: Response) => {
   const { startDate, endDate } = req.query as unknown as AnalyticsQuery;
   const result = await AnalyticsStation.getSummary(req.tenant.gamingCenterId, startDate, endDate);
+
+  res.ok(result);
+});
+
+// Phase 7 Benchmarking & Growth Insights Controllers
+const getBenchmarks = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { startDate, endDate, peerGroupCategory } = req.query as unknown as BenchmarkQuery;
+  const result = await AnalyticsStation.getBenchmarks(req.tenant.gamingCenterId, startDate, endDate, peerGroupCategory);
+
+  res.ok(result);
+});
+
+const getGrowthInsights = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { startDate, endDate, peerGroupCategory } = req.query as unknown as BenchmarkQuery;
+  const result = await AnalyticsStation.getGrowthInsights(req.tenant.gamingCenterId, startDate, endDate, peerGroupCategory);
 
   res.ok(result);
 });
@@ -158,4 +173,6 @@ export const AnalyticsController = {
   getFinancialOverviewDetailed,
   getFinancialReconciliation,
   runFinancialReconciliation,
+  getBenchmarks,
+  getGrowthInsights,
 };

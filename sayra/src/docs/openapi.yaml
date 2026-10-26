@@ -1510,6 +1510,80 @@ paths:
                 $ref: '#/components/schemas/Success'
       operationId: get_gamingCenters_gamingCenterId_analytics_operations_notifications
       description: Get notification dispatch and failure summaries
+  /gamingCenters/{gamingCenterId}/analytics/benchmarks:
+    get:
+      summary: Get privacy-preserving aggregate benchmarks
+      tags:
+      - Analytics
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: peerGroupCategory
+        in: query
+        schema:
+          type: string
+          enum: [ALL, STANDARD, PREMIUM]
+      responses:
+        '200':
+          description: Privacy-preserving benchmark metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_analytics_benchmarks
+      description: Get privacy-preserving peer benchmark aggregates for eligible metrics
+  /gamingCenters/{gamingCenterId}/analytics/growth-insights:
+    get:
+      summary: Get descriptive growth insights
+      tags:
+      - Analytics
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: peerGroupCategory
+        in: query
+        schema:
+          type: string
+          enum: [ALL, STANDARD, PREMIUM]
+      responses:
+        '200':
+          description: Descriptive growth insights based on historical metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_analytics_growth_insights
+      description: Get descriptive operational growth insights and benchmark comparisons
   /gamingCenters/{gamingCenterId}/settings:
     get:
       summary: Get gamingCenter settings
