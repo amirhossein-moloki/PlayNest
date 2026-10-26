@@ -19,6 +19,7 @@ export const createReservationSchema = z.object({
       email: z.string().email().optional(),
     }),
     note: z.string().max(500).optional(),
+    voucherCode: z.string().trim().optional(),
   }),
 });
 
@@ -120,6 +121,7 @@ export const createPublicReservationSchema = z.object({
       email: z.string().email().optional(),
     }),
     note: z.string().max(500).optional(),
+    voucherCode: z.string().trim().optional(),
   }),
 });
 

@@ -1116,16 +1116,60 @@ export const AnalyticsRepo = {
         id: true,
         totalPrice: true,
         discountAmount: true,
+        originalAmount: true,
+        customerPayableAmount: true,
+        platformFundedDiscount: true,
+        merchantPayoutAmount: true,
+        discountFundingSource: true,
         voucherCode: true,
         discountId: true,
+        campaignId: true,
         status: true,
         paymentState: true,
         discount: {
           select: { id: true, targetType: true, valueType: true, value: true },
         },
+        campaign: {
+          select: { id: true, name: true, code: true, fundingSource: true, valueType: true, value: true },
+        },
       },
     });
     return res || [];
+  },
+
+  async getCampaignsAnalyticsStats(gamingCenterId: string, dayStart?: Date, dayEnd?: Date) {
+    const campaigns = await prisma.discountCampaign.findMany({
+      where: {
+        OR: [
+          { gamingCenterId },
+          { gamingCenterId: null },
+        ],
+      },
+      include: {
+        _count: {
+          select: { usages: true, reservations: true },
+        },
+      },
+    });
+
+    const usagesWhere: any = {
+      reservation: { gamingCenterId },
+    };
+    if (dayStart && dayEnd) {
+      usagesWhere.createdAt = { gte: dayStart, lte: dayEnd };
+    }
+
+    const usages = await prisma.discountUsage.groupBy({
+      by: ['fundingSource'],
+      where: usagesWhere,
+      _sum: { discountAmount: true },
+      _count: { _all: true },
+    });
+
+    return {
+      campaigns,
+      usageSummaries: usages,
+    };
   },
 
   // Operations & Reliability Analytics Repo Methods

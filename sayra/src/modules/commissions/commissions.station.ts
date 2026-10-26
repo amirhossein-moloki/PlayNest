@@ -155,8 +155,12 @@ export const commissionsStation = {
         targetContribution = true;
       }
 
-      // 7. Calculate base price before discounts
-      const basePrice = Math.round(reservation.totalPrice + reservation.discountAmount);
+      // 7. Calculate base price before discounts (use originalAmount)
+      const basePrice = Math.round(
+        reservation.originalAmount && reservation.originalAmount > 0
+          ? reservation.originalAmount
+          : reservation.totalPrice + reservation.discountAmount
+      );
 
       // 8. Calculate commission amount
       let commissionAmount = 0;

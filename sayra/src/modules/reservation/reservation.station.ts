@@ -1,7 +1,8 @@
 import { addMinutes } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { Reservation, ReservationSource, ReservationStatus, Prisma, SessionActorType, UserRole, OtpPurpose } from '@prisma/client';
+import { Reservation, ReservationSource, ReservationStatus, Prisma, SessionActorType, UserRole, OtpPurpose, DiscountFundingSource, CommissionType } from '@prisma/client';
 import { ReservationRepo } from './reservation.repo';
+import { CommissionsRepo } from '../commissions/commissions.repo';
 import { AuthRepository } from '../auth/auth.repository';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
@@ -33,6 +34,89 @@ import { reservationProposals } from './reservation.proposals';
 import { reservationLifecycle } from './reservation.lifecycle';
 
 const OTP_POST_VERIFICATION_WINDOW_MINUTES = 5;
+
+export async function calculateReservationFinancials(
+  gamingCenterId: string,
+  stationId: string,
+  basePrice: number,
+  startTime: Date,
+  customerAccountId?: string,
+  voucherCode?: string | null,
+  tx?: Prisma.TransactionClient
+) {
+  const originalAmount = basePrice;
+  let discountAmount = 0;
+  let platformFundedDiscount = 0;
+  let customerPayableAmount = basePrice;
+  let discountFundingSource: DiscountFundingSource | null = null;
+  let campaignId: string | null = null;
+  let discountId: string | null = null;
+
+  if (voucherCode && voucherCode.trim().length > 0) {
+    const promoResult = await discountsStation.validateAndApplyPromoCode(
+      gamingCenterId,
+      voucherCode.trim(),
+      stationId,
+      basePrice,
+      customerAccountId,
+      startTime,
+      true,
+      tx
+    );
+    discountAmount = promoResult.discountAmount;
+    platformFundedDiscount = promoResult.platformFundedDiscount;
+    customerPayableAmount = promoResult.customerPayableAmount;
+    discountFundingSource = promoResult.fundingSource;
+    campaignId = promoResult.campaign.id;
+  } else {
+    const autoDiscount = await discountsStation.calculateApplicableDiscount(
+      gamingCenterId,
+      stationId,
+      basePrice,
+      startTime,
+      tx
+    );
+    if (autoDiscount.applicableDiscount && autoDiscount.discountAmount > 0) {
+      discountAmount = autoDiscount.discountAmount;
+      discountId = autoDiscount.applicableDiscount.id;
+      discountFundingSource = DiscountFundingSource.PLATFORM;
+      platformFundedDiscount = discountAmount;
+      customerPayableAmount = Math.max(0, basePrice - discountAmount);
+    }
+  }
+
+  const policy = await CommissionsRepo.findPolicyByGamingCenterId(gamingCenterId, tx);
+  let platformCommission = 0;
+  if (policy && policy.isActive) {
+    if (policy.type === CommissionType.PERCENT && policy.percentBps) {
+      platformCommission = Math.round((originalAmount * policy.percentBps) / 10000);
+    } else if (policy.type === CommissionType.FIXED && policy.fixedAmount) {
+      platformCommission = policy.fixedAmount;
+    }
+    if (policy.minimumFeeAmount && platformCommission < policy.minimumFeeAmount) {
+      platformCommission = policy.minimumFeeAmount;
+    }
+  }
+
+  let grossMerchantEntitlement = originalAmount;
+  if (discountFundingSource === DiscountFundingSource.MERCHANT_FUNDED) {
+    grossMerchantEntitlement = Math.max(0, originalAmount - discountAmount);
+  }
+  const merchantPayoutAmount = Math.max(0, grossMerchantEntitlement - platformCommission);
+
+  return {
+    originalAmount,
+    discountAmount,
+    platformFundedDiscount,
+    customerPayableAmount,
+    merchantPayoutAmount,
+    platformCommission,
+    discountFundingSource,
+    campaignId,
+    discountId,
+    voucherCode: voucherCode || null,
+  };
+}
 
 const findAndValidateReservation = async (
   reservationId: string,
@@ -147,18 +231,18 @@ export const reservationStation = {
 
       await ReservationRepo.assertActiveReservationLimitNotExceeded(customerAccount.id, tx);
 
-      // 2. Calculate base price and applicable discount
+      // 2. Calculate base price and applicable discount & financials
       const basePrice = calculateBasePrice(durationHours, station.hourlyPrice);
 
-      const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
+      const financials = await calculateReservationFinancials(
         gamingCenterId,
         stationId,
         basePrice,
         startTime,
+        customerAccount.id,
+        input.voucherCode,
         tx
       );
-
-      const finalPrice = Math.max(0, basePrice - discountAmount);
 
       const reservation = await ReservationRepo.createReservation({
         gamingCenterId,
@@ -177,10 +261,28 @@ export const reservationStation = {
           stationType: station.stationType,
         },
         totalHours: durationHours,
-        totalPrice: finalPrice,
-        discountAmount,
-        discountId: applicableDiscount?.id,
+        totalPrice: financials.customerPayableAmount,
+        discountAmount: financials.discountAmount,
+        originalAmount: financials.originalAmount,
+        customerPayableAmount: financials.customerPayableAmount,
+        platformFundedDiscount: financials.platformFundedDiscount,
+        merchantPayoutAmount: financials.merchantPayoutAmount,
+        discountFundingSource: financials.discountFundingSource,
+        campaignId: financials.campaignId,
+        voucherCode: financials.voucherCode,
+        discountId: financials.discountId,
       }, tx);
+
+      if (financials.campaignId) {
+        await discountsStation.consumeCampaignDiscount(
+          financials.campaignId,
+          reservation.id,
+          customerAccount.id,
+          financials.discountAmount,
+          financials.discountFundingSource || DiscountFundingSource.PLATFORM,
+          tx
+        );
+      }
 
       await ReservationRepo.createHistory({
         reservationId: reservation.id,
@@ -300,15 +402,16 @@ export const reservationStation = {
           : ReservationStatus.PENDING;
 
         const basePrice = calculateBasePrice(durationHours, station.hourlyPrice);
-        const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
+
+        const financials = await calculateReservationFinancials(
           gamingCenter.id,
           station.id,
           basePrice,
           startTime,
+          customerAccount.id,
+          input.voucherCode,
           tx
         );
-
-        const finalPrice = Math.max(0, basePrice - discountAmount);
 
         const expiresAt = status === ReservationStatus.PENDING
           ? new Date(Date.now() + 60 * 1000)
@@ -333,10 +436,28 @@ export const reservationStation = {
             stationType: station.stationType,
           },
           totalHours: durationHours,
-          totalPrice: finalPrice,
-          discountAmount,
-          discountId: applicableDiscount?.id,
+          totalPrice: financials.customerPayableAmount,
+          discountAmount: financials.discountAmount,
+          originalAmount: financials.originalAmount,
+          customerPayableAmount: financials.customerPayableAmount,
+          platformFundedDiscount: financials.platformFundedDiscount,
+          merchantPayoutAmount: financials.merchantPayoutAmount,
+          discountFundingSource: financials.discountFundingSource,
+          campaignId: financials.campaignId,
+          voucherCode: financials.voucherCode,
+          discountId: financials.discountId,
         }, tx);
+
+        if (financials.campaignId) {
+          await discountsStation.consumeCampaignDiscount(
+            financials.campaignId,
+            reservation.id,
+            customerAccount.id,
+            financials.discountAmount,
+            financials.discountFundingSource || DiscountFundingSource.PLATFORM,
+            tx
+          );
+        }
 
         await ReservationRepo.createHistory({
           reservationId: reservation.id,
@@ -554,17 +675,25 @@ export const reservationStation = {
               : ((reservation.stationSnapshot as Record<string, unknown>)?.hourlyPrice as number) || 0;
             const basePrice = calculateBasePrice(durationHours, hourlyRate);
 
-            const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
+            const financials = await calculateReservationFinancials(
               gamingCenterId,
               effectiveStationId,
               basePrice,
               newStartAt,
+              reservation.customerAccountId,
+              reservation.voucherCode,
               tx
             );
 
-            updateData.discountAmount = discountAmount;
-            updateData.discountId = applicableDiscount?.id || null;
-            updateData.totalPrice = Math.max(0, basePrice - discountAmount);
+            updateData.discountAmount = financials.discountAmount;
+            updateData.originalAmount = financials.originalAmount;
+            updateData.customerPayableAmount = financials.customerPayableAmount;
+            updateData.platformFundedDiscount = financials.platformFundedDiscount;
+            updateData.merchantPayoutAmount = financials.merchantPayoutAmount;
+            updateData.discountFundingSource = financials.discountFundingSource;
+            updateData.campaignId = financials.campaignId;
+            updateData.discountId = financials.discountId;
+            updateData.totalPrice = financials.customerPayableAmount;
           }
         }
 

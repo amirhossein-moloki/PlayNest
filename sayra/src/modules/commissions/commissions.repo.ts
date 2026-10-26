@@ -5,10 +5,17 @@ import { prisma } from '../../config/prisma';
 export const CommissionsRepo = {
   // Policy operations
   async findPolicyByGamingCenterId(gamingCenterId: string, tx?: Prisma.TransactionClient) {
-    const client = tx || prisma;
-    return client.commissionPolicy.findUnique({
-      where: { gamingCenterId },
-    });
+    const client = (tx && tx.commissionPolicy) ? tx : prisma;
+    if (!client?.commissionPolicy?.findUnique) {
+      return null;
+    }
+    try {
+      return await client.commissionPolicy.findUnique({
+        where: { gamingCenterId },
+      });
+    } catch {
+      return null;
+    }
   },
 
   async upsertPolicy(gamingCenterId: string, data: Prisma.CommissionPolicyCreateInput) {
