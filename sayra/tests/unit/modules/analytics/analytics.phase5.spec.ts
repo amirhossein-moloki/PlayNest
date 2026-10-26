@@ -1,12 +1,13 @@
-import { AnalyticsIngestionService, analyticsIngestionService, ANALYTICS_ENTITIES } from '../../../../src/modules/analytics/analyticsIngestionService';
+import { AnalyticsIngestionService, ANALYTICS_ENTITIES } from '../../../../src/modules/analytics/analyticsIngestionService';
 import { AnalyticsStation } from '../../../../src/modules/analytics/analytics.station';
 import { AnalyticsRepo } from '../../../../src/modules/analytics/analytics.repo';
 import { prisma } from '../../../../src/config/prisma';
+import { Settings } from '@prisma/client';
 
 describe('Phase 5 — Hardening, Security & Ingestion Unit Tests', () => {
   beforeEach(() => {
     jest.restoreAllMocks();
-    jest.spyOn(prisma.settings, 'findUnique').mockResolvedValue({ timeZone: 'Asia/Tehran' } as any);
+    jest.spyOn(prisma.settings, 'findUnique').mockResolvedValue({ timeZone: 'Asia/Tehran' } as unknown as Settings);
   });
   describe('AnalyticsIngestionService Ingestion Pipeline Invariants', () => {
     it('should expose ANALYTICS_ENTITIES in proper dependency order', () => {
@@ -43,7 +44,7 @@ describe('Phase 5 — Hardening, Security & Ingestion Unit Tests', () => {
             fullName: 'Test Customer',
           },
         },
-      ] as any);
+      ] as unknown as Awaited<ReturnType<typeof AnalyticsRepo.getCompletedCustomerReservations>>);
 
       const startDate = new Date('2026-03-01T00:00:00Z');
       const endDate = new Date('2026-03-31T23:59:59Z');
@@ -68,7 +69,7 @@ describe('Phase 5 — Hardening, Security & Ingestion Unit Tests', () => {
             fullName: 'Short Phone User',
           },
         },
-      ] as any);
+      ] as unknown as Awaited<ReturnType<typeof AnalyticsRepo.getCompletedCustomerReservations>>);
 
       const startDate = new Date('2026-03-01T00:00:00Z');
       const endDate = new Date('2026-03-31T23:59:59Z');
