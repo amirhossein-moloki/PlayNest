@@ -299,7 +299,7 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
     <header>
       <div class="header-title">
         <h1>Internal Management Dashboard</h1>
-        <div class="subtitle">GamingCenter ID: ${gamingCenterId} • Operational & Analytics Reporting</div>
+        <div class="subtitle">GamingCenter ID: ${gamingCenterId} • Operational & Customer Analytics</div>
       </div>
       <div class="header-controls">
         <div id="freshnessBadge" class="freshness-badge">
@@ -344,14 +344,51 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
           <div class="kpi-subtext">Gross paid payments</div>
         </div>
         <div class="card kpi-card">
-          <div class="kpi-title">Total Reservations</div>
-          <div class="kpi-value" id="kpiTotalReservations">-</div>
-          <div class="kpi-subtext" id="kpiCompletionRate">-</div>
+          <div class="kpi-title">Active Customers</div>
+          <div class="kpi-value" id="kpiActiveCustomers">-</div>
+          <div class="kpi-subtext" id="kpiNewVsReturning">-</div>
         </div>
         <div class="card kpi-card">
-          <div class="kpi-title">New Customers</div>
-          <div class="kpi-value" id="kpiNewCustomers">-</div>
-          <div class="kpi-subtext">Registered in period</div>
+          <div class="kpi-title">Repeat Visit Rate</div>
+          <div class="kpi-value" id="kpiRepeatRate">-</div>
+          <div class="kpi-subtext" id="kpiAvgDaysBetween">-</div>
+        </div>
+      </div>
+
+      <!-- Phase 3 Customer Analytics Section -->
+      <div class="grid-sections">
+        <!-- Customer Segmentation -->
+        <div class="card">
+          <div class="section-title">Customer Segments</div>
+          <table id="tblCustomerSegments">
+            <thead>
+              <tr>
+                <th>Segment</th>
+                <th>Description</th>
+                <th class="amount-col">Customers</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <!-- Top Spenders -->
+        <div class="card">
+          <div class="section-title">
+            Top Customer Spenders
+            <span class="status-badge status-PAID">Masked PII</span>
+          </div>
+          <table id="tblTopSpenders">
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Phone</th>
+                <th>Visits</th>
+                <th class="amount-col">Recorded Spend</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
         </div>
       </div>
 
@@ -515,8 +552,11 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
         const query = '?startDate=' + start + '&endDate=' + end;
 
         try {
-          const [summary, financials, stations, waitlist, notifications, staff, ingestion] = await Promise.all([
+          const [summary, custSummary, custSegments, custSpenders, financials, stations, waitlist, notifications, staff, ingestion] = await Promise.all([
             fetchAPI('/summary' + query),
+            fetchAPI('/customers/summary' + query),
+            fetchAPI('/customers/segmentation' + query),
+            fetchAPI('/customers/top-spenders' + query),
             fetchAPI('/financials' + query),
             fetchAPI('/stations' + query),
             fetchAPI('/operations/waitlist' + query),
@@ -540,9 +580,33 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
           document.getElementById('kpiTotalRevenue').textContent = formatIRR(summary.totalRevenue);
           document.getElementById('kpiAverageOrder').textContent = 'Avg order: ' + formatIRR(summary.averageReservationValue);
           document.getElementById('kpiRealizedCash').textContent = formatIRR(summary.realizedCash);
-          document.getElementById('kpiTotalReservations').textContent = summary.totalReservations;
-          document.getElementById('kpiCompletionRate').textContent = summary.completionRate + '% completed (' + summary.completedReservations + ')';
-          document.getElementById('kpiNewCustomers').textContent = summary.newCustomers;
+
+          // Phase 3 Customer KPIs
+          document.getElementById('kpiActiveCustomers').textContent = custSummary.activeCustomers;
+          document.getElementById('kpiNewVsReturning').textContent = custSummary.newCustomers + ' new • ' + custSummary.returningCustomers + ' returning';
+          document.getElementById('kpiRepeatRate').textContent = custSummary.repeatVisitRate + '%';
+          document.getElementById('kpiAvgDaysBetween').textContent = 'Avg ' + custSummary.avgDaysBetweenVisits + ' days between visits';
+
+          // Customer Segments Table
+          const tblSegments = document.querySelector('#tblCustomerSegments tbody');
+          tblSegments.innerHTML = (custSegments.segments || []).map(s => \`
+            <tr>
+              <td><strong>\${s.title}</strong></td>
+              <td style="color: var(--text-secondary);">\${s.description}</td>
+              <td class="amount-col">\${s.count}</td>
+            </tr>
+          \`).join('') || '<tr><td colspan="3" style="text-align:center; color:#94a3b8;">No segments available</td></tr>';
+
+          // Top Spenders Table
+          const tblSpenders = document.querySelector('#tblTopSpenders tbody');
+          tblSpenders.innerHTML = (custSpenders.topSpenders || []).map(sp => \`
+            <tr>
+              <td>\${sp.fullName || 'Anonymous Customer'}</td>
+              <td>\${sp.phone}</td>
+              <td>\${sp.visits} visits</td>
+              <td class="amount-col">\${formatIRR(sp.totalSpend)}</td>
+            </tr>
+          \`).join('') || '<tr><td colspan="4" style="text-align:center; color:#94a3b8;">No customer spend records</td></tr>';
 
           // Financials
           document.getElementById('finGrossCollected').textContent = formatIRR(financials.summary.grossCollected);
