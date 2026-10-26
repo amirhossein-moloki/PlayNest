@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import pinoHttp from 'pino-http';
-import cuid from 'cuid';
+import { createId as cuid } from '@paralleldrive/cuid2';
 import { env } from '../../config/env';
 import logger from '../../config/logger';
 import { sanitizeLog } from '../utils/sanitizer';

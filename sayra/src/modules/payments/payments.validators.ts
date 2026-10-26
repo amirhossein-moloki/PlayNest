@@ -1,12 +1,12 @@
 import { z } from 'zod';
-import cuid from 'cuid';
+import { isCuid } from '@paralleldrive/cuid2';
 
 export const InitPaymentValidators = z.object({
   params: z.object({
-    gamingCenterId: z.string().refine((val) => cuid.isCuid(val), {
+    gamingCenterId: z.string().refine((val) => isCuid(val), {
       message: 'Invalid gamingCenterId',
     }),
-    reservationId: z.string().refine((val) => cuid.isCuid(val), {
+    reservationId: z.string().refine((val) => isCuid(val), {
       message: 'Invalid reservationId',
     }),
   }),
@@ -19,10 +19,10 @@ export const InitPaymentValidators = z.object({
 
 export const VerifyPaymentValidators = z.object({
   params: z.object({
-    gamingCenterId: z.string().refine((val) => cuid.isCuid(val), {
+    gamingCenterId: z.string().refine((val) => isCuid(val), {
       message: 'Invalid gamingCenterId',
     }),
-    reservationId: z.string().refine((val) => cuid.isCuid(val), {
+    reservationId: z.string().refine((val) => isCuid(val), {
       message: 'Invalid reservationId',
     }),
   }),
@@ -30,10 +30,10 @@ export const VerifyPaymentValidators = z.object({
 
 export const GetPaymentStatusValidators = z.object({
   params: z.object({
-    gamingCenterId: z.string().refine((val) => cuid.isCuid(val), {
+    gamingCenterId: z.string().refine((val) => isCuid(val), {
       message: 'Invalid gamingCenterId',
     }),
-    reservationId: z.string().refine((val) => cuid.isCuid(val), {
+    reservationId: z.string().refine((val) => isCuid(val), {
       message: 'Invalid reservationId',
     }),
   }),
@@ -41,8 +41,8 @@ export const GetPaymentStatusValidators = z.object({
 
 export const RequestRefundValidators = z.object({
   params: z.object({
-    gamingCenterId: z.string().refine((val) => cuid.isCuid(val), { message: 'Invalid gamingCenterId' }),
-    paymentId: z.string().refine((val) => cuid.isCuid(val), { message: 'Invalid paymentId' }),
+    gamingCenterId: z.string().refine((val) => isCuid(val), { message: 'Invalid gamingCenterId' }),
+    paymentId: z.string().refine((val) => isCuid(val), { message: 'Invalid paymentId' }),
   }),
   body: z.object({
     amount: z.number().int().positive('Amount must be a positive integer'),
@@ -54,22 +54,22 @@ export const RequestRefundValidators = z.object({
 
 export const GetRefundValidators = z.object({
   params: z.object({
-    gamingCenterId: z.string().refine((val) => cuid.isCuid(val), { message: 'Invalid gamingCenterId' }),
-    paymentId: z.string().refine((val) => cuid.isCuid(val), { message: 'Invalid paymentId' }),
-    refundId: z.string().refine((val) => cuid.isCuid(val), { message: 'Invalid refundId' }),
+    gamingCenterId: z.string().refine((val) => isCuid(val), { message: 'Invalid gamingCenterId' }),
+    paymentId: z.string().refine((val) => isCuid(val), { message: 'Invalid paymentId' }),
+    refundId: z.string().refine((val) => isCuid(val), { message: 'Invalid refundId' }),
   }),
 });
 
 export const ListRefundsValidators = z.object({
   params: z.object({
-    gamingCenterId: z.string().refine((val) => cuid.isCuid(val), { message: 'Invalid gamingCenterId' }),
-    paymentId: z.string().refine((val) => cuid.isCuid(val), { message: 'Invalid paymentId' }),
+    gamingCenterId: z.string().refine((val) => isCuid(val), { message: 'Invalid gamingCenterId' }),
+    paymentId: z.string().refine((val) => isCuid(val), { message: 'Invalid paymentId' }),
   }),
 });
 
 export const GetLedgerValidators = z.object({
   params: z.object({
-    gamingCenterId: z.string().refine((val) => cuid.isCuid(val), { message: 'Invalid gamingCenterId' }),
+    gamingCenterId: z.string().refine((val) => isCuid(val), { message: 'Invalid gamingCenterId' }),
   }),
   query: z.object({
     page: z.string().optional(),
@@ -82,7 +82,7 @@ export const GetLedgerValidators = z.object({
 
 export const ReconcileValidators = z.object({
   params: z.object({
-    gamingCenterId: z.string().refine((val) => cuid.isCuid(val), { message: 'Invalid gamingCenterId' }),
+    gamingCenterId: z.string().refine((val) => isCuid(val), { message: 'Invalid gamingCenterId' }),
   }),
   body: z.object({
     paymentId: z.string().optional(),

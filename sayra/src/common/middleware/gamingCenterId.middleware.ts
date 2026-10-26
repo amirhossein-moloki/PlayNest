@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import cuid from 'cuid';
+import { isCuid } from '@paralleldrive/cuid2';
 import AppError from '../errors/AppError';
 import httpStatus from 'http-status';
 
-const GamingCenterIdSchema = z.string().refine((val) => cuid.isCuid(val), {
+const GamingCenterIdSchema = z.string().refine((val) => isCuid(val), {
   message: 'Invalid gamingCenterId format',
 });
 

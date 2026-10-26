@@ -1,8 +1,9 @@
 // tests/setup.ts
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env.test' });
+process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/playenest_test';
 
-import { jest } from '@jest/globals';
+import { jest, afterAll } from '@jest/globals';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 (global as any).jest = jest;
@@ -40,3 +41,48 @@ jest.mock('bullmq', () => ({
     close: jest.fn(),
   })),
 }));
+
+afterAll(async () => {
+  try {
+    const { disconnectPrisma } = await import('../src/config/prisma');
+    await disconnectPrisma();
+  } catch {
+    // Ignore error if not imported
+  }
+
+  try {
+    const { reservationExpiryWorker } = await import('../src/jobs/workers/reservationExpiry.worker');
+    if (reservationExpiryWorker?.isRunning()) {
+      await reservationExpiryWorker.stop();
+    }
+  } catch {
+    // Ignore
+  }
+
+  try {
+    const { waitlistExpiryWorker } = await import('../src/jobs/workers/waitlistExpiry.worker');
+    if (waitlistExpiryWorker?.isRunning()) {
+      await waitlistExpiryWorker.stop();
+    }
+  } catch {
+    // Ignore
+  }
+
+  try {
+    const { reservationRemindersWorker } = await import('../src/jobs/workers/reservationReminders.worker');
+    if (reservationRemindersWorker?.isRunning()) {
+      await reservationRemindersWorker.stop();
+    }
+  } catch {
+    // Ignore
+  }
+
+  try {
+    const { redis } = await import('../src/config/redis');
+    if (redis && redis.status !== 'end') {
+      redis.disconnect();
+    }
+  } catch {
+    // Ignore
+  }
+});

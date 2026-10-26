@@ -18,3 +18,12 @@ export const initWorkers = () => {
   reservationExpiryWorker.start();
   waitlistExpiryWorker.start();
 };
+
+export const stopWorkers = async () => {
+  await reservationExpiryWorker.stop();
+  await waitlistExpiryWorker.stop();
+  await smsWorker.close();
+  await analyticsWorker.close();
+  await analyticsIngestionWorker.close();
+  await cmsSyncMediaWorker.close();
+};
