@@ -21,5 +21,6 @@ router.get('/operations/notifications', validate(AnalyticsQuerySchema), Analytic
 router.get('/staff', validate(AnalyticsQuerySchema), AnalyticsController.getStaffPerformance);
 router.get('/stations', validate(AnalyticsQuerySchema), AnalyticsController.getStationPerformance);
 router.get('/revenue-chart', validate(AnalyticsQuerySchema), AnalyticsController.getRevenueChart);
+router.get('/ingestion-status', AnalyticsController.getIngestionStatus);
 
 export const analyticsRoutes = router;

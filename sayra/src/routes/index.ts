@@ -15,6 +15,7 @@ import reservationRoutes from '../modules/reservation/reservation.routes';
 import publicReservationRoutes from '../modules/reservation/reservation.public.routes';
 import { cmsRouter } from '../modules/cms/cms.routes';
 import { cmsAdminUiRouter } from '../modules/cms/admin-ui.routes';
+import { dashboardAdminUiRouter } from '../modules/analytics/dashboard-ui.routes';
 import {
   publicAddressesRouter,
   publicLinksRouter,
@@ -123,6 +124,7 @@ router.use('/admin/tickets', ticketAdminRouter);
 
 // --- Analytics Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/analytics', analyticsRoutes);
+router.use('/admin', dashboardAdminUiRouter);
 
 // --- Gaming Sessions Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/reservation/:reservationId/sessions', gamingSessionsRoutes);
