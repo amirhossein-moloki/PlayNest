@@ -227,6 +227,11 @@ export const authService = {
   },
 
   async logout(sessionId: string) {
+    const session = await AuthRepository.findSessionById(sessionId);
+    if (session) {
+      const { invalidateActorCache } = await import('../../common/middleware/auth');
+      await invalidateActorCache(session.actorId, session.actorType);
+    }
     await AuthRepository.revokeSession(sessionId);
     return { message: 'Logged out successfully' };
   }

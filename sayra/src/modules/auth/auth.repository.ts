@@ -80,6 +80,10 @@ export const AuthRepository = {
     });
   },
 
+  async findSessionById(sessionId: string) {
+    return prisma.session.findUnique({ where: { id: sessionId } });
+  },
+
   async findSessionByToken(tokenHash: string) {
     return prisma.session.findUnique({ where: { tokenHash } });
   },

@@ -202,6 +202,9 @@ export class AnalyticsIngestionService {
         recordsRead += batch.length;
         lastCursorId = batch[batch.length - 1].id;
 
+        // Build batched transaction statements to eliminate N+1 database queries
+        const txOperations: any[] = [];
+
         for (const item of batch) {
           const itemUpdated = item.updatedAt || item.createdAt;
           if (itemUpdated > maxUpdatedAt) {
@@ -210,237 +213,256 @@ export class AnalyticsIngestionService {
 
           switch (entity) {
           case 'Tenant':
-            await (prisma as any).analyticsTenant.upsert({
-              where: { id: item.id },
-              update: {
-                name: item.name,
-                slug: item.slug,
-                isActive: item.isActive,
-                pcCount: item.pcCount,
-                consoleCount: item.consoleCount,
-                hourlyRate: item.hourlyRate,
-                sourceUpdatedAt: item.updatedAt,
-                ingestedAt: new Date(),
-              },
-              create: {
-                id: item.id,
-                name: item.name,
-                slug: item.slug,
-                isActive: item.isActive,
-                pcCount: item.pcCount,
-                consoleCount: item.consoleCount,
-                hourlyRate: item.hourlyRate,
-                sourceCreatedAt: item.createdAt,
-                sourceUpdatedAt: item.updatedAt,
-              },
-            });
+            txOperations.push(
+              (prisma as any).analyticsTenant.upsert({
+                where: { id: item.id },
+                update: {
+                  name: item.name,
+                  slug: item.slug,
+                  isActive: item.isActive,
+                  pcCount: item.pcCount,
+                  consoleCount: item.consoleCount,
+                  hourlyRate: item.hourlyRate,
+                  sourceUpdatedAt: item.updatedAt,
+                  ingestedAt: new Date(),
+                },
+                create: {
+                  id: item.id,
+                  name: item.name,
+                  slug: item.slug,
+                  isActive: item.isActive,
+                  pcCount: item.pcCount,
+                  consoleCount: item.consoleCount,
+                  hourlyRate: item.hourlyRate,
+                  sourceCreatedAt: item.createdAt,
+                  sourceUpdatedAt: item.updatedAt,
+                },
+              })
+            );
             break;
 
           case 'Customer': {
             const primaryTenantId = item.profiles?.[0]?.gamingCenterId || null;
-            await (prisma as any).analyticsCustomer.upsert({
-              where: { id: item.id },
-              update: {
-                gamingCenterId: primaryTenantId,
-                phone: item.phone,
-                fullName: item.fullName,
-                walletBalance: item.walletBalance,
-                sourceUpdatedAt: item.updatedAt,
-                ingestedAt: new Date(),
-              },
-              create: {
-                id: item.id,
-                gamingCenterId: primaryTenantId,
-                phone: item.phone,
-                fullName: item.fullName,
-                walletBalance: item.walletBalance,
-                sourceCreatedAt: item.createdAt,
-                sourceUpdatedAt: item.updatedAt,
-              },
-            });
+            txOperations.push(
+              (prisma as any).analyticsCustomer.upsert({
+                where: { id: item.id },
+                update: {
+                  gamingCenterId: primaryTenantId,
+                  phone: item.phone,
+                  fullName: item.fullName,
+                  walletBalance: item.walletBalance,
+                  sourceUpdatedAt: item.updatedAt,
+                  ingestedAt: new Date(),
+                },
+                create: {
+                  id: item.id,
+                  gamingCenterId: primaryTenantId,
+                  phone: item.phone,
+                  fullName: item.fullName,
+                  walletBalance: item.walletBalance,
+                  sourceCreatedAt: item.createdAt,
+                  sourceUpdatedAt: item.updatedAt,
+                },
+              })
+            );
             break;
           }
 
           case 'Station':
-            await (prisma as any).analyticsStation.upsert({
-              where: { id: item.id },
-              update: {
-                gamingCenterId: item.gamingCenterId,
-                name: item.name,
-                stationType: item.stationType,
-                isVip: item.isVip,
-                hourlyPrice: item.hourlyPrice,
-                isActive: item.isActive,
-                sourceUpdatedAt: item.updatedAt,
-                ingestedAt: new Date(),
-              },
-              create: {
-                id: item.id,
-                gamingCenterId: item.gamingCenterId,
-                name: item.name,
-                stationType: item.stationType,
-                isVip: item.isVip,
-                hourlyPrice: item.hourlyPrice,
-                isActive: item.isActive,
-                sourceCreatedAt: item.createdAt,
-                sourceUpdatedAt: item.updatedAt,
-              },
-            });
+            txOperations.push(
+              (prisma as any).analyticsStation.upsert({
+                where: { id: item.id },
+                update: {
+                  gamingCenterId: item.gamingCenterId,
+                  name: item.name,
+                  stationType: item.stationType,
+                  isVip: item.isVip,
+                  hourlyPrice: item.hourlyPrice,
+                  isActive: item.isActive,
+                  sourceUpdatedAt: item.updatedAt,
+                  ingestedAt: new Date(),
+                },
+                create: {
+                  id: item.id,
+                  gamingCenterId: item.gamingCenterId,
+                  name: item.name,
+                  stationType: item.stationType,
+                  isVip: item.isVip,
+                  hourlyPrice: item.hourlyPrice,
+                  isActive: item.isActive,
+                  sourceCreatedAt: item.createdAt,
+                  sourceUpdatedAt: item.updatedAt,
+                },
+              })
+            );
             break;
 
           case 'Reservation':
-            await (prisma as any).analyticsReservation.upsert({
-              where: { id: item.id },
-              update: {
-                gamingCenterId: item.gamingCenterId,
-                customerAccountId: item.customerAccountId,
-                stationId: item.stationId,
-                startTime: item.startTime,
-                endTime: item.endTime,
-                totalHours: item.totalHours,
-                totalPrice: item.totalPrice,
-                discountAmount: item.discountAmount,
-                paymentState: item.paymentState,
-                status: item.status,
-                source: item.source,
-                sourceUpdatedAt: item.updatedAt,
-                ingestedAt: new Date(),
-              },
-              create: {
-                id: item.id,
-                gamingCenterId: item.gamingCenterId,
-                customerAccountId: item.customerAccountId,
-                stationId: item.stationId,
-                startTime: item.startTime,
-                endTime: item.endTime,
-                totalHours: item.totalHours,
-                totalPrice: item.totalPrice,
-                discountAmount: item.discountAmount,
-                paymentState: item.paymentState,
-                status: item.status,
-                source: item.source,
-                sourceCreatedAt: item.createdAt,
-                sourceUpdatedAt: item.updatedAt,
-              },
-            });
+            txOperations.push(
+              (prisma as any).analyticsReservation.upsert({
+                where: { id: item.id },
+                update: {
+                  gamingCenterId: item.gamingCenterId,
+                  customerAccountId: item.customerAccountId,
+                  stationId: item.stationId,
+                  startTime: item.startTime,
+                  endTime: item.endTime,
+                  totalHours: item.totalHours,
+                  totalPrice: item.totalPrice,
+                  discountAmount: item.discountAmount,
+                  paymentState: item.paymentState,
+                  status: item.status,
+                  source: item.source,
+                  sourceUpdatedAt: item.updatedAt,
+                  ingestedAt: new Date(),
+                },
+                create: {
+                  id: item.id,
+                  gamingCenterId: item.gamingCenterId,
+                  customerAccountId: item.customerAccountId,
+                  stationId: item.stationId,
+                  startTime: item.startTime,
+                  endTime: item.endTime,
+                  totalHours: item.totalHours,
+                  totalPrice: item.totalPrice,
+                  discountAmount: item.discountAmount,
+                  paymentState: item.paymentState,
+                  status: item.status,
+                  source: item.source,
+                  sourceCreatedAt: item.createdAt,
+                  sourceUpdatedAt: item.updatedAt,
+                },
+              })
+            );
             break;
 
           case 'GamingSession':
-            await (prisma as any).analyticsGamingSession.upsert({
-              where: { id: item.id },
-              update: {
-                gamingCenterId: item.reservation?.gamingCenterId || null,
-                reservationId: item.reservationId,
-                stationId: item.stationId,
-                startTime: item.startTime,
-                endTime: item.endTime,
-                actualHours: item.actualHours,
-                status: item.status,
-                pausedMinutes: item.pausedMinutes,
-                sourceUpdatedAt: item.updatedAt,
-                ingestedAt: new Date(),
-              },
-              create: {
-                id: item.id,
-                gamingCenterId: item.reservation?.gamingCenterId || null,
-                reservationId: item.reservationId,
-                stationId: item.stationId,
-                startTime: item.startTime,
-                endTime: item.endTime,
-                actualHours: item.actualHours,
-                status: item.status,
-                pausedMinutes: item.pausedMinutes,
-                sourceCreatedAt: item.createdAt,
-                sourceUpdatedAt: item.updatedAt,
-              },
-            });
+            txOperations.push(
+              (prisma as any).analyticsGamingSession.upsert({
+                where: { id: item.id },
+                update: {
+                  gamingCenterId: item.reservation?.gamingCenterId || null,
+                  reservationId: item.reservationId,
+                  stationId: item.stationId,
+                  startTime: item.startTime,
+                  endTime: item.endTime,
+                  actualHours: item.actualHours,
+                  status: item.status,
+                  pausedMinutes: item.pausedMinutes,
+                  sourceUpdatedAt: item.updatedAt,
+                  ingestedAt: new Date(),
+                },
+                create: {
+                  id: item.id,
+                  gamingCenterId: item.reservation?.gamingCenterId || null,
+                  reservationId: item.reservationId,
+                  stationId: item.stationId,
+                  startTime: item.startTime,
+                  endTime: item.endTime,
+                  actualHours: item.actualHours,
+                  status: item.status,
+                  pausedMinutes: item.pausedMinutes,
+                  sourceCreatedAt: item.createdAt,
+                  sourceUpdatedAt: item.updatedAt,
+                },
+              })
+            );
             break;
 
           case 'Payment':
-            await (prisma as any).analyticsPayment.upsert({
-              where: { id: item.id },
-              update: {
-                gamingCenterId: item.gamingCenterId,
-                reservationId: item.reservationId,
-                amount: item.amount,
-                currency: item.currency,
-                provider: item.provider,
-                status: item.status,
-                method: item.method,
-                paidAt: item.paidAt,
-                sourceUpdatedAt: item.updatedAt,
-                ingestedAt: new Date(),
-              },
-              create: {
-                id: item.id,
-                gamingCenterId: item.gamingCenterId,
-                reservationId: item.reservationId,
-                amount: item.amount,
-                currency: item.currency,
-                provider: item.provider,
-                status: item.status,
-                method: item.method,
-                paidAt: item.paidAt,
-                sourceCreatedAt: item.createdAt,
-                sourceUpdatedAt: item.updatedAt,
-              },
-            });
+            txOperations.push(
+              (prisma as any).analyticsPayment.upsert({
+                where: { id: item.id },
+                update: {
+                  gamingCenterId: item.gamingCenterId,
+                  reservationId: item.reservationId,
+                  amount: item.amount,
+                  currency: item.currency,
+                  provider: item.provider,
+                  status: item.status,
+                  method: item.method,
+                  paidAt: item.paidAt,
+                  sourceUpdatedAt: item.updatedAt,
+                  ingestedAt: new Date(),
+                },
+                create: {
+                  id: item.id,
+                  gamingCenterId: item.gamingCenterId,
+                  reservationId: item.reservationId,
+                  amount: item.amount,
+                  currency: item.currency,
+                  provider: item.provider,
+                  status: item.status,
+                  method: item.method,
+                  paidAt: item.paidAt,
+                  sourceCreatedAt: item.createdAt,
+                  sourceUpdatedAt: item.updatedAt,
+                },
+              })
+            );
             break;
 
           case 'LedgerEntry':
-            await (prisma as any).analyticsLedgerEntry.upsert({
-              where: { id: item.id },
-              update: {
-                gamingCenterId: item.gamingCenterId,
-                paymentId: item.paymentId,
-                refundId: item.refundId,
-                entryType: item.entryType,
-                amount: item.amount,
-                currency: item.currency,
-                ingestedAt: new Date(),
-              },
-              create: {
-                id: item.id,
-                gamingCenterId: item.gamingCenterId,
-                paymentId: item.paymentId,
-                refundId: item.refundId,
-                entryType: item.entryType,
-                amount: item.amount,
-                currency: item.currency,
-                sourceCreatedAt: item.createdAt,
-              },
-            });
+            txOperations.push(
+              (prisma as any).analyticsLedgerEntry.upsert({
+                where: { id: item.id },
+                update: {
+                  gamingCenterId: item.gamingCenterId,
+                  paymentId: item.paymentId,
+                  refundId: item.refundId,
+                  entryType: item.entryType,
+                  amount: item.amount,
+                  currency: item.currency,
+                  ingestedAt: new Date(),
+                },
+                create: {
+                  id: item.id,
+                  gamingCenterId: item.gamingCenterId,
+                  paymentId: item.paymentId,
+                  refundId: item.refundId,
+                  entryType: item.entryType,
+                  amount: item.amount,
+                  currency: item.currency,
+                  sourceCreatedAt: item.createdAt,
+                },
+              })
+            );
             break;
 
           case 'Refund':
-            await (prisma as any).analyticsRefund.upsert({
-              where: { id: item.id },
-              update: {
-                gamingCenterId: item.gamingCenterId,
-                paymentId: item.paymentId,
-                amount: item.amount,
-                currency: item.currency,
-                status: item.status,
-                processedAt: item.processedAt,
-                sourceUpdatedAt: item.updatedAt,
-                ingestedAt: new Date(),
-              },
-              create: {
-                id: item.id,
-                gamingCenterId: item.gamingCenterId,
-                paymentId: item.paymentId,
-                amount: item.amount,
-                currency: item.currency,
-                status: item.status,
-                processedAt: item.processedAt,
-                sourceCreatedAt: item.createdAt,
-                sourceUpdatedAt: item.updatedAt,
-              },
-            });
+            txOperations.push(
+              (prisma as any).analyticsRefund.upsert({
+                where: { id: item.id },
+                update: {
+                  gamingCenterId: item.gamingCenterId,
+                  paymentId: item.paymentId,
+                  amount: item.amount,
+                  currency: item.currency,
+                  status: item.status,
+                  processedAt: item.processedAt,
+                  sourceUpdatedAt: item.updatedAt,
+                  ingestedAt: new Date(),
+                },
+                create: {
+                  id: item.id,
+                  gamingCenterId: item.gamingCenterId,
+                  paymentId: item.paymentId,
+                  amount: item.amount,
+                  currency: item.currency,
+                  status: item.status,
+                  processedAt: item.processedAt,
+                  sourceCreatedAt: item.createdAt,
+                  sourceUpdatedAt: item.updatedAt,
+                },
+              })
+            );
             break;
           }
+        }
 
-          recordsIngested++;
+        if (txOperations.length > 0) {
+          await prisma.$transaction(txOperations);
+          recordsIngested += txOperations.length;
         }
 
         if (batch.length < batchSize) {

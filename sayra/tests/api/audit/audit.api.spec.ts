@@ -7,6 +7,11 @@ import { prisma } from '../../../src/config/prisma';
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import jwt from 'jsonwebtoken';
 
+jest.mock('../../../src/config/redis', () => ({
+  get: jest.fn().mockImplementation(() => Promise.resolve(null)),
+  set: jest.fn().mockImplementation(() => Promise.resolve('OK')),
+  del: jest.fn().mockImplementation(() => Promise.resolve(1)),
+}));
 jest.mock('../../../src/config/prisma', () => ({
   prisma: {
     auditLog: {

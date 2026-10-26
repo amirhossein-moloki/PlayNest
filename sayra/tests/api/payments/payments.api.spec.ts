@@ -8,6 +8,11 @@ import { prisma } from '../../../src/config/prisma';
 import { generateAccessToken } from '../../../src/modules/auth/auth.tokens';
 import httpStatus from 'http-status';
 
+jest.mock('../../../src/config/redis', () => ({
+  get: jest.fn().mockImplementation(() => Promise.resolve(null)),
+  set: jest.fn().mockImplementation(() => Promise.resolve('OK')),
+  del: jest.fn().mockImplementation(() => Promise.resolve(1)),
+}));
 jest.mock('../../../src/common/repositories/idempotency.repo');
 jest.mock('../../../src/config/prisma', () => ({
   prisma: {
