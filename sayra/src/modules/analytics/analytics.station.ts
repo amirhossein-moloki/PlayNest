@@ -1613,6 +1613,490 @@ export const AnalyticsStation = {
       disclaimer: 'Growth insights are descriptive observations grounded in historical operational data and peer benchmark aggregates.',
     };
   },
+
+  // Operations & Reliability Analytics Methods
+  async getJobsHealth() {
+    const { watermarks, runs } = await AnalyticsRepo.getJobsHealthData();
+
+    const entities = [
+      'Tenant',
+      'Customer',
+      'Station',
+      'Reservation',
+      'GamingSession',
+      'Payment',
+      'LedgerEntry',
+      'Refund',
+    ];
+
+    const now = new Date();
+
+    const jobHealthList = entities.map((entity) => {
+      const entityRuns = runs.filter((r) => r.entity === entity);
+      const watermark = watermarks.find((w) => w.entity === entity);
+
+      const totalRuns = entityRuns.length;
+      const successRuns = entityRuns.filter((r) => r.status === 'SUCCESS');
+      const failedRuns = entityRuns.filter((r) => r.status === 'FAILED');
+
+      const latestRun = entityRuns[0] || null;
+      const lastSuccessfulRun = successRuns[0] || null;
+
+      const lastAttemptAt = latestRun?.startedAt || null;
+      const lastSuccessfulRunAt = lastSuccessfulRun?.completedAt || lastSuccessfulRun?.startedAt || watermark?.lastIngestedAt || null;
+
+      let status: 'HEALTHY' | 'STALE' | 'FAILED' | 'NEVER_RUN' = 'HEALTHY';
+      if (!lastAttemptAt && !lastSuccessfulRunAt) {
+        status = 'NEVER_RUN';
+      } else if (latestRun?.status === 'FAILED') {
+        status = 'FAILED';
+      } else if (lastSuccessfulRunAt && (now.getTime() - new Date(lastSuccessfulRunAt).getTime()) > 120 * 60 * 1000) {
+        status = 'STALE';
+      }
+
+      const lagSeconds = lastSuccessfulRunAt
+        ? Math.max(0, Math.floor((now.getTime() - new Date(lastSuccessfulRunAt).getTime()) / 1000))
+        : null;
+
+      const recordsRead = entityRuns.reduce((acc, r) => acc + (r.recordsRead || 0), 0);
+      const recordsIngested = entityRuns.reduce((acc, r) => acc + (r.recordsIngested || 0), 0);
+      const recordsRejected = Math.max(0, recordsRead - recordsIngested);
+
+      const errorRate = totalRuns > 0 ? Math.round((failedRuns.length / totalRuns) * 10000) / 100 : 0;
+
+      return {
+        jobName: `IngestionWorker:${entity}`,
+        entity,
+        status,
+        lastAttemptAt,
+        lastSuccessfulRunAt,
+        lagSeconds,
+        totalRuns,
+        successCount: successRuns.length,
+        failureCount: failedRuns.length,
+        errorRate,
+        recordsProcessed: recordsIngested,
+        recordsRejected,
+        lastError: latestRun?.errorMessage || null,
+        watermarkPosition: watermark?.lastIngestedAt || null,
+      };
+    });
+
+    const isOverallStale = jobHealthList.some((j) => j.status === 'STALE' || j.status === 'FAILED');
+
+    return {
+      evaluatedAt: now,
+      overallStatus: isOverallStale ? 'DEGRADED' : 'HEALTHY',
+      summary: {
+        totalJobsMonitored: jobHealthList.length,
+        healthyJobsCount: jobHealthList.filter((j) => j.status === 'HEALTHY').length,
+        staleJobsCount: jobHealthList.filter((j) => j.status === 'STALE').length,
+        failedJobsCount: jobHealthList.filter((j) => j.status === 'FAILED').length,
+      },
+      jobs: jobHealthList,
+    };
+  },
+
+  async getSystemErrors(gamingCenterId: string, startDateInput: Date, endDateInput: Date) {
+    const { timeZone, dayStart, dayEnd } = await resolveTimezoneAndBoundaries(
+      gamingCenterId,
+      startDateInput,
+      endDateInput
+    );
+
+    const errorData = await AnalyticsRepo.getSystemErrorsData(gamingCenterId, dayStart, dayEnd);
+
+    // Sanitize PII from recipients or payloads
+    const sanitizedNotifications = errorData.failedNotifications.map((n) => ({
+      id: n.id,
+      type: n.type,
+      channel: n.channel,
+      recipient: maskPhone(n.recipient),
+      attempts: n.attempts,
+      lastError: n.lastError,
+      createdAt: n.createdAt,
+    }));
+
+    const totalFailedNotifications = sanitizedNotifications.length;
+    const totalFailedPayments = errorData.failedPayments.length;
+    const totalFailedRefunds = errorData.failedRefunds.length;
+    const totalAuditErrorLogs = errorData.auditErrorLogs.length;
+
+    return {
+      period: { startDate: dayStart, endDate: dayEnd, timeZone },
+      totalErrors: totalFailedNotifications + totalFailedPayments + totalFailedRefunds,
+      errorCategories: {
+        notificationFailures: { count: totalFailedNotifications, samples: sanitizedNotifications.slice(0, 10) },
+        paymentFailures: { count: totalFailedPayments, samples: errorData.failedPayments.slice(0, 10) },
+        refundFailures: { count: totalFailedRefunds, samples: errorData.failedRefunds.slice(0, 10) },
+        sensitiveOperationsAudits: { count: totalAuditErrorLogs, samples: errorData.auditErrorLogs.slice(0, 10) },
+      },
+      disclaimer: 'Telemetry error stream sanitizes sensitive customer details (masked phone/email) and credential tokens.',
+    };
+  },
+
+  async getDataQuality(gamingCenterId: string) {
+    const checks = await AnalyticsRepo.getOperationalDataQualityChecks(gamingCenterId);
+
+    const results = [
+      {
+        checkId: 'DQ-001',
+        title: 'Confirmed Payment Missing Ledger Posting',
+        domain: 'FINANCE',
+        severity: 'HIGH' as const,
+        owner: 'Finance Ops',
+        actionRequired: 'Investigate payment collection ledger synchronization',
+        findingCount: checks.orphanPayments.length,
+        status: checks.orphanPayments.length > 0 ? ('FAILED' as const) : ('PASSED' as const),
+        findingsSample: checks.orphanPayments.map((p) => ({ id: p.id, amount: p.amount, currency: p.currency })),
+      },
+      {
+        checkId: 'DQ-002',
+        title: 'Canceled Reservation with Unrefunded Paid Status',
+        domain: 'RESERVATION',
+        severity: 'HIGH' as const,
+        owner: 'Reservation Ops',
+        actionRequired: 'Process refund or cancel payment state for canceled reservation',
+        findingCount: checks.canceledPaidReservations.length,
+        status: checks.canceledPaidReservations.length > 0 ? ('FAILED' as const) : ('PASSED' as const),
+        findingsSample: checks.canceledPaidReservations.map((r) => ({ id: r.id, totalPrice: r.totalPrice })),
+      },
+      {
+        checkId: 'DQ-003',
+        title: 'In Progress Reservation Missing Active Session',
+        domain: 'SESSION',
+        severity: 'MEDIUM' as const,
+        owner: 'Floor Supervisor',
+        actionRequired: 'Verify station terminal gaming session start state',
+        findingCount: checks.inProgressSessions.length,
+        status: checks.inProgressSessions.length > 0 ? ('FAILED' as const) : ('PASSED' as const),
+        findingsSample: checks.inProgressSessions.map((s) => ({ id: s.id, startTime: s.startTime })),
+      },
+      {
+        checkId: 'DQ-004',
+        title: 'Duplicate Active Waitlist Entry',
+        domain: 'WAITLIST',
+        severity: 'MEDIUM' as const,
+        owner: 'Waitlist Controller',
+        actionRequired: 'Consolidate duplicate active waitlist entries for customer',
+        findingCount: checks.duplicateWaitlists.length,
+        status: checks.duplicateWaitlists.length > 0 ? ('FAILED' as const) : ('PASSED' as const),
+        findingsSample: checks.duplicateWaitlists.map((w) => ({
+          customerAccountId: w.customerAccountId,
+          stationId: w.stationId,
+          count: w._count._all,
+        })),
+      },
+      {
+        checkId: 'DQ-005',
+        title: 'Null Essential Fields in Completed Reservation',
+        domain: 'RESERVATION',
+        severity: 'HIGH' as const,
+        owner: 'Data Engineering',
+        actionRequired: 'Audit booking creation schema validation and payload persistence',
+        findingCount: checks.nullFieldReservations.length,
+        status: checks.nullFieldReservations.length > 0 ? ('FAILED' as const) : ('PASSED' as const),
+        findingsSample: checks.nullFieldReservations.map((r) => ({ id: r.id, totalPrice: r.totalPrice })),
+      },
+      {
+        checkId: 'DQ-006',
+        title: 'Currency or Timezone Inconsistency in Financials',
+        domain: 'FINANCE',
+        severity: 'HIGH' as const,
+        owner: 'Finance Ops',
+        actionRequired: 'Reconcile multi-currency refund postings against payment currency',
+        findingCount: checks.currencyInconsistencies.length,
+        status: checks.currencyInconsistencies.length > 0 ? ('FAILED' as const) : ('PASSED' as const),
+        findingsSample: checks.currencyInconsistencies.map((c) => ({ id: c.id, currency: c.currency })),
+      },
+      {
+        checkId: 'DQ-007',
+        title: 'Orphan Rating or Review without Completed Reservation',
+        domain: 'RATING',
+        severity: 'LOW' as const,
+        owner: 'Customer Success',
+        actionRequired: 'Verify rating submission relation to completed reservation',
+        findingCount: checks.orphanRatings.length,
+        status: checks.orphanRatings.length > 0 ? ('FAILED' as const) : ('PASSED' as const),
+        findingsSample: checks.orphanRatings.map((r) => ({ id: r.id, rating: r.rating })),
+      },
+      {
+        checkId: 'DQ-008',
+        title: 'Analytics Pipeline Ingestion Watermark Lag',
+        domain: 'PIPELINE',
+        severity: 'HIGH' as const,
+        owner: 'Analytics Reliability Eng',
+        actionRequired: 'Trigger incremental backfill or inspect worker queue health',
+        findingCount: checks.watermarks.filter(
+          (w) => Date.now() - new Date(w.lastIngestedAt).getTime() > 120 * 60 * 1000
+        ).length,
+        status: checks.watermarks.some(
+          (w) => Date.now() - new Date(w.lastIngestedAt).getTime() > 120 * 60 * 1000
+        )
+          ? ('FAILED' as const)
+          : ('PASSED' as const),
+        findingsSample: checks.watermarks
+          .filter((w) => Date.now() - new Date(w.lastIngestedAt).getTime() > 120 * 60 * 1000)
+          .map((w) => ({ entity: w.entity, lastIngestedAt: w.lastIngestedAt })),
+      },
+    ];
+
+    const passedCount = results.filter((r) => r.status === 'PASSED').length;
+    const qualityScore = Math.round((passedCount / results.length) * 100);
+
+    return {
+      evaluatedAt: new Date(),
+      gamingCenterId,
+      qualityScore,
+      summary: {
+        totalChecksEvaluated: results.length,
+        passedChecksCount: passedCount,
+        failedChecksCount: results.length - passedCount,
+      },
+      checks: results,
+      nonMutationNotice: 'All data quality checks are strictly deterministic and read-only. Operational source data is never modified or deleted automatically.',
+    };
+  },
+
+  async getSupportQuality(gamingCenterId: string, startDateInput: Date, endDateInput: Date) {
+    const { timeZone, dayStart, dayEnd } = await resolveTimezoneAndBoundaries(
+      gamingCenterId,
+      startDateInput,
+      endDateInput
+    );
+
+    const tickets = await AnalyticsRepo.getSupportAnalyticsStats(gamingCenterId, dayStart, dayEnd);
+
+    const totalTickets = tickets.length;
+    const openTickets = tickets.filter((t) => t.status === 'OPEN').length;
+    const pendingTickets = tickets.filter((t) => t.status === 'PENDING').length;
+    const answeredTickets = tickets.filter((t) => t.status === 'ANSWERED').length;
+    const closedTicketsList = tickets.filter((t) => t.status === 'CLOSED');
+    const closedTickets = closedTicketsList.length;
+
+    // First response time calculation
+    const firstResponseMinutesList: number[] = [];
+    for (const t of tickets) {
+      const firstSupportMsg = t.messages.find((m) => m.senderType === 'SUPPORT');
+      if (firstSupportMsg) {
+        const diffMs = firstSupportMsg.createdAt.getTime() - t.createdAt.getTime();
+        firstResponseMinutesList.push(diffMs > 0 ? Math.round(diffMs / (1000 * 60)) : 0);
+      }
+    }
+
+    firstResponseMinutesList.sort((a, b) => a - b);
+    const avgFirstResponseMinutes =
+      firstResponseMinutesList.length > 0
+        ? Math.round(firstResponseMinutesList.reduce((acc, m) => acc + m, 0) / firstResponseMinutesList.length)
+        : 0;
+
+    let medianFirstResponseMinutes = 0;
+    if (firstResponseMinutesList.length > 0) {
+      const mid = Math.floor(firstResponseMinutesList.length / 2);
+      medianFirstResponseMinutes =
+        firstResponseMinutesList.length % 2 !== 0
+          ? firstResponseMinutesList[mid]
+          : Math.round((firstResponseMinutesList[mid - 1] + firstResponseMinutesList[mid]) / 2);
+    }
+
+    // Resolution time calculation (STRICTLY for CLOSED tickets only; OPEN tickets MUST NOT be counted as resolved)
+    const resolutionMinutesList: number[] = [];
+    for (const t of closedTicketsList) {
+      if (t.closedAt) {
+        const diffMs = t.closedAt.getTime() - t.createdAt.getTime();
+        resolutionMinutesList.push(diffMs > 0 ? Math.round(diffMs / (1000 * 60)) : 0);
+      }
+    }
+
+    resolutionMinutesList.sort((a, b) => a - b);
+    const avgResolutionMinutes =
+      resolutionMinutesList.length > 0
+        ? Math.round(resolutionMinutesList.reduce((acc, m) => acc + m, 0) / resolutionMinutesList.length)
+        : 0;
+
+    let medianResolutionMinutes = 0;
+    if (resolutionMinutesList.length > 0) {
+      const mid = Math.floor(resolutionMinutesList.length / 2);
+      medianResolutionMinutes =
+        resolutionMinutesList.length % 2 !== 0
+          ? resolutionMinutesList[mid]
+          : Math.round((resolutionMinutesList[mid - 1] + resolutionMinutesList[mid]) / 2);
+    }
+
+    // Category breakdown
+    const categoryMap = new Map<string, number>();
+    const priorityMap = new Map<string, number>();
+
+    for (const t of tickets) {
+      categoryMap.set(t.category, (categoryMap.get(t.category) || 0) + 1);
+      priorityMap.set(t.priority, (priorityMap.get(t.priority) || 0) + 1);
+    }
+
+    return {
+      period: { startDate: dayStart, endDate: dayEnd, timeZone },
+      totalTickets,
+      statusDistribution: {
+        open: openTickets,
+        pending: pendingTickets,
+        answered: answeredTickets,
+        closed: closedTickets,
+      },
+      slaMetrics: {
+        avgFirstResponseMinutes,
+        medianFirstResponseMinutes,
+        avgResolutionMinutes,
+        medianResolutionMinutes,
+        openTicketNotice: 'Resolution SLA metrics are calculated strictly for CLOSED tickets. Active OPEN, PENDING, or ANSWERED tickets are excluded from resolution duration.',
+      },
+      categoryBreakdown: Array.from(categoryMap.entries()).map(([category, count]) => ({ category, count })),
+      priorityBreakdown: Array.from(priorityMap.entries()).map(([priority, count]) => ({ priority, count })),
+    };
+  },
+
+  async getFeatureAdoption(gamingCenterId: string, startDateInput: Date, endDateInput: Date) {
+    const { timeZone, dayStart, dayEnd } = await resolveTimezoneAndBoundaries(
+      gamingCenterId,
+      startDateInput,
+      endDateInput
+    );
+
+    const stats = await AnalyticsRepo.getFeatureAdoptionStats(gamingCenterId, dayStart, dayEnd);
+
+    // Waitlist adoption
+    const waitlistCount = stats.waitlistEntries.length;
+    const waitlistConverted = stats.waitlistEntries.filter((w) => w.status === 'CONVERTED').length;
+
+    // Time Proposals adoption
+    const proposalCount = stats.proposals.length;
+    const proposalAccepted = stats.proposals.filter((p) => p.status === 'ACCEPTED').length;
+
+    // Discounts adoption
+    const discountActiveCount = stats.discounts.filter((d) => d.isActive).length;
+
+    // Group Bookings adoption
+    const groupBookingCount = stats.groupBookings.length;
+
+    // Ratings adoption
+    const ratingCount = stats.ratings.length;
+    const avgRatingScore =
+      ratingCount > 0
+        ? Math.round((stats.ratings.reduce((acc, r) => acc + r.rating, 0) / ratingCount) * 10) / 10
+        : 0;
+
+    // Notification adoption
+    const notificationCount = stats.notificationLogs.length;
+
+    return {
+      period: { startDate: dayStart, endDate: dayEnd, timeZone },
+      features: [
+        {
+          featureKey: 'RESERVATION_WAITLIST',
+          title: 'Reservation Waitlist',
+          availability: 'AVAILABLE',
+          adoptionStatus: waitlistCount > 0 ? 'ADOPTED' : 'LOW_ADOPTION',
+          usageEventsCount: waitlistCount,
+          conversionCount: waitlistConverted,
+          conversionRate: waitlistCount > 0 ? Math.round((waitlistConverted / waitlistCount) * 10000) / 100 : 0,
+        },
+        {
+          featureKey: 'TIME_PROPOSALS',
+          title: 'Reservation Time Proposals',
+          availability: 'AVAILABLE',
+          adoptionStatus: proposalCount > 0 ? 'ADOPTED' : 'LOW_ADOPTION',
+          usageEventsCount: proposalCount,
+          conversionCount: proposalAccepted,
+          conversionRate: proposalCount > 0 ? Math.round((proposalAccepted / proposalCount) * 10000) / 100 : 0,
+        },
+        {
+          featureKey: 'DISCOUNTS_VOUCHERS',
+          title: 'Discounts & Voucher Campaigns',
+          availability: discountActiveCount > 0 ? 'AVAILABLE' : 'CONFIGURED',
+          adoptionStatus: discountActiveCount > 0 ? 'ADOPTED' : 'NOT_IN_USE',
+          activeCampaignsCount: discountActiveCount,
+        },
+        {
+          featureKey: 'GROUP_BOOKINGS',
+          title: 'Multi-Station Group Bookings',
+          availability: 'AVAILABLE',
+          adoptionStatus: groupBookingCount > 0 ? 'ADOPTED' : 'LOW_ADOPTION',
+          usageEventsCount: groupBookingCount,
+        },
+        {
+          featureKey: 'CUSTOMER_RATINGS',
+          title: 'Post-Session Customer Ratings',
+          availability: 'AVAILABLE',
+          adoptionStatus: ratingCount > 0 ? 'ADOPTED' : 'LOW_ADOPTION',
+          usageEventsCount: ratingCount,
+          averageScore: avgRatingScore,
+        },
+        {
+          featureKey: 'NOTIFICATION_DISPATCH',
+          title: 'Automated SMS / In-App Notifications',
+          availability: 'AVAILABLE',
+          adoptionStatus: notificationCount > 0 ? 'ADOPTED' : 'NOT_IN_USE',
+          usageEventsCount: notificationCount,
+        },
+      ],
+      adoptionDistinctionNotice: 'Feature availability reflects system capability, whereas feature adoption measures verified user and operator interaction events during the window.',
+    };
+  },
+
+  async getIssueMatrix() {
+    return {
+      title: 'Play-Nest Operational Issue & Reliability Matrix',
+      lastUpdated: new Date().toISOString(),
+      matrix: [
+        {
+          issueId: 'ISS-001',
+          sourceComponent: 'AnalyticsIngestionWorker',
+          description: 'Ingestion pipeline watermark lag exceeds 120-minute threshold',
+          severity: 'HIGH',
+          owner: 'Analytics Reliability Eng',
+          action: 'Inspect Redis connection, check worker process logs, run manual backfill script',
+        },
+        {
+          issueId: 'ISS-002',
+          sourceComponent: 'PaymentGatewayProvider / ZarinPal',
+          description: 'Payment status is PAID but missing corresponding PAYMENT_COLLECTION ledger posting',
+          severity: 'HIGH',
+          owner: 'Finance Ops',
+          action: 'Run financial reconciliation check POST /financials/reconciliation/run and record compensating ledger entry',
+        },
+        {
+          issueId: 'ISS-003',
+          sourceComponent: 'ReservationStateEngine',
+          description: 'Reservation is CANCELED but payment state remains PAID without refund record',
+          severity: 'HIGH',
+          owner: 'Reservation Operations Manager',
+          action: 'Audit cancellation reason and trigger provider refund or manual wallet credit',
+        },
+        {
+          issueId: 'ISS-004',
+          sourceComponent: 'WaitlistExpiryWorker',
+          description: 'Duplicate active waitlist entries exist for same customer, station, and time slot',
+          severity: 'MEDIUM',
+          owner: 'Waitlist Controller',
+          action: 'Cancel older duplicate waitlist entry and notify customer',
+        },
+        {
+          issueId: 'ISS-005',
+          sourceComponent: 'SMSWorker',
+          description: 'High notification failure rate or provider delivery failure',
+          severity: 'MEDIUM',
+          owner: 'Communication Systems Lead',
+          action: 'Check SMSIR API key validity, credit balance, and retry queue status',
+        },
+        {
+          issueId: 'ISS-006',
+          sourceComponent: 'CustomerSupportPanel',
+          description: 'Open support tickets exceed SLA 120-minute first response target',
+          severity: 'LOW',
+          owner: 'Customer Support Supervisor',
+          action: 'Reassign pending tickets to available support staff on shift',
+        },
+      ],
+    };
+  },
 };
 
 function computeAggregateStats(values: number[]): { median: number; mean: number; p25: number; p75: number } | null {

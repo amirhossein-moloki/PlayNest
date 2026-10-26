@@ -392,6 +392,73 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
         </div>
       </div>
 
+      <!-- Operations & Data Quality Health Section -->
+      <div class="grid-sections">
+        <!-- Operational Data Quality Checks -->
+        <div class="card">
+          <div class="section-title">
+            Data Quality & Integrity Checks
+            <span id="dataQualityScoreBadge" class="status-badge status-PAID">Score: 100%</span>
+          </div>
+          <table id="tblDataQualityChecks">
+            <thead>
+              <tr>
+                <th>Check ID</th>
+                <th>Title</th>
+                <th>Severity</th>
+                <th>Status</th>
+                <th>Findings</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <!-- Customer Support SLA -->
+        <div class="card">
+          <div class="section-title">Customer Support SLA Performance</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <div style="background: var(--bg-main); padding: 12px; border-radius: 8px; text-align: center;">
+              <div style="font-size: 11px; color: var(--text-secondary);">AVG FIRST RESPONSE</div>
+              <div id="supportAvgResponse" style="font-size: 20px; font-weight: 700;">-</div>
+            </div>
+            <div style="background: var(--bg-main); padding: 12px; border-radius: 8px; text-align: center;">
+              <div style="font-size: 11px; color: var(--text-secondary);">AVG RESOLUTION (CLOSED)</div>
+              <div id="supportAvgResolution" style="font-size: 20px; font-weight: 700;">-</div>
+            </div>
+          </div>
+          <div style="font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">TICKET STATUS BREAKDOWN</div>
+          <table id="tblTicketStatus">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th class="amount-col">Count</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Feature Adoption Section -->
+      <div class="grid-sections">
+        <div class="card" style="grid-column: span 2;">
+          <div class="section-title">Product Feature Adoption</div>
+          <table id="tblFeatureAdoption">
+            <thead>
+              <tr>
+                <th>Feature</th>
+                <th>Availability</th>
+                <th>Adoption Status</th>
+                <th>Usage Events</th>
+                <th class="amount-col">Conversion / Metric</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Phase 4 Financial Reconciliation & Audit Section -->
       <div class="grid-sections">
         <div class="card" style="grid-column: span 2;">
@@ -576,7 +643,7 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
         const query = '?startDate=' + start + '&endDate=' + end;
 
         try {
-          const [summary, custSummary, custSegments, custSpenders, financials, reconciliation, stations, waitlist, notifications, staff, ingestion] = await Promise.all([
+          const [summary, custSummary, custSegments, custSpenders, financials, reconciliation, stations, waitlist, notifications, staff, ingestion, dq, supportSla, featureAdoption] = await Promise.all([
             fetchAPI('/summary' + query),
             fetchAPI('/customers/summary' + query),
             fetchAPI('/customers/segmentation' + query),
@@ -587,8 +654,53 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
             fetchAPI('/operations/waitlist' + query),
             fetchAPI('/operations/notifications' + query),
             fetchAPI('/staff' + query),
-            fetchAPI('/ingestion-status')
+            fetchAPI('/ingestion-status'),
+            fetchAPI('/operations/data-quality').catch(() => null),
+            fetchAPI('/operations/support' + query).catch(() => null),
+            fetchAPI('/operations/feature-adoption' + query).catch(() => null)
           ]);
+
+          // Render Data Quality Checks
+          if (dq) {
+            document.getElementById('dataQualityScoreBadge').textContent = 'Quality Score: ' + (dq.qualityScore || 100) + '%';
+            const tblDq = document.querySelector('#tblDataQualityChecks tbody');
+            tblDq.innerHTML = (dq.checks || []).map(c => \`
+              <tr>
+                <td><strong>\${c.checkId}</strong></td>
+                <td>\${c.title}</td>
+                <td><span class="status-badge \${c.severity === 'HIGH' ? 'status-FAILED' : 'status-PENDING'}">\${c.severity}</span></td>
+                <td><span class="status-badge \${c.status === 'PASSED' ? 'status-COMPLETED' : 'status-FAILED'}">\${c.status}</span></td>
+                <td>\${c.findingCount} findings</td>
+              </tr>
+            \`).join('') || '<tr><td colspan="5" style="text-align:center; color:#15803d;">✓ All data quality checks passed</td></tr>';
+          }
+
+          // Render Support SLA
+          if (supportSla) {
+            document.getElementById('supportAvgResponse').textContent = (supportSla.slaMetrics?.avgFirstResponseMinutes || 0) + ' min';
+            document.getElementById('supportAvgResolution').textContent = (supportSla.slaMetrics?.avgResolutionMinutes || 0) + ' min';
+            const tblTicket = document.querySelector('#tblTicketStatus tbody');
+            tblTicket.innerHTML = Object.entries(supportSla.statusDistribution || {}).map(([st, cnt]) => \`
+              <tr>
+                <td>\${st.toUpperCase()}</td>
+                <td class="amount-col">\${cnt}</td>
+              </tr>
+            \`).join('');
+          }
+
+          // Render Feature Adoption
+          if (featureAdoption) {
+            const tblFa = document.querySelector('#tblFeatureAdoption tbody');
+            tblFa.innerHTML = (featureAdoption.features || []).map(f => \`
+              <tr>
+                <td><strong>\${f.title}</strong></td>
+                <td><span class="status-badge status-PAID">\${f.availability}</span></td>
+                <td><span class="status-badge \${f.adoptionStatus === 'ADOPTED' ? 'status-COMPLETED' : 'status-PENDING'}">\${f.adoptionStatus}</span></td>
+                <td>\${f.usageEventsCount || f.activeCampaignsCount || 0}</td>
+                <td class="amount-col">\${f.conversionRate != null ? f.conversionRate + '%' : f.averageScore ? f.averageScore + ' ★' : '-'}</td>
+              </tr>
+            \`).join('');
+          }
 
           // Freshness Badge
           const badge = document.getElementById('freshnessBadge');
