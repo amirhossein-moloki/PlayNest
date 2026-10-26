@@ -93,9 +93,9 @@ export const AnalyticsRepo = {
   },
 
   async getApprovedExpenses(gamingCenterId: string, dayStart: Date, dayEnd: Date, currencyFilter?: string) {
-    const where: any = {
+    const where: Prisma.GamingCenterExpenseWhereInput = {
       gamingCenterId,
-      status: 'APPROVED' as const,
+      status: 'APPROVED',
       expenseDate: { gte: dayStart, lte: dayEnd },
       ...(currencyFilter ? { currency: currencyFilter } : {}),
     };

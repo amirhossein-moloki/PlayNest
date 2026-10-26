@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
@@ -42,7 +43,7 @@ export const MarketingSpendService = {
   },
 
   async getMarketingSpends(gamingCenterId: string, startDate?: Date, endDate?: Date) {
-    const where: any = {
+    const where: Prisma.MarketingCampaignSpendWhereInput = {
       OR: [{ gamingCenterId }, { gamingCenterId: null }],
     };
 

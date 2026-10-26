@@ -1,7 +1,6 @@
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
-import AppError from '../../common/errors/AppError';
-import httpStatus from 'http-status';
 
 export const AnalyticsEventSchema = z.object({
   eventType: z.enum([
@@ -131,7 +130,7 @@ export const EventsCollector = {
         utmMedium: validated.utmMedium || null,
         utmCampaign: validated.utmCampaign || null,
         deduplicationKey: effectiveDedupKey,
-        payload: cleanPayload as any,
+        payload: cleanPayload as Prisma.InputJsonValue,
         timestamp: eventTime,
       },
     });

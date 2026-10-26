@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { resolveTimezoneAndBoundaries } from './analytics.validators';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -179,7 +180,7 @@ export const ForecastingService = {
           validationDaysCount: valCount,
         },
         sufficiencyStatus: 'SUFFICIENT',
-        forecastData: forecastData as any,
+        forecastData: forecastData as unknown as Prisma.InputJsonValue,
       },
     });
 

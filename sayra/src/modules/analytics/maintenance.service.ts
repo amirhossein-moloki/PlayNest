@@ -1,7 +1,7 @@
 import { prisma } from '../../config/prisma';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
-import { MaintenanceSeverity, MaintenanceStatus } from '@prisma/client';
+import { MaintenanceSeverity, MaintenanceStatus, Prisma } from '@prisma/client';
 
 export interface CreateMaintenanceInput {
   gamingCenterId: string;
@@ -68,7 +68,7 @@ export const MaintenanceService = {
     startDate?: Date,
     endDate?: Date
   ) {
-    const where: any = {
+    const where: Prisma.StationMaintenanceWhereInput = {
       station: { gamingCenterId },
       ...(stationId ? { stationId } : {}),
       ...(status ? { status } : {}),

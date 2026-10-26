@@ -1,6 +1,5 @@
 import { AnalyticsStation } from '../../../../src/modules/analytics/analytics.station';
 import { AnalyticsRepo } from '../../../../src/modules/analytics/analytics.repo';
-import { prisma } from '../../../../src/config/prisma';
 
 jest.mock('../../../../src/config/prisma', () => ({
   prisma: {

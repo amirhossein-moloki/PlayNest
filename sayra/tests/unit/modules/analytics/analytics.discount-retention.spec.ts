@@ -1,6 +1,5 @@
 import { AnalyticsStation } from '../../../../src/modules/analytics/analytics.station';
 import { AnalyticsRepo } from '../../../../src/modules/analytics/analytics.repo';
-import { prisma } from '../../../../src/config/prisma';
 import { subDays } from 'date-fns';
 
 jest.mock('../../../../src/config/prisma', () => ({

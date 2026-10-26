@@ -1291,6 +1291,7 @@ export const AnalyticsStation = {
         totalNewCustomers: newCustomers.length,
         totalAttributedNewCustomers,
         unattributedNewCustomersCount,
+        unattributedRevenue,
         overallCACStatus: overallCAC !== null ? 'CALCULATED' : 'NOT_CALCULABLE',
         overallCAC,
         overallROASStatus: overallROAS !== null ? 'CALCULATED' : 'NOT_CALCULABLE',

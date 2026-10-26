@@ -1,7 +1,7 @@
 import { prisma } from '../../config/prisma';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
-import { ExpenseCategory, ExpenseStatus } from '@prisma/client';
+import { ExpenseCategory, ExpenseStatus, Prisma } from '@prisma/client';
 
 export interface CreateExpenseInput {
   gamingCenterId: string;
@@ -55,7 +55,7 @@ export const ExpenseService = {
         action: 'EXPENSE_CREATED',
         entity: 'GamingCenterExpense',
         entityId: expense.id,
-        newData: expense as any,
+        newData: expense as unknown as Prisma.InputJsonValue,
       },
     });
 
@@ -69,7 +69,7 @@ export const ExpenseService = {
     category?: ExpenseCategory,
     status?: ExpenseStatus
   ) {
-    const where: any = {
+    const where: Prisma.GamingCenterExpenseWhereInput = {
       gamingCenterId,
       ...(category ? { category } : {}),
       ...(status ? { status } : {}),
@@ -147,8 +147,8 @@ export const ExpenseService = {
         action: 'EXPENSE_UPDATED',
         entity: 'GamingCenterExpense',
         entityId: id,
-        oldData: existing as any,
-        newData: updated as any,
+        oldData: existing as unknown as Prisma.InputJsonValue,
+        newData: updated as unknown as Prisma.InputJsonValue,
       },
     });
 
@@ -177,8 +177,8 @@ export const ExpenseService = {
         action: 'EXPENSE_APPROVED',
         entity: 'GamingCenterExpense',
         entityId: id,
-        oldData: existing as any,
-        newData: updated as any,
+        oldData: existing as unknown as Prisma.InputJsonValue,
+        newData: updated as unknown as Prisma.InputJsonValue,
       },
     });
 
@@ -202,8 +202,8 @@ export const ExpenseService = {
         action: 'EXPENSE_VOIDED',
         entity: 'GamingCenterExpense',
         entityId: id,
-        oldData: existing as any,
-        newData: updated as any,
+        oldData: existing as unknown as Prisma.InputJsonValue,
+        newData: updated as unknown as Prisma.InputJsonValue,
       },
     });
 

@@ -2,6 +2,7 @@ import { ExpenseService } from '../../../../src/modules/analytics/expense.servic
 import { AnalyticsStation } from '../../../../src/modules/analytics/analytics.station';
 import { AnalyticsRepo } from '../../../../src/modules/analytics/analytics.repo';
 import { prisma } from '../../../../src/config/prisma';
+import { ExpenseCategory } from '@prisma/client';
 
 jest.mock('../../../../src/config/prisma', () => ({
   prisma: {
@@ -50,7 +51,7 @@ describe('ExpenseService & Net Profit Calculation', () => {
 
       const result = await ExpenseService.createExpense({
         gamingCenterId: 'center-1',
-        category: 'RENT' as any,
+        category: ExpenseCategory.RENT,
         amount: 5000000,
         expenseDate: new Date('2025-01-01'),
         createdById: 'user-1',
@@ -65,7 +66,7 @@ describe('ExpenseService & Net Profit Calculation', () => {
       await expect(
         ExpenseService.createExpense({
           gamingCenterId: 'center-1',
-          category: 'RENT' as any,
+          category: ExpenseCategory.RENT,
           amount: 0,
           expenseDate: new Date('2025-01-01'),
         })
