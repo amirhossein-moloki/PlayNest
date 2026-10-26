@@ -28,7 +28,7 @@ export const createPostSchema = z.object({
   publishedAt: z.coerce.date().optional(),
   scheduledAt: z.coerce.date().optional(),
   isHot: z.boolean().default(false),
-  tagIds: z.array(z.string().cuid()).optional(),
+  tagIds: z.array(z.string().cuid()).max(50, 'Tag list cannot exceed 50 items').optional(),
 });
 
 export const updatePostSchema = createPostSchema.partial().extend({

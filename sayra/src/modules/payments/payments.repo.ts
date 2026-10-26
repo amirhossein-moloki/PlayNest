@@ -1,5 +1,6 @@
 import { Prisma, ReservationPaymentState, PaymentStatus, ReservationStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import logger from '../../config/logger';
 import { validateReservationTransition, validatePaymentTransition } from './payments.state';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
@@ -87,8 +88,9 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string, refId?: string
     payment.reservation.status === ReservationStatus.CANCELED ||
     payment.reservation.status === ReservationStatus.EXPIRED
   ) {
-    console.warn(
-      `Payment ${paymentId} succeeded for ${payment.reservation.status} reservation ${payment.reservationId}. Payment marked PAID for reconciliation without resurrecting reservation.`
+    logger.warn(
+      { paymentId, reservationId: payment.reservationId, reservationStatus: payment.reservation.status },
+      `Payment succeeded for ${payment.reservation.status} reservation. Payment marked PAID for reconciliation without resurrecting reservation.`
     );
 
     const updatedPayment = await tx.payment.update({

@@ -1,5 +1,6 @@
 import { PageSectionType } from '@prisma/client';
 import { ZodError } from 'zod';
+import logger from '../../config/logger';
 
 import { pageSectionSchemaByType } from './page-section-registry';
 
@@ -27,7 +28,7 @@ const logSectionDataError = (
     type: context.type ?? 'unknown',
     error,
   };
-  console.warn(`[cms] ${message}`, payload);
+  logger.warn(payload, `[cms] ${message}`);
 };
 
 export const parseSectionDataJson = ({

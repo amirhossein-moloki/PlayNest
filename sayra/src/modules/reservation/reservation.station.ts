@@ -17,6 +17,7 @@ import logger from '../../config/logger';
 import { env } from '../../config/env';
 import { ReservationStateMachine } from './reservation.state-machine';
 import { discountsStation } from '../discounts/discounts.station';
+import { calculateBasePrice } from '../../common/utils/money';
 import {
   validateLeadTime,
   validateOperatingHours,
@@ -152,7 +153,7 @@ export const reservationStation = {
       await ReservationRepo.assertActiveReservationLimitNotExceeded(customerAccount.id, tx);
 
       // 2. Calculate base price and applicable discount
-      const basePrice = durationHours * station.hourlyPrice;
+      const basePrice = calculateBasePrice(durationHours, station.hourlyPrice);
 
       const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
         gamingCenterId,
@@ -303,7 +304,7 @@ export const reservationStation = {
           ? ReservationStatus.CONFIRMED
           : ReservationStatus.PENDING;
 
-        const basePrice = durationHours * station.hourlyPrice;
+        const basePrice = calculateBasePrice(durationHours, station.hourlyPrice);
         const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
           gamingCenter.id,
           station.id,
@@ -485,7 +486,7 @@ export const reservationStation = {
             stationType: effectiveStation.stationType,
           };
           updateData.totalHours = durationHours;
-          updateData.totalPrice = durationHours * effectiveStation.hourlyPrice;
+          updateData.totalPrice = calculateBasePrice(durationHours, effectiveStation.hourlyPrice);
         }
 
         if (staffChanged) {
@@ -556,7 +557,7 @@ export const reservationStation = {
             const hourlyRate = stationChanged
               ? effectiveStation!.hourlyPrice
               : ((reservation.stationSnapshot as Record<string, unknown>)?.hourlyPrice as number) || 0;
-            const basePrice = durationHours * hourlyRate;
+            const basePrice = calculateBasePrice(durationHours, hourlyRate);
 
             const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
               gamingCenterId,
@@ -974,7 +975,7 @@ export const reservationStation = {
         }
 
         // Recalculate prices and dynamic discounts
-        const basePrice = durationHours * station.hourlyPrice;
+        const basePrice = calculateBasePrice(durationHours, station.hourlyPrice);
         const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
           gamingCenterId,
           effectiveStationId,

@@ -6,6 +6,7 @@ import { AuthRepository } from '../auth/auth.repository';
 import { discountsStation } from '../discounts/discounts.station';
 import { walletService } from '../wallet/wallet.station';
 import { auditService } from '../audit/audit.station';
+import { calculateBasePrice } from '../../common/utils/money';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { normalizePhone } from '../../common/utils/phone';
@@ -152,7 +153,7 @@ export const GroupBookingStation = {
 
       for (const item of items) {
         const station = stationMap.get(item.stationId)!;
-        const itemBasePrice = totalHours * station.hourlyPrice;
+        const itemBasePrice = calculateBasePrice(totalHours, station.hourlyPrice);
 
         const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
           gamingCenterId,

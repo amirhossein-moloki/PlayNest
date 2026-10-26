@@ -11,7 +11,7 @@ export const createGamingCenterSchema = z.object({
       'Slug can only contain lowercase letters, numbers, and hyphens',
     ),
   ownerId: z.string().min(1, 'Owner ID is required'),
-  games: z.array(z.string()).optional().default([]),
+  games: z.array(z.string()).max(100, 'Games list cannot exceed 100 items').optional().default([]),
 });
 
 export const updateGamingCenterSchema = z.object({
@@ -25,7 +25,7 @@ export const updateGamingCenterSchema = z.object({
     )
     .optional(),
   isActive: z.boolean().optional(),
-  games: z.array(z.string()).optional(),
+  games: z.array(z.string()).max(100, 'Games list cannot exceed 100 items').optional(),
 });
 
 export const listGamingCentersSchema = baseFilterSchema.extend({

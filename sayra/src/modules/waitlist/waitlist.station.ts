@@ -7,6 +7,7 @@ import httpStatus from 'http-status';
 import { normalizePhone } from '../../common/utils/phone';
 import { validateLeadTime, validateOperatingHours, validateStationAvailability } from '../reservation/reservation.validation';
 import { discountsStation } from '../discounts/discounts.station';
+import { calculateBasePrice } from '../../common/utils/money';
 import { auditService } from '../audit/audit.station';
 import { NotificationStation } from '../notifications/notifications.station';
 import { CreateWaitlistEntryInput, ListWaitlistQuery, ListWaitlistOffersQuery } from './waitlist.dto';
@@ -353,7 +354,7 @@ export const waitlistStation = {
 
       // 3. Calculate price and discounts
       const durationHours = differenceInMinutes(offer.offeredEndTime, offer.offeredStartTime) / 60;
-      const basePrice = durationHours * station.hourlyPrice;
+      const basePrice = calculateBasePrice(durationHours, station.hourlyPrice);
 
       const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
         gamingCenterId,
