@@ -51,6 +51,71 @@ describe('Phase 4 Financial Analytics & Reconciliation Unit Tests', () => {
       expect(result.ledger).toHaveLength(2);
       expect(result.wallet).toHaveLength(2);
       expect(result.customerWallets.sum).toBe(200000);
+      expect(result.profitability.status).toBe('NOT_CALCULABLE');
+    });
+  });
+
+  describe('AnalyticsStation.getFinancialReport Multi-Currency & Precision Tests', () => {
+    it('should isolate currencies and return NOT_CALCULABLE profitability status', async () => {
+      (AnalyticsRepo.getLiveFinancialStats as jest.Mock).mockResolvedValue({
+        paidPayments: [
+          { currency: 'IRR', _sum: { amount: 5000000 }, _count: { _all: 10 } },
+          { currency: 'USD', _sum: { amount: 100 }, _count: { _all: 2 } },
+        ],
+        paymentsByStatus: [
+          { status: 'PAID', currency: 'IRR', _sum: { amount: 5000000 }, _count: { _all: 10 } },
+          { status: 'PAID', currency: 'USD', _sum: { amount: 100 }, _count: { _all: 2 } },
+        ],
+        paymentsByMethod: [
+          { method: 'ONLINE', currency: 'IRR', _sum: { amount: 5000000 }, _count: { _all: 10 } },
+        ],
+        paymentsByProvider: [
+          { provider: 'ZARINPAL', currency: 'IRR', _sum: { amount: 5000000 }, _count: { _all: 10 } },
+        ],
+        refunds: [
+          { currency: 'IRR', _sum: { amount: 500000 }, _count: { _all: 1 } },
+        ],
+        ledgerEntries: [
+          { entryType: 'PAYMENT_COLLECTION', currency: 'IRR', _sum: { amount: 5000000 }, _count: { _all: 10 } },
+        ],
+      });
+
+      const startDate = new Date('2026-01-01');
+      const endDate = new Date('2026-01-30');
+
+      const result = await AnalyticsStation.getFinancialReport(gamingCenterId, startDate, endDate);
+
+      // Primary currency defaults to IRR (first in paidPayments)
+      expect(result.summary.currency).toBe('IRR');
+      expect(result.summary.grossCollected).toBe(5000000); // Only IRR payments, USD is NOT added!
+      expect(result.summary.totalRefunded).toBe(500000);
+      expect(result.summary.netCollected).toBe(4500000);
+
+      // Multi-currency summaries must isolate IRR and USD separately
+      expect(result.currencySummaries).toHaveLength(2);
+      const irrSummary = result.currencySummaries.find((c: { currency: string }) => c.currency === 'IRR');
+      const usdSummary = result.currencySummaries.find((c: { currency: string }) => c.currency === 'USD');
+
+      expect(irrSummary).toEqual({
+        currency: 'IRR',
+        grossCollected: 5000000,
+        totalRefunded: 500000,
+        netCollected: 4500000,
+      });
+
+      expect(usdSummary).toEqual({
+        currency: 'USD',
+        grossCollected: 100,
+        totalRefunded: 0,
+        netCollected: 100,
+      });
+
+      // Profitability must be explicitly marked NOT_CALCULABLE
+      expect(result.profitability.status).toBe('NOT_CALCULABLE');
+      expect(result.profitability.cost).toBeNull();
+      expect(result.profitability.netProfit).toBeNull();
+      expect(result.profitability.profitMargin).toBeNull();
+      expect(result.profitability.disclaimer).toBeDefined();
     });
   });
 

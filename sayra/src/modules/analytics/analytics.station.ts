@@ -257,9 +257,36 @@ export const AnalyticsStation = {
     // Primary currency calculation
     const primaryCurrency = currencyFilter || stats.paidPayments[0]?.currency || 'IRR';
 
-    const grossCollected = stats.paidPayments.reduce((acc, p) => acc + (p._sum.amount || 0), 0);
-    const totalRefunded = stats.refunds.reduce((acc, r) => acc + (r._sum.amount || 0), 0);
+    // Strictly isolate totals by currency to satisfy Rule 3 (never sum different currencies together)
+    const paidForPrimary = stats.paidPayments.filter((p) => p.currency === primaryCurrency);
+    const grossCollected = paidForPrimary.reduce((acc, p) => acc + (p._sum.amount || 0), 0);
+
+    const refundsForPrimary = stats.refunds.filter((r) => r.currency === primaryCurrency);
+    const totalRefunded = refundsForPrimary.reduce((acc, r) => acc + (r._sum.amount || 0), 0);
     const netCollected = grossCollected - totalRefunded;
+
+    // Build multi-currency summaries if multiple currencies exist
+    const distinctCurrencies = Array.from(
+      new Set([
+        ...stats.paidPayments.map((p) => p.currency),
+        ...stats.refunds.map((r) => r.currency),
+      ])
+    );
+
+    const currencySummaries = distinctCurrencies.map((curr) => {
+      const gross = stats.paidPayments
+        .filter((p) => p.currency === curr)
+        .reduce((acc, p) => acc + (p._sum.amount || 0), 0);
+      const refunded = stats.refunds
+        .filter((r) => r.currency === curr)
+        .reduce((acc, r) => acc + (r._sum.amount || 0), 0);
+      return {
+        currency: curr,
+        grossCollected: gross,
+        totalRefunded: refunded,
+        netCollected: gross - refunded,
+      };
+    });
 
     const paymentsByStatus = stats.paymentsByStatus.map((p) => ({
       status: p.status,
@@ -296,6 +323,15 @@ export const AnalyticsStation = {
         grossCollected,
         totalRefunded,
         netCollected,
+      },
+      currencySummaries,
+      profitability: {
+        status: 'NOT_CALCULABLE',
+        cost: null,
+        netProfit: null,
+        profitMargin: null,
+        disclaimer:
+          'Expenses and net profitability are NOT CALCULABLE due to lack of authoritative center cost data source and allocation rules.',
       },
       paymentsByStatus,
       paymentsByMethod,
@@ -553,6 +589,14 @@ export const AnalyticsStation = {
         totalBaseAmount: e._sum.baseAmount || 0,
         totalCommissionAmount: e._sum.commissionAmount || 0,
       })),
+      profitability: {
+        status: 'NOT_CALCULABLE',
+        cost: null,
+        netProfit: null,
+        profitMargin: null,
+        disclaimer:
+          'Expenses and net profitability are NOT CALCULABLE due to lack of authoritative center cost data source and allocation rules.',
+      },
     };
   },
 
