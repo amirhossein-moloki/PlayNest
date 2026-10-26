@@ -349,4 +349,8 @@ export const AnalyticsStation = {
 
     return chart;
   },
+
+  async getIngestionStatus() {
+    return AnalyticsRepo.getIngestionStatus();
+  },
 };

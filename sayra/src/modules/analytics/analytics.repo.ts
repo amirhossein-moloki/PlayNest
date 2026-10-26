@@ -449,4 +449,43 @@ export const AnalyticsRepo = {
 
     await this.syncStaffStats(rating.gamingCenterId, rating.reservation.staffId!, rating.reservation.startTime);
   },
+
+  async getIngestionStatus() {
+    const [watermarks, recentRuns] = await Promise.all([
+      prisma.analyticsWatermark.findMany({
+        orderBy: { entity: 'asc' },
+      }),
+      prisma.analyticsIngestionRun.findMany({
+        take: 10,
+        orderBy: { startedAt: 'desc' },
+      }),
+    ]);
+
+    const lastSuccessfulRun = recentRuns.find((r) => r.status === 'SUCCESS');
+    const lastIngestedAt = lastSuccessfulRun?.completedAt || lastSuccessfulRun?.startedAt || null;
+
+    const now = new Date();
+    const isStale = !lastIngestedAt || (now.getTime() - new Date(lastIngestedAt).getTime()) > 120 * 60 * 1000;
+
+    return {
+      status: isStale ? 'STALE' : 'FRESH',
+      lastIngestedAt,
+      watermarks: watermarks.map((w) => ({
+        entity: w.entity,
+        lastIngestedAt: w.lastIngestedAt,
+        lastSourceId: w.lastSourceId,
+      })),
+      recentRuns: recentRuns.map((r) => ({
+        id: r.id,
+        entity: r.entity,
+        status: r.status,
+        recordsRead: r.recordsRead,
+        recordsIngested: r.recordsIngested,
+        durationMs: r.durationMs,
+        startedAt: r.startedAt,
+        completedAt: r.completedAt,
+        errorMessage: r.errorMessage,
+      })),
+    };
+  },
 };

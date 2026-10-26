@@ -60,6 +60,12 @@ const getRevenueChart = asyncHandler(async (req: AppRequest, res: Response) => {
   res.ok(result);
 });
 
+const getIngestionStatus = asyncHandler(async (_req: AppRequest, res: Response) => {
+  const result = await AnalyticsStation.getIngestionStatus();
+
+  res.ok(result);
+});
+
 export const AnalyticsController = {
   getSummary,
   getReservations,
@@ -69,4 +75,5 @@ export const AnalyticsController = {
   getStaffPerformance,
   getStationPerformance,
   getRevenueChart,
+  getIngestionStatus,
 };

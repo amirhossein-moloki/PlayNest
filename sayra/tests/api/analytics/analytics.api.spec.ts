@@ -60,6 +60,12 @@ jest.mock('../../../src/config/prisma', () => ({
     session: {
       findUnique: jest.fn(),
     },
+    analyticsWatermark: {
+      findMany: jest.fn(),
+    },
+    analyticsIngestionRun: {
+      findMany: jest.fn(),
+    },
   },
 }));
 
@@ -88,6 +94,8 @@ describe('Analytics API Integration Tests', () => {
     });
 
     (prisma.settings.findUnique as any).mockResolvedValue({ timeZone: 'UTC' });
+    (prisma.analyticsWatermark.findMany as any).mockResolvedValue([]);
+    (prisma.analyticsIngestionRun.findMany as any).mockResolvedValue([]);
   });
 
   describe('Authorization and Access Control', () => {
@@ -217,6 +225,48 @@ describe('Analytics API Integration Tests', () => {
       expect(res.status).toBe(200);
       expect(res.body.data.totalLogs).toBe(5);
       expect(res.body.data.failureRate).toBe(0);
+    });
+  });
+
+  describe('GET /api/v1/gamingCenters/:gamingCenterId/analytics/ingestion-status', () => {
+    it('should return ingestion status and watermark positions', async () => {
+      (prisma.analyticsWatermark.findMany as any).mockResolvedValue([
+        { entity: 'Reservation', lastIngestedAt: new Date('2026-02-01T10:00:00Z'), lastSourceId: 'res-1' },
+      ]);
+      (prisma.analyticsIngestionRun.findMany as any).mockResolvedValue([
+        { id: 'run-1', entity: 'Reservation', status: 'SUCCESS', recordsRead: 10, recordsIngested: 10, durationMs: 120, startedAt: new Date(), completedAt: new Date() },
+      ]);
+
+      const res = await request(app)
+        .get('/api/v1/gamingCenters/gc-1/analytics/ingestion-status')
+        .set('x-api-key', env.STATIC_API_KEY)
+        .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.status).toBe('FRESH');
+      expect(res.body.data.watermarks.length).toBe(1);
+    });
+  });
+
+  describe('GET /api/v1/admin/gamingCenters/:gamingCenterId/dashboard', () => {
+    it('should render HTML dashboard for MANAGER role', async () => {
+      const res = await request(app)
+        .get('/api/v1/admin/gamingCenters/gc-1/dashboard')
+        .set('x-api-key', env.STATIC_API_KEY)
+        .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
+
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('text/html');
+      expect(res.text).toContain('Internal Management Dashboard');
+    });
+
+    it('should reject access to dashboard for STAFF role with 403', async () => {
+      const res = await request(app)
+        .get('/api/v1/admin/gamingCenters/gc-1/dashboard')
+        .set('x-api-key', env.STATIC_API_KEY)
+        .set('Authorization', `Bearer ${STAFF_TOKEN}`);
+
+      expect(res.status).toBe(403);
     });
   });
 });
