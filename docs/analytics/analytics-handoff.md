@@ -46,3 +46,26 @@ This document serves as the canonical handoff contract for the Play-Nest Analyti
 ## Release Recommendation
 - **Final Readiness Decision**: **`READY WITH DOCUMENTED LIMITATIONS`**
 - **Target Audience**: Gaming Center Owners (`MANAGER`) and Platform Administrators (`ADMIN`).
+
+
+---
+
+## Analytics Discovery & Data Requirements Audit (2026-10-26)
+
+The following Persian-language discovery documents were added under `docs/analytics/discovery/`. They are planning artifacts, not implementation changes. Their status reflects a repository-level review; runtime behavior, production data quality, and tests were not independently executed as part of this discovery.
+
+1. [مدل کسب‌وکار و گردش‌کارها](discovery/01-play-nest-business-model-fa.md)
+2. [فرصت‌های تحلیل کسب‌وکار](discovery/02-business-analytics-opportunities-fa.md)
+3. [کاتالوگ شاخص‌ها و فرمول‌ها](discovery/03-metric-catalog-fa.md)
+4. [موجودی نیازمندی‌های داده](discovery/04-data-requirements-inventory-fa.md)
+5. [مشخصات پیشنهادی ردیابی رویداد](discovery/05-event-tracking-specification-fa.md)
+6. [ممیزی وضعیت فعلی Analytics](discovery/06-current-state-audit-fa.md)
+7. [نقشه راه اولویت‌بندی‌شده](discovery/07-analytics-prioritized-roadmap-fa.md)
+8. [پرسش‌های باز برای مالک کسب‌وکار](discovery/08-open-business-questions-fa.md)
+9. [خلاصه اجرایی کشف](discovery/09-analytics-discovery-summary-fa.md)
+
+### Discovery status
+- **Repository evidence:** Analytics schema, ingestion service, worker registration, and analytics API routes/controllers were located in the codebase.
+- **Key gaps requiring confirmation:** Website visitor attribution, complete cost accounting, historical station availability/downtime, and production/runtime verification.
+- **Recommended next step:** Phase A — approve metric and accounting definitions, validate source-to-analytics consistency, verify tenant isolation and freshness, and define privacy controls before expanding dashboards.
+- **Scope boundary:** No application code, database schema, migration, tracking, job, or API behavior was changed by this discovery.
