@@ -2021,3 +2021,177 @@ model WaitlistOffer {
   @@index([gamingCenterId, status, expiresAt])
   @@index([status, expiresAt])
 }
+
+// =======================
+// Analytics Infrastructure Domain (Phase 1)
+// =======================
+
+model AnalyticsWatermark {
+  entity         String   @id
+  lastIngestedAt DateTime @default(dbgenerated("'1970-01-01 00:00:00+00'::timestamp with time zone")) @db.Timestamptz(6)
+  lastSourceId   String?
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+}
+
+model AnalyticsIngestionRun {
+  id              String    @id @default(cuid())
+  entity          String
+  status          String    // IN_PROGRESS, SUCCESS, FAILED
+  startedAt       DateTime  @default(now()) @db.Timestamptz(6)
+  completedAt     DateTime? @db.Timestamptz(6)
+  recordsRead     Int       @default(0)
+  recordsIngested Int       @default(0)
+  durationMs      Int?
+  watermarkBefore DateTime? @db.Timestamptz(6)
+  watermarkAfter  DateTime? @db.Timestamptz(6)
+  errorMessage    String?   @db.Text
+
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([entity, startedAt])
+  @@index([status, startedAt])
+}
+
+model AnalyticsTenant {
+  id           String   @id
+  name         String
+  slug         String
+  isActive     Boolean  @default(true)
+  pcCount      Int      @default(0)
+  consoleCount Int      @default(0)
+  hourlyRate   Float    @default(0)
+
+  sourceCreatedAt DateTime @db.Timestamptz(6)
+  sourceUpdatedAt DateTime @db.Timestamptz(6)
+  ingestedAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([slug])
+  @@index([isActive])
+}
+
+model AnalyticsCustomer {
+  id             String   @id
+  gamingCenterId String?
+  phone          String
+  fullName       String?
+  walletBalance  Int      @default(0)
+
+  sourceCreatedAt DateTime @db.Timestamptz(6)
+  sourceUpdatedAt DateTime @db.Timestamptz(6)
+  ingestedAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([phone])
+  @@index([gamingCenterId])
+}
+
+model AnalyticsStation {
+  id             String          @id
+  gamingCenterId String
+  name           String
+  stationType    GameStationType @default(PC)
+  isVip          Boolean         @default(false)
+  hourlyPrice    Float
+  isActive       Boolean         @default(true)
+
+  sourceCreatedAt DateTime @db.Timestamptz(6)
+  sourceUpdatedAt DateTime @db.Timestamptz(6)
+  ingestedAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([gamingCenterId, isActive])
+}
+
+model AnalyticsReservation {
+  id                String                  @id
+  gamingCenterId    String
+  customerAccountId String
+  stationId         String
+  startTime         DateTime                @db.Timestamptz(6)
+  endTime           DateTime                @db.Timestamptz(6)
+  totalHours        Float
+  totalPrice        Float
+  discountAmount    Float                   @default(0)
+  paymentState      ReservationPaymentState @default(UNPAID)
+  status            ReservationStatus       @default(CONFIRMED)
+  source            ReservationSource       @default(WALK_IN)
+
+  sourceCreatedAt DateTime @db.Timestamptz(6)
+  sourceUpdatedAt DateTime @db.Timestamptz(6)
+  ingestedAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([gamingCenterId, startTime])
+  @@index([gamingCenterId, status, startTime])
+  @@index([customerAccountId, startTime])
+}
+
+model AnalyticsGamingSession {
+  id             String              @id
+  gamingCenterId String?
+  reservationId  String
+  stationId      String
+  startTime      DateTime            @db.Timestamptz(6)
+  endTime        DateTime?           @db.Timestamptz(6)
+  actualHours    Float               @default(0)
+  status         GamingSessionStatus @default(ACTIVE)
+  pausedMinutes  Int                 @default(0)
+
+  sourceCreatedAt DateTime @db.Timestamptz(6)
+  sourceUpdatedAt DateTime @db.Timestamptz(6)
+  ingestedAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([reservationId])
+  @@index([stationId, startTime])
+  @@index([gamingCenterId])
+}
+
+model AnalyticsPayment {
+  id             String          @id
+  gamingCenterId String
+  reservationId  String?
+  amount         Int
+  currency       String
+  provider       PaymentProvider @default(MANUAL)
+  status         PaymentStatus   @default(INITIATED)
+  method         PaymentMethod   @default(ONLINE)
+  paidAt         DateTime?       @db.Timestamptz(6)
+
+  sourceCreatedAt DateTime @db.Timestamptz(6)
+  sourceUpdatedAt DateTime @db.Timestamptz(6)
+  ingestedAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([gamingCenterId, status, paidAt])
+  @@index([reservationId])
+}
+
+model AnalyticsLedgerEntry {
+  id             String          @id
+  gamingCenterId String
+  paymentId      String?
+  refundId       String?
+  entryType      LedgerEntryType
+  amount         Int
+  currency       String
+
+  sourceCreatedAt DateTime @db.Timestamptz(6)
+  ingestedAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([gamingCenterId, sourceCreatedAt])
+  @@index([paymentId])
+  @@index([entryType])
+}
+
+model AnalyticsRefund {
+  id             String       @id
+  gamingCenterId String
+  paymentId      String
+  amount         Int
+  currency       String
+  status         RefundStatus @default(PENDING)
+  processedAt    DateTime?    @db.Timestamptz(6)
+
+  sourceCreatedAt DateTime @db.Timestamptz(6)
+  sourceUpdatedAt DateTime @db.Timestamptz(6)
+  ingestedAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([gamingCenterId, status, sourceCreatedAt])
+  @@index([paymentId])
+}
