@@ -34,6 +34,8 @@ import { settingsRouter } from '../modules/settings/settings.routes';
 import { commissionsRoutes } from '../modules/commissions/commissions.routes';
 import auditRoutes from '../modules/audit/audit.routes';
 import { analyticsRoutes } from '../modules/analytics/analytics.routes';
+import { expenseRoutes } from '../modules/analytics/expense.routes';
+import { AnalyticsController } from '../modules/analytics/analytics.controller';
 import { gamingSessionsRoutes } from '../modules/gamingSessions/gamingSessions.routes';
 import { resolveGamingCenterBySlug } from '../common/middleware/resolveGamingCenterBySlug';
 import { customerPanelRouter } from '../modules/customer-panel/customer-panel.routes';
@@ -124,6 +126,7 @@ router.use('/admin/tickets', ticketAdminRouter);
 
 // --- Analytics Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/analytics', analyticsRoutes);
+router.use('/gamingCenters/:gamingCenterId/expenses', expenseRoutes);
 router.use('/gamingCenters/:gamingCenterId', dashboardAdminUiRouter);
 router.use('/admin', dashboardAdminUiRouter);
 
@@ -148,6 +151,10 @@ router.use('/public/gamingCenters/:gamingCenterSlug/pages', publicPagesRouter);
 router.use('/public/gamingCenters/:gamingCenterSlug/media', publicMediaRouter);
 router.use('/public/gamingCenters/:gamingCenterSlug/links', publicLinksRouter);
 router.use('/public/gamingCenters/:gamingCenterSlug/addresses', publicAddressesRouter);
+
+// --- Public Analytics Event Collector ---
+router.post('/public/analytics/events', AnalyticsController.collectEvent);
+router.post('/public/gamingCenters/:gamingCenterSlug/analytics/events', AnalyticsController.collectEvent);
 
 // --- Public Blog Routes ---
 router.use('/public/gamingCenters/:gamingCenterSlug/blog', publicBlogRouter);

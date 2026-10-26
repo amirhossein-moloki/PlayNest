@@ -39,6 +39,11 @@ jest.mock('../../../src/config/prisma', () => ({
     refund: {
       groupBy: jest.fn(),
     },
+    gamingCenterExpense: {
+      groupBy: jest.fn(),
+      aggregate: jest.fn(),
+      findMany: jest.fn(),
+    },
     ledgerEntry: {
       groupBy: jest.fn(),
     },
@@ -114,6 +119,8 @@ describe('Analytics API Integration Tests', () => {
     });
 
     (prisma.settings.findUnique as any).mockResolvedValue({ timeZone: 'UTC' });
+    (prisma.gamingCenterExpense.groupBy as any).mockResolvedValue([]);
+    (prisma.gamingCenterExpense.aggregate as any).mockResolvedValue({ _sum: { amount: 0 }, _count: { _all: 0 } });
     (prisma.customerAccount.count as any).mockResolvedValue(0);
     (prisma.analyticsWatermark.findMany as any).mockResolvedValue([]);
     (prisma.analyticsIngestionRun.findMany as any).mockResolvedValue([]);

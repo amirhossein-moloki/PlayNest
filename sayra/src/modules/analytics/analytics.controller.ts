@@ -2,11 +2,48 @@ import { Response } from 'express';
 import { AppRequest } from '../../types/express';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
 import { AnalyticsStation } from './analytics.station';
+import { EventsCollector } from './events.collector';
+import { ForecastingService } from './forecasting.service';
 import { AnalyticsQuery, BenchmarkQuery, CustomerAnalyticsQuery, FinancialReconciliationQuery } from './analytics.validators';
+
+const collectEvent = asyncHandler(async (req: AppRequest, res: Response) => {
+  const result = await EventsCollector.collectEvent(req.body);
+  res.ok(result);
+});
+
+const getVisitors = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { startDate, endDate } = req.query as unknown as AnalyticsQuery;
+  const result = await AnalyticsStation.getVisitorReport(req.tenant.gamingCenterId, startDate, endDate);
+  res.ok(result);
+});
+
+const getCancellationAnalytics = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { startDate, endDate } = req.query as unknown as AnalyticsQuery;
+  const result = await AnalyticsStation.getCancellationAnalytics(req.tenant.gamingCenterId, startDate, endDate);
+  res.ok(result);
+});
+
+const getDiscountRetention = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { startDate, endDate } = req.query as unknown as AnalyticsQuery;
+  const result = await AnalyticsStation.getDiscountRetentionAnalytics(req.tenant.gamingCenterId, startDate, endDate);
+  res.ok(result);
+});
 
 const getSummary = asyncHandler(async (req: AppRequest, res: Response) => {
   const { startDate, endDate } = req.query as unknown as AnalyticsQuery;
   const result = await AnalyticsStation.getSummary(req.tenant.gamingCenterId, startDate, endDate);
+
+  res.ok(result);
+});
+
+const getRevenueForecast = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { startDate, endDate, horizon } = req.query as unknown as AnalyticsQuery & { horizon?: number };
+  const result = await ForecastingService.generateRevenueForecast({
+    gamingCenterId: req.tenant.gamingCenterId,
+    horizonDays: horizon ? Number(horizon) : 7,
+    startDate,
+    endDate,
+  });
 
   res.ok(result);
 });
@@ -216,6 +253,9 @@ const getIssueMatrix = asyncHandler(async (_req: AppRequest, res: Response) => {
 });
 
 export const AnalyticsController = {
+  collectEvent,
+  getVisitors,
+  getCancellationAnalytics,
   getSummary,
   getReservations,
   getFinancials,
@@ -224,6 +264,7 @@ export const AnalyticsController = {
   getStaffPerformance,
   getStationPerformance,
   getRevenueChart,
+  getRevenueForecast,
   getIngestionStatus,
   getCustomerSummary,
   getCustomerActivity,
@@ -237,6 +278,7 @@ export const AnalyticsController = {
   getGrowthInsights,
   getConversionFunnel,
   getDiscountAnalytics,
+  getDiscountRetention,
   getInstrumentationGaps,
   getJobsHealth,
   getSystemErrors,

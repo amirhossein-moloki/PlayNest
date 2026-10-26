@@ -5,6 +5,8 @@ import { requireRole } from '../../common/middleware/requireRole';
 import { UserRole } from '@prisma/client';
 import { validate } from '../../common/middleware/validate';
 import { AnalyticsController } from './analytics.controller';
+import { MaintenanceController } from './maintenance.controller';
+import { MarketingSpendController } from './marketing-spend.controller';
 import { AnalyticsQuerySchema, BenchmarkQuerySchema, CustomerAnalyticsQuerySchema, FinancialReconciliationQuerySchema } from './analytics.validators';
 
 const router = Router({ mergeParams: true });
@@ -13,14 +15,24 @@ router.use(authMiddleware);
 router.use(tenantGuard);
 router.use(requireRole([UserRole.MANAGER, UserRole.ADMIN]));
 
+router.post('/events', AnalyticsController.collectEvent);
+router.get('/visitors', validate(AnalyticsQuerySchema), AnalyticsController.getVisitors);
 router.get('/summary', validate(AnalyticsQuerySchema), AnalyticsController.getSummary);
+router.get('/cancellations', validate(AnalyticsQuerySchema), AnalyticsController.getCancellationAnalytics);
 router.get('/reservations', validate(AnalyticsQuerySchema), AnalyticsController.getReservations);
 router.get('/financials', validate(AnalyticsQuerySchema), AnalyticsController.getFinancials);
+router.get('/operations/maintenance', validate(AnalyticsQuerySchema), MaintenanceController.getMaintenanceAnalytics);
+router.get('/maintenance', MaintenanceController.getMaintenanceLogs);
+router.get('/maintenance/:id', MaintenanceController.getMaintenanceById);
+router.post('/stations/:stationId/maintenance', MaintenanceController.createMaintenance);
+router.patch('/maintenance/:id', MaintenanceController.updateMaintenance);
+
 router.get('/operations/waitlist', validate(AnalyticsQuerySchema), AnalyticsController.getWaitlist);
 router.get('/operations/notifications', validate(AnalyticsQuerySchema), AnalyticsController.getNotifications);
 router.get('/staff', validate(AnalyticsQuerySchema), AnalyticsController.getStaffPerformance);
 router.get('/stations', validate(AnalyticsQuerySchema), AnalyticsController.getStationPerformance);
 router.get('/revenue-chart', validate(AnalyticsQuerySchema), AnalyticsController.getRevenueChart);
+router.get('/revenue-forecast', validate(AnalyticsQuerySchema), AnalyticsController.getRevenueForecast);
 router.get('/ingestion-status', AnalyticsController.getIngestionStatus);
 
 // Financial Analytics & Reconciliation Endpoints (Phase 4)
@@ -41,7 +53,12 @@ router.get('/growth-insights', validate(BenchmarkQuerySchema), AnalyticsControll
 
 // Growth Analytics, Funnel, Discount & Instrumentation Gap Endpoints
 router.get('/funnel', validate(AnalyticsQuerySchema), AnalyticsController.getConversionFunnel);
+router.post('/marketing-spend', MarketingSpendController.createMarketingSpend);
+router.get('/marketing-spend', MarketingSpendController.getMarketingSpends);
+router.get('/marketing/cac-roas', validate(AnalyticsQuerySchema), MarketingSpendController.getMarketingAttributionAnalytics);
+
 router.get('/discounts', validate(AnalyticsQuerySchema), AnalyticsController.getDiscountAnalytics);
+router.get('/discounts/retention', validate(AnalyticsQuerySchema), AnalyticsController.getDiscountRetention);
 router.get('/instrumentation-gaps', AnalyticsController.getInstrumentationGaps);
 
 // Operations & Reliability Analytics Endpoints

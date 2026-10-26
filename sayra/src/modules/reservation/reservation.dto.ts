@@ -1,6 +1,6 @@
 
 import { z } from 'zod';
-import { ReservationStatus } from '@prisma/client';
+import { ReservationStatus, CancellationCategory, CancellationActor } from '@prisma/client';
 
 const CUID_MESSAGE = 'Invalid CUID';
 
@@ -43,6 +43,8 @@ export const cancelReservationSchema = z.object({
   }),
   body: z.object({
     reason: z.string().optional(),
+    cancelCategory: z.nativeEnum(CancellationCategory).optional(),
+    cancelActor: z.nativeEnum(CancellationActor).optional(),
   }),
 });
 
