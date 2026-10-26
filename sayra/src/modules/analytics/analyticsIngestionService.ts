@@ -108,19 +108,21 @@ export class AnalyticsIngestionService {
     let recordsRead = 0;
     let recordsIngested = 0;
     let maxUpdatedAt = watermarkBefore;
-    let skip = 0;
+    let lastCursorId: string | undefined = undefined;
     let hasMore = true;
 
     try {
       while (hasMore) {
         let batch: any[] = [];
 
+        const cursorOptions = lastCursorId ? { cursor: { id: lastCursorId }, skip: 1 } : {};
+
         switch (entity) {
         case 'Tenant': {
           batch = await (prisma as any).gamingCenter.findMany({
             where: { updatedAt: { gte: searchCutoff } },
-            orderBy: { updatedAt: 'asc' },
-            skip,
+            orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+            ...cursorOptions,
             take: batchSize,
           });
           break;
@@ -129,8 +131,8 @@ export class AnalyticsIngestionService {
           batch = await (prisma as any).customerAccount.findMany({
             where: { updatedAt: { gte: searchCutoff } },
             include: { profiles: true },
-            orderBy: { updatedAt: 'asc' },
-            skip,
+            orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+            ...cursorOptions,
             take: batchSize,
           });
           break;
@@ -138,8 +140,8 @@ export class AnalyticsIngestionService {
         case 'Station': {
           batch = await (prisma as any).gameStation.findMany({
             where: { updatedAt: { gte: searchCutoff } },
-            orderBy: { updatedAt: 'asc' },
-            skip,
+            orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+            ...cursorOptions,
             take: batchSize,
           });
           break;
@@ -147,8 +149,8 @@ export class AnalyticsIngestionService {
         case 'Reservation': {
           batch = await (prisma as any).reservation.findMany({
             where: { updatedAt: { gte: searchCutoff } },
-            orderBy: { updatedAt: 'asc' },
-            skip,
+            orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+            ...cursorOptions,
             take: batchSize,
           });
           break;
@@ -157,8 +159,8 @@ export class AnalyticsIngestionService {
           batch = await (prisma as any).gamingSession.findMany({
             where: { updatedAt: { gte: searchCutoff } },
             include: { reservation: true },
-            orderBy: { updatedAt: 'asc' },
-            skip,
+            orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+            ...cursorOptions,
             take: batchSize,
           });
           break;
@@ -166,8 +168,8 @@ export class AnalyticsIngestionService {
         case 'Payment': {
           batch = await (prisma as any).payment.findMany({
             where: { updatedAt: { gte: searchCutoff } },
-            orderBy: { updatedAt: 'asc' },
-            skip,
+            orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+            ...cursorOptions,
             take: batchSize,
           });
           break;
@@ -175,8 +177,8 @@ export class AnalyticsIngestionService {
         case 'LedgerEntry': {
           batch = await (prisma as any).ledgerEntry.findMany({
             where: { createdAt: { gte: searchCutoff } },
-            orderBy: { createdAt: 'asc' },
-            skip,
+            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+            ...cursorOptions,
             take: batchSize,
           });
           break;
@@ -184,20 +186,21 @@ export class AnalyticsIngestionService {
         case 'Refund': {
           batch = await (prisma as any).refund.findMany({
             where: { updatedAt: { gte: searchCutoff } },
-            orderBy: { updatedAt: 'asc' },
-            skip,
+            orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+            ...cursorOptions,
             take: batchSize,
           });
           break;
         }
         }
 
-        if (batch.length === 0) {
+        if (!batch || batch.length === 0) {
           hasMore = false;
           break;
         }
 
         recordsRead += batch.length;
+        lastCursorId = batch[batch.length - 1].id;
 
         for (const item of batch) {
           const itemUpdated = item.updatedAt || item.createdAt;
@@ -442,8 +445,6 @@ export class AnalyticsIngestionService {
 
         if (batch.length < batchSize) {
           hasMore = false;
-        } else {
-          skip += batchSize;
         }
       }
 

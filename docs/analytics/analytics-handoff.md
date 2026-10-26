@@ -1,76 +1,53 @@
 # Play-Nest Analytics — Canonical Handoff Contract
 
 ## Executive Overview
-This document serves as the canonical handoff contract for the Play-Nest Analytics suite across all development phases.
+This document serves as the canonical handoff contract for the Play-Nest Analytics suite across all development phases (Phases 1–5).
 
 ---
 
-## Current Status & Completed Phases
+## Status Matrix Across All Phases
 
-### Phase 1: Ingestion Pipeline & Schema
-- **Status**: COMPLETED (PASS)
-- **Deliverables**:
-  - Prisma models `AnalyticsWatermark`, `AnalyticsIngestionRun`, `AnalyticsTenant`, `AnalyticsCustomer`, `AnalyticsStation`, `AnalyticsReservation`, `AnalyticsGamingSession`, `AnalyticsPayment`, `AnalyticsLedgerEntry`, `AnalyticsRefund`.
-  - Ingestion service (`analyticsIngestionService.ts`), background worker (`analyticsIngestion.worker.ts`), and producer (`analyticsIngestion.producer.ts`).
-  - Idempotent upserts with 2-hour sliding lookback windows and chunked batch pagination (`batchSize: 500`).
-
-### Phase 2: Operational Reporting & Dashboard UI
-- **Status**: COMPLETED (PASS)
-- **Deliverables**:
-  - Reporting endpoints under `/api/v1/gamingCenters/:gamingCenterId/analytics/*` (`/summary`, `/reservations`, `/financials`, `/operations/waitlist`, `/operations/notifications`, `/staff`, `/stations`, `/revenue-chart`, `/ingestion-status`).
-  - Server-side database aggregations in `AnalyticsRepo` and site-timezone boundary conversions (`resolveTimezoneAndBoundaries`).
-  - Internal Management Dashboard UI mounted at `/api/v1/admin/gamingCenters/:gamingCenterId/dashboard`.
-
-### Phase 3: Customer Analytics
-- **Status**: COMPLETED (PASS)
-- **Deliverables**:
-  - Customer analytics endpoints under `/api/v1/gamingCenters/:gamingCenterId/analytics/customers/*`:
-    - `GET /summary`: Active customers, new vs returning, repeat visit rate %, average time between visits (days), average spend per active customer.
-    - `GET /activity`: Daily customer activity trends and visit frequency distribution.
-    - `GET /retention`: Monthly cohort retention matrix and repeat visit summary.
-    - `GET /segmentation`: Deterministic segmentation (New, Repeat, VIP, At-Risk).
-    - `GET /top-spenders`: Top customer spenders with masked phone numbers (`0912***1234`).
-  - Phase 3 documentation:
-    - `docs/analytics/analytics-phase3-design.md`
-    - `docs/analytics/analytics-phase3-metric-definitions.md`
-    - `docs/analytics/analytics-phase3-operations-runbook.md`
-    - `docs/analytics/analytics-phase3-acceptance-report.md`
-  - Integrated Phase 3 Customer Analytics cards and tables into the Internal Management Dashboard template (`dashboard-ui.templates.ts`).
-  - Verified test suite `sayra/tests/unit/modules/analytics/analytics.customers.spec.ts` (All 28 analytics unit tests passing).
-
-### Phase 4: Financial Analytics, Transaction Traceability, and Reconciliation
-- **Status**: COMPLETED (PASS)
-- **Deliverables**:
-  - Detailed financial overview aggregations (`GET /api/v1/gamingCenters/:gamingCenterId/analytics/financials/overview`).
-  - Financial reconciliation diagnostics rules engine (`GET /api/v1/gamingCenters/:gamingCenterId/analytics/financials/reconciliation` & `POST /financials/reconciliation/run`):
-    - `REC-001`: Confirmed payment missing `PAYMENT_COLLECTION` ledger posting.
-    - `REC-002`: Payment amount vs ledger collection posting mismatch.
-    - `REC-003`: Refund missing parent payment or `REFUND_DISBURSEMENT` ledger posting.
-    - `REC-004`: Duplicate financial postings sharing idempotency key.
-    - `REC-005`: Invalid wallet deposit transaction amount.
-    - `REC-006`: Commission calculation consistency against policy.
-  - Phase 4 documentation:
-    - `docs/analytics/analytics-phase4-design.md`
-    - `docs/analytics/analytics-phase4-metric-definitions.md`
-    - `docs/analytics/analytics-phase4-reconciliation-rules.md`
-    - `docs/analytics/analytics-phase4-operations-runbook.md`
-    - `docs/analytics/analytics-phase4-acceptance-report.md`
-  - Integrated Financial Reconciliation UI widgets into the Internal Management Dashboard (`dashboard-ui.templates.ts`).
-  - Verified test suite `sayra/tests/unit/modules/analytics/analytics.financials.spec.ts` and full unit test suite (79 test suites, 444 tests passing).
+| Phase | Title | Status | Deliverables / Highlights |
+|---|---|---|---|
+| **Phase 1** | Ingestion Pipeline & Schema | **COMPLETED (PASS)** | Prisma `Analytics*` models, `AnalyticsIngestionService`, 2-hour sliding lookback, chunked batching |
+| **Phase 2** | Operational Reporting & Dashboard UI | **COMPLETED (PASS)** | Aggregation endpoints under `/analytics/*`, time-zone boundary resolution, Internal Management Dashboard UI |
+| **Phase 3** | Customer Analytics | **COMPLETED (PASS)** | Customer summary, activity trends, cohort retention matrix, segmentation (New/Repeat/VIP/At-Risk), phone masking (`0912***1234`) |
+| **Phase 4** | Financial Analytics & Reconciliation | **COMPLETED (PASS)** | Detailed financial overview, integer minor units (Rials), non-mutative reconciliation diagnostic rules `REC-001` - `REC-006` |
+| **Phase 5** | Hardening, Security, Testing & Release | **COMPLETED (PASS)** | Background worker registration (`analyticsIngestionWorker`), cursor-based batch pagination (`cursor: { id }`), 80 test suites (449 tests 100% PASS), canonical Phase 5 docs |
 
 ---
 
-## Prerequisites & Handoff Contract for Phase 5 (Hardening, Security, Testing, Performance, Release Readiness)
+## Phase 5 Key Technical Artifacts & Hardening Changes
 
-To implement Phase 5, the incoming engineering team must build upon these verified foundations:
+1. **Worker Process Registration**:
+   - Registered `analyticsIngestionWorker` in `sayra/src/jobs/workers/index.ts` to process scheduled background ingestion runs (`analytics-ingestion` queue).
 
-1. **Analytical Integrity & Non-Mutation**:
-   - Diagnostic findings generated by `AnalyticsRepo.runFinancialReconciliationCheck` are non-mutative read-only audit records.
-   - Authoritative financial tables (`Payment`, `LedgerEntry`, `Refund`, `WalletTransaction`) must never be modified by analytics workers or endpoints.
+2. **Ingestion Cursor Pagination**:
+   - Refactored `AnalyticsIngestionService.ts` from offset pagination (`skip`/`take`) to cursor-based ID iteration (`orderBy [{ updatedAt: 'asc' }, { id: 'asc' }]`, `cursor: { id }`).
+   - Prevents record skipping caused by offset drift during concurrent source record updates.
 
-2. **Security & Authorization**:
-   - All analytics endpoints (`/analytics/*`) must enforce server-side RBAC restricted to `MANAGER` and `ADMIN` roles.
-   - PII fields (phone numbers) in customer/financial analytics must remain masked (`0912***1234`).
+3. **Security, Tenant Isolation & Non-Mutation**:
+   - Re-verified `authMiddleware`, `tenantGuard` (with HTTP 404 tenant enumeration defense), and `requireRole([UserRole.MANAGER, UserRole.ADMIN])` across all analytics endpoints.
+   - Enforced customer phone number masking (`0912***1234`).
+   - Re-confirmed non-mutative read-only audit checks against operational financial tables (`Payment`, `LedgerEntry`, `Refund`, `WalletTransaction`).
 
-3. **Numeric Precision & Minor Units**:
-   - Maintain non-floating-point integer arithmetic for all monetary amounts (Rials/minor units) throughout aggregations.
+4. **Testing Verification**:
+   - Comprehensive unit and integration test suite: `sayra/tests/unit/modules/analytics/analytics.phase5.spec.ts`.
+   - Verified 80 test suites and 449 tests passing cleanly.
+
+---
+
+## Phase 5 Canonical Deliverables Directory (`docs/analytics/`)
+- `docs/analytics/analytics-phase5-risk-assessment.md`: Baseline audit findings and risk summary matrix.
+- `docs/analytics/analytics-phase5-hardening-report.md`: Technical summary of implemented fixes and before/after audit comparison.
+- `docs/analytics/analytics-phase5-security-review.md`: Authentication, RBAC, tenant isolation, PII protection, and SQL injection review.
+- `docs/analytics/analytics-phase5-test-and-performance-report.md`: Test execution results, benchmark details, and index audits.
+- `docs/analytics/analytics-phase5-operations-runbook.md`: Pipeline monitoring, incident response, and recovery procedures.
+- `docs/analytics/analytics-phase5-release-readiness-report.md`: Evidence-based release decision and criteria evaluation.
+- `docs/analytics/analytics-handoff.md`: Canonical contract across Phases 1–5.
+
+---
+
+## Release Decision
+- **Final Recommendation**: **READY FOR CONTROLLED INTERNAL RELEASE**
+- **Target Audience**: Gaming Center Managers (`MANAGER`) and Platform Administrators (`ADMIN`).
