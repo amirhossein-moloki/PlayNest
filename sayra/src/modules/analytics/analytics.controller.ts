@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { AppRequest } from '../../types/express';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
 import { AnalyticsStation } from './analytics.station';
-import { AnalyticsQuery, CustomerAnalyticsQuery } from './analytics.validators';
+import { AnalyticsQuery, CustomerAnalyticsQuery, FinancialReconciliationQuery } from './analytics.validators';
 
 const getSummary = asyncHandler(async (req: AppRequest, res: Response) => {
   const { startDate, endDate } = req.query as unknown as AnalyticsQuery;
@@ -102,6 +102,44 @@ const getTopSpenders = asyncHandler(async (req: AppRequest, res: Response) => {
   res.ok(result);
 });
 
+const getFinancialOverviewDetailed = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { startDate, endDate, currency } = req.query as unknown as AnalyticsQuery;
+  const result = await AnalyticsStation.getFinancialOverviewDetailed(req.tenant.gamingCenterId, startDate, endDate, currency);
+
+  res.ok(result);
+});
+
+const getFinancialReconciliation = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { startDate, endDate, status, ruleId, limit } = req.query as unknown as FinancialReconciliationQuery;
+  const result = await AnalyticsStation.getFinancialReconciliation(
+    req.tenant.gamingCenterId,
+    startDate,
+    endDate,
+    status,
+    ruleId,
+    limit
+  );
+
+  res.ok(result);
+});
+
+const runFinancialReconciliation = asyncHandler(async (req: AppRequest, res: Response) => {
+  const { startDate, endDate } = req.body as { startDate?: Date; endDate?: Date };
+  const sDate = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const eDate = endDate ? new Date(endDate) : new Date();
+
+  const result = await AnalyticsStation.getFinancialReconciliation(
+    req.tenant.gamingCenterId,
+    sDate,
+    eDate,
+    'ALL',
+    undefined,
+    100
+  );
+
+  res.ok(result);
+});
+
 export const AnalyticsController = {
   getSummary,
   getReservations,
@@ -117,4 +155,7 @@ export const AnalyticsController = {
   getCustomerRetention,
   getCustomerSegmentation,
   getTopSpenders,
+  getFinancialOverviewDetailed,
+  getFinancialReconciliation,
+  runFinancialReconciliation,
 };

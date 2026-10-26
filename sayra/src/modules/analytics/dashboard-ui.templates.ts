@@ -392,6 +392,30 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
         </div>
       </div>
 
+      <!-- Phase 4 Financial Reconciliation & Audit Section -->
+      <div class="grid-sections">
+        <div class="card" style="grid-column: span 2;">
+          <div class="section-title">
+            Financial Reconciliation Diagnostics (Phase 4)
+            <button id="runReconciliationBtn" class="btn btn-primary" style="font-size: 11px; padding: 4px 10px;">Run Audit Check</button>
+          </div>
+          <table id="tblReconciliationFindings">
+            <thead>
+              <tr>
+                <th>Rule ID</th>
+                <th>Rule Name</th>
+                <th>Severity</th>
+                <th>Status</th>
+                <th>Source Record</th>
+                <th>Details</th>
+                <th class="amount-col">Expected / Actual</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Financial & Operational Sections -->
       <div class="grid-sections">
         <!-- Financial Overview -->
@@ -552,12 +576,13 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
         const query = '?startDate=' + start + '&endDate=' + end;
 
         try {
-          const [summary, custSummary, custSegments, custSpenders, financials, stations, waitlist, notifications, staff, ingestion] = await Promise.all([
+          const [summary, custSummary, custSegments, custSpenders, financials, reconciliation, stations, waitlist, notifications, staff, ingestion] = await Promise.all([
             fetchAPI('/summary' + query),
             fetchAPI('/customers/summary' + query),
             fetchAPI('/customers/segmentation' + query),
             fetchAPI('/customers/top-spenders' + query),
-            fetchAPI('/financials' + query),
+            fetchAPI('/financials/overview' + query),
+            fetchAPI('/financials/reconciliation' + query),
             fetchAPI('/stations' + query),
             fetchAPI('/operations/waitlist' + query),
             fetchAPI('/operations/notifications' + query),
@@ -608,19 +633,35 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
             </tr>
           \`).join('') || '<tr><td colspan="4" style="text-align:center; color:#94a3b8;">No customer spend records</td></tr>';
 
-          // Financials
-          document.getElementById('finGrossCollected').textContent = formatIRR(financials.summary.grossCollected);
-          document.getElementById('finTotalRefunded').textContent = formatIRR(financials.summary.totalRefunded);
-          document.getElementById('finNetCollected').textContent = formatIRR(financials.summary.netCollected);
+          // Financials Overview
+          const paidPaymentsSum = (financials.payments || []).filter(p => p.status === 'PAID').reduce((acc, p) => acc + p.totalAmount, 0);
+          const refundsSum = (financials.refunds || []).filter(r => r.status === 'SUCCESSFUL').reduce((acc, r) => acc + r.totalAmount, 0);
+          document.getElementById('finGrossCollected').textContent = formatIRR(paidPaymentsSum);
+          document.getElementById('finTotalRefunded').textContent = formatIRR(refundsSum);
+          document.getElementById('finNetCollected').textContent = formatIRR(paidPaymentsSum - refundsSum);
 
           const tblMethods = document.querySelector('#tblPaymentMethods tbody');
-          tblMethods.innerHTML = (financials.paymentsByMethod || []).map(m => \`
+          tblMethods.innerHTML = (financials.payments || []).map(m => \`
             <tr>
-              <td>\${m.method}</td>
+              <td>\${m.status}</td>
               <td>\${m.count}</td>
-              <td class="amount-col">\${formatIRR(m.amount)}</td>
+              <td class="amount-col">\${formatIRR(m.totalAmount)}</td>
             </tr>
           \`).join('') || '<tr><td colspan="3" style="text-align:center; color:#94a3b8;">No payment records</td></tr>';
+
+          // Reconciliation Table
+          const tblFindings = document.querySelector('#tblReconciliationFindings tbody');
+          tblFindings.innerHTML = (reconciliation.findings || []).map(f => \`
+            <tr>
+              <td><strong>\${f.ruleId}</strong></td>
+              <td>\${f.ruleName}</td>
+              <td><span class="status-badge \${f.severity === 'HIGH' ? 'status-FAILED' : 'status-PENDING'}">\${f.severity}</span></td>
+              <td><span class="status-badge status-PENDING">\${f.status}</span></td>
+              <td>\${f.sourceEntity} (\${f.sourceId.substring(0, 8)}...)</td>
+              <td style="color: var(--text-secondary); max-width: 300px;">\${f.details}</td>
+              <td class="amount-col">\${formatIRR(f.expectedAmount || 0)} / \${formatIRR(f.actualAmount || 0)}</td>
+            </tr>
+          \`).join('') || '<tr><td colspan="7" style="text-align:center; color:#15803d; font-weight:600; padding:16px;">✓ No financial discrepancies or reconciliation findings detected</td></tr>';
 
           // Stations
           const tblStations = document.querySelector('#tblStationPerformance tbody');
