@@ -7,6 +7,11 @@ import { generateAccessToken } from '../../../src/modules/auth/auth.tokens';
 
 jest.mock('../../../src/modules/reservation/reservation.repo');
 jest.mock('../../../src/modules/customer-panel/customer-panel.repo');
+jest.mock('../../../src/config/redis', () => ({
+  get: jest.fn().mockImplementation(() => Promise.resolve(null)),
+  set: jest.fn().mockImplementation(() => Promise.resolve('OK')),
+  del: jest.fn().mockImplementation(() => Promise.resolve(1)),
+}));
 jest.mock('../../../src/config/prisma', () => ({
   prisma: {
     user: { findUnique: jest.fn() },

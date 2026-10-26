@@ -12,6 +12,11 @@ import httpStatus from 'http-status';
 jest.mock('../../../src/modules/auth/auth.repository');
 jest.mock('argon2');
 jest.mock('../../../src/jobs/producers/sms.producer');
+jest.mock('../../../src/config/redis', () => ({
+  get: jest.fn().mockImplementation(() => Promise.resolve(null)),
+  set: jest.fn().mockImplementation(() => Promise.resolve('OK')),
+  del: jest.fn().mockImplementation(() => Promise.resolve(1)),
+}));
 jest.mock('../../../src/config/prisma', () => ({
   prisma: {
     user: { findUnique: jest.fn(), findFirst: jest.fn(), updateMany: jest.fn() },

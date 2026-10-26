@@ -57,6 +57,10 @@ export const updateStaffMember = async (
 
   await userRepo.updateUser(gamingCenterId, userId, data);
 
+  // Invalidate cached auth state on user update
+  const { invalidateActorCache } = await import('../../common/middleware/auth');
+  await invalidateActorCache(userId, 'USER');
+
   // Return the updated user data
   const updatedUser = await userRepo.findUserById(gamingCenterId, userId);
 
@@ -88,6 +92,10 @@ export const deleteStaffMember = async (
   }
 
   await userRepo.softDeleteUser(gamingCenterId, userId);
+
+  // Invalidate cached auth state on user deletion/deactivation
+  const { invalidateActorCache } = await import('../../common/middleware/auth');
+  await invalidateActorCache(userId, 'USER');
 
   await auditService.recordLog({
     gamingCenterId,
