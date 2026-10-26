@@ -51,6 +51,9 @@ describe('AnalyticsStation Phase 7 Benchmarking & Growth Insights Unit Tests', (
     });
 
     jest.spyOn(AnalyticsRepo, 'getReservationListForTrends').mockResolvedValue([]);
+    jest.spyOn(AnalyticsRepo, 'getReservationLeadTimeStats').mockResolvedValue([]);
+    jest.spyOn(AnalyticsRepo, 'getCanceledWithPaidStats').mockResolvedValue([]);
+    jest.spyOn(AnalyticsRepo, 'getStationGamingSessionStats').mockResolvedValue([]);
     jest.spyOn(AnalyticsRepo, 'getStationDetails').mockResolvedValue([
       { id: 'st-1', name: 'PC 1', stationType: 'PC', isActive: true, hourlyPrice: 100 },
       { id: 'st-2', name: 'PC 2', stationType: 'PC', isActive: true, hourlyPrice: 100 },

@@ -62,12 +62,17 @@ jest.mock('../../../src/config/prisma', () => ({
     },
     gamingCenter: {
       findMany: jest.fn(),
+      findUnique: jest.fn(),
     },
     gameStation: {
       findMany: jest.fn(),
     },
+    stationMaintenance: {
+      findMany: jest.fn(),
+    },
     gamingSession: {
       groupBy: jest.fn(),
+      findMany: jest.fn(),
     },
     session: {
       findUnique: jest.fn(),
@@ -108,6 +113,15 @@ describe('Analytics API Integration Tests', () => {
     (prisma.settings.findUnique as any).mockResolvedValue({ timeZone: 'UTC' });
     (prisma.analyticsWatermark.findMany as any).mockResolvedValue([]);
     (prisma.analyticsIngestionRun.findMany as any).mockResolvedValue([]);
+    (prisma.stationMaintenance.findMany as any).mockResolvedValue([]);
+    (prisma.gamingSession.findMany as any).mockResolvedValue([]);
+    (prisma.gamingCenter.findUnique as any).mockResolvedValue({
+      id: 'gc-1',
+      name: 'GC 1',
+      openingTime: '09:00',
+      closingTime: '23:00',
+      isActive: true,
+    });
   });
 
   describe('Authorization and Access Control', () => {

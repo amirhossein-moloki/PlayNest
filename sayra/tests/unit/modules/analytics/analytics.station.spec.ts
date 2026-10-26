@@ -69,7 +69,7 @@ describe('AnalyticsStation', () => {
   });
 
   describe('getReservationReport', () => {
-    it('should return reservation metrics and status breakdown', async () => {
+    it('should return reservation metrics, lead time, duration comparison, and anomaly breakdown', async () => {
       MockedRepo.getLiveReservationStats.mockResolvedValue({
         byStatus: [
           { status: 'COMPLETED', _count: { _all: 8 }, _sum: { totalPrice: 800, totalHours: 16 } },
@@ -87,14 +87,164 @@ describe('AnalyticsStation', () => {
         { id: 'st-1', name: 'PC 1', stationType: 'PC', isActive: true, hourlyPrice: 50 },
       ] as any);
 
+      MockedRepo.getReservationLeadTimeStats.mockResolvedValue([
+        { id: 'res-1', createdAt: new Date('2026-01-01T08:00:00Z'), startTime: new Date('2026-01-01T10:00:00Z'), status: 'COMPLETED', totalHours: 2 },
+        { id: 'res-2', createdAt: new Date('2026-01-01T09:00:00Z'), startTime: new Date('2026-01-01T10:00:00Z'), status: 'COMPLETED', totalHours: 2 },
+      ] as any);
+
+      MockedRepo.getCanceledWithPaidStats.mockResolvedValue([
+        {
+          id: 'res-canc-1',
+          totalPrice: 100,
+          startTime: new Date('2026-01-02T10:00:00Z'),
+          createdAt: new Date('2026-01-02T08:00:00Z'),
+          canceledAt: new Date('2026-01-02T09:00:00Z'),
+          cancelReason: 'Customer request',
+          payments: [{ id: 'p-1', amount: 100, paidAt: new Date(), refunds: [] }],
+        },
+      ] as any);
+
+      MockedRepo.getStationGamingSessionStats.mockResolvedValue([
+        { id: 'gs-1', stationId: 'st-1', reservationId: 'res-1', startTime: new Date('2026-01-01T10:00:00Z'), endTime: new Date('2026-01-01T12:00:00Z'), actualHours: 2, pausedMinutes: 0, status: 'COMPLETED' },
+      ] as any);
+
       const result = await AnalyticsStation.getReservationReport(gamingCenterId, startDate, endDate);
 
       expect(result.totalReservations).toBe(10);
       expect(result.metrics.completionRate).toBe(80);
       expect(result.metrics.cancellationRate).toBe(20);
+      expect(result.metrics.averageLeadTimeMinutes).toBe(90);
+      expect(result.metrics.medianLeadTimeMinutes).toBe(90);
+      expect(result.metrics.totalPlannedHours).toBe(20);
+      expect(result.metrics.totalActualHours).toBe(2);
+      expect(result.anomalies.canceledWithPaidCount).toBe(1);
+      expect(result.anomalies.unrefundedCanceledAmount).toBe(100);
       expect(result.statusDistribution).toHaveLength(7);
       expect(result.stationBreakdown).toHaveLength(1);
       expect(result.trends).toHaveLength(1);
+    });
+
+    it('should handle zero reservations safely without NaN or division by zero', async () => {
+      MockedRepo.getLiveReservationStats.mockResolvedValue({
+        byStatus: [],
+        byStation: [],
+        totalCount: 0,
+      } as any);
+
+      MockedRepo.getReservationListForTrends.mockResolvedValue([]);
+      MockedRepo.getStationDetails.mockResolvedValue([]);
+      MockedRepo.getReservationLeadTimeStats.mockResolvedValue([]);
+      MockedRepo.getCanceledWithPaidStats.mockResolvedValue([]);
+      MockedRepo.getStationGamingSessionStats.mockResolvedValue([]);
+
+      const result = await AnalyticsStation.getReservationReport(gamingCenterId, startDate, endDate);
+
+      expect(result.totalReservations).toBe(0);
+      expect(result.metrics.completionRate).toBe(0);
+      expect(result.metrics.cancellationRate).toBe(0);
+      expect(result.metrics.noShowRate).toBe(0);
+      expect(result.metrics.averageLeadTimeMinutes).toBe(0);
+      expect(result.metrics.medianLeadTimeMinutes).toBe(0);
+      expect(result.anomalies.canceledWithPaidCount).toBe(0);
+      expect(result.anomalies.unrefundedCanceledAmount).toBe(0);
+    });
+  });
+
+  describe('getStationPerformance', () => {
+    it('should calculate capacity, maintenance downtime, booking rate, and actual utilization rate accurately', async () => {
+      MockedRepo.getLiveReservationStats.mockResolvedValue({
+        byStatus: [],
+        byStation: [{ stationId: 'st-1', _count: { _all: 5 }, _sum: { totalPrice: 500, totalHours: 10 } }],
+        totalCount: 5,
+      } as any);
+
+      MockedRepo.getStationDetails.mockResolvedValue([
+        { id: 'st-1', name: 'PC 1', stationType: 'PC', isActive: true, hourlyPrice: 50 },
+      ] as any);
+
+      MockedRepo.getGamingCenterDetails.mockResolvedValue({
+        id: gamingCenterId,
+        name: 'Center 1',
+        openingTime: '10:00',
+        closingTime: '22:00', // 12 hours per day * 9 days = 108 hours total operating capacity
+        pcCount: 10,
+        consoleCount: 5,
+        isActive: true,
+      } as any);
+
+      MockedRepo.getStationMaintenanceStats.mockResolvedValue([
+        {
+          id: 'm-1',
+          stationId: 'st-1',
+          startTime: new Date('2026-01-02T10:00:00Z'),
+          endTime: new Date('2026-01-02T18:00:00Z'), // 8 hours downtime
+          reason: 'GPU Repair',
+          cost: 150,
+        },
+      ] as any);
+
+      MockedRepo.getStationGamingSessionStats.mockResolvedValue([
+        {
+          id: 'gs-1',
+          stationId: 'st-1',
+          reservationId: 'res-1',
+          startTime: new Date('2026-01-01T10:00:00Z'),
+          endTime: new Date('2026-01-01T18:00:00Z'),
+          actualHours: 8,
+          pausedMinutes: 0,
+          status: 'COMPLETED',
+        },
+      ] as any);
+
+      const result = await AnalyticsStation.getStationPerformance(gamingCenterId, startDate, endDate);
+
+      expect(result).toHaveLength(1);
+      const st = result[0];
+      expect(st.stationId).toBe('st-1');
+      expect(st.plannedHoursBooked).toBe(10);
+      expect(st.actualSessionHours).toBe(8);
+      expect(st.downtimeHours).toBe(8);
+      // availableOperationalHours = 108 - 8 = 100
+      expect(st.availableOperationalHours).toBe(100);
+      // bookingRate = 10 / 100 = 10%
+      expect(st.bookingRate).toBe(10);
+      // utilizationRate = 8 / 100 = 8%
+      expect(st.utilizationRate).toBe(8);
+      // revenuePerAvailableStationHour = 500 / 100 = 5
+      expect(st.revenuePerAvailableStationHour).toBe(5);
+    });
+
+    it('should handle zero available operational hours cleanly without error', async () => {
+      MockedRepo.getLiveReservationStats.mockResolvedValue({
+        byStatus: [],
+        byStation: [],
+        totalCount: 0,
+      } as any);
+
+      MockedRepo.getStationDetails.mockResolvedValue([
+        { id: 'st-1', name: 'PC 1', stationType: 'PC', isActive: true, hourlyPrice: 50 },
+      ] as any);
+
+      MockedRepo.getGamingCenterDetails.mockResolvedValue({
+        id: gamingCenterId,
+        name: 'Center 1',
+        openingTime: '10:00',
+        closingTime: '10:00', // 0 operating hours
+        pcCount: 1,
+        consoleCount: 0,
+        isActive: true,
+      } as any);
+
+      MockedRepo.getStationMaintenanceStats.mockResolvedValue([]);
+      MockedRepo.getStationGamingSessionStats.mockResolvedValue([]);
+
+      const result = await AnalyticsStation.getStationPerformance(gamingCenterId, startDate, endDate);
+
+      expect(result).toHaveLength(1);
+      const st = result[0];
+      expect(st.bookingRate).toBe(0);
+      expect(st.utilizationRate).toBe(0);
+      expect(st.revenuePerAvailableStationHour).toBe(0);
     });
   });
 
