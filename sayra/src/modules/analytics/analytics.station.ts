@@ -1,7 +1,7 @@
 import { AnalyticsRepo } from './analytics.repo';
 import { resolveTimezoneAndBoundaries } from './analytics.validators';
 import { formatInTimeZone } from 'date-fns-tz';
-import { differenceInDays, subDays } from 'date-fns';
+import { differenceInDays, subDays, addDays } from 'date-fns';
 
 function maskPhone(phone?: string | null): string {
   if (!phone || phone.length < 7) return '***';
@@ -20,6 +20,28 @@ function calculateOverlapHours(
 
   if (overlapEnd <= overlapStart) return 0;
   return Math.round(((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60)) * 100) / 100;
+}
+
+function mergeOverlappingIntervals(intervals: Array<{ start: Date; end: Date }>): Array<{ start: Date; end: Date }> {
+  if (intervals.length === 0) return [];
+
+  const sorted = [...intervals].sort((a, b) => a.start.getTime() - b.start.getTime());
+  const merged: Array<{ start: Date; end: Date }> = [sorted[0]];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = merged[merged.length - 1];
+    const curr = sorted[i];
+
+    if (curr.start <= prev.end) {
+      if (curr.end > prev.end) {
+        prev.end = curr.end;
+      }
+    } else {
+      merged.push(curr);
+    }
+  }
+
+  return merged;
 }
 
 function calculateDailyOperatingHours(openingTime?: string | null, closingTime?: string | null): number {
@@ -253,12 +275,16 @@ export const AnalyticsStation = {
       endDateInput
     );
 
-    const stats = await AnalyticsRepo.getLiveFinancialStats(gamingCenterId, dayStart, dayEnd, currencyFilter);
+    const [stats, expenses, discountBreakdown] = await Promise.all([
+      AnalyticsRepo.getLiveFinancialStats(gamingCenterId, dayStart, dayEnd, currencyFilter),
+      AnalyticsRepo.getApprovedExpenses(gamingCenterId, dayStart, dayEnd, currencyFilter),
+      AnalyticsRepo.getDiscountFundingBreakdown(gamingCenterId, dayStart, dayEnd),
+    ]);
 
     // Primary currency calculation
     const primaryCurrency = currencyFilter || stats.paidPayments[0]?.currency || 'IRR';
 
-    // Strictly isolate totals by currency to satisfy Rule 3 (never sum different currencies together)
+    // Strictly isolate totals by currency
     const paidForPrimary = stats.paidPayments.filter((p) => p.currency === primaryCurrency);
     const grossCollected = paidForPrimary.reduce((acc, p) => acc + (p._sum.amount || 0), 0);
 
@@ -266,7 +292,22 @@ export const AnalyticsStation = {
     const totalRefunded = refundsForPrimary.reduce((acc, r) => acc + (r._sum.amount || 0), 0);
     const netCollected = grossCollected - totalRefunded;
 
-    // Build multi-currency summaries if multiple currencies exist
+    const recognizedRevenue = Math.max(0, netCollected);
+
+    // Expenses & Profitability (with safe fallbacks for unit test mocks)
+    const approvedExpensesAmount = expenses?.totalAmount || 0;
+    const hasExpenseData = (expenses?.count || 0) > 0;
+
+    let profitabilityStatus = 'NOT_CALCULABLE';
+    let netProfit: number | null = null;
+    let profitMargin: number | null = null;
+
+    if (hasExpenseData) {
+      profitabilityStatus = 'CALCULATED';
+      netProfit = recognizedRevenue - approvedExpensesAmount;
+      profitMargin = recognizedRevenue > 0 ? Math.round((netProfit / recognizedRevenue) * 10000) / 100 : 0;
+    }
+
     const distinctCurrencies = Array.from(
       new Set([
         ...stats.paidPayments.map((p) => p.currency),
@@ -324,16 +365,29 @@ export const AnalyticsStation = {
         grossCollected,
         totalRefunded,
         netCollected,
+        merchantRecognizedRevenue: recognizedRevenue,
+      },
+      discountAnalysis: {
+        grossOriginalAmount: discountBreakdown?.grossOriginalAmount || 0,
+        totalDiscount: discountBreakdown?.totalDiscount || 0,
+        platformFundedDiscount: discountBreakdown?.platformFunded || 0,
+        merchantFundedDiscount: discountBreakdown?.merchantFunded || 0,
+        notice: 'Platform-funded discounts do not decrease merchant payout.',
+      },
+      profitability: {
+        status: profitabilityStatus,
+        cost: hasExpenseData ? approvedExpensesAmount : null,
+        netProfit,
+        profitMargin,
+        expensesByCategory: (expenses?.byCategory || []).map((c) => ({
+          category: c.category,
+          amount: c._sum.amount || 0,
+        })),
+        disclaimer: hasExpenseData
+          ? 'Net profit calculated as Recognized Revenue minus Approved Operational Expenses.'
+          : 'Operational expenses are NOT CALCULABLE for this period due to missing approved expense entries.',
       },
       currencySummaries,
-      profitability: {
-        status: 'NOT_CALCULABLE',
-        cost: null,
-        netProfit: null,
-        profitMargin: null,
-        disclaimer:
-          'Expenses and net profitability are NOT CALCULABLE due to lack of authoritative center cost data source and allocation rules.',
-      },
       paymentsByStatus,
       paymentsByMethod,
       paymentsByProvider,
@@ -459,10 +513,16 @@ export const AnalyticsStation = {
       const revenue = found?._sum.totalPrice || 0;
       const reservationCount = found?._count._all || 0;
 
-      // Station maintenance downtime
+      // Station maintenance downtime with interval merging
       const stationMaintenances = maintenanceList.filter((m) => m.stationId === station.id);
-      const downtimeHours = stationMaintenances.reduce((acc, m) => {
-        return acc + calculateOverlapHours(m.startTime, m.endTime, dayStart, dayEnd);
+      const rawIntervals = stationMaintenances.map((m) => ({
+        start: m.startTime < dayStart ? dayStart : m.startTime,
+        end: m.endTime ? (m.endTime > dayEnd ? dayEnd : m.endTime) : dayEnd,
+      }));
+      const mergedIntervals = mergeOverlappingIntervals(rawIntervals);
+
+      const downtimeHours = mergedIntervals.reduce((acc, inv) => {
+        return acc + Math.max(0, (inv.end.getTime() - inv.start.getTime()) / (1000 * 60 * 60));
       }, 0);
 
       // Available operational capacity (Operating Hours - Downtime)
@@ -478,21 +538,21 @@ export const AnalyticsStation = {
       }, 0);
 
       // Rates calculation with zero-denominator protection
-      // 1. bookingRate (planned hours booked / available capacity)
       const bookingRate =
         availableOperationalHours > 0
           ? Math.min(100, Math.round((plannedHoursBooked / availableOperationalHours) * 10000) / 100)
           : 0;
 
-      // 2. utilizationRate (actual session hours / available capacity)
       const utilizationRate =
         availableOperationalHours > 0
           ? Math.min(100, Math.round((actualSessionHours / availableOperationalHours) * 10000) / 100)
           : 0;
 
-      // Revenue per available station hour
       const revenuePerAvailableStationHour =
         availableOperationalHours > 0 ? Math.round(revenue / availableOperationalHours) : 0;
+
+      // Potential Revenue Lost estimation
+      const estimatedLostRevenue = Math.round(downtimeHours * station.hourlyPrice);
 
       return {
         stationId: station.id,
@@ -508,10 +568,95 @@ export const AnalyticsStation = {
         revenuePerAvailableStationHour,
         bookingRate,
         utilizationRate,
+        estimatedLostRevenue,
       };
     });
 
     return performance;
+  },
+
+  async getMaintenanceAnalytics(gamingCenterId: string, startDateInput: Date, endDateInput: Date) {
+    const { timeZone, dayStart, dayEnd } = await resolveTimezoneAndBoundaries(
+      gamingCenterId,
+      startDateInput,
+      endDateInput
+    );
+
+    const [stationsList, maintenanceList, centerDetails] = await Promise.all([
+      AnalyticsRepo.getStationDetails(gamingCenterId),
+      AnalyticsRepo.getStationMaintenanceStats(gamingCenterId, dayStart, dayEnd),
+      AnalyticsRepo.getGamingCenterDetails(gamingCenterId),
+    ]);
+
+    const daysCount = Math.max(differenceInDays(dayEnd, dayStart), 1);
+    const dailyOpHours = calculateDailyOperatingHours(centerDetails?.openingTime, centerDetails?.closingTime);
+    const stationCount = Math.max(stationsList.length, 1);
+    const totalCenterCapacityHours = daysCount * dailyOpHours * stationCount;
+
+    // MTTR calculation (Mean Time To Repair)
+    let totalRepairHours = 0;
+    let repairedCount = 0;
+
+    for (const m of maintenanceList) {
+      if (m.endTime) {
+        const diffMs = m.endTime.getTime() - m.startTime.getTime();
+        if (diffMs > 0) {
+          totalRepairHours += diffMs / (1000 * 60 * 60);
+          repairedCount++;
+        }
+      }
+    }
+
+    const mttrHours = repairedCount > 0 ? Math.round((totalRepairHours / repairedCount) * 100) / 100 : 0;
+
+    // Deduplicated downtime per station
+    let totalDowntimeHours = 0;
+    let totalEstimatedLostRevenue = 0;
+
+    for (const station of stationsList) {
+      const stationMaintenances = maintenanceList.filter((m) => m.stationId === station.id);
+      const rawIntervals = stationMaintenances.map((m) => ({
+        start: m.startTime < dayStart ? dayStart : m.startTime,
+        end: m.endTime ? (m.endTime > dayEnd ? dayEnd : m.endTime) : dayEnd,
+      }));
+      const merged = mergeOverlappingIntervals(rawIntervals);
+      const stDowntime = merged.reduce((acc, inv) => acc + (inv.end.getTime() - inv.start.getTime()) / (1000 * 60 * 60), 0);
+
+      totalDowntimeHours += stDowntime;
+      totalEstimatedLostRevenue += stDowntime * station.hourlyPrice;
+    }
+
+    totalDowntimeHours = Math.round(totalDowntimeHours * 100) / 100;
+    totalEstimatedLostRevenue = Math.round(totalEstimatedLostRevenue);
+
+    // MTBF calculation
+    const breakdownCount = maintenanceList.length;
+    let mtbfHours: number | string = 'NOT_ENOUGH_DATA';
+    if (breakdownCount >= 2) {
+      const operationalHours = Math.max(0, totalCenterCapacityHours - totalDowntimeHours);
+      mtbfHours = Math.round((operationalHours / breakdownCount) * 100) / 100;
+    }
+
+    // Availability Rate
+    const availabilityRate =
+      totalCenterCapacityHours > 0
+        ? Math.min(100, Math.round(((totalCenterCapacityHours - totalDowntimeHours) / totalCenterCapacityHours) * 10000) / 100)
+        : 100;
+
+    return {
+      period: { startDate: dayStart, endDate: dayEnd, timeZone },
+      summary: {
+        totalBreakdownsCount: breakdownCount,
+        totalDowntimeHours,
+        availabilityRate,
+        mttrHours,
+        mtbfHours,
+        estimatedPotentialLostRevenue: totalEstimatedLostRevenue,
+      },
+      maintenanceLogs: maintenanceList,
+      disclaimer:
+        'Potential lost revenue represents hypothetical unearned capacity based on hourly rates. MTBF requires 2+ breakdown events.',
+    };
   },
 
   async getRevenueChart(gamingCenterId: string, startDateInput: Date, endDateInput: Date) {
@@ -768,6 +913,95 @@ export const AnalyticsStation = {
     };
   },
 
+  // Visitor Analytics Method
+  // Cancellation Analytics Method
+  async getCancellationAnalytics(gamingCenterId: string, startDateInput: Date, endDateInput: Date) {
+    const { timeZone, dayStart, dayEnd } = await resolveTimezoneAndBoundaries(
+      gamingCenterId,
+      startDateInput,
+      endDateInput
+    );
+
+    const { canceledReservations, totalReservationsCount } = await AnalyticsRepo.getCancellationAnalyticsStats(
+      gamingCenterId,
+      dayStart,
+      dayEnd
+    );
+
+    const totalCanceled = canceledReservations.length;
+    const cancellationRate =
+      totalReservationsCount > 0 ? Math.round((totalCanceled / totalReservationsCount) * 10000) / 100 : 0;
+
+    const categoryMap = new Map<string, number>();
+    const actorMap = new Map<string, number>();
+
+    let discountedCanceled = 0;
+    let nonDiscountedCanceled = 0;
+
+    for (const r of canceledReservations) {
+      const category = r.cancelCategory || 'UNKNOWN';
+      categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
+
+      const actor = r.cancelActor || 'SYSTEM';
+      actorMap.set(actor, (actorMap.get(actor) || 0) + 1);
+
+      if (r.discountAmount > 0 || r.voucherCode) {
+        discountedCanceled++;
+      } else {
+        nonDiscountedCanceled++;
+      }
+    }
+
+    return {
+      period: { startDate: dayStart, endDate: dayEnd, timeZone },
+      totalReservationsCount,
+      totalCanceledCount: totalCanceled,
+      cancellationRate,
+      byCategory: Array.from(categoryMap.entries()).map(([category, count]) => ({
+        category,
+        count,
+        percentage: totalCanceled > 0 ? Math.round((count / totalCanceled) * 10000) / 100 : 0,
+      })),
+      byActor: Array.from(actorMap.entries()).map(([actor, count]) => ({
+        actor,
+        count,
+        percentage: totalCanceled > 0 ? Math.round((count / totalCanceled) * 10000) / 100 : 0,
+      })),
+      discountedvsNonDiscounted: {
+        discountedCanceledCount: discountedCanceled,
+        nonDiscountedCanceledCount: nonDiscountedCanceled,
+      },
+      notice: 'Legacy canceled reservations without explicit category tag are classified as UNKNOWN to prevent artificial data insertion.',
+    };
+  },
+
+  async getVisitorReport(gamingCenterId: string, startDateInput: Date, endDateInput: Date) {
+    const { timeZone, dayStart, dayEnd } = await resolveTimezoneAndBoundaries(
+      gamingCenterId,
+      startDateInput,
+      endDateInput
+    );
+
+    const stats = await AnalyticsRepo.getVisitorEventStats(gamingCenterId, dayStart, dayEnd);
+
+    const pageViewFound = stats.byType.find((s) => s.eventType === 'page_view');
+    const totalPageViews = pageViewFound?._count._all || 0;
+
+    return {
+      period: { startDate: dayStart, endDate: dayEnd, timeZone },
+      totalEvents: stats.totalEvents,
+      totalPageViews,
+      uniqueVisitors: stats.uniqueVisitorsCount,
+      uniqueSessions: stats.uniqueSessionsCount,
+      eventTypeDistribution: stats.byType.map((s) => ({
+        eventType: s.eventType,
+        count: s._count._all,
+      })),
+      privacyPolicyNotice:
+        'Visitor identification relies on pseudonymous random session keys. Personal identification parameters, raw IP addresses, and device fingerprints are strictly excluded from event payloads.',
+    };
+  },
+
   // Operational Conversion Funnel Method
   async getConversionFunnel(gamingCenterId: string, startDateInput: Date, endDateInput: Date) {
     const { timeZone, dayStart, dayEnd } = await resolveTimezoneAndBoundaries(
@@ -776,130 +1010,429 @@ export const AnalyticsStation = {
       endDateInput
     );
 
-    const reservations = await AnalyticsRepo.getFunnelReservations(gamingCenterId, dayStart, dayEnd);
+    const [events, reservations] = await Promise.all([
+      AnalyticsRepo.getVisitorEventsForFunnel(gamingCenterId, dayStart, dayEnd),
+      AnalyticsRepo.getFunnelReservations(gamingCenterId, dayStart, dayEnd),
+    ]);
 
-    const totalCreated = reservations.length;
+    const safeEvents = events || [];
+    const safeReservations = reservations || [];
+
+    // Aggregate Visitor Events by Type
+    const pageViewsCount = safeEvents.filter((e) => e.eventType === 'page_view').length;
+    const centerViewsCount = safeEvents.filter((e) => e.eventType === 'center_view').length;
+    const stationViewsCount = safeEvents.filter((e) => e.eventType === 'station_view').length;
+    const bookingStartedCount = safeEvents.filter((e) => e.eventType === 'booking_started').length;
+    const checkoutStartedCount = safeEvents.filter((e) => e.eventType === 'checkout_started').length;
+
+    // Database Verified Stages
+    const totalCreated = safeReservations.length;
     let paidCount = 0;
-    let sessionStartedCount = 0;
     let completedCount = 0;
 
-    let totalLeadTimeCreatedToPaidMs = 0;
-    let paidLeadCount = 0;
+    for (const r of reservations) {
+      if (r.paymentState === 'PAID' || r.payments.some((p) => p.paidAt)) {
+        paidCount++;
+      }
+      if (r.status === 'COMPLETED' || r.status === 'CONFIRMED') {
+        completedCount++;
+      }
+    }
 
-    let totalLeadTimePaidToSessionMs = 0;
-    let sessionLeadCount = 0;
+    const hasEventData = safeEvents.length > 0;
 
-    let totalLeadTimeSessionToCompletedMs = 0;
-    let completedLeadCount = 0;
+    if (!hasEventData) {
+      let sessionStartedCount = 0;
+
+      for (const r of safeReservations) {
+        if (r.gamingSessions && r.gamingSessions.length > 0) {
+          sessionStartedCount++;
+        }
+      }
+      const stage1To2Conversion = totalCreated > 0 ? Math.round((paidCount / totalCreated) * 10000) / 100 : 0;
+      const stage2To3Conversion = paidCount > 0 ? Math.round((sessionStartedCount / paidCount) * 10000) / 100 : 0;
+      const stage3To4Conversion = sessionStartedCount > 0 ? Math.round((completedCount / sessionStartedCount) * 10000) / 100 : 0;
+      const overallConversion = totalCreated > 0 ? Math.round((completedCount / totalCreated) * 10000) / 100 : 0;
+
+      return {
+        period: { startDate: dayStart, endDate: dayEnd, timeZone },
+        webTrafficFunnelStatus: 'DATA_COLLECTION_MISSING',
+        webTrafficNotice:
+          'Web traffic, pageviews, and site search events are not instrumented on frontend. Operational conversion funnel below is constructed strictly from verified database state events.',
+        funnel: [
+          {
+            stageOrder: 1,
+            stageKey: 'RESERVATION_CREATED',
+            stageTitle: 'Reservation Created',
+            count: totalCreated,
+            conversionFromInitial: 100,
+            conversionFromPrevious: 100,
+            droppedCount: 0,
+          },
+          {
+            stageOrder: 2,
+            stageKey: 'PAYMENT_SUCCEEDED',
+            stageTitle: 'Payment Succeeded',
+            count: paidCount,
+            conversionFromInitial: stage1To2Conversion,
+            conversionFromPrevious: stage1To2Conversion,
+            droppedCount: Math.max(0, totalCreated - paidCount),
+          },
+          {
+            stageOrder: 3,
+            stageKey: 'SESSION_STARTED',
+            stageTitle: 'Gaming Session Started',
+            count: sessionStartedCount,
+            conversionFromInitial: totalCreated > 0 ? Math.round((sessionStartedCount / totalCreated) * 10000) / 100 : 0,
+            conversionFromPrevious: stage2To3Conversion,
+            droppedCount: Math.max(0, paidCount - sessionStartedCount),
+          },
+          {
+            stageOrder: 4,
+            stageKey: 'RESERVATION_COMPLETED',
+            stageTitle: 'Reservation Completed',
+            count: completedCount,
+            conversionFromInitial: overallConversion,
+            conversionFromPrevious: stage3To4Conversion,
+            droppedCount: Math.max(0, sessionStartedCount - completedCount),
+          },
+        ],
+        summary: {
+          totalReservationsCreated: totalCreated,
+          totalReservationsCompleted: completedCount,
+          overallConversionRate: overallConversion,
+        },
+      };
+    }
+
+    // When web traffic events are present, build 7-stage funnel
+
+    const stage1SiteVisit = Math.max(pageViewsCount, totalCreated);
+    const stage2CenterView = Math.max(centerViewsCount, totalCreated);
+    const stage3StationView = Math.max(stationViewsCount, totalCreated);
+    const stage4BookingStarted = Math.max(bookingStartedCount, totalCreated);
+    const stage5CheckoutStarted = Math.max(checkoutStartedCount, paidCount);
+    const stage6PaymentSucceeded = paidCount;
+    const stage7BookingConfirmed = completedCount;
+
+    const stages = [
+      { order: 1, key: 'SITE_VISIT', title: 'Site Visit', count: stage1SiteVisit },
+      { order: 2, key: 'CENTER_VIEW', title: 'Center View', count: stage2CenterView },
+      { order: 3, key: 'STATION_VIEW', title: 'Station View', count: stage3StationView },
+      { order: 4, key: 'BOOKING_STARTED', title: 'Booking Started', count: stage4BookingStarted },
+      { order: 5, key: 'CHECKOUT_STARTED', title: 'Checkout Started', count: stage5CheckoutStarted },
+      { order: 6, key: 'PAYMENT_SUCCEEDED', title: 'Payment Succeeded (Verified)', count: stage6PaymentSucceeded },
+      { order: 7, key: 'BOOKING_CONFIRMED', title: 'Booking Confirmed (Verified)', count: stage7BookingConfirmed },
+    ];
+
+    const initialCount = stages[0].count;
+    const funnelStages = stages.map((s, idx) => {
+      const prevCount = idx === 0 ? s.count : stages[idx - 1].count;
+      const convFromInitial = initialCount > 0 ? Math.round((s.count / initialCount) * 10000) / 100 : 0;
+      const convFromPrev = prevCount > 0 ? Math.round((s.count / prevCount) * 10000) / 100 : 0;
+      const dropped = Math.max(0, prevCount - s.count);
+
+      return {
+        stageOrder: s.order,
+        stageKey: s.key,
+        stageTitle: s.title,
+        count: s.count,
+        conversionFromInitial: convFromInitial,
+        conversionFromPrevious: convFromPrev,
+        droppedCount: dropped,
+      };
+    });
+
+    const overallConversionRate = initialCount > 0 ? Math.round((stage7BookingConfirmed / initialCount) * 10000) / 100 : 0;
+
+    return {
+      period: { startDate: dayStart, endDate: dayEnd, timeZone },
+      webTrafficFunnelStatus: 'INSTRUMENTED',
+      webTrafficNotice:
+        'Conversion funnel integrates real-time client visitor events and server-verified database payment confirmations.',
+      funnel: funnelStages,
+      summary: {
+        initialTrafficCount: initialCount,
+        totalReservationsCreated: totalCreated,
+        totalReservationsConfirmed: stage7BookingConfirmed,
+        totalReservationsCompleted: completedCount,
+        overallConversionRate,
+      },
+    };
+  },
+
+  // Marketing CAC & Campaign Attribution Method
+  async getMarketingAttributionAnalytics(gamingCenterId: string, startDateInput: Date, endDateInput: Date) {
+    const { timeZone, dayStart, dayEnd } = await resolveTimezoneAndBoundaries(
+      gamingCenterId,
+      startDateInput,
+      endDateInput
+    );
+
+    const { spends, campaigns, reservations, newCustomers } = await AnalyticsRepo.getMarketingAttributionData(
+      gamingCenterId,
+      dayStart,
+      dayEnd
+    );
+
+    const totalMarketingSpend = spends.reduce((acc, s) => acc + s.amount, 0);
+    const newCustomerAccountIds = new Set(newCustomers.map((c) => c.customerAccountId));
+
+    // Map campaign stats
+    const campaignStatsMap = new Map<
+      string,
+      {
+        campaignKey: string;
+        campaignName: string;
+        marketingSpend: number;
+        platformDiscountSubsidy: number;
+        attributedNewCustomers: Set<string>;
+        attributedRevenue: number;
+      }
+    >();
+
+    // Initialize stats from recorded spends
+    for (const spend of spends) {
+      const key = spend.campaignId || spend.source;
+      const entry = campaignStatsMap.get(key) || {
+        campaignKey: key,
+        campaignName: spend.campaignName,
+        marketingSpend: 0,
+        platformDiscountSubsidy: 0,
+        attributedNewCustomers: new Set(),
+        attributedRevenue: 0,
+      };
+      entry.marketingSpend += spend.amount;
+      campaignStatsMap.set(key, entry);
+    }
+
+    let unattributedNewCustomersCount = 0;
+    let unattributedRevenue = 0;
 
     for (const r of reservations) {
-      const createdAt = r.createdAt;
+      const isNewCust = newCustomerAccountIds.has(r.customerAccountId);
 
-      // Stage 2: Payment Succeeded
-      const paidPayment = r.payments.find((p) => p.paidAt && p.paidAt >= createdAt);
-      if (paidPayment || r.paymentState === 'PAID') {
-        paidCount++;
-        if (paidPayment?.paidAt) {
-          totalLeadTimeCreatedToPaidMs += Math.max(0, paidPayment.paidAt.getTime() - createdAt.getTime());
-          paidLeadCount++;
+      const campaignKey =
+        r.campaignId ||
+        r.utmCampaign ||
+        r.utmSource ||
+        (r.voucherCode ? `CODE:${r.voucherCode}` : null);
+
+      if (campaignKey) {
+        let entry = campaignStatsMap.get(campaignKey);
+        if (!entry) {
+          const campObj = campaigns.find((c) => c.id === campaignKey || c.code === r.voucherCode);
+          entry = {
+            campaignKey,
+            campaignName: campObj?.name || campaignKey,
+            marketingSpend: 0,
+            platformDiscountSubsidy: 0,
+            attributedNewCustomers: new Set(),
+            attributedRevenue: 0,
+          };
+          campaignStatsMap.set(campaignKey, entry);
         }
-      }
 
-      // Stage 3: Gaming Session Started
-      const validSession = r.gamingSessions.find((gs) => gs.startTime >= createdAt);
-      if (validSession) {
-        sessionStartedCount++;
-        if (paidPayment?.paidAt) {
-          totalLeadTimePaidToSessionMs += Math.max(0, validSession.startTime.getTime() - paidPayment.paidAt.getTime());
-          sessionLeadCount++;
+        entry.attributedRevenue += r.totalPrice;
+        entry.platformDiscountSubsidy += r.platformFundedDiscount || r.discountAmount || 0;
+
+        if (isNewCust) {
+          entry.attributedNewCustomers.add(r.customerAccountId);
         }
-      }
-
-      // Stage 4: Reservation Completed
-      if (r.status === 'COMPLETED') {
-        completedCount++;
-        if (validSession?.startTime && r.completedAt) {
-          totalLeadTimeSessionToCompletedMs += Math.max(
-            0,
-            r.completedAt.getTime() - validSession.startTime.getTime()
-          );
-          completedLeadCount++;
+      } else {
+        unattributedRevenue += r.totalPrice;
+        if (isNewCust) {
+          unattributedNewCustomersCount++;
         }
       }
     }
 
-    // Stage conversions
-    const stage1To2Conversion =
-      totalCreated > 0 ? Math.round((paidCount / totalCreated) * 10000) / 100 : 0;
-    const stage2To3Conversion =
-      paidCount > 0 ? Math.round((sessionStartedCount / paidCount) * 10000) / 100 : 0;
-    const stage3To4Conversion =
-      sessionStartedCount > 0 ? Math.round((completedCount / sessionStartedCount) * 10000) / 100 : 0;
-    const overallConversion =
-      totalCreated > 0 ? Math.round((completedCount / totalCreated) * 10000) / 100 : 0;
+    // Compute CAC & ROAS for each campaign
+    const campaignBreakdown = Array.from(campaignStatsMap.values()).map((c) => {
+      const newCustCount = c.attributedNewCustomers.size;
+      const cac = newCustCount > 0 ? Math.round(c.marketingSpend / newCustCount) : null;
+      const roas = c.marketingSpend > 0 ? Math.round((c.attributedRevenue / c.marketingSpend) * 100) / 100 : null;
 
-    // Average durations in minutes
-    const avgMinutesCreatedToPaid =
-      paidLeadCount > 0 ? Math.round(totalLeadTimeCreatedToPaidMs / (paidLeadCount * 60 * 1000) * 10) / 10 : 0;
-    const avgMinutesPaidToSession =
-      sessionLeadCount > 0 ? Math.round(totalLeadTimePaidToSessionMs / (sessionLeadCount * 60 * 1000) * 10) / 10 : 0;
-    const avgMinutesSessionToCompleted =
-      completedLeadCount > 0
-        ? Math.round(totalLeadTimeSessionToCompletedMs / (completedLeadCount * 60 * 1000) * 10) / 10
-        : 0;
+      return {
+        campaignKey: c.campaignKey,
+        campaignName: c.campaignName,
+        marketingSpend: c.marketingSpend,
+        platformDiscountSubsidy: c.platformDiscountSubsidy,
+        totalCampaignCost: c.marketingSpend + c.platformDiscountSubsidy,
+        attributedNewCustomersCount: newCustCount,
+        attributedRevenue: c.attributedRevenue,
+        cacStatus: cac !== null ? 'CALCULATED' : 'NOT_CALCULABLE_ZERO_CUSTOMERS',
+        cac,
+        roasStatus: roas !== null ? 'CALCULATED' : 'NOT_CALCULABLE_ZERO_SPEND',
+        roas,
+      };
+    });
+
+    const totalAttributedNewCustomers = Array.from(campaignStatsMap.values()).reduce(
+      (acc, c) => acc + c.attributedNewCustomers.size,
+      0
+    );
+
+    const overallCAC =
+      totalAttributedNewCustomers > 0 ? Math.round(totalMarketingSpend / totalAttributedNewCustomers) : null;
+
+    const totalAttributedRevenue = Array.from(campaignStatsMap.values()).reduce(
+      (acc, c) => acc + c.attributedRevenue,
+      0
+    );
+
+    const overallROAS =
+      totalMarketingSpend > 0 ? Math.round((totalAttributedRevenue / totalMarketingSpend) * 100) / 100 : null;
 
     return {
       period: { startDate: dayStart, endDate: dayEnd, timeZone },
-      webTrafficFunnelStatus: 'DATA_COLLECTION_MISSING',
-      webTrafficNotice:
-        'Web traffic, pageviews, and site search events are not instrumented on frontend. Operational conversion funnel below is constructed strictly from verified database state events.',
-      funnel: [
-        {
-          stageOrder: 1,
-          stageKey: 'RESERVATION_CREATED',
-          stageTitle: 'Reservation Created',
-          count: totalCreated,
-          conversionFromInitial: 100,
-          conversionFromPrevious: 100,
-          droppedCount: 0,
-          avgDurationFromPreviousMinutes: 0,
-        },
-        {
-          stageOrder: 2,
-          stageKey: 'PAYMENT_SUCCEEDED',
-          stageTitle: 'Payment Succeeded',
-          count: paidCount,
-          conversionFromInitial: stage1To2Conversion,
-          conversionFromPrevious: stage1To2Conversion,
-          droppedCount: Math.max(0, totalCreated - paidCount),
-          avgDurationFromPreviousMinutes: avgMinutesCreatedToPaid,
-        },
-        {
-          stageOrder: 3,
-          stageKey: 'SESSION_STARTED',
-          stageTitle: 'Gaming Session Started',
-          count: sessionStartedCount,
-          conversionFromInitial: totalCreated > 0 ? Math.round((sessionStartedCount / totalCreated) * 10000) / 100 : 0,
-          conversionFromPrevious: stage2To3Conversion,
-          droppedCount: Math.max(0, paidCount - sessionStartedCount),
-          avgDurationFromPreviousMinutes: avgMinutesPaidToSession,
-        },
-        {
-          stageOrder: 4,
-          stageKey: 'RESERVATION_COMPLETED',
-          stageTitle: 'Reservation Completed',
-          count: completedCount,
-          conversionFromInitial: overallConversion,
-          conversionFromPrevious: stage3To4Conversion,
-          droppedCount: Math.max(0, sessionStartedCount - completedCount),
-          avgDurationFromPreviousMinutes: avgMinutesSessionToCompleted,
-        },
-      ],
       summary: {
-        totalReservationsCreated: totalCreated,
-        totalReservationsCompleted: completedCount,
-        overallConversionRate: overallConversion,
+        totalMarketingSpend,
+        totalNewCustomers: newCustomers.length,
+        totalAttributedNewCustomers,
+        unattributedNewCustomersCount,
+        unattributedRevenue,
+        overallCACStatus: overallCAC !== null ? 'CALCULATED' : 'NOT_CALCULABLE',
+        overallCAC,
+        overallROASStatus: overallROAS !== null ? 'CALCULATED' : 'NOT_CALCULABLE',
+        overallROAS,
       },
+      campaignBreakdown,
+      unattributedNotice:
+        'Customers without explicit UTM, campaign ID, or promotional voucher parameters are classified as UNATTRIBUTED_SOURCE and excluded from specific campaign CAC calculations.',
+    };
+  },
+
+  // Discount Retention Method
+  async getDiscountRetentionAnalytics(gamingCenterId: string, startDateInput: Date, endDateInput: Date) {
+    const { timeZone, dayStart, dayEnd } = await resolveTimezoneAndBoundaries(
+      gamingCenterId,
+      startDateInput,
+      endDateInput
+    );
+
+    const rawReservations = await AnalyticsRepo.getDiscountCohortReservations(gamingCenterId, dayEnd);
+    const reservations = rawReservations.filter((r): r is typeof r & { customerAccountId: string } => Boolean(r.customerAccountId));
+
+    const customerResMap = new Map<string, typeof reservations>();
+    for (const r of reservations) {
+      if (!customerResMap.has(r.customerAccountId)) {
+        customerResMap.set(r.customerAccountId, []);
+      }
+      customerResMap.get(r.customerAccountId)!.push(r);
+    }
+
+    const now = new Date();
+
+    interface CohortCustomer {
+      customerAccountId: string;
+      initialDate: Date;
+      cohortType: 'PLATFORM_DISCOUNTED' | 'MERCHANT_DISCOUNTED' | 'NON_DISCOUNTED';
+      initialDiscountAmount: number;
+      subsequentReservations: typeof reservations;
+    }
+
+    const cohortCustomers: CohortCustomer[] = [];
+
+    for (const [cid, resList] of customerResMap.entries()) {
+      if (resList.length === 0) continue;
+      const initial = resList[0];
+
+      if (initial.startTime > dayEnd) continue;
+
+      const isDiscounted = initial.discountAmount > 0 || Boolean(initial.voucherCode);
+      let cohortType: CohortCustomer['cohortType'] = 'NON_DISCOUNTED';
+
+      if (isDiscounted) {
+        if (initial.discountFundingSource === 'MERCHANT_FUNDED') {
+          cohortType = 'MERCHANT_DISCOUNTED';
+        } else {
+          cohortType = 'PLATFORM_DISCOUNTED';
+        }
+      }
+
+      cohortCustomers.push({
+        customerAccountId: cid,
+        initialDate: initial.startTime,
+        cohortType,
+        initialDiscountAmount: initial.discountAmount,
+        subsequentReservations: resList.slice(1),
+      });
+    }
+
+    const evaluateCohort = (group: CohortCustomer[]) => {
+      const evalWindow = (days: number) => {
+        const eligible = group.filter((c) => differenceInDays(now, c.initialDate) >= days);
+        if (eligible.length === 0) {
+          return { eligibleCount: 0, retainedCount: 0, retentionRate: 0 };
+        }
+
+        let retained = 0;
+        for (const c of eligible) {
+          const windowEnd = addDays(c.initialDate, days);
+          const hasRepeat = c.subsequentReservations.some(
+            (sr) => sr.startTime > c.initialDate && sr.startTime <= windowEnd
+          );
+          if (hasRepeat) retained++;
+        }
+
+        return {
+          eligibleCount: eligible.length,
+          retainedCount: retained,
+          retentionRate: Math.round((retained / eligible.length) * 10000) / 100,
+        };
+      };
+
+      let totalSubsequentBookings = 0;
+      let totalSubsequentRevenue = 0;
+      let totalDaysToRepeat = 0;
+      let repeatCount = 0;
+
+      for (const c of group) {
+        totalSubsequentBookings += c.subsequentReservations.length;
+        if (c.subsequentReservations.length > 0) {
+          repeatCount++;
+          const firstRepeat = c.subsequentReservations[0];
+          const daysToRepeat = Math.abs(differenceInDays(firstRepeat.startTime, c.initialDate));
+          totalDaysToRepeat += daysToRepeat;
+          for (const sr of c.subsequentReservations) {
+            totalSubsequentRevenue += sr.totalPrice;
+          }
+        }
+      }
+
+      const totalCustomers = group.length;
+      const avgSubsequentBookings = totalCustomers > 0 ? Math.round((totalSubsequentBookings / totalCustomers) * 10) / 10 : 0;
+      const avgSubsequentRevenue = totalCustomers > 0 ? Math.round(totalSubsequentRevenue / totalCustomers) : 0;
+      const avgDaysToFirstRepeat = repeatCount > 0 ? Math.round((totalDaysToRepeat / repeatCount) * 10) / 10 : 0;
+
+      return {
+        totalCustomers,
+        retention30d: evalWindow(30),
+        retention60d: evalWindow(60),
+        retention90d: evalWindow(90),
+        avgSubsequentBookings,
+        avgSubsequentRevenue,
+        avgDaysToFirstRepeat,
+      };
+    };
+
+    const platformGroup = cohortCustomers.filter((c) => c.cohortType === 'PLATFORM_DISCOUNTED');
+    const merchantGroup = cohortCustomers.filter((c) => c.cohortType === 'MERCHANT_DISCOUNTED');
+    const nonDiscountedGroup = cohortCustomers.filter((c) => c.cohortType === 'NON_DISCOUNTED');
+
+    return {
+      period: { startDate: dayStart, endDate: dayEnd, timeZone },
+      totalCustomersEvaluated: cohortCustomers.length,
+      cohortComparison: {
+        platformDiscounted: evaluateCohort(platformGroup),
+        merchantDiscounted: evaluateCohort(merchantGroup),
+        nonDiscounted: evaluateCohort(nonDiscountedGroup),
+      },
+      incompleteWindowNotice:
+        'Customers whose observation window (30/60/90 days) has not elapsed since their initial booking are excluded from the retention denominator for that window to prevent artificial churn bias.',
+      correlationDisclaimer:
+        'Metrics report observed repeat booking behavior across discount cohorts. Observed associations do NOT imply causality or incrementality.',
     };
   },
 

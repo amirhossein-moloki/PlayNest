@@ -1,6 +1,6 @@
 import { addMinutes } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { Reservation, ReservationStatus, Prisma, SessionActorType, UserRole } from '@prisma/client';
+import { Reservation, ReservationStatus, Prisma, SessionActorType, UserRole, CancellationCategory, CancellationActor } from '@prisma/client';
 import { ReservationRepo } from './reservation.repo';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
@@ -102,6 +102,8 @@ export const reservationLifecycle = {
           canceledAt: new Date(),
           canceledByUserId: actor.id,
           cancelReason: data.reason,
+          cancelCategory: data.cancelCategory || CancellationCategory.UNKNOWN,
+          cancelActor: data.cancelActor || (actor.actorType === SessionActorType.CUSTOMER ? CancellationActor.CUSTOMER : CancellationActor.STAFF),
         },
         {
           gamingCenter: { include: { settings: true } },

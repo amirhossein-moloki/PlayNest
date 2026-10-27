@@ -391,6 +391,59 @@ enum ReconciliationStatus {
   UNCONFIRMED_PROVIDER_STATE
 }
 
+enum ExpenseCategory {
+  RENT
+  ELECTRICITY_ENERGY
+  INTERNET_COMMUNICATION
+  SALARIES_WAGES
+  MAINTENANCE_REPAIR
+  PARTS_EQUIPMENT
+  MARKETING
+  ADMINISTRATIVE
+  OTHER_SERVICES
+  OTHER_DOCUMENTED
+}
+
+enum ExpenseStatus {
+  DRAFT
+  APPROVED
+  REJECTED
+  VOID
+}
+
+enum MaintenanceStatus {
+  REPORTED
+  IN_MAINTENANCE
+  REPAIRED
+  CANCELLED
+}
+
+enum MaintenanceSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum CancellationCategory {
+  CUSTOMER_CANCEL
+  CENTER_CANCEL
+  PAYMENT_FAILED
+  CAPACITY_UNAVAILABLE
+  TECHNICAL_ISSUE
+  SCHEDULE_CONFLICT
+  OPERATIONAL_ISSUE
+  EMERGENCY
+  OTHER
+  UNKNOWN
+}
+
+enum CancellationActor {
+  CUSTOMER
+  STAFF
+  SYSTEM
+}
+
 // =======================
 // Identity Domain
 // =======================
@@ -460,6 +513,11 @@ model GamingCenter {
   reconciliationRecords ReconciliationRecord[]
   waitlistEntries       WaitlistEntry[]
   waitlistOffers        WaitlistOffer[]
+
+  expenses              GamingCenterExpense[]
+  analyticsEvents       AnalyticsEvent[]
+  marketingSpends       MarketingCampaignSpend[]
+  forecastRuns          RevenueForecastRun[]
 
   @@index([slug])
 }
@@ -1256,8 +1314,14 @@ model Reservation {
 
   canceledAt       DateTime? @db.Timestamptz(6)
   cancelReason     String?
+  cancelCategory   CancellationCategory?
+  cancelActor      CancellationActor?
   canceledByUserId String?
   canceledBy       User?     @relation("ReservationCanceler", fields: [canceledByUserId], references: [id])
+
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
 
   expiresAt DateTime? @db.Timestamptz(6)
 
@@ -1434,14 +1498,112 @@ model StationMaintenance {
   stationId String
   station   GameStation @relation(fields: [stationId], references: [id])
 
+  gamingCenterId String?
+
   startTime DateTime
   endTime   DateTime?
 
-  reason String
-  cost   Float?
+  reason        String
+  cost          Float?
+  breakdownType String?
+  severity      MaintenanceSeverity @default(MEDIUM)
+  status        MaintenanceStatus   @default(REPORTED)
+
+  reportedAt DateTime  @default(now()) @db.Timestamptz(6)
+  repairedAt DateTime? @db.Timestamptz(6)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([stationId, startTime])
+  @@index([gamingCenterId, status])
+}
+
+model AnalyticsEvent {
+  id             String        @id @default(cuid())
+  gamingCenterId String?
+  gamingCenter   GamingCenter? @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+
+  eventType        String
+  visitorId        String
+  sessionId        String
+  pagePath         String?
+  stationId        String?
+  reservationId    String?
+  utmSource        String?
+  utmMedium        String?
+  utmCampaign      String?
+  schemaVersion    Int     @default(1)
+  deduplicationKey String? @unique
+  payload          Json?
+
+  timestamp DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([gamingCenterId, eventType, timestamp])
+  @@index([visitorId, timestamp])
+  @@index([sessionId])
+  @@index([timestamp])
+}
+
+model GamingCenterExpense {
+  id             String       @id @default(cuid())
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+
+  category        ExpenseCategory
+  amount          Float
+  currency        String          @default("IRR")
+  expenseDate     DateTime        @db.Timestamptz(6)
+  description     String?
+  referenceNumber String?
+  status          ExpenseStatus   @default(APPROVED)
+
+  createdById  String?
+  approvedById String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([gamingCenterId, status, expenseDate])
+  @@index([gamingCenterId, category])
+}
+
+model MarketingCampaignSpend {
+  id             String        @id @default(cuid())
+  gamingCenterId String?
+  gamingCenter   GamingCenter? @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+
+  campaignId   String?
+  campaignName String
+  source       String
+  medium       String?
+  amount       Float
+  currency     String   @default("IRR")
+  startDate    DateTime @db.Timestamptz(6)
+  endDate      DateTime @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([gamingCenterId, startDate, endDate])
+  @@index([campaignId])
+}
+
+model RevenueForecastRun {
+  id             String       @id @default(cuid())
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+
+  modelName           String
+  modelVersion        String
+  forecastHorizonDays Int
+  evaluationMetrics   Json?
+  sufficiencyStatus   String
+  forecastData        Json
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([gamingCenterId, createdAt])
 }
 
 model Tournament {
