@@ -1,4 +1,6 @@
 import type { CollectionConfig } from 'payload'
+import { lexicalEditor, BlocksFeature } from '@payloadcms/richtext-lexical'
+import { ALL_ARTICLE_BLOCKS } from '../blocks/index.js'
 
 export const ArticlesCollection: CollectionConfig = {
   slug: 'articles',
@@ -38,6 +40,14 @@ export const ArticlesCollection: CollectionConfig = {
       name: 'content',
       type: 'richText',
       label: 'Article Body',
+      editor: lexicalEditor({
+        features: ({ defaultFeatures }) => [
+          ...defaultFeatures,
+          BlocksFeature({
+            blocks: ALL_ARTICLE_BLOCKS,
+          }),
+        ],
+      }),
     },
     {
       name: 'status',

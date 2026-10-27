@@ -12,6 +12,7 @@ import { MediaCollection } from './collections/Media.js'
 import { ArticlesCollection } from './collections/Articles.js'
 import { CityLandingPagesCollection } from './collections/CityLandingPages.js'
 import { VenueProfilesCollection } from './collections/VenueProfiles.js'
+import { EventsCollection } from './collections/Events.js'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -47,6 +48,7 @@ export default buildConfig({
     ArticlesCollection,
     CityLandingPagesCollection,
     VenueProfilesCollection,
+    EventsCollection,
   ],
   editor: lexicalEditor({}),
   secret,

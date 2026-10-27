@@ -73,6 +73,8 @@ export default defineConfig({
             'packages/**/*.spec.ts',
             'tools/**/*.spec.ts',
             'test/**/*.unit.spec.ts',
+            'src/__tests__/**/*.unit.spec.ts',
+            'src/__tests__/**/*.spec.ts',
             '.github/scripts/**/*.spec.mjs',
           ],
           name: 'unit',
