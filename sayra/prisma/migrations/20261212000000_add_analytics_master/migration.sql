@@ -1,179 +1,179 @@
 -- CreateEnum
-CREATE TYPE "UserRole" AS ENUM ('MANAGER', 'SUPERVISOR', 'STAFF', 'TRAINEE', 'SUPPORT', 'ADMIN');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'UserRole') THEN CREATE TYPE "UserRole" AS ENUM ('MANAGER', 'SUPERVISOR', 'STAFF', 'TRAINEE', 'SUPPORT', 'ADMIN'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "ShiftRole" AS ENUM ('CASHIER', 'TECH_SUPPORT', 'CLEANER', 'HOST', 'SECURITY');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ShiftRole') THEN CREATE TYPE "ShiftRole" AS ENUM ('CASHIER', 'TECH_SUPPORT', 'CLEANER', 'HOST', 'SECURITY'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "ReservationStatus" AS ENUM ('PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELED', 'NO_SHOW', 'EXPIRED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ReservationStatus') THEN CREATE TYPE "ReservationStatus" AS ENUM ('PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELED', 'NO_SHOW', 'EXPIRED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "ReservationProposalStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'CANCELLED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ReservationProposalStatus') THEN CREATE TYPE "ReservationProposalStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'CANCELLED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "ReservationSource" AS ENUM ('ONLINE', 'WALK_IN', 'PHONE');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ReservationSource') THEN CREATE TYPE "ReservationSource" AS ENUM ('ONLINE', 'WALK_IN', 'PHONE'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "PaymentMethod" AS ENUM ('CASH', 'CARD', 'ONLINE', 'GIFT_CARD', 'MEMBERSHIP');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'PaymentMethod') THEN CREATE TYPE "PaymentMethod" AS ENUM ('CASH', 'CARD', 'ONLINE', 'GIFT_CARD', 'MEMBERSHIP'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "PaymentStatus" AS ENUM ('INITIATED', 'PENDING', 'PAID', 'FAILED', 'REFUNDED', 'VOID', 'CANCELED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'PaymentStatus') THEN CREATE TYPE "PaymentStatus" AS ENUM ('INITIATED', 'PENDING', 'PAID', 'FAILED', 'REFUNDED', 'VOID', 'CANCELED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "ReservationPaymentState" AS ENUM ('UNPAID', 'PENDING', 'PARTIALLY_PAID', 'PAID', 'REFUNDED', 'OVERPAID', 'FAILED', 'CANCELED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ReservationPaymentState') THEN CREATE TYPE "ReservationPaymentState" AS ENUM ('UNPAID', 'PENDING', 'PARTIALLY_PAID', 'PAID', 'REFUNDED', 'OVERPAID', 'FAILED', 'CANCELED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "PageStatus" AS ENUM ('DRAFT', 'REVIEW', 'SCHEDULED', 'PUBLISHED', 'ARCHIVED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'PageStatus') THEN CREATE TYPE "PageStatus" AS ENUM ('DRAFT', 'REVIEW', 'SCHEDULED', 'PUBLISHED', 'ARCHIVED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "PageType" AS ENUM ('HOME', 'ABOUT', 'SERVICES', 'GALLERY', 'TEAM', 'CONTACT', 'CUSTOM', 'TOURNAMENT', 'BLOG', 'LANDING', 'LEGAL');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'PageType') THEN CREATE TYPE "PageType" AS ENUM ('HOME', 'ABOUT', 'SERVICES', 'GALLERY', 'TEAM', 'CONTACT', 'CUSTOM', 'TOURNAMENT', 'BLOG', 'LANDING', 'LEGAL'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "PageSectionType" AS ENUM ('HERO', 'RICH_TEXT', 'HIGHLIGHTS', 'SERVICES_GRID', 'STAFF_GRID', 'GALLERY_GRID', 'TESTIMONIALS', 'CONTACT_CARD', 'MAP', 'FAQ', 'CTA');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'PageSectionType') THEN CREATE TYPE "PageSectionType" AS ENUM ('HERO', 'RICH_TEXT', 'HIGHLIGHTS', 'SERVICES_GRID', 'STAFF_GRID', 'GALLERY_GRID', 'TESTIMONIALS', 'CONTACT_CARD', 'MAP', 'FAQ', 'CTA'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "MediaType" AS ENUM ('IMAGE', 'VIDEO', 'AUDIO', 'DOCUMENT', 'FILE');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'MediaType') THEN CREATE TYPE "MediaType" AS ENUM ('IMAGE', 'VIDEO', 'AUDIO', 'DOCUMENT', 'FILE'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "MediaPurpose" AS ENUM ('COVER', 'GALLERY', 'STATION', 'LOGO', 'AVATAR', 'POST_ATTACHMENT');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'MediaPurpose') THEN CREATE TYPE "MediaPurpose" AS ENUM ('COVER', 'GALLERY', 'STATION', 'LOGO', 'AVATAR', 'POST_ATTACHMENT'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "LinkType" AS ENUM ('INSTAGRAM', 'WHATSAPP', 'TELEGRAM', 'WEBSITE', 'PHONE', 'GOOGLE_MAP');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'LinkType') THEN CREATE TYPE "LinkType" AS ENUM ('INSTAGRAM', 'WHATSAPP', 'TELEGRAM', 'WEBSITE', 'PHONE', 'GOOGLE_MAP'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "RatingStatus" AS ENUM ('PUBLISHED', 'HIDDEN', 'DELETED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'RatingStatus') THEN CREATE TYPE "RatingStatus" AS ENUM ('PUBLISHED', 'HIDDEN', 'DELETED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "RobotsIndex" AS ENUM ('INDEX', 'NOINDEX');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'RobotsIndex') THEN CREATE TYPE "RobotsIndex" AS ENUM ('INDEX', 'NOINDEX'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "RobotsFollow" AS ENUM ('FOLLOW', 'NOFOLLOW');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'RobotsFollow') THEN CREATE TYPE "RobotsFollow" AS ENUM ('FOLLOW', 'NOFOLLOW'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "PostVisibility" AS ENUM ('PUBLIC', 'PRIVATE', 'UNLISTED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'PostVisibility') THEN CREATE TYPE "PostVisibility" AS ENUM ('PUBLIC', 'PRIVATE', 'UNLISTED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "SeriesOrderStrategy" AS ENUM ('MANUAL', 'BY_DATE');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'SeriesOrderStrategy') THEN CREATE TYPE "SeriesOrderStrategy" AS ENUM ('MANUAL', 'BY_DATE'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "CommentStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'DELETED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'CommentStatus') THEN CREATE TYPE "CommentStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'DELETED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "ReactionType" AS ENUM ('LIKE', 'LOVE', 'LAUGH', 'WOW', 'SAD', 'ANGRY');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ReactionType') THEN CREATE TYPE "ReactionType" AS ENUM ('LIKE', 'LOVE', 'LAUGH', 'WOW', 'SAD', 'ANGRY'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "MenuLocation" AS ENUM ('HEADER', 'FOOTER', 'SIDEBAR');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'MenuLocation') THEN CREATE TYPE "MenuLocation" AS ENUM ('HEADER', 'FOOTER', 'SIDEBAR'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "MenuItemTargetType" AS ENUM ('PAGE', 'POST', 'CATEGORY', 'TAG', 'URL');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'MenuItemTargetType') THEN CREATE TYPE "MenuItemTargetType" AS ENUM ('PAGE', 'POST', 'CATEGORY', 'TAG', 'URL'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "NavigationVisibilityRule" AS ENUM ('PUBLIC', 'AUTHENTICATED', 'STAFF', 'ADMIN');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'NavigationVisibilityRule') THEN CREATE TYPE "NavigationVisibilityRule" AS ENUM ('PUBLIC', 'AUTHENTICATED', 'STAFF', 'ADMIN'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "CommissionType" AS ENUM ('PERCENT', 'FIXED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'CommissionType') THEN CREATE TYPE "CommissionType" AS ENUM ('PERCENT', 'FIXED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "CommissionStatus" AS ENUM ('PENDING', 'ACCRUED', 'CHARGED', 'WAIVED', 'REFUNDED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'CommissionStatus') THEN CREATE TYPE "CommissionStatus" AS ENUM ('PENDING', 'ACCRUED', 'CHARGED', 'WAIVED', 'REFUNDED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "CommissionPaymentMethod" AS ENUM ('CASH', 'CARD', 'ONLINE', 'TRANSFER');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'CommissionPaymentMethod') THEN CREATE TYPE "CommissionPaymentMethod" AS ENUM ('CASH', 'CARD', 'ONLINE', 'TRANSFER'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "CommissionPaymentStatus" AS ENUM ('PENDING', 'PAID', 'VOID', 'REFUNDED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'CommissionPaymentStatus') THEN CREATE TYPE "CommissionPaymentStatus" AS ENUM ('PENDING', 'PAID', 'VOID', 'REFUNDED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "SessionActorType" AS ENUM ('USER', 'CUSTOMER');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'SessionActorType') THEN CREATE TYPE "SessionActorType" AS ENUM ('USER', 'CUSTOMER'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "OtpPurpose" AS ENUM ('LOGIN', 'SIGNUP');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'OtpPurpose') THEN CREATE TYPE "OtpPurpose" AS ENUM ('LOGIN', 'SIGNUP'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "OtpChannel" AS ENUM ('SMS', 'WHATSAPP');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'OtpChannel') THEN CREATE TYPE "OtpChannel" AS ENUM ('SMS', 'WHATSAPP'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "GameStationType" AS ENUM ('PC', 'PLAYSTATION', 'XBOX', 'SWITCH', 'VR');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'GameStationType') THEN CREATE TYPE "GameStationType" AS ENUM ('PC', 'PLAYSTATION', 'XBOX', 'SWITCH', 'VR'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "GamingSessionStatus" AS ENUM ('ACTIVE', 'PAUSED', 'COMPLETED', 'INTERRUPTED', 'NO_SHOW');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'GamingSessionStatus') THEN CREATE TYPE "GamingSessionStatus" AS ENUM ('ACTIVE', 'PAUSED', 'COMPLETED', 'INTERRUPTED', 'NO_SHOW'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "SkillLevel" AS ENUM ('BASIC', 'INTERMEDIATE', 'EXPERT');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'SkillLevel') THEN CREATE TYPE "SkillLevel" AS ENUM ('BASIC', 'INTERMEDIATE', 'EXPERT'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "WalletTransactionType" AS ENUM ('REFUND', 'RESERVATION_PAYMENT', 'DEPOSIT', 'MANUAL_ADJUSTMENT');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'WalletTransactionType') THEN CREATE TYPE "WalletTransactionType" AS ENUM ('REFUND', 'RESERVATION_PAYMENT', 'DEPOSIT', 'MANUAL_ADJUSTMENT'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "TicketStatus" AS ENUM ('OPEN', 'PENDING', 'ANSWERED', 'CLOSED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'TicketStatus') THEN CREATE TYPE "TicketStatus" AS ENUM ('OPEN', 'PENDING', 'ANSWERED', 'CLOSED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "TicketPriority" AS ENUM ('LOW', 'MEDIUM', 'HIGH');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'TicketPriority') THEN CREATE TYPE "TicketPriority" AS ENUM ('LOW', 'MEDIUM', 'HIGH'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "TicketCategory" AS ENUM ('TECHNICAL', 'FINANCIAL', 'SALES', 'ACCOUNT');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'TicketCategory') THEN CREATE TYPE "TicketCategory" AS ENUM ('TECHNICAL', 'FINANCIAL', 'SALES', 'ACCOUNT'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "TicketSenderType" AS ENUM ('USER', 'SUPPORT');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'TicketSenderType') THEN CREATE TYPE "TicketSenderType" AS ENUM ('USER', 'SUPPORT'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "NotificationType" AS ENUM ('RESERVATION_CREATED', 'RESERVATION_CONFIRMED', 'RESERVATION_REJECTED', 'RESERVATION_CANCELLED', 'RESERVATION_TIME_PROPOSED', 'RESERVATION_REMINDER', 'PAYMENT_SUCCESS', 'PAYMENT_FAILED', 'WAITLIST_OFFER_CREATED', 'WAITLIST_OFFER_EXPIRED', 'WAITLIST_ENTRY_CANCELLED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'NotificationType') THEN CREATE TYPE "NotificationType" AS ENUM ('RESERVATION_CREATED', 'RESERVATION_CONFIRMED', 'RESERVATION_REJECTED', 'RESERVATION_CANCELLED', 'RESERVATION_TIME_PROPOSED', 'RESERVATION_REMINDER', 'PAYMENT_SUCCESS', 'PAYMENT_FAILED', 'WAITLIST_OFFER_CREATED', 'WAITLIST_OFFER_EXPIRED', 'WAITLIST_ENTRY_CANCELLED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "NotificationChannel" AS ENUM ('IN_APP', 'SMS', 'EMAIL');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'NotificationChannel') THEN CREATE TYPE "NotificationChannel" AS ENUM ('IN_APP', 'SMS', 'EMAIL'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "NotificationDispatchStatus" AS ENUM ('PENDING', 'SENT', 'FAILED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'NotificationDispatchStatus') THEN CREATE TYPE "NotificationDispatchStatus" AS ENUM ('PENDING', 'SENT', 'FAILED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "WaitlistStatus" AS ENUM ('ACTIVE', 'OFFERED', 'CONVERTED', 'CANCELLED', 'EXPIRED', 'CLOSED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'WaitlistStatus') THEN CREATE TYPE "WaitlistStatus" AS ENUM ('ACTIVE', 'OFFERED', 'CONVERTED', 'CANCELLED', 'EXPIRED', 'CLOSED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "WaitlistOfferStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'CANCELLED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'WaitlistOfferStatus') THEN CREATE TYPE "WaitlistOfferStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'CANCELLED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "DiscountTargetType" AS ENUM ('GAMING_CENTER', 'STATION');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'DiscountTargetType') THEN CREATE TYPE "DiscountTargetType" AS ENUM ('GAMING_CENTER', 'STATION'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "DiscountValueType" AS ENUM ('PERCENTAGE', 'FIXED_AMOUNT');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'DiscountValueType') THEN CREATE TYPE "DiscountValueType" AS ENUM ('PERCENTAGE', 'FIXED_AMOUNT'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "DiscountFundingSource" AS ENUM ('PLATFORM', 'CAMPAIGN_BUDGET', 'MERCHANT_FUNDED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'DiscountFundingSource') THEN CREATE TYPE "DiscountFundingSource" AS ENUM ('PLATFORM', 'CAMPAIGN_BUDGET', 'MERCHANT_FUNDED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "DiscountCodeType" AS ENUM ('PROMO_CODE', 'AUTOMATIC');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'DiscountCodeType') THEN CREATE TYPE "DiscountCodeType" AS ENUM ('PROMO_CODE', 'AUTOMATIC'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "RefundStatus" AS ENUM ('PENDING', 'SUCCESSFUL', 'FAILED', 'AMBIGUOUS');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'RefundStatus') THEN CREATE TYPE "RefundStatus" AS ENUM ('PENDING', 'SUCCESSFUL', 'FAILED', 'AMBIGUOUS'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "LedgerEntryType" AS ENUM ('PAYMENT_COLLECTION', 'REFUND_DISBURSEMENT', 'COMPENSATING_ADJUSTMENT');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'LedgerEntryType') THEN CREATE TYPE "LedgerEntryType" AS ENUM ('PAYMENT_COLLECTION', 'REFUND_DISBURSEMENT', 'COMPENSATING_ADJUSTMENT'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "ReconciliationStatus" AS ENUM ('MATCHED', 'DISCREPANCY_AMOUNT', 'DISCREPANCY_STATUS', 'MISSING_PROVIDER_REF', 'UNCONFIRMED_PROVIDER_STATE');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ReconciliationStatus') THEN CREATE TYPE "ReconciliationStatus" AS ENUM ('MATCHED', 'DISCREPANCY_AMOUNT', 'DISCREPANCY_STATUS', 'MISSING_PROVIDER_REF', 'UNCONFIRMED_PROVIDER_STATE'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "ExpenseCategory" AS ENUM ('RENT', 'ELECTRICITY_ENERGY', 'INTERNET_COMMUNICATION', 'SALARIES_WAGES', 'MAINTENANCE_REPAIR', 'PARTS_EQUIPMENT', 'MARKETING', 'ADMINISTRATIVE', 'OTHER_SERVICES', 'OTHER_DOCUMENTED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ExpenseCategory') THEN CREATE TYPE "ExpenseCategory" AS ENUM ('RENT', 'ELECTRICITY_ENERGY', 'INTERNET_COMMUNICATION', 'SALARIES_WAGES', 'MAINTENANCE_REPAIR', 'PARTS_EQUIPMENT', 'MARKETING', 'ADMINISTRATIVE', 'OTHER_SERVICES', 'OTHER_DOCUMENTED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "ExpenseStatus" AS ENUM ('DRAFT', 'APPROVED', 'REJECTED', 'VOID');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ExpenseStatus') THEN CREATE TYPE "ExpenseStatus" AS ENUM ('DRAFT', 'APPROVED', 'REJECTED', 'VOID'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "MaintenanceStatus" AS ENUM ('REPORTED', 'IN_MAINTENANCE', 'REPAIRED', 'CANCELLED');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'MaintenanceStatus') THEN CREATE TYPE "MaintenanceStatus" AS ENUM ('REPORTED', 'IN_MAINTENANCE', 'REPAIRED', 'CANCELLED'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "MaintenanceSeverity" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'MaintenanceSeverity') THEN CREATE TYPE "MaintenanceSeverity" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "CancellationCategory" AS ENUM ('CUSTOMER_CANCEL', 'CENTER_CANCEL', 'PAYMENT_FAILED', 'CAPACITY_UNAVAILABLE', 'TECHNICAL_ISSUE', 'SCHEDULE_CONFLICT', 'OPERATIONAL_ISSUE', 'EMERGENCY', 'OTHER', 'UNKNOWN');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'CancellationCategory') THEN CREATE TYPE "CancellationCategory" AS ENUM ('CUSTOMER_CANCEL', 'CENTER_CANCEL', 'PAYMENT_FAILED', 'CAPACITY_UNAVAILABLE', 'TECHNICAL_ISSUE', 'SCHEDULE_CONFLICT', 'OPERATIONAL_ISSUE', 'EMERGENCY', 'OTHER', 'UNKNOWN'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "CancellationActor" AS ENUM ('CUSTOMER', 'STAFF', 'SYSTEM');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'CancellationActor') THEN CREATE TYPE "CancellationActor" AS ENUM ('CUSTOMER', 'STAFF', 'SYSTEM'); END IF; END $$;
 
 -- CreateEnum
-CREATE TYPE "PaymentProvider" AS ENUM ('MANUAL', 'STRIPE', 'ZARINPAL');
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'PaymentProvider') THEN CREATE TYPE "PaymentProvider" AS ENUM ('MANUAL', 'STRIPE', 'ZARINPAL'); END IF; END $$;
 
 -- CreateTable
-CREATE TABLE "GamingCenter" (
+CREATE TABLE IF NOT EXISTS "GamingCenter" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
@@ -194,7 +194,7 @@ CREATE TABLE "GamingCenter" (
 );
 
 -- CreateTable
-CREATE TABLE "User" (
+CREATE TABLE IF NOT EXISTS "User" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "fullName" TEXT NOT NULL,
@@ -219,7 +219,7 @@ CREATE TABLE "User" (
 );
 
 -- CreateTable
-CREATE TABLE "AuthorProfile" (
+CREATE TABLE IF NOT EXISTS "AuthorProfile" (
     "userId" TEXT NOT NULL,
     "displayName" TEXT NOT NULL,
     "bio" TEXT,
@@ -232,7 +232,7 @@ CREATE TABLE "AuthorProfile" (
 );
 
 -- CreateTable
-CREATE TABLE "CustomerAccount" (
+CREATE TABLE IF NOT EXISTS "CustomerAccount" (
     "id" TEXT NOT NULL,
     "phone" TEXT NOT NULL,
     "fullName" TEXT,
@@ -245,7 +245,7 @@ CREATE TABLE "CustomerAccount" (
 );
 
 -- CreateTable
-CREATE TABLE "CustomerProfile" (
+CREATE TABLE IF NOT EXISTS "CustomerProfile" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "customerAccountId" TEXT NOT NULL,
@@ -258,7 +258,7 @@ CREATE TABLE "CustomerProfile" (
 );
 
 -- CreateTable
-CREATE TABLE "Session" (
+CREATE TABLE IF NOT EXISTS "Session" (
     "id" TEXT NOT NULL,
     "actorType" "SessionActorType" NOT NULL,
     "actorId" TEXT NOT NULL,
@@ -272,7 +272,7 @@ CREATE TABLE "Session" (
 );
 
 -- CreateTable
-CREATE TABLE "PhoneOtp" (
+CREATE TABLE IF NOT EXISTS "PhoneOtp" (
     "id" TEXT NOT NULL,
     "phone" TEXT NOT NULL,
     "purpose" "OtpPurpose" NOT NULL,
@@ -291,7 +291,7 @@ CREATE TABLE "PhoneOtp" (
 );
 
 -- CreateTable
-CREATE TABLE "Media" (
+CREATE TABLE IF NOT EXISTS "Media" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "type" "MediaType" NOT NULL DEFAULT 'IMAGE',
@@ -318,7 +318,7 @@ CREATE TABLE "Media" (
 );
 
 -- CreateTable
-CREATE TABLE "PostMedia" (
+CREATE TABLE IF NOT EXISTS "PostMedia" (
     "id" TEXT NOT NULL,
     "postId" TEXT NOT NULL,
     "mediaId" TEXT NOT NULL,
@@ -331,7 +331,7 @@ CREATE TABLE "PostMedia" (
 );
 
 -- CreateTable
-CREATE TABLE "Category" (
+CREATE TABLE IF NOT EXISTS "Category" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
@@ -347,7 +347,7 @@ CREATE TABLE "Category" (
 );
 
 -- CreateTable
-CREATE TABLE "Tag" (
+CREATE TABLE IF NOT EXISTS "Tag" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
@@ -361,7 +361,7 @@ CREATE TABLE "Tag" (
 );
 
 -- CreateTable
-CREATE TABLE "Series" (
+CREATE TABLE IF NOT EXISTS "Series" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
@@ -376,7 +376,7 @@ CREATE TABLE "Series" (
 );
 
 -- CreateTable
-CREATE TABLE "Post" (
+CREATE TABLE IF NOT EXISTS "Post" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
@@ -406,7 +406,7 @@ CREATE TABLE "Post" (
 );
 
 -- CreateTable
-CREATE TABLE "PostTag" (
+CREATE TABLE IF NOT EXISTS "PostTag" (
     "postId" TEXT NOT NULL,
     "tagId" TEXT NOT NULL,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
@@ -417,7 +417,7 @@ CREATE TABLE "PostTag" (
 );
 
 -- CreateTable
-CREATE TABLE "Revision" (
+CREATE TABLE IF NOT EXISTS "Revision" (
     "id" TEXT NOT NULL,
     "postId" TEXT NOT NULL,
     "editorId" TEXT,
@@ -433,7 +433,7 @@ CREATE TABLE "Revision" (
 );
 
 -- CreateTable
-CREATE TABLE "Comment" (
+CREATE TABLE IF NOT EXISTS "Comment" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "postId" TEXT NOT NULL,
@@ -455,7 +455,7 @@ CREATE TABLE "Comment" (
 );
 
 -- CreateTable
-CREATE TABLE "Reaction" (
+CREATE TABLE IF NOT EXISTS "Reaction" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -470,7 +470,7 @@ CREATE TABLE "Reaction" (
 );
 
 -- CreateTable
-CREATE TABLE "ReactionAggregate" (
+CREATE TABLE IF NOT EXISTS "ReactionAggregate" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "contentType" TEXT NOT NULL,
@@ -483,7 +483,7 @@ CREATE TABLE "ReactionAggregate" (
 );
 
 -- CreateTable
-CREATE TABLE "Menu" (
+CREATE TABLE IF NOT EXISTS "Menu" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -496,7 +496,7 @@ CREATE TABLE "Menu" (
 );
 
 -- CreateTable
-CREATE TABLE "MenuItem" (
+CREATE TABLE IF NOT EXISTS "MenuItem" (
     "id" TEXT NOT NULL,
     "menuId" TEXT NOT NULL,
     "parentId" TEXT,
@@ -515,7 +515,7 @@ CREATE TABLE "MenuItem" (
 );
 
 -- CreateTable
-CREATE TABLE "SiteSettings" (
+CREATE TABLE IF NOT EXISTS "SiteSettings" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "logoUrl" TEXT,
@@ -534,7 +534,7 @@ CREATE TABLE "SiteSettings" (
 );
 
 -- CreateTable
-CREATE TABLE "Page" (
+CREATE TABLE IF NOT EXISTS "Page" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
@@ -564,7 +564,7 @@ CREATE TABLE "Page" (
 );
 
 -- CreateTable
-CREATE TABLE "PageSection" (
+CREATE TABLE IF NOT EXISTS "PageSection" (
     "id" TEXT NOT NULL,
     "pageId" TEXT NOT NULL,
     "type" "PageSectionType" NOT NULL,
@@ -578,7 +578,7 @@ CREATE TABLE "PageSection" (
 );
 
 -- CreateTable
-CREATE TABLE "PageSlugHistory" (
+CREATE TABLE IF NOT EXISTS "PageSlugHistory" (
     "id" TEXT NOT NULL,
     "pageId" TEXT NOT NULL,
     "oldSlug" TEXT NOT NULL,
@@ -588,7 +588,7 @@ CREATE TABLE "PageSlugHistory" (
 );
 
 -- CreateTable
-CREATE TABLE "PageMedia" (
+CREATE TABLE IF NOT EXISTS "PageMedia" (
     "id" TEXT NOT NULL,
     "pageId" TEXT NOT NULL,
     "mediaId" TEXT NOT NULL,
@@ -601,7 +601,7 @@ CREATE TABLE "PageMedia" (
 );
 
 -- CreateTable
-CREATE TABLE "SocialLink" (
+CREATE TABLE IF NOT EXISTS "SocialLink" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "type" "LinkType" NOT NULL,
@@ -616,7 +616,7 @@ CREATE TABLE "SocialLink" (
 );
 
 -- CreateTable
-CREATE TABLE "Address" (
+CREATE TABLE IF NOT EXISTS "Address" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "title" TEXT,
@@ -635,7 +635,7 @@ CREATE TABLE "Address" (
 );
 
 -- CreateTable
-CREATE TABLE "Settings" (
+CREATE TABLE IF NOT EXISTS "Settings" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "preventOverlaps" BOOLEAN NOT NULL DEFAULT true,
@@ -657,7 +657,7 @@ CREATE TABLE "Settings" (
 );
 
 -- CreateTable
-CREATE TABLE "GameStation" (
+CREATE TABLE IF NOT EXISTS "GameStation" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -676,7 +676,7 @@ CREATE TABLE "GameStation" (
 );
 
 -- CreateTable
-CREATE TABLE "StaffStationSkill" (
+CREATE TABLE IF NOT EXISTS "StaffStationSkill" (
     "userId" TEXT NOT NULL,
     "stationId" TEXT NOT NULL,
     "skillLevel" "SkillLevel" NOT NULL DEFAULT 'BASIC',
@@ -685,7 +685,7 @@ CREATE TABLE "StaffStationSkill" (
 );
 
 -- CreateTable
-CREATE TABLE "StaffShift" (
+CREATE TABLE IF NOT EXISTS "StaffShift" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -701,7 +701,7 @@ CREATE TABLE "StaffShift" (
 );
 
 -- CreateTable
-CREATE TABLE "Reservation" (
+CREATE TABLE IF NOT EXISTS "Reservation" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "customerProfileId" TEXT NOT NULL,
@@ -746,7 +746,7 @@ CREATE TABLE "Reservation" (
 );
 
 -- CreateTable
-CREATE TABLE "GroupBooking" (
+CREATE TABLE IF NOT EXISTS "GroupBooking" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "customerProfileId" TEXT NOT NULL,
@@ -771,7 +771,7 @@ CREATE TABLE "GroupBooking" (
 );
 
 -- CreateTable
-CREATE TABLE "GroupBookingItem" (
+CREATE TABLE IF NOT EXISTS "GroupBookingItem" (
     "id" TEXT NOT NULL,
     "groupBookingId" TEXT NOT NULL,
     "stationId" TEXT NOT NULL,
@@ -786,7 +786,7 @@ CREATE TABLE "GroupBookingItem" (
 );
 
 -- CreateTable
-CREATE TABLE "ReservationTimeProposal" (
+CREATE TABLE IF NOT EXISTS "ReservationTimeProposal" (
     "id" TEXT NOT NULL,
     "reservationId" TEXT NOT NULL,
     "originalStartTime" TIMESTAMPTZ(6) NOT NULL,
@@ -804,7 +804,7 @@ CREATE TABLE "ReservationTimeProposal" (
 );
 
 -- CreateTable
-CREATE TABLE "ReservationHistory" (
+CREATE TABLE IF NOT EXISTS "ReservationHistory" (
     "id" TEXT NOT NULL,
     "reservationId" TEXT NOT NULL,
     "fromStatus" "ReservationStatus" NOT NULL,
@@ -820,7 +820,7 @@ CREATE TABLE "ReservationHistory" (
 );
 
 -- CreateTable
-CREATE TABLE "GamingSession" (
+CREATE TABLE IF NOT EXISTS "GamingSession" (
     "id" TEXT NOT NULL,
     "reservationId" TEXT NOT NULL,
     "stationId" TEXT NOT NULL,
@@ -838,7 +838,7 @@ CREATE TABLE "GamingSession" (
 );
 
 -- CreateTable
-CREATE TABLE "StationMaintenance" (
+CREATE TABLE IF NOT EXISTS "StationMaintenance" (
     "id" TEXT NOT NULL,
     "stationId" TEXT NOT NULL,
     "gamingCenterId" TEXT,
@@ -858,7 +858,7 @@ CREATE TABLE "StationMaintenance" (
 );
 
 -- CreateTable
-CREATE TABLE "AnalyticsEvent" (
+CREATE TABLE IF NOT EXISTS "AnalyticsEvent" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT,
     "eventType" TEXT NOT NULL,
@@ -879,7 +879,7 @@ CREATE TABLE "AnalyticsEvent" (
 );
 
 -- CreateTable
-CREATE TABLE "GamingCenterExpense" (
+CREATE TABLE IF NOT EXISTS "GamingCenterExpense" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "category" "ExpenseCategory" NOT NULL,
@@ -898,7 +898,7 @@ CREATE TABLE "GamingCenterExpense" (
 );
 
 -- CreateTable
-CREATE TABLE "MarketingCampaignSpend" (
+CREATE TABLE IF NOT EXISTS "MarketingCampaignSpend" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT,
     "campaignId" TEXT,
@@ -916,7 +916,7 @@ CREATE TABLE "MarketingCampaignSpend" (
 );
 
 -- CreateTable
-CREATE TABLE "RevenueForecastRun" (
+CREATE TABLE IF NOT EXISTS "RevenueForecastRun" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "modelName" TEXT NOT NULL,
@@ -931,7 +931,7 @@ CREATE TABLE "RevenueForecastRun" (
 );
 
 -- CreateTable
-CREATE TABLE "Tournament" (
+CREATE TABLE IF NOT EXISTS "Tournament" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "title" TEXT NOT NULL,
@@ -948,7 +948,7 @@ CREATE TABLE "Tournament" (
 );
 
 -- CreateTable
-CREATE TABLE "Payment" (
+CREATE TABLE IF NOT EXISTS "Payment" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "reservationId" TEXT,
@@ -972,7 +972,7 @@ CREATE TABLE "Payment" (
 );
 
 -- CreateTable
-CREATE TABLE "WalletTransaction" (
+CREATE TABLE IF NOT EXISTS "WalletTransaction" (
     "id" TEXT NOT NULL,
     "customerAccountId" TEXT NOT NULL,
     "amount" INTEGER NOT NULL,
@@ -986,7 +986,7 @@ CREATE TABLE "WalletTransaction" (
 );
 
 -- CreateTable
-CREATE TABLE "Membership" (
+CREATE TABLE IF NOT EXISTS "Membership" (
     "id" TEXT NOT NULL,
     "customerAccountId" TEXT NOT NULL,
     "type" TEXT NOT NULL,
@@ -999,7 +999,7 @@ CREATE TABLE "Membership" (
 );
 
 -- CreateTable
-CREATE TABLE "CommissionPolicy" (
+CREATE TABLE IF NOT EXISTS "CommissionPolicy" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "type" "CommissionType" NOT NULL DEFAULT 'PERCENT',
@@ -1018,7 +1018,7 @@ CREATE TABLE "CommissionPolicy" (
 );
 
 -- CreateTable
-CREATE TABLE "Earning" (
+CREATE TABLE IF NOT EXISTS "Earning" (
     "id" TEXT NOT NULL,
     "reservationId" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
@@ -1042,7 +1042,7 @@ CREATE TABLE "Earning" (
 );
 
 -- CreateTable
-CREATE TABLE "EarningPayment" (
+CREATE TABLE IF NOT EXISTS "EarningPayment" (
     "id" TEXT NOT NULL,
     "earningId" TEXT NOT NULL,
     "amount" INTEGER NOT NULL,
@@ -1058,7 +1058,7 @@ CREATE TABLE "EarningPayment" (
 );
 
 -- CreateTable
-CREATE TABLE "Rating" (
+CREATE TABLE IF NOT EXISTS "Rating" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "customerAccountId" TEXT NOT NULL,
@@ -1078,7 +1078,7 @@ CREATE TABLE "Rating" (
 );
 
 -- CreateTable
-CREATE TABLE "AuditLog" (
+CREATE TABLE IF NOT EXISTS "AuditLog" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT,
     "userId" TEXT,
@@ -1096,7 +1096,7 @@ CREATE TABLE "AuditLog" (
 );
 
 -- CreateTable
-CREATE TABLE "GamingCenterAnalytics" (
+CREATE TABLE IF NOT EXISTS "GamingCenterAnalytics" (
     "gamingCenterId" TEXT NOT NULL,
     "date" DATE NOT NULL,
     "totalReservations" INTEGER NOT NULL DEFAULT 0,
@@ -1113,7 +1113,7 @@ CREATE TABLE "GamingCenterAnalytics" (
 );
 
 -- CreateTable
-CREATE TABLE "StaffAnalytics" (
+CREATE TABLE IF NOT EXISTS "StaffAnalytics" (
     "gamingCenterId" TEXT NOT NULL,
     "staffId" TEXT NOT NULL,
     "date" DATE NOT NULL,
@@ -1130,7 +1130,7 @@ CREATE TABLE "StaffAnalytics" (
 );
 
 -- CreateTable
-CREATE TABLE "StationAnalytics" (
+CREATE TABLE IF NOT EXISTS "StationAnalytics" (
     "gamingCenterId" TEXT NOT NULL,
     "stationId" TEXT NOT NULL,
     "date" DATE NOT NULL,
@@ -1145,7 +1145,7 @@ CREATE TABLE "StationAnalytics" (
 );
 
 -- CreateTable
-CREATE TABLE "Ticket" (
+CREATE TABLE IF NOT EXISTS "Ticket" (
     "id" TEXT NOT NULL,
     "customerAccountId" TEXT NOT NULL,
     "assignedToUserId" TEXT,
@@ -1161,7 +1161,7 @@ CREATE TABLE "Ticket" (
 );
 
 -- CreateTable
-CREATE TABLE "Discount" (
+CREATE TABLE IF NOT EXISTS "Discount" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "targetType" "DiscountTargetType" NOT NULL,
@@ -1179,7 +1179,7 @@ CREATE TABLE "Discount" (
 );
 
 -- CreateTable
-CREATE TABLE "DiscountCampaign" (
+CREATE TABLE IF NOT EXISTS "DiscountCampaign" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT,
     "name" TEXT NOT NULL,
@@ -1209,7 +1209,7 @@ CREATE TABLE "DiscountCampaign" (
 );
 
 -- CreateTable
-CREATE TABLE "DiscountUsage" (
+CREATE TABLE IF NOT EXISTS "DiscountUsage" (
     "id" TEXT NOT NULL,
     "campaignId" TEXT NOT NULL,
     "reservationId" TEXT NOT NULL,
@@ -1222,7 +1222,7 @@ CREATE TABLE "DiscountUsage" (
 );
 
 -- CreateTable
-CREATE TABLE "TicketMessage" (
+CREATE TABLE IF NOT EXISTS "TicketMessage" (
     "id" TEXT NOT NULL,
     "ticketId" TEXT NOT NULL,
     "senderId" TEXT NOT NULL,
@@ -1235,7 +1235,7 @@ CREATE TABLE "TicketMessage" (
 );
 
 -- CreateTable
-CREATE TABLE "Notification" (
+CREATE TABLE IF NOT EXISTS "Notification" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "type" "NotificationType" NOT NULL,
@@ -1250,7 +1250,7 @@ CREATE TABLE "Notification" (
 );
 
 -- CreateTable
-CREATE TABLE "NotificationLog" (
+CREATE TABLE IF NOT EXISTS "NotificationLog" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT,
     "userId" TEXT,
@@ -1280,7 +1280,7 @@ CREATE TABLE "NotificationLog" (
 );
 
 -- CreateTable
-CREATE TABLE "Refund" (
+CREATE TABLE IF NOT EXISTS "Refund" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "paymentId" TEXT NOT NULL,
@@ -1301,7 +1301,7 @@ CREATE TABLE "Refund" (
 );
 
 -- CreateTable
-CREATE TABLE "LedgerEntry" (
+CREATE TABLE IF NOT EXISTS "LedgerEntry" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "paymentId" TEXT,
@@ -1318,7 +1318,7 @@ CREATE TABLE "LedgerEntry" (
 );
 
 -- CreateTable
-CREATE TABLE "ReconciliationRecord" (
+CREATE TABLE IF NOT EXISTS "ReconciliationRecord" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "paymentId" TEXT NOT NULL,
@@ -1330,7 +1330,7 @@ CREATE TABLE "ReconciliationRecord" (
 );
 
 -- CreateTable
-CREATE TABLE "WaitlistEntry" (
+CREATE TABLE IF NOT EXISTS "WaitlistEntry" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "customerAccountId" TEXT NOT NULL,
@@ -1349,7 +1349,7 @@ CREATE TABLE "WaitlistEntry" (
 );
 
 -- CreateTable
-CREATE TABLE "WaitlistOffer" (
+CREATE TABLE IF NOT EXISTS "WaitlistOffer" (
     "id" TEXT NOT NULL,
     "waitlistEntryId" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
@@ -1366,7 +1366,7 @@ CREATE TABLE "WaitlistOffer" (
 );
 
 -- CreateTable
-CREATE TABLE "AnalyticsWatermark" (
+CREATE TABLE IF NOT EXISTS "AnalyticsWatermark" (
     "entity" TEXT NOT NULL,
     "lastIngestedAt" TIMESTAMPTZ(6) NOT NULL DEFAULT '1970-01-01 00:00:00+00'::timestamp with time zone,
     "lastSourceId" TEXT,
@@ -1376,7 +1376,7 @@ CREATE TABLE "AnalyticsWatermark" (
 );
 
 -- CreateTable
-CREATE TABLE "AnalyticsIngestionRun" (
+CREATE TABLE IF NOT EXISTS "AnalyticsIngestionRun" (
     "id" TEXT NOT NULL,
     "entity" TEXT NOT NULL,
     "status" TEXT NOT NULL,
@@ -1394,7 +1394,7 @@ CREATE TABLE "AnalyticsIngestionRun" (
 );
 
 -- CreateTable
-CREATE TABLE "AnalyticsTenant" (
+CREATE TABLE IF NOT EXISTS "AnalyticsTenant" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
@@ -1410,7 +1410,7 @@ CREATE TABLE "AnalyticsTenant" (
 );
 
 -- CreateTable
-CREATE TABLE "AnalyticsCustomer" (
+CREATE TABLE IF NOT EXISTS "AnalyticsCustomer" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT,
     "phone" TEXT NOT NULL,
@@ -1424,7 +1424,7 @@ CREATE TABLE "AnalyticsCustomer" (
 );
 
 -- CreateTable
-CREATE TABLE "AnalyticsStation" (
+CREATE TABLE IF NOT EXISTS "AnalyticsStation" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -1440,7 +1440,7 @@ CREATE TABLE "AnalyticsStation" (
 );
 
 -- CreateTable
-CREATE TABLE "AnalyticsReservation" (
+CREATE TABLE IF NOT EXISTS "AnalyticsReservation" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "customerAccountId" TEXT NOT NULL,
@@ -1467,7 +1467,7 @@ CREATE TABLE "AnalyticsReservation" (
 );
 
 -- CreateTable
-CREATE TABLE "AnalyticsGamingSession" (
+CREATE TABLE IF NOT EXISTS "AnalyticsGamingSession" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT,
     "reservationId" TEXT NOT NULL,
@@ -1485,7 +1485,7 @@ CREATE TABLE "AnalyticsGamingSession" (
 );
 
 -- CreateTable
-CREATE TABLE "AnalyticsPayment" (
+CREATE TABLE IF NOT EXISTS "AnalyticsPayment" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "reservationId" TEXT,
@@ -1503,7 +1503,7 @@ CREATE TABLE "AnalyticsPayment" (
 );
 
 -- CreateTable
-CREATE TABLE "AnalyticsLedgerEntry" (
+CREATE TABLE IF NOT EXISTS "AnalyticsLedgerEntry" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "paymentId" TEXT,
@@ -1518,7 +1518,7 @@ CREATE TABLE "AnalyticsLedgerEntry" (
 );
 
 -- CreateTable
-CREATE TABLE "AnalyticsRefund" (
+CREATE TABLE IF NOT EXISTS "AnalyticsRefund" (
     "id" TEXT NOT NULL,
     "gamingCenterId" TEXT NOT NULL,
     "paymentId" TEXT NOT NULL,
@@ -1534,913 +1534,2201 @@ CREATE TABLE "AnalyticsRefund" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "GamingCenter_slug_key" ON "GamingCenter"("slug");
-
--- CreateIndex
-CREATE INDEX "GamingCenter_slug_idx" ON "GamingCenter"("slug");
-
--- CreateIndex
-CREATE INDEX "User_gamingCenterId_role_idx" ON "User"("gamingCenterId", "role");
-
--- CreateIndex
-CREATE INDEX "User_gamingCenterId_isActive_idx" ON "User"("gamingCenterId", "isActive");
-
--- CreateIndex
-CREATE INDEX "User_gamingCenterId_isPublic_idx" ON "User"("gamingCenterId", "isPublic");
-
--- CreateIndex
-CREATE UNIQUE INDEX "User_gamingCenterId_phone_key" ON "User"("gamingCenterId", "phone");
-
--- CreateIndex
-CREATE UNIQUE INDEX "User_gamingCenterId_username_key" ON "User"("gamingCenterId", "username");
-
--- CreateIndex
-CREATE UNIQUE INDEX "User_gamingCenterId_email_key" ON "User"("gamingCenterId", "email");
-
--- CreateIndex
-CREATE UNIQUE INDEX "CustomerAccount_phone_key" ON "CustomerAccount"("phone");
-
--- CreateIndex
-CREATE INDEX "CustomerAccount_phone_idx" ON "CustomerAccount"("phone");
-
--- CreateIndex
-CREATE INDEX "CustomerProfile_gamingCenterId_displayName_idx" ON "CustomerProfile"("gamingCenterId", "displayName");
-
--- CreateIndex
-CREATE INDEX "CustomerProfile_customerAccountId_idx" ON "CustomerProfile"("customerAccountId");
-
--- CreateIndex
-CREATE INDEX "CustomerProfile_gamingCenterId_createdAt_idx" ON "CustomerProfile"("gamingCenterId", "createdAt");
-
--- CreateIndex
-CREATE UNIQUE INDEX "CustomerProfile_gamingCenterId_customerAccountId_key" ON "CustomerProfile"("gamingCenterId", "customerAccountId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Session_tokenHash_key" ON "Session"("tokenHash");
-
--- CreateIndex
-CREATE INDEX "Session_actorType_actorId_expiresAt_idx" ON "Session"("actorType", "actorId", "expiresAt");
-
--- CreateIndex
-CREATE INDEX "PhoneOtp_phone_purpose_expiresAt_idx" ON "PhoneOtp"("phone", "purpose", "expiresAt");
-
--- CreateIndex
-CREATE INDEX "PhoneOtp_phone_createdAt_idx" ON "PhoneOtp"("phone", "createdAt");
-
--- CreateIndex
-CREATE INDEX "PhoneOtp_consumedAt_idx" ON "PhoneOtp"("consumedAt");
-
--- CreateIndex
-CREATE INDEX "PhoneOtp_targetActorType_targetActorId_idx" ON "PhoneOtp"("targetActorType", "targetActorId");
-
--- CreateIndex
-CREATE INDEX "Media_gamingCenterId_purpose_isActive_sortOrder_idx" ON "Media"("gamingCenterId", "purpose", "isActive", "sortOrder");
-
--- CreateIndex
-CREATE INDEX "Media_gamingCenterId_category_idx" ON "Media"("gamingCenterId", "category");
-
--- CreateIndex
-CREATE UNIQUE INDEX "PostMedia_postId_mediaId_attachmentType_key" ON "PostMedia"("postId", "mediaId", "attachmentType");
-
--- CreateIndex
-CREATE INDEX "Category_gamingCenterId_slug_idx" ON "Category"("gamingCenterId", "slug");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Category_gamingCenterId_slug_key" ON "Category"("gamingCenterId", "slug");
-
--- CreateIndex
-CREATE INDEX "Tag_gamingCenterId_slug_idx" ON "Tag"("gamingCenterId", "slug");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Tag_gamingCenterId_slug_key" ON "Tag"("gamingCenterId", "slug");
-
--- CreateIndex
-CREATE INDEX "Series_gamingCenterId_slug_idx" ON "Series"("gamingCenterId", "slug");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Series_gamingCenterId_slug_key" ON "Series"("gamingCenterId", "slug");
-
--- CreateIndex
-CREATE INDEX "Post_gamingCenterId_status_idx" ON "Post"("gamingCenterId", "status");
-
--- CreateIndex
-CREATE INDEX "Post_authorId_idx" ON "Post"("authorId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Post_gamingCenterId_slug_key" ON "Post"("gamingCenterId", "slug");
-
--- CreateIndex
-CREATE INDEX "Comment_gamingCenterId_postId_status_isActive_idx" ON "Comment"("gamingCenterId", "postId", "status", "isActive");
-
--- CreateIndex
-CREATE INDEX "Comment_rootId_status_isActive_idx" ON "Comment"("rootId", "status", "isActive");
-
--- CreateIndex
-CREATE INDEX "Comment_userId_createdAt_idx" ON "Comment"("userId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "Reaction_contentType_objectId_idx" ON "Reaction"("contentType", "objectId");
-
--- CreateIndex
-CREATE INDEX "Reaction_gamingCenterId_idx" ON "Reaction"("gamingCenterId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Reaction_userId_contentType_objectId_key" ON "Reaction"("userId", "contentType", "objectId");
-
--- CreateIndex
-CREATE INDEX "ReactionAggregate_gamingCenterId_idx" ON "ReactionAggregate"("gamingCenterId");
-
--- CreateIndex
-CREATE INDEX "ReactionAggregate_contentType_objectId_idx" ON "ReactionAggregate"("contentType", "objectId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "ReactionAggregate_contentType_objectId_type_key" ON "ReactionAggregate"("contentType", "objectId", "type");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Menu_gamingCenterId_location_key" ON "Menu"("gamingCenterId", "location");
-
--- CreateIndex
-CREATE UNIQUE INDEX "SiteSettings_gamingCenterId_key" ON "SiteSettings"("gamingCenterId");
-
--- CreateIndex
-CREATE INDEX "Page_gamingCenterId_status_idx" ON "Page"("gamingCenterId", "status");
-
--- CreateIndex
-CREATE INDEX "Page_gamingCenterId_type_idx" ON "Page"("gamingCenterId", "type");
-
--- CreateIndex
-CREATE INDEX "Page_gamingCenterId_publishedAt_idx" ON "Page"("gamingCenterId", "publishedAt");
-
--- CreateIndex
-CREATE INDEX "Page_fullPath_idx" ON "Page"("fullPath");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Page_gamingCenterId_slug_key" ON "Page"("gamingCenterId", "slug");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Page_gamingCenterId_fullPath_key" ON "Page"("gamingCenterId", "fullPath");
-
--- CreateIndex
-CREATE INDEX "PageSection_pageId_sortOrder_idx" ON "PageSection"("pageId", "sortOrder");
-
--- CreateIndex
-CREATE INDEX "PageSection_pageId_isEnabled_idx" ON "PageSection"("pageId", "isEnabled");
-
--- CreateIndex
-CREATE INDEX "PageSection_pageId_type_idx" ON "PageSection"("pageId", "type");
-
--- CreateIndex
-CREATE INDEX "PageSlugHistory_pageId_createdAt_idx" ON "PageSlugHistory"("pageId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "PageSlugHistory_oldSlug_idx" ON "PageSlugHistory"("oldSlug");
-
--- CreateIndex
-CREATE UNIQUE INDEX "PageMedia_pageId_mediaId_attachmentType_key" ON "PageMedia"("pageId", "mediaId", "attachmentType");
-
--- CreateIndex
-CREATE INDEX "SocialLink_gamingCenterId_type_idx" ON "SocialLink"("gamingCenterId", "type");
-
--- CreateIndex
-CREATE INDEX "SocialLink_gamingCenterId_isPrimary_idx" ON "SocialLink"("gamingCenterId", "isPrimary");
-
--- CreateIndex
-CREATE INDEX "SocialLink_gamingCenterId_isActive_idx" ON "SocialLink"("gamingCenterId", "isActive");
-
--- CreateIndex
-CREATE INDEX "Address_gamingCenterId_idx" ON "Address"("gamingCenterId");
-
--- CreateIndex
-CREATE INDEX "Address_gamingCenterId_isPrimary_idx" ON "Address"("gamingCenterId", "isPrimary");
-
--- CreateIndex
-CREATE INDEX "Address_province_idx" ON "Address"("province");
-
--- CreateIndex
-CREATE INDEX "Address_city_idx" ON "Address"("city");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Settings_gamingCenterId_key" ON "Settings"("gamingCenterId");
-
--- CreateIndex
-CREATE INDEX "GameStation_gamingCenterId_isActive_idx" ON "GameStation"("gamingCenterId", "isActive");
-
--- CreateIndex
-CREATE INDEX "GameStation_gamingCenterId_name_idx" ON "GameStation"("gamingCenterId", "name");
-
--- CreateIndex
-CREATE INDEX "StaffStationSkill_stationId_idx" ON "StaffStationSkill"("stationId");
-
--- CreateIndex
-CREATE INDEX "StaffStationSkill_userId_idx" ON "StaffStationSkill"("userId");
-
--- CreateIndex
-CREATE INDEX "StaffShift_gamingCenterId_dayOfWeek_idx" ON "StaffShift"("gamingCenterId", "dayOfWeek");
-
--- CreateIndex
-CREATE UNIQUE INDEX "StaffShift_gamingCenterId_userId_dayOfWeek_key" ON "StaffShift"("gamingCenterId", "userId", "dayOfWeek");
-
--- CreateIndex
-CREATE INDEX "Reservation_gamingCenterId_startTime_idx" ON "Reservation"("gamingCenterId", "startTime");
-
--- CreateIndex
-CREATE INDEX "Reservation_gamingCenterId_staffId_startTime_idx" ON "Reservation"("gamingCenterId", "staffId", "startTime");
-
--- CreateIndex
-CREATE INDEX "Reservation_gamingCenterId_status_startTime_idx" ON "Reservation"("gamingCenterId", "status", "startTime");
-
--- CreateIndex
-CREATE INDEX "Reservation_gamingCenterId_staffId_status_startTime_endTime_idx" ON "Reservation"("gamingCenterId", "staffId", "status", "startTime", "endTime");
-
--- CreateIndex
-CREATE INDEX "Reservation_customerAccountId_startTime_idx" ON "Reservation"("customerAccountId", "startTime");
-
--- CreateIndex
-CREATE INDEX "Reservation_customerProfileId_startTime_idx" ON "Reservation"("customerProfileId", "startTime");
-
--- CreateIndex
-CREATE INDEX "Reservation_gamingCenterId_paymentState_startTime_idx" ON "Reservation"("gamingCenterId", "paymentState", "startTime");
-
--- CreateIndex
-CREATE INDEX "Reservation_groupBookingId_idx" ON "Reservation"("groupBookingId");
-
--- CreateIndex
-CREATE INDEX "Reservation_status_expiresAt_idx" ON "Reservation"("status", "expiresAt");
-
--- CreateIndex
-CREATE INDEX "GroupBooking_gamingCenterId_startTime_idx" ON "GroupBooking"("gamingCenterId", "startTime");
-
--- CreateIndex
-CREATE INDEX "GroupBooking_customerAccountId_startTime_idx" ON "GroupBooking"("customerAccountId", "startTime");
-
--- CreateIndex
-CREATE INDEX "GroupBooking_customerProfileId_startTime_idx" ON "GroupBooking"("customerProfileId", "startTime");
-
--- CreateIndex
-CREATE INDEX "GroupBooking_gamingCenterId_status_startTime_idx" ON "GroupBooking"("gamingCenterId", "status", "startTime");
-
--- CreateIndex
-CREATE INDEX "GroupBooking_status_expiresAt_idx" ON "GroupBooking"("status", "expiresAt");
-
--- CreateIndex
-CREATE UNIQUE INDEX "GroupBookingItem_reservationId_key" ON "GroupBookingItem"("reservationId");
-
--- CreateIndex
-CREATE INDEX "GroupBookingItem_groupBookingId_idx" ON "GroupBookingItem"("groupBookingId");
-
--- CreateIndex
-CREATE INDEX "GroupBookingItem_stationId_idx" ON "GroupBookingItem"("stationId");
-
--- CreateIndex
-CREATE INDEX "ReservationTimeProposal_reservationId_status_idx" ON "ReservationTimeProposal"("reservationId", "status");
-
--- CreateIndex
-CREATE INDEX "ReservationTimeProposal_reservationId_createdAt_idx" ON "ReservationTimeProposal"("reservationId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "ReservationHistory_reservationId_createdAt_idx" ON "ReservationHistory"("reservationId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "StationMaintenance_stationId_startTime_idx" ON "StationMaintenance"("stationId", "startTime");
-
--- CreateIndex
-CREATE INDEX "StationMaintenance_gamingCenterId_status_idx" ON "StationMaintenance"("gamingCenterId", "status");
-
--- CreateIndex
-CREATE UNIQUE INDEX "AnalyticsEvent_deduplicationKey_key" ON "AnalyticsEvent"("deduplicationKey");
-
--- CreateIndex
-CREATE INDEX "AnalyticsEvent_gamingCenterId_eventType_timestamp_idx" ON "AnalyticsEvent"("gamingCenterId", "eventType", "timestamp");
-
--- CreateIndex
-CREATE INDEX "AnalyticsEvent_visitorId_timestamp_idx" ON "AnalyticsEvent"("visitorId", "timestamp");
-
--- CreateIndex
-CREATE INDEX "AnalyticsEvent_sessionId_idx" ON "AnalyticsEvent"("sessionId");
-
--- CreateIndex
-CREATE INDEX "AnalyticsEvent_timestamp_idx" ON "AnalyticsEvent"("timestamp");
-
--- CreateIndex
-CREATE INDEX "GamingCenterExpense_gamingCenterId_status_expenseDate_idx" ON "GamingCenterExpense"("gamingCenterId", "status", "expenseDate");
-
--- CreateIndex
-CREATE INDEX "GamingCenterExpense_gamingCenterId_category_idx" ON "GamingCenterExpense"("gamingCenterId", "category");
-
--- CreateIndex
-CREATE INDEX "MarketingCampaignSpend_gamingCenterId_startDate_endDate_idx" ON "MarketingCampaignSpend"("gamingCenterId", "startDate", "endDate");
-
--- CreateIndex
-CREATE INDEX "MarketingCampaignSpend_campaignId_idx" ON "MarketingCampaignSpend"("campaignId");
-
--- CreateIndex
-CREATE INDEX "RevenueForecastRun_gamingCenterId_createdAt_idx" ON "RevenueForecastRun"("gamingCenterId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "Payment_reservationId_paidAt_idx" ON "Payment"("reservationId", "paidAt");
-
--- CreateIndex
-CREATE INDEX "Payment_groupBookingId_paidAt_idx" ON "Payment"("groupBookingId", "paidAt");
-
--- CreateIndex
-CREATE INDEX "Payment_status_paidAt_idx" ON "Payment"("status", "paidAt");
-
--- CreateIndex
-CREATE INDEX "Payment_gamingCenterId_status_paidAt_idx" ON "Payment"("gamingCenterId", "status", "paidAt");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Payment_provider_providerPaymentId_key" ON "Payment"("provider", "providerPaymentId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Payment_gamingCenterId_idempotencyKey_key" ON "Payment"("gamingCenterId", "idempotencyKey");
-
--- CreateIndex
-CREATE INDEX "WalletTransaction_customerAccountId_idx" ON "WalletTransaction"("customerAccountId");
-
--- CreateIndex
-CREATE INDEX "WalletTransaction_reservationId_idx" ON "WalletTransaction"("reservationId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "WalletTransaction_reservationId_type_key" ON "WalletTransaction"("reservationId", "type");
-
--- CreateIndex
-CREATE UNIQUE INDEX "CommissionPolicy_gamingCenterId_key" ON "CommissionPolicy"("gamingCenterId");
-
--- CreateIndex
-CREATE INDEX "CommissionPolicy_gamingCenterId_isActive_idx" ON "CommissionPolicy"("gamingCenterId", "isActive");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Earning_reservationId_key" ON "Earning"("reservationId");
-
--- CreateIndex
-CREATE INDEX "Earning_gamingCenterId_status_createdAt_idx" ON "Earning"("gamingCenterId", "status", "createdAt");
-
--- CreateIndex
-CREATE INDEX "Earning_gamingCenterId_targetPeriod_idx" ON "Earning"("gamingCenterId", "targetPeriod");
-
--- CreateIndex
-CREATE INDEX "Earning_chargedAt_idx" ON "Earning"("chargedAt");
-
--- CreateIndex
-CREATE INDEX "EarningPayment_earningId_paidAt_idx" ON "EarningPayment"("earningId", "paidAt");
-
--- CreateIndex
-CREATE INDEX "EarningPayment_status_paidAt_idx" ON "EarningPayment"("status", "paidAt");
-
--- CreateIndex
-CREATE INDEX "Rating_gamingCenterId_status_createdAt_idx" ON "Rating"("gamingCenterId", "status", "createdAt");
-
--- CreateIndex
-CREATE INDEX "Rating_stationId_status_createdAt_idx" ON "Rating"("stationId", "status", "createdAt");
-
--- CreateIndex
-CREATE INDEX "Rating_reservationId_idx" ON "Rating"("reservationId");
-
--- CreateIndex
-CREATE INDEX "Rating_customerAccountId_createdAt_idx" ON "Rating"("customerAccountId", "createdAt");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Rating_reservationId_stationId_key" ON "Rating"("reservationId", "stationId");
-
--- CreateIndex
-CREATE INDEX "AuditLog_gamingCenterId_createdAt_idx" ON "AuditLog"("gamingCenterId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "AuditLog_entity_entityId_idx" ON "AuditLog"("entity", "entityId");
-
--- CreateIndex
-CREATE INDEX "AuditLog_userId_idx" ON "AuditLog"("userId");
-
--- CreateIndex
-CREATE INDEX "Ticket_customerAccountId_idx" ON "Ticket"("customerAccountId");
-
--- CreateIndex
-CREATE INDEX "Ticket_assignedToUserId_idx" ON "Ticket"("assignedToUserId");
-
--- CreateIndex
-CREATE INDEX "Ticket_status_idx" ON "Ticket"("status");
-
--- CreateIndex
-CREATE INDEX "Ticket_priority_idx" ON "Ticket"("priority");
-
--- CreateIndex
-CREATE INDEX "Ticket_category_idx" ON "Ticket"("category");
-
--- CreateIndex
-CREATE INDEX "Discount_gamingCenterId_isActive_startAt_endAt_idx" ON "Discount"("gamingCenterId", "isActive", "startAt", "endAt");
-
--- CreateIndex
-CREATE INDEX "Discount_gamingCenterId_targetType_targetId_idx" ON "Discount"("gamingCenterId", "targetType", "targetId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "DiscountCampaign_code_key" ON "DiscountCampaign"("code");
-
--- CreateIndex
-CREATE INDEX "DiscountCampaign_gamingCenterId_isActive_startAt_endAt_idx" ON "DiscountCampaign"("gamingCenterId", "isActive", "startAt", "endAt");
-
--- CreateIndex
-CREATE INDEX "DiscountCampaign_code_idx" ON "DiscountCampaign"("code");
-
--- CreateIndex
-CREATE INDEX "DiscountUsage_campaignId_customerAccountId_idx" ON "DiscountUsage"("campaignId", "customerAccountId");
-
--- CreateIndex
-CREATE INDEX "DiscountUsage_reservationId_idx" ON "DiscountUsage"("reservationId");
-
--- CreateIndex
-CREATE INDEX "TicketMessage_ticketId_idx" ON "TicketMessage"("ticketId");
-
--- CreateIndex
-CREATE INDEX "Notification_userId_isRead_createdAt_idx" ON "Notification"("userId", "isRead", "createdAt");
-
--- CreateIndex
-CREATE INDEX "Notification_userId_createdAt_idx" ON "Notification"("userId", "createdAt");
-
--- CreateIndex
-CREATE UNIQUE INDEX "NotificationLog_idempotencyKey_key" ON "NotificationLog"("idempotencyKey");
-
--- CreateIndex
-CREATE INDEX "NotificationLog_status_scheduledAt_idx" ON "NotificationLog"("status", "scheduledAt");
-
--- CreateIndex
-CREATE INDEX "NotificationLog_status_nextRetryAt_idx" ON "NotificationLog"("status", "nextRetryAt");
-
--- CreateIndex
-CREATE INDEX "NotificationLog_entityType_entityId_idx" ON "NotificationLog"("entityType", "entityId");
-
--- CreateIndex
-CREATE INDEX "NotificationLog_idempotencyKey_idx" ON "NotificationLog"("idempotencyKey");
-
--- CreateIndex
-CREATE INDEX "NotificationLog_gamingCenterId_createdAt_idx" ON "NotificationLog"("gamingCenterId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "Refund_paymentId_status_idx" ON "Refund"("paymentId", "status");
-
--- CreateIndex
-CREATE INDEX "Refund_gamingCenterId_status_createdAt_idx" ON "Refund"("gamingCenterId", "status", "createdAt");
-
--- CreateIndex
-CREATE INDEX "Refund_providerRefundId_idx" ON "Refund"("providerRefundId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Refund_gamingCenterId_idempotencyKey_key" ON "Refund"("gamingCenterId", "idempotencyKey");
-
--- CreateIndex
-CREATE UNIQUE INDEX "LedgerEntry_idempotencyKey_key" ON "LedgerEntry"("idempotencyKey");
-
--- CreateIndex
-CREATE INDEX "LedgerEntry_gamingCenterId_createdAt_idx" ON "LedgerEntry"("gamingCenterId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "LedgerEntry_paymentId_idx" ON "LedgerEntry"("paymentId");
-
--- CreateIndex
-CREATE INDEX "LedgerEntry_refundId_idx" ON "LedgerEntry"("refundId");
-
--- CreateIndex
-CREATE INDEX "LedgerEntry_entryType_idx" ON "LedgerEntry"("entryType");
-
--- CreateIndex
-CREATE INDEX "ReconciliationRecord_gamingCenterId_status_reconciledAt_idx" ON "ReconciliationRecord"("gamingCenterId", "status", "reconciledAt");
-
--- CreateIndex
-CREATE INDEX "ReconciliationRecord_paymentId_idx" ON "ReconciliationRecord"("paymentId");
-
--- CreateIndex
-CREATE INDEX "WaitlistEntry_gamingCenterId_stationId_status_startTime_end_idx" ON "WaitlistEntry"("gamingCenterId", "stationId", "status", "startTime", "endTime");
-
--- CreateIndex
-CREATE INDEX "WaitlistEntry_customerAccountId_status_idx" ON "WaitlistEntry"("customerAccountId", "status");
-
--- CreateIndex
-CREATE INDEX "WaitlistEntry_status_createdAt_idx" ON "WaitlistEntry"("status", "createdAt");
-
--- CreateIndex
-CREATE INDEX "WaitlistOffer_waitlistEntryId_status_idx" ON "WaitlistOffer"("waitlistEntryId", "status");
-
--- CreateIndex
-CREATE INDEX "WaitlistOffer_gamingCenterId_status_expiresAt_idx" ON "WaitlistOffer"("gamingCenterId", "status", "expiresAt");
-
--- CreateIndex
-CREATE INDEX "WaitlistOffer_status_expiresAt_idx" ON "WaitlistOffer"("status", "expiresAt");
-
--- CreateIndex
-CREATE INDEX "AnalyticsIngestionRun_entity_startedAt_idx" ON "AnalyticsIngestionRun"("entity", "startedAt");
-
--- CreateIndex
-CREATE INDEX "AnalyticsIngestionRun_status_startedAt_idx" ON "AnalyticsIngestionRun"("status", "startedAt");
-
--- CreateIndex
-CREATE INDEX "AnalyticsTenant_slug_idx" ON "AnalyticsTenant"("slug");
-
--- CreateIndex
-CREATE INDEX "AnalyticsTenant_isActive_idx" ON "AnalyticsTenant"("isActive");
-
--- CreateIndex
-CREATE INDEX "AnalyticsCustomer_phone_idx" ON "AnalyticsCustomer"("phone");
-
--- CreateIndex
-CREATE INDEX "AnalyticsCustomer_gamingCenterId_idx" ON "AnalyticsCustomer"("gamingCenterId");
-
--- CreateIndex
-CREATE INDEX "AnalyticsStation_gamingCenterId_isActive_idx" ON "AnalyticsStation"("gamingCenterId", "isActive");
-
--- CreateIndex
-CREATE INDEX "AnalyticsReservation_gamingCenterId_startTime_idx" ON "AnalyticsReservation"("gamingCenterId", "startTime");
-
--- CreateIndex
-CREATE INDEX "AnalyticsReservation_gamingCenterId_status_startTime_idx" ON "AnalyticsReservation"("gamingCenterId", "status", "startTime");
-
--- CreateIndex
-CREATE INDEX "AnalyticsReservation_customerAccountId_startTime_idx" ON "AnalyticsReservation"("customerAccountId", "startTime");
-
--- CreateIndex
-CREATE INDEX "AnalyticsGamingSession_reservationId_idx" ON "AnalyticsGamingSession"("reservationId");
-
--- CreateIndex
-CREATE INDEX "AnalyticsGamingSession_stationId_startTime_idx" ON "AnalyticsGamingSession"("stationId", "startTime");
-
--- CreateIndex
-CREATE INDEX "AnalyticsGamingSession_gamingCenterId_idx" ON "AnalyticsGamingSession"("gamingCenterId");
-
--- CreateIndex
-CREATE INDEX "AnalyticsPayment_gamingCenterId_status_paidAt_idx" ON "AnalyticsPayment"("gamingCenterId", "status", "paidAt");
-
--- CreateIndex
-CREATE INDEX "AnalyticsPayment_reservationId_idx" ON "AnalyticsPayment"("reservationId");
-
--- CreateIndex
-CREATE INDEX "AnalyticsLedgerEntry_gamingCenterId_sourceCreatedAt_idx" ON "AnalyticsLedgerEntry"("gamingCenterId", "sourceCreatedAt");
-
--- CreateIndex
-CREATE INDEX "AnalyticsLedgerEntry_paymentId_idx" ON "AnalyticsLedgerEntry"("paymentId");
-
--- CreateIndex
-CREATE INDEX "AnalyticsLedgerEntry_entryType_idx" ON "AnalyticsLedgerEntry"("entryType");
-
--- CreateIndex
-CREATE INDEX "AnalyticsRefund_gamingCenterId_status_sourceCreatedAt_idx" ON "AnalyticsRefund"("gamingCenterId", "status", "sourceCreatedAt");
-
--- CreateIndex
-CREATE INDEX "AnalyticsRefund_paymentId_idx" ON "AnalyticsRefund"("paymentId");
-
--- AddForeignKey
-ALTER TABLE "User" ADD CONSTRAINT "User_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "AuthorProfile" ADD CONSTRAINT "AuthorProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "AuthorProfile" ADD CONSTRAINT "AuthorProfile_avatarId_fkey" FOREIGN KEY ("avatarId") REFERENCES "Media"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "CustomerProfile" ADD CONSTRAINT "CustomerProfile_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "CustomerProfile" ADD CONSTRAINT "CustomerProfile_customerAccountId_fkey" FOREIGN KEY ("customerAccountId") REFERENCES "CustomerAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Media" ADD CONSTRAINT "Media_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Media" ADD CONSTRAINT "Media_uploadedById_fkey" FOREIGN KEY ("uploadedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "PostMedia" ADD CONSTRAINT "PostMedia_postId_fkey" FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "PostMedia" ADD CONSTRAINT "PostMedia_mediaId_fkey" FOREIGN KEY ("mediaId") REFERENCES "Media"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Category" ADD CONSTRAINT "Category_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Category" ADD CONSTRAINT "Category_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Tag" ADD CONSTRAINT "Tag_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Series" ADD CONSTRAINT "Series_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Post" ADD CONSTRAINT "Post_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "AuthorProfile"("userId") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Post" ADD CONSTRAINT "Post_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Post" ADD CONSTRAINT "Post_seriesId_fkey" FOREIGN KEY ("seriesId") REFERENCES "Series"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Post" ADD CONSTRAINT "Post_coverMediaId_fkey" FOREIGN KEY ("coverMediaId") REFERENCES "Media"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Post" ADD CONSTRAINT "Post_ogImageId_fkey" FOREIGN KEY ("ogImageId") REFERENCES "Media"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "PostTag" ADD CONSTRAINT "PostTag_postId_fkey" FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "PostTag" ADD CONSTRAINT "PostTag_tagId_fkey" FOREIGN KEY ("tagId") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Revision" ADD CONSTRAINT "Revision_postId_fkey" FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Revision" ADD CONSTRAINT "Revision_editorId_fkey" FOREIGN KEY ("editorId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Comment" ADD CONSTRAINT "Comment_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Comment" ADD CONSTRAINT "Comment_postId_fkey" FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Comment" ADD CONSTRAINT "Comment_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Comment" ADD CONSTRAINT "Comment_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Comment"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Reaction" ADD CONSTRAINT "Reaction_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Reaction" ADD CONSTRAINT "Reaction_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ReactionAggregate" ADD CONSTRAINT "ReactionAggregate_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Menu" ADD CONSTRAINT "Menu_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "MenuItem" ADD CONSTRAINT "MenuItem_menuId_fkey" FOREIGN KEY ("menuId") REFERENCES "Menu"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "MenuItem" ADD CONSTRAINT "MenuItem_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "MenuItem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "SiteSettings" ADD CONSTRAINT "SiteSettings_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Page" ADD CONSTRAINT "Page_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Page" ADD CONSTRAINT "Page_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Page"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "PageSection" ADD CONSTRAINT "PageSection_pageId_fkey" FOREIGN KEY ("pageId") REFERENCES "Page"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'GamingCenter') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "GamingCenter_slug_key" ON "GamingCenter"("slug");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'GamingCenter') THEN
+        CREATE  INDEX IF NOT EXISTS "GamingCenter_slug_idx" ON "GamingCenter"("slug");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'User') THEN
+        CREATE  INDEX IF NOT EXISTS "User_gamingCenterId_role_idx" ON "User"("gamingCenterId", "role");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'User') THEN
+        CREATE  INDEX IF NOT EXISTS "User_gamingCenterId_isActive_idx" ON "User"("gamingCenterId", "isActive");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'User') THEN
+        CREATE  INDEX IF NOT EXISTS "User_gamingCenterId_isPublic_idx" ON "User"("gamingCenterId", "isPublic");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'User') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "User_gamingCenterId_phone_key" ON "User"("gamingCenterId", "phone");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'User') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "User_gamingCenterId_username_key" ON "User"("gamingCenterId", "username");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'User') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "User_gamingCenterId_email_key" ON "User"("gamingCenterId", "email");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'CustomerAccount') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "CustomerAccount_phone_key" ON "CustomerAccount"("phone");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'CustomerAccount') THEN
+        CREATE  INDEX IF NOT EXISTS "CustomerAccount_phone_idx" ON "CustomerAccount"("phone");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'CustomerProfile') THEN
+        CREATE  INDEX IF NOT EXISTS "CustomerProfile_gamingCenterId_displayName_idx" ON "CustomerProfile"("gamingCenterId", "displayName");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'CustomerProfile') THEN
+        CREATE  INDEX IF NOT EXISTS "CustomerProfile_customerAccountId_idx" ON "CustomerProfile"("customerAccountId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'CustomerProfile') THEN
+        CREATE  INDEX IF NOT EXISTS "CustomerProfile_gamingCenterId_createdAt_idx" ON "CustomerProfile"("gamingCenterId", "createdAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'CustomerProfile') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "CustomerProfile_gamingCenterId_customerAccountId_key" ON "CustomerProfile"("gamingCenterId", "customerAccountId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Session') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "Session_tokenHash_key" ON "Session"("tokenHash");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Session') THEN
+        CREATE  INDEX IF NOT EXISTS "Session_actorType_actorId_expiresAt_idx" ON "Session"("actorType", "actorId", "expiresAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'PhoneOtp') THEN
+        CREATE  INDEX IF NOT EXISTS "PhoneOtp_phone_purpose_expiresAt_idx" ON "PhoneOtp"("phone", "purpose", "expiresAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'PhoneOtp') THEN
+        CREATE  INDEX IF NOT EXISTS "PhoneOtp_phone_createdAt_idx" ON "PhoneOtp"("phone", "createdAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'PhoneOtp') THEN
+        CREATE  INDEX IF NOT EXISTS "PhoneOtp_consumedAt_idx" ON "PhoneOtp"("consumedAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'PhoneOtp') THEN
+        CREATE  INDEX IF NOT EXISTS "PhoneOtp_targetActorType_targetActorId_idx" ON "PhoneOtp"("targetActorType", "targetActorId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Media') THEN
+        CREATE  INDEX IF NOT EXISTS "Media_gamingCenterId_purpose_isActive_sortOrder_idx" ON "Media"("gamingCenterId", "purpose", "isActive", "sortOrder");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Media') THEN
+        CREATE  INDEX IF NOT EXISTS "Media_gamingCenterId_category_idx" ON "Media"("gamingCenterId", "category");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'PostMedia') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "PostMedia_postId_mediaId_attachmentType_key" ON "PostMedia"("postId", "mediaId", "attachmentType");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Category') THEN
+        CREATE  INDEX IF NOT EXISTS "Category_gamingCenterId_slug_idx" ON "Category"("gamingCenterId", "slug");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Category') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "Category_gamingCenterId_slug_key" ON "Category"("gamingCenterId", "slug");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Tag') THEN
+        CREATE  INDEX IF NOT EXISTS "Tag_gamingCenterId_slug_idx" ON "Tag"("gamingCenterId", "slug");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Tag') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "Tag_gamingCenterId_slug_key" ON "Tag"("gamingCenterId", "slug");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Series') THEN
+        CREATE  INDEX IF NOT EXISTS "Series_gamingCenterId_slug_idx" ON "Series"("gamingCenterId", "slug");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Series') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "Series_gamingCenterId_slug_key" ON "Series"("gamingCenterId", "slug");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Post') THEN
+        CREATE  INDEX IF NOT EXISTS "Post_gamingCenterId_status_idx" ON "Post"("gamingCenterId", "status");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Post') THEN
+        CREATE  INDEX IF NOT EXISTS "Post_authorId_idx" ON "Post"("authorId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Post') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "Post_gamingCenterId_slug_key" ON "Post"("gamingCenterId", "slug");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Comment') THEN
+        CREATE  INDEX IF NOT EXISTS "Comment_gamingCenterId_postId_status_isActive_idx" ON "Comment"("gamingCenterId", "postId", "status", "isActive");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Comment') THEN
+        CREATE  INDEX IF NOT EXISTS "Comment_rootId_status_isActive_idx" ON "Comment"("rootId", "status", "isActive");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Comment') THEN
+        CREATE  INDEX IF NOT EXISTS "Comment_userId_createdAt_idx" ON "Comment"("userId", "createdAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Reaction') THEN
+        CREATE  INDEX IF NOT EXISTS "Reaction_contentType_objectId_idx" ON "Reaction"("contentType", "objectId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Reaction') THEN
+        CREATE  INDEX IF NOT EXISTS "Reaction_gamingCenterId_idx" ON "Reaction"("gamingCenterId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Reaction') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "Reaction_userId_contentType_objectId_key" ON "Reaction"("userId", "contentType", "objectId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ReactionAggregate') THEN
+        CREATE  INDEX IF NOT EXISTS "ReactionAggregate_gamingCenterId_idx" ON "ReactionAggregate"("gamingCenterId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ReactionAggregate') THEN
+        CREATE  INDEX IF NOT EXISTS "ReactionAggregate_contentType_objectId_idx" ON "ReactionAggregate"("contentType", "objectId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ReactionAggregate') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "ReactionAggregate_contentType_objectId_type_key" ON "ReactionAggregate"("contentType", "objectId", "type");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Menu') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "Menu_gamingCenterId_location_key" ON "Menu"("gamingCenterId", "location");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'SiteSettings') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "SiteSettings_gamingCenterId_key" ON "SiteSettings"("gamingCenterId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Page') THEN
+        CREATE  INDEX IF NOT EXISTS "Page_gamingCenterId_status_idx" ON "Page"("gamingCenterId", "status");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Page') THEN
+        CREATE  INDEX IF NOT EXISTS "Page_gamingCenterId_type_idx" ON "Page"("gamingCenterId", "type");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Page') THEN
+        CREATE  INDEX IF NOT EXISTS "Page_gamingCenterId_publishedAt_idx" ON "Page"("gamingCenterId", "publishedAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Page') THEN
+        CREATE  INDEX IF NOT EXISTS "Page_fullPath_idx" ON "Page"("fullPath");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Page') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "Page_gamingCenterId_slug_key" ON "Page"("gamingCenterId", "slug");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Page') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "Page_gamingCenterId_fullPath_key" ON "Page"("gamingCenterId", "fullPath");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'PageSection') THEN
+        CREATE  INDEX IF NOT EXISTS "PageSection_pageId_sortOrder_idx" ON "PageSection"("pageId", "sortOrder");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'PageSection') THEN
+        CREATE  INDEX IF NOT EXISTS "PageSection_pageId_isEnabled_idx" ON "PageSection"("pageId", "isEnabled");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'PageSection') THEN
+        CREATE  INDEX IF NOT EXISTS "PageSection_pageId_type_idx" ON "PageSection"("pageId", "type");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'PageSlugHistory') THEN
+        CREATE  INDEX IF NOT EXISTS "PageSlugHistory_pageId_createdAt_idx" ON "PageSlugHistory"("pageId", "createdAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'PageSlugHistory') THEN
+        CREATE  INDEX IF NOT EXISTS "PageSlugHistory_oldSlug_idx" ON "PageSlugHistory"("oldSlug");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'PageMedia') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "PageMedia_pageId_mediaId_attachmentType_key" ON "PageMedia"("pageId", "mediaId", "attachmentType");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'SocialLink') THEN
+        CREATE  INDEX IF NOT EXISTS "SocialLink_gamingCenterId_type_idx" ON "SocialLink"("gamingCenterId", "type");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'SocialLink') THEN
+        CREATE  INDEX IF NOT EXISTS "SocialLink_gamingCenterId_isPrimary_idx" ON "SocialLink"("gamingCenterId", "isPrimary");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'SocialLink') THEN
+        CREATE  INDEX IF NOT EXISTS "SocialLink_gamingCenterId_isActive_idx" ON "SocialLink"("gamingCenterId", "isActive");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Address') THEN
+        CREATE  INDEX IF NOT EXISTS "Address_gamingCenterId_idx" ON "Address"("gamingCenterId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Address') THEN
+        CREATE  INDEX IF NOT EXISTS "Address_gamingCenterId_isPrimary_idx" ON "Address"("gamingCenterId", "isPrimary");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Address') THEN
+        CREATE  INDEX IF NOT EXISTS "Address_province_idx" ON "Address"("province");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Address') THEN
+        CREATE  INDEX IF NOT EXISTS "Address_city_idx" ON "Address"("city");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Settings') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "Settings_gamingCenterId_key" ON "Settings"("gamingCenterId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'GameStation') THEN
+        CREATE  INDEX IF NOT EXISTS "GameStation_gamingCenterId_isActive_idx" ON "GameStation"("gamingCenterId", "isActive");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'GameStation') THEN
+        CREATE  INDEX IF NOT EXISTS "GameStation_gamingCenterId_name_idx" ON "GameStation"("gamingCenterId", "name");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'StaffStationSkill') THEN
+        CREATE  INDEX IF NOT EXISTS "StaffStationSkill_stationId_idx" ON "StaffStationSkill"("stationId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'StaffStationSkill') THEN
+        CREATE  INDEX IF NOT EXISTS "StaffStationSkill_userId_idx" ON "StaffStationSkill"("userId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'StaffShift') THEN
+        CREATE  INDEX IF NOT EXISTS "StaffShift_gamingCenterId_dayOfWeek_idx" ON "StaffShift"("gamingCenterId", "dayOfWeek");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'StaffShift') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "StaffShift_gamingCenterId_userId_dayOfWeek_key" ON "StaffShift"("gamingCenterId", "userId", "dayOfWeek");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Reservation') THEN
+        CREATE  INDEX IF NOT EXISTS "Reservation_gamingCenterId_startTime_idx" ON "Reservation"("gamingCenterId", "startTime");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Reservation') THEN
+        CREATE  INDEX IF NOT EXISTS "Reservation_gamingCenterId_staffId_startTime_idx" ON "Reservation"("gamingCenterId", "staffId", "startTime");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Reservation') THEN
+        CREATE  INDEX IF NOT EXISTS "Reservation_gamingCenterId_status_startTime_idx" ON "Reservation"("gamingCenterId", "status", "startTime");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Reservation') THEN
+        CREATE  INDEX IF NOT EXISTS "Reservation_gamingCenterId_staffId_status_startTime_endTime_idx" ON "Reservation"("gamingCenterId", "staffId", "status", "startTime", "endTime");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Reservation') THEN
+        CREATE  INDEX IF NOT EXISTS "Reservation_customerAccountId_startTime_idx" ON "Reservation"("customerAccountId", "startTime");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Reservation') THEN
+        CREATE  INDEX IF NOT EXISTS "Reservation_customerProfileId_startTime_idx" ON "Reservation"("customerProfileId", "startTime");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Reservation') THEN
+        CREATE  INDEX IF NOT EXISTS "Reservation_gamingCenterId_paymentState_startTime_idx" ON "Reservation"("gamingCenterId", "paymentState", "startTime");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Reservation') THEN
+        CREATE  INDEX IF NOT EXISTS "Reservation_groupBookingId_idx" ON "Reservation"("groupBookingId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Reservation') THEN
+        CREATE  INDEX IF NOT EXISTS "Reservation_status_expiresAt_idx" ON "Reservation"("status", "expiresAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'GroupBooking') THEN
+        CREATE  INDEX IF NOT EXISTS "GroupBooking_gamingCenterId_startTime_idx" ON "GroupBooking"("gamingCenterId", "startTime");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'GroupBooking') THEN
+        CREATE  INDEX IF NOT EXISTS "GroupBooking_customerAccountId_startTime_idx" ON "GroupBooking"("customerAccountId", "startTime");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'GroupBooking') THEN
+        CREATE  INDEX IF NOT EXISTS "GroupBooking_customerProfileId_startTime_idx" ON "GroupBooking"("customerProfileId", "startTime");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'GroupBooking') THEN
+        CREATE  INDEX IF NOT EXISTS "GroupBooking_gamingCenterId_status_startTime_idx" ON "GroupBooking"("gamingCenterId", "status", "startTime");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'GroupBooking') THEN
+        CREATE  INDEX IF NOT EXISTS "GroupBooking_status_expiresAt_idx" ON "GroupBooking"("status", "expiresAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'GroupBookingItem') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "GroupBookingItem_reservationId_key" ON "GroupBookingItem"("reservationId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'GroupBookingItem') THEN
+        CREATE  INDEX IF NOT EXISTS "GroupBookingItem_groupBookingId_idx" ON "GroupBookingItem"("groupBookingId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'GroupBookingItem') THEN
+        CREATE  INDEX IF NOT EXISTS "GroupBookingItem_stationId_idx" ON "GroupBookingItem"("stationId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ReservationTimeProposal') THEN
+        CREATE  INDEX IF NOT EXISTS "ReservationTimeProposal_reservationId_status_idx" ON "ReservationTimeProposal"("reservationId", "status");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ReservationTimeProposal') THEN
+        CREATE  INDEX IF NOT EXISTS "ReservationTimeProposal_reservationId_createdAt_idx" ON "ReservationTimeProposal"("reservationId", "createdAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ReservationHistory') THEN
+        CREATE  INDEX IF NOT EXISTS "ReservationHistory_reservationId_createdAt_idx" ON "ReservationHistory"("reservationId", "createdAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'StationMaintenance') THEN
+        CREATE  INDEX IF NOT EXISTS "StationMaintenance_stationId_startTime_idx" ON "StationMaintenance"("stationId", "startTime");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'StationMaintenance') THEN
+        CREATE  INDEX IF NOT EXISTS "StationMaintenance_gamingCenterId_status_idx" ON "StationMaintenance"("gamingCenterId", "status");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsEvent') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "AnalyticsEvent_deduplicationKey_key" ON "AnalyticsEvent"("deduplicationKey");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsEvent') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsEvent_gamingCenterId_eventType_timestamp_idx" ON "AnalyticsEvent"("gamingCenterId", "eventType", "timestamp");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsEvent') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsEvent_visitorId_timestamp_idx" ON "AnalyticsEvent"("visitorId", "timestamp");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsEvent') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsEvent_sessionId_idx" ON "AnalyticsEvent"("sessionId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsEvent') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsEvent_timestamp_idx" ON "AnalyticsEvent"("timestamp");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'GamingCenterExpense') THEN
+        CREATE  INDEX IF NOT EXISTS "GamingCenterExpense_gamingCenterId_status_expenseDate_idx" ON "GamingCenterExpense"("gamingCenterId", "status", "expenseDate");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'GamingCenterExpense') THEN
+        CREATE  INDEX IF NOT EXISTS "GamingCenterExpense_gamingCenterId_category_idx" ON "GamingCenterExpense"("gamingCenterId", "category");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'MarketingCampaignSpend') THEN
+        CREATE  INDEX IF NOT EXISTS "MarketingCampaignSpend_gamingCenterId_startDate_endDate_idx" ON "MarketingCampaignSpend"("gamingCenterId", "startDate", "endDate");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'MarketingCampaignSpend') THEN
+        CREATE  INDEX IF NOT EXISTS "MarketingCampaignSpend_campaignId_idx" ON "MarketingCampaignSpend"("campaignId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'RevenueForecastRun') THEN
+        CREATE  INDEX IF NOT EXISTS "RevenueForecastRun_gamingCenterId_createdAt_idx" ON "RevenueForecastRun"("gamingCenterId", "createdAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Payment') THEN
+        CREATE  INDEX IF NOT EXISTS "Payment_reservationId_paidAt_idx" ON "Payment"("reservationId", "paidAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Payment') THEN
+        CREATE  INDEX IF NOT EXISTS "Payment_groupBookingId_paidAt_idx" ON "Payment"("groupBookingId", "paidAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Payment') THEN
+        CREATE  INDEX IF NOT EXISTS "Payment_status_paidAt_idx" ON "Payment"("status", "paidAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Payment') THEN
+        CREATE  INDEX IF NOT EXISTS "Payment_gamingCenterId_status_paidAt_idx" ON "Payment"("gamingCenterId", "status", "paidAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Payment') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "Payment_provider_providerPaymentId_key" ON "Payment"("provider", "providerPaymentId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Payment') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "Payment_gamingCenterId_idempotencyKey_key" ON "Payment"("gamingCenterId", "idempotencyKey");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'WalletTransaction') THEN
+        CREATE  INDEX IF NOT EXISTS "WalletTransaction_customerAccountId_idx" ON "WalletTransaction"("customerAccountId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'WalletTransaction') THEN
+        CREATE  INDEX IF NOT EXISTS "WalletTransaction_reservationId_idx" ON "WalletTransaction"("reservationId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'WalletTransaction') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "WalletTransaction_reservationId_type_key" ON "WalletTransaction"("reservationId", "type");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'CommissionPolicy') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "CommissionPolicy_gamingCenterId_key" ON "CommissionPolicy"("gamingCenterId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'CommissionPolicy') THEN
+        CREATE  INDEX IF NOT EXISTS "CommissionPolicy_gamingCenterId_isActive_idx" ON "CommissionPolicy"("gamingCenterId", "isActive");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Earning') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "Earning_reservationId_key" ON "Earning"("reservationId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Earning') THEN
+        CREATE  INDEX IF NOT EXISTS "Earning_gamingCenterId_status_createdAt_idx" ON "Earning"("gamingCenterId", "status", "createdAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Earning') THEN
+        CREATE  INDEX IF NOT EXISTS "Earning_gamingCenterId_targetPeriod_idx" ON "Earning"("gamingCenterId", "targetPeriod");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Earning') THEN
+        CREATE  INDEX IF NOT EXISTS "Earning_chargedAt_idx" ON "Earning"("chargedAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'EarningPayment') THEN
+        CREATE  INDEX IF NOT EXISTS "EarningPayment_earningId_paidAt_idx" ON "EarningPayment"("earningId", "paidAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'EarningPayment') THEN
+        CREATE  INDEX IF NOT EXISTS "EarningPayment_status_paidAt_idx" ON "EarningPayment"("status", "paidAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Rating') THEN
+        CREATE  INDEX IF NOT EXISTS "Rating_gamingCenterId_status_createdAt_idx" ON "Rating"("gamingCenterId", "status", "createdAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Rating') THEN
+        CREATE  INDEX IF NOT EXISTS "Rating_stationId_status_createdAt_idx" ON "Rating"("stationId", "status", "createdAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Rating') THEN
+        CREATE  INDEX IF NOT EXISTS "Rating_reservationId_idx" ON "Rating"("reservationId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Rating') THEN
+        CREATE  INDEX IF NOT EXISTS "Rating_customerAccountId_createdAt_idx" ON "Rating"("customerAccountId", "createdAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Rating') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "Rating_reservationId_stationId_key" ON "Rating"("reservationId", "stationId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AuditLog') THEN
+        CREATE  INDEX IF NOT EXISTS "AuditLog_gamingCenterId_createdAt_idx" ON "AuditLog"("gamingCenterId", "createdAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AuditLog') THEN
+        CREATE  INDEX IF NOT EXISTS "AuditLog_entity_entityId_idx" ON "AuditLog"("entity", "entityId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AuditLog') THEN
+        CREATE  INDEX IF NOT EXISTS "AuditLog_userId_idx" ON "AuditLog"("userId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Ticket') THEN
+        CREATE  INDEX IF NOT EXISTS "Ticket_customerAccountId_idx" ON "Ticket"("customerAccountId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Ticket') THEN
+        CREATE  INDEX IF NOT EXISTS "Ticket_assignedToUserId_idx" ON "Ticket"("assignedToUserId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Ticket') THEN
+        CREATE  INDEX IF NOT EXISTS "Ticket_status_idx" ON "Ticket"("status");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Ticket') THEN
+        CREATE  INDEX IF NOT EXISTS "Ticket_priority_idx" ON "Ticket"("priority");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Ticket') THEN
+        CREATE  INDEX IF NOT EXISTS "Ticket_category_idx" ON "Ticket"("category");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Discount') THEN
+        CREATE  INDEX IF NOT EXISTS "Discount_gamingCenterId_isActive_startAt_endAt_idx" ON "Discount"("gamingCenterId", "isActive", "startAt", "endAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Discount') THEN
+        CREATE  INDEX IF NOT EXISTS "Discount_gamingCenterId_targetType_targetId_idx" ON "Discount"("gamingCenterId", "targetType", "targetId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'DiscountCampaign') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "DiscountCampaign_code_key" ON "DiscountCampaign"("code");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'DiscountCampaign') THEN
+        CREATE  INDEX IF NOT EXISTS "DiscountCampaign_gamingCenterId_isActive_startAt_endAt_idx" ON "DiscountCampaign"("gamingCenterId", "isActive", "startAt", "endAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'DiscountCampaign') THEN
+        CREATE  INDEX IF NOT EXISTS "DiscountCampaign_code_idx" ON "DiscountCampaign"("code");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'DiscountUsage') THEN
+        CREATE  INDEX IF NOT EXISTS "DiscountUsage_campaignId_customerAccountId_idx" ON "DiscountUsage"("campaignId", "customerAccountId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'DiscountUsage') THEN
+        CREATE  INDEX IF NOT EXISTS "DiscountUsage_reservationId_idx" ON "DiscountUsage"("reservationId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'TicketMessage') THEN
+        CREATE  INDEX IF NOT EXISTS "TicketMessage_ticketId_idx" ON "TicketMessage"("ticketId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Notification') THEN
+        CREATE  INDEX IF NOT EXISTS "Notification_userId_isRead_createdAt_idx" ON "Notification"("userId", "isRead", "createdAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Notification') THEN
+        CREATE  INDEX IF NOT EXISTS "Notification_userId_createdAt_idx" ON "Notification"("userId", "createdAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'NotificationLog') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "NotificationLog_idempotencyKey_key" ON "NotificationLog"("idempotencyKey");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'NotificationLog') THEN
+        CREATE  INDEX IF NOT EXISTS "NotificationLog_status_scheduledAt_idx" ON "NotificationLog"("status", "scheduledAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'NotificationLog') THEN
+        CREATE  INDEX IF NOT EXISTS "NotificationLog_status_nextRetryAt_idx" ON "NotificationLog"("status", "nextRetryAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'NotificationLog') THEN
+        CREATE  INDEX IF NOT EXISTS "NotificationLog_entityType_entityId_idx" ON "NotificationLog"("entityType", "entityId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'NotificationLog') THEN
+        CREATE  INDEX IF NOT EXISTS "NotificationLog_idempotencyKey_idx" ON "NotificationLog"("idempotencyKey");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'NotificationLog') THEN
+        CREATE  INDEX IF NOT EXISTS "NotificationLog_gamingCenterId_createdAt_idx" ON "NotificationLog"("gamingCenterId", "createdAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Refund') THEN
+        CREATE  INDEX IF NOT EXISTS "Refund_paymentId_status_idx" ON "Refund"("paymentId", "status");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Refund') THEN
+        CREATE  INDEX IF NOT EXISTS "Refund_gamingCenterId_status_createdAt_idx" ON "Refund"("gamingCenterId", "status", "createdAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Refund') THEN
+        CREATE  INDEX IF NOT EXISTS "Refund_providerRefundId_idx" ON "Refund"("providerRefundId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Refund') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "Refund_gamingCenterId_idempotencyKey_key" ON "Refund"("gamingCenterId", "idempotencyKey");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'LedgerEntry') THEN
+        CREATE UNIQUE  INDEX IF NOT EXISTS "LedgerEntry_idempotencyKey_key" ON "LedgerEntry"("idempotencyKey");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'LedgerEntry') THEN
+        CREATE  INDEX IF NOT EXISTS "LedgerEntry_gamingCenterId_createdAt_idx" ON "LedgerEntry"("gamingCenterId", "createdAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'LedgerEntry') THEN
+        CREATE  INDEX IF NOT EXISTS "LedgerEntry_paymentId_idx" ON "LedgerEntry"("paymentId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'LedgerEntry') THEN
+        CREATE  INDEX IF NOT EXISTS "LedgerEntry_refundId_idx" ON "LedgerEntry"("refundId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'LedgerEntry') THEN
+        CREATE  INDEX IF NOT EXISTS "LedgerEntry_entryType_idx" ON "LedgerEntry"("entryType");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ReconciliationRecord') THEN
+        CREATE  INDEX IF NOT EXISTS "ReconciliationRecord_gamingCenterId_status_reconciledAt_idx" ON "ReconciliationRecord"("gamingCenterId", "status", "reconciledAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ReconciliationRecord') THEN
+        CREATE  INDEX IF NOT EXISTS "ReconciliationRecord_paymentId_idx" ON "ReconciliationRecord"("paymentId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'WaitlistEntry') THEN
+        CREATE  INDEX IF NOT EXISTS "WaitlistEntry_gamingCenterId_stationId_status_startTime_end_idx" ON "WaitlistEntry"("gamingCenterId", "stationId", "status", "startTime", "endTime");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'WaitlistEntry') THEN
+        CREATE  INDEX IF NOT EXISTS "WaitlistEntry_customerAccountId_status_idx" ON "WaitlistEntry"("customerAccountId", "status");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'WaitlistEntry') THEN
+        CREATE  INDEX IF NOT EXISTS "WaitlistEntry_status_createdAt_idx" ON "WaitlistEntry"("status", "createdAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'WaitlistOffer') THEN
+        CREATE  INDEX IF NOT EXISTS "WaitlistOffer_waitlistEntryId_status_idx" ON "WaitlistOffer"("waitlistEntryId", "status");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'WaitlistOffer') THEN
+        CREATE  INDEX IF NOT EXISTS "WaitlistOffer_gamingCenterId_status_expiresAt_idx" ON "WaitlistOffer"("gamingCenterId", "status", "expiresAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'WaitlistOffer') THEN
+        CREATE  INDEX IF NOT EXISTS "WaitlistOffer_status_expiresAt_idx" ON "WaitlistOffer"("status", "expiresAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsIngestionRun') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsIngestionRun_entity_startedAt_idx" ON "AnalyticsIngestionRun"("entity", "startedAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsIngestionRun') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsIngestionRun_status_startedAt_idx" ON "AnalyticsIngestionRun"("status", "startedAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsTenant') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsTenant_slug_idx" ON "AnalyticsTenant"("slug");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsTenant') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsTenant_isActive_idx" ON "AnalyticsTenant"("isActive");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsCustomer') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsCustomer_phone_idx" ON "AnalyticsCustomer"("phone");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsCustomer') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsCustomer_gamingCenterId_idx" ON "AnalyticsCustomer"("gamingCenterId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsStation') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsStation_gamingCenterId_isActive_idx" ON "AnalyticsStation"("gamingCenterId", "isActive");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsReservation') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsReservation_gamingCenterId_startTime_idx" ON "AnalyticsReservation"("gamingCenterId", "startTime");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsReservation') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsReservation_gamingCenterId_status_startTime_idx" ON "AnalyticsReservation"("gamingCenterId", "status", "startTime");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsReservation') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsReservation_customerAccountId_startTime_idx" ON "AnalyticsReservation"("customerAccountId", "startTime");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsGamingSession') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsGamingSession_reservationId_idx" ON "AnalyticsGamingSession"("reservationId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsGamingSession') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsGamingSession_stationId_startTime_idx" ON "AnalyticsGamingSession"("stationId", "startTime");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsGamingSession') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsGamingSession_gamingCenterId_idx" ON "AnalyticsGamingSession"("gamingCenterId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsPayment') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsPayment_gamingCenterId_status_paidAt_idx" ON "AnalyticsPayment"("gamingCenterId", "status", "paidAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsPayment') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsPayment_reservationId_idx" ON "AnalyticsPayment"("reservationId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsLedgerEntry') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsLedgerEntry_gamingCenterId_sourceCreatedAt_idx" ON "AnalyticsLedgerEntry"("gamingCenterId", "sourceCreatedAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsLedgerEntry') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsLedgerEntry_paymentId_idx" ON "AnalyticsLedgerEntry"("paymentId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsLedgerEntry') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsLedgerEntry_entryType_idx" ON "AnalyticsLedgerEntry"("entryType");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsRefund') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsRefund_gamingCenterId_status_sourceCreatedAt_idx" ON "AnalyticsRefund"("gamingCenterId", "status", "sourceCreatedAt");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- CreateIndex
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AnalyticsRefund') THEN
+        CREATE  INDEX IF NOT EXISTS "AnalyticsRefund_paymentId_idx" ON "AnalyticsRefund"("paymentId");
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "User" ADD CONSTRAINT "User_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "AuthorProfile" ADD CONSTRAINT "AuthorProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "AuthorProfile" ADD CONSTRAINT "AuthorProfile_avatarId_fkey" FOREIGN KEY ("avatarId") REFERENCES "Media"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "CustomerProfile" ADD CONSTRAINT "CustomerProfile_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "CustomerProfile" ADD CONSTRAINT "CustomerProfile_customerAccountId_fkey" FOREIGN KEY ("customerAccountId") REFERENCES "CustomerAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Media" ADD CONSTRAINT "Media_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Media" ADD CONSTRAINT "Media_uploadedById_fkey" FOREIGN KEY ("uploadedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "PostMedia" ADD CONSTRAINT "PostMedia_postId_fkey" FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "PostMedia" ADD CONSTRAINT "PostMedia_mediaId_fkey" FOREIGN KEY ("mediaId") REFERENCES "Media"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Category" ADD CONSTRAINT "Category_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Category" ADD CONSTRAINT "Category_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Tag" ADD CONSTRAINT "Tag_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Series" ADD CONSTRAINT "Series_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Post" ADD CONSTRAINT "Post_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Post" ADD CONSTRAINT "Post_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "AuthorProfile"("userId") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Post" ADD CONSTRAINT "Post_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Post" ADD CONSTRAINT "Post_seriesId_fkey" FOREIGN KEY ("seriesId") REFERENCES "Series"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Post" ADD CONSTRAINT "Post_coverMediaId_fkey" FOREIGN KEY ("coverMediaId") REFERENCES "Media"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Post" ADD CONSTRAINT "Post_ogImageId_fkey" FOREIGN KEY ("ogImageId") REFERENCES "Media"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "PostTag" ADD CONSTRAINT "PostTag_postId_fkey" FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "PostTag" ADD CONSTRAINT "PostTag_tagId_fkey" FOREIGN KEY ("tagId") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Revision" ADD CONSTRAINT "Revision_postId_fkey" FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Revision" ADD CONSTRAINT "Revision_editorId_fkey" FOREIGN KEY ("editorId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Comment" ADD CONSTRAINT "Comment_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Comment" ADD CONSTRAINT "Comment_postId_fkey" FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Comment" ADD CONSTRAINT "Comment_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Comment" ADD CONSTRAINT "Comment_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Comment"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Reaction" ADD CONSTRAINT "Reaction_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Reaction" ADD CONSTRAINT "Reaction_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "ReactionAggregate" ADD CONSTRAINT "ReactionAggregate_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Menu" ADD CONSTRAINT "Menu_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "MenuItem" ADD CONSTRAINT "MenuItem_menuId_fkey" FOREIGN KEY ("menuId") REFERENCES "Menu"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "MenuItem" ADD CONSTRAINT "MenuItem_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "MenuItem"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "SiteSettings" ADD CONSTRAINT "SiteSettings_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Page" ADD CONSTRAINT "Page_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "Page" ADD CONSTRAINT "Page_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Page"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
+-- AddForeignKey
+DO $$ BEGIN ALTER TABLE "PageSection" ADD CONSTRAINT "PageSection_pageId_fkey" FOREIGN KEY ("pageId") REFERENCES "Page"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
+
 -- AddForeignKey
-ALTER TABLE "PageSlugHistory" ADD CONSTRAINT "PageSlugHistory_pageId_fkey" FOREIGN KEY ("pageId") REFERENCES "Page"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "PageSlugHistory" ADD CONSTRAINT "PageSlugHistory_pageId_fkey" FOREIGN KEY ("pageId") REFERENCES "Page"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "PageMedia" ADD CONSTRAINT "PageMedia_pageId_fkey" FOREIGN KEY ("pageId") REFERENCES "Page"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "PageMedia" ADD CONSTRAINT "PageMedia_pageId_fkey" FOREIGN KEY ("pageId") REFERENCES "Page"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "PageMedia" ADD CONSTRAINT "PageMedia_mediaId_fkey" FOREIGN KEY ("mediaId") REFERENCES "Media"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "PageMedia" ADD CONSTRAINT "PageMedia_mediaId_fkey" FOREIGN KEY ("mediaId") REFERENCES "Media"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "SocialLink" ADD CONSTRAINT "SocialLink_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "SocialLink" ADD CONSTRAINT "SocialLink_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Address" ADD CONSTRAINT "Address_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Address" ADD CONSTRAINT "Address_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Settings" ADD CONSTRAINT "Settings_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Settings" ADD CONSTRAINT "Settings_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "GameStation" ADD CONSTRAINT "GameStation_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "GameStation" ADD CONSTRAINT "GameStation_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "StaffStationSkill" ADD CONSTRAINT "StaffStationSkill_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "StaffStationSkill" ADD CONSTRAINT "StaffStationSkill_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "StaffStationSkill" ADD CONSTRAINT "StaffStationSkill_stationId_fkey" FOREIGN KEY ("stationId") REFERENCES "GameStation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "StaffStationSkill" ADD CONSTRAINT "StaffStationSkill_stationId_fkey" FOREIGN KEY ("stationId") REFERENCES "GameStation"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "StaffShift" ADD CONSTRAINT "StaffShift_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "StaffShift" ADD CONSTRAINT "StaffShift_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "StaffShift" ADD CONSTRAINT "StaffShift_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "StaffShift" ADD CONSTRAINT "StaffShift_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_customerProfileId_fkey" FOREIGN KEY ("customerProfileId") REFERENCES "CustomerProfile"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_customerProfileId_fkey" FOREIGN KEY ("customerProfileId") REFERENCES "CustomerProfile"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_customerAccountId_fkey" FOREIGN KEY ("customerAccountId") REFERENCES "CustomerAccount"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_customerAccountId_fkey" FOREIGN KEY ("customerAccountId") REFERENCES "CustomerAccount"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_stationId_fkey" FOREIGN KEY ("stationId") REFERENCES "GameStation"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_stationId_fkey" FOREIGN KEY ("stationId") REFERENCES "GameStation"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_staffId_fkey" FOREIGN KEY ("staffId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_staffId_fkey" FOREIGN KEY ("staffId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_discountId_fkey" FOREIGN KEY ("discountId") REFERENCES "Discount"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_discountId_fkey" FOREIGN KEY ("discountId") REFERENCES "Discount"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "DiscountCampaign"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "DiscountCampaign"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_canceledByUserId_fkey" FOREIGN KEY ("canceledByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_canceledByUserId_fkey" FOREIGN KEY ("canceledByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_groupBookingId_fkey" FOREIGN KEY ("groupBookingId") REFERENCES "GroupBooking"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Reservation" ADD CONSTRAINT "Reservation_groupBookingId_fkey" FOREIGN KEY ("groupBookingId") REFERENCES "GroupBooking"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "GroupBooking" ADD CONSTRAINT "GroupBooking_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "GroupBooking" ADD CONSTRAINT "GroupBooking_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "GroupBooking" ADD CONSTRAINT "GroupBooking_customerProfileId_fkey" FOREIGN KEY ("customerProfileId") REFERENCES "CustomerProfile"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "GroupBooking" ADD CONSTRAINT "GroupBooking_customerProfileId_fkey" FOREIGN KEY ("customerProfileId") REFERENCES "CustomerProfile"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "GroupBooking" ADD CONSTRAINT "GroupBooking_customerAccountId_fkey" FOREIGN KEY ("customerAccountId") REFERENCES "CustomerAccount"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "GroupBooking" ADD CONSTRAINT "GroupBooking_customerAccountId_fkey" FOREIGN KEY ("customerAccountId") REFERENCES "CustomerAccount"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "GroupBooking" ADD CONSTRAINT "GroupBooking_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "GroupBooking" ADD CONSTRAINT "GroupBooking_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "GroupBooking" ADD CONSTRAINT "GroupBooking_canceledByUserId_fkey" FOREIGN KEY ("canceledByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "GroupBooking" ADD CONSTRAINT "GroupBooking_canceledByUserId_fkey" FOREIGN KEY ("canceledByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "GroupBookingItem" ADD CONSTRAINT "GroupBookingItem_groupBookingId_fkey" FOREIGN KEY ("groupBookingId") REFERENCES "GroupBooking"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "GroupBookingItem" ADD CONSTRAINT "GroupBookingItem_groupBookingId_fkey" FOREIGN KEY ("groupBookingId") REFERENCES "GroupBooking"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "GroupBookingItem" ADD CONSTRAINT "GroupBookingItem_stationId_fkey" FOREIGN KEY ("stationId") REFERENCES "GameStation"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "GroupBookingItem" ADD CONSTRAINT "GroupBookingItem_stationId_fkey" FOREIGN KEY ("stationId") REFERENCES "GameStation"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "GroupBookingItem" ADD CONSTRAINT "GroupBookingItem_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "GroupBookingItem" ADD CONSTRAINT "GroupBookingItem_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ReservationTimeProposal" ADD CONSTRAINT "ReservationTimeProposal_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "ReservationTimeProposal" ADD CONSTRAINT "ReservationTimeProposal_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ReservationTimeProposal" ADD CONSTRAINT "ReservationTimeProposal_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "ReservationTimeProposal" ADD CONSTRAINT "ReservationTimeProposal_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ReservationHistory" ADD CONSTRAINT "ReservationHistory_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "ReservationHistory" ADD CONSTRAINT "ReservationHistory_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "GamingSession" ADD CONSTRAINT "GamingSession_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "GamingSession" ADD CONSTRAINT "GamingSession_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "GamingSession" ADD CONSTRAINT "GamingSession_stationId_fkey" FOREIGN KEY ("stationId") REFERENCES "GameStation"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "GamingSession" ADD CONSTRAINT "GamingSession_stationId_fkey" FOREIGN KEY ("stationId") REFERENCES "GameStation"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "StationMaintenance" ADD CONSTRAINT "StationMaintenance_stationId_fkey" FOREIGN KEY ("stationId") REFERENCES "GameStation"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "StationMaintenance" ADD CONSTRAINT "StationMaintenance_stationId_fkey" FOREIGN KEY ("stationId") REFERENCES "GameStation"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "AnalyticsEvent" ADD CONSTRAINT "AnalyticsEvent_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "AnalyticsEvent" ADD CONSTRAINT "AnalyticsEvent_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "GamingCenterExpense" ADD CONSTRAINT "GamingCenterExpense_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "GamingCenterExpense" ADD CONSTRAINT "GamingCenterExpense_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "MarketingCampaignSpend" ADD CONSTRAINT "MarketingCampaignSpend_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "MarketingCampaignSpend" ADD CONSTRAINT "MarketingCampaignSpend_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "RevenueForecastRun" ADD CONSTRAINT "RevenueForecastRun_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "RevenueForecastRun" ADD CONSTRAINT "RevenueForecastRun_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Tournament" ADD CONSTRAINT "Tournament_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Tournament" ADD CONSTRAINT "Tournament_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Payment" ADD CONSTRAINT "Payment_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Payment" ADD CONSTRAINT "Payment_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Payment" ADD CONSTRAINT "Payment_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Payment" ADD CONSTRAINT "Payment_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Payment" ADD CONSTRAINT "Payment_groupBookingId_fkey" FOREIGN KEY ("groupBookingId") REFERENCES "GroupBooking"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Payment" ADD CONSTRAINT "Payment_groupBookingId_fkey" FOREIGN KEY ("groupBookingId") REFERENCES "GroupBooking"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "WalletTransaction" ADD CONSTRAINT "WalletTransaction_customerAccountId_fkey" FOREIGN KEY ("customerAccountId") REFERENCES "CustomerAccount"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "WalletTransaction" ADD CONSTRAINT "WalletTransaction_customerAccountId_fkey" FOREIGN KEY ("customerAccountId") REFERENCES "CustomerAccount"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "WalletTransaction" ADD CONSTRAINT "WalletTransaction_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "WalletTransaction" ADD CONSTRAINT "WalletTransaction_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Membership" ADD CONSTRAINT "Membership_customerAccountId_fkey" FOREIGN KEY ("customerAccountId") REFERENCES "CustomerAccount"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Membership" ADD CONSTRAINT "Membership_customerAccountId_fkey" FOREIGN KEY ("customerAccountId") REFERENCES "CustomerAccount"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "CommissionPolicy" ADD CONSTRAINT "CommissionPolicy_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "CommissionPolicy" ADD CONSTRAINT "CommissionPolicy_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Earning" ADD CONSTRAINT "Earning_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Earning" ADD CONSTRAINT "Earning_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Earning" ADD CONSTRAINT "Earning_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Earning" ADD CONSTRAINT "Earning_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "EarningPayment" ADD CONSTRAINT "EarningPayment_earningId_fkey" FOREIGN KEY ("earningId") REFERENCES "Earning"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "EarningPayment" ADD CONSTRAINT "EarningPayment_earningId_fkey" FOREIGN KEY ("earningId") REFERENCES "Earning"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Rating" ADD CONSTRAINT "Rating_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Rating" ADD CONSTRAINT "Rating_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Rating" ADD CONSTRAINT "Rating_customerAccountId_fkey" FOREIGN KEY ("customerAccountId") REFERENCES "CustomerAccount"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Rating" ADD CONSTRAINT "Rating_customerAccountId_fkey" FOREIGN KEY ("customerAccountId") REFERENCES "CustomerAccount"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Rating" ADD CONSTRAINT "Rating_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Rating" ADD CONSTRAINT "Rating_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Rating" ADD CONSTRAINT "Rating_stationId_fkey" FOREIGN KEY ("stationId") REFERENCES "GameStation"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Rating" ADD CONSTRAINT "Rating_stationId_fkey" FOREIGN KEY ("stationId") REFERENCES "GameStation"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "CustomerAccount"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "CustomerAccount"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Ticket" ADD CONSTRAINT "Ticket_customerAccountId_fkey" FOREIGN KEY ("customerAccountId") REFERENCES "CustomerAccount"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Ticket" ADD CONSTRAINT "Ticket_customerAccountId_fkey" FOREIGN KEY ("customerAccountId") REFERENCES "CustomerAccount"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Ticket" ADD CONSTRAINT "Ticket_assignedToUserId_fkey" FOREIGN KEY ("assignedToUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Ticket" ADD CONSTRAINT "Ticket_assignedToUserId_fkey" FOREIGN KEY ("assignedToUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Discount" ADD CONSTRAINT "Discount_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Discount" ADD CONSTRAINT "Discount_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Discount" ADD CONSTRAINT "Discount_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Discount" ADD CONSTRAINT "Discount_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "DiscountCampaign" ADD CONSTRAINT "DiscountCampaign_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "DiscountCampaign" ADD CONSTRAINT "DiscountCampaign_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "DiscountCampaign" ADD CONSTRAINT "DiscountCampaign_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "DiscountCampaign" ADD CONSTRAINT "DiscountCampaign_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "DiscountUsage" ADD CONSTRAINT "DiscountUsage_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "DiscountCampaign"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "DiscountUsage" ADD CONSTRAINT "DiscountUsage_campaignId_fkey" FOREIGN KEY ("campaignId") REFERENCES "DiscountCampaign"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "DiscountUsage" ADD CONSTRAINT "DiscountUsage_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "DiscountUsage" ADD CONSTRAINT "DiscountUsage_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "DiscountUsage" ADD CONSTRAINT "DiscountUsage_customerAccountId_fkey" FOREIGN KEY ("customerAccountId") REFERENCES "CustomerAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "DiscountUsage" ADD CONSTRAINT "DiscountUsage_customerAccountId_fkey" FOREIGN KEY ("customerAccountId") REFERENCES "CustomerAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "TicketMessage" ADD CONSTRAINT "TicketMessage_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "Ticket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "TicketMessage" ADD CONSTRAINT "TicketMessage_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "Ticket"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Refund" ADD CONSTRAINT "Refund_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Refund" ADD CONSTRAINT "Refund_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "Refund" ADD CONSTRAINT "Refund_paymentId_fkey" FOREIGN KEY ("paymentId") REFERENCES "Payment"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "Refund" ADD CONSTRAINT "Refund_paymentId_fkey" FOREIGN KEY ("paymentId") REFERENCES "Payment"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "LedgerEntry" ADD CONSTRAINT "LedgerEntry_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "LedgerEntry" ADD CONSTRAINT "LedgerEntry_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "LedgerEntry" ADD CONSTRAINT "LedgerEntry_paymentId_fkey" FOREIGN KEY ("paymentId") REFERENCES "Payment"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "LedgerEntry" ADD CONSTRAINT "LedgerEntry_paymentId_fkey" FOREIGN KEY ("paymentId") REFERENCES "Payment"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "LedgerEntry" ADD CONSTRAINT "LedgerEntry_refundId_fkey" FOREIGN KEY ("refundId") REFERENCES "Refund"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "LedgerEntry" ADD CONSTRAINT "LedgerEntry_refundId_fkey" FOREIGN KEY ("refundId") REFERENCES "Refund"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ReconciliationRecord" ADD CONSTRAINT "ReconciliationRecord_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "ReconciliationRecord" ADD CONSTRAINT "ReconciliationRecord_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "ReconciliationRecord" ADD CONSTRAINT "ReconciliationRecord_paymentId_fkey" FOREIGN KEY ("paymentId") REFERENCES "Payment"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "ReconciliationRecord" ADD CONSTRAINT "ReconciliationRecord_paymentId_fkey" FOREIGN KEY ("paymentId") REFERENCES "Payment"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "WaitlistEntry" ADD CONSTRAINT "WaitlistEntry_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "WaitlistEntry" ADD CONSTRAINT "WaitlistEntry_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "WaitlistEntry" ADD CONSTRAINT "WaitlistEntry_customerAccountId_fkey" FOREIGN KEY ("customerAccountId") REFERENCES "CustomerAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "WaitlistEntry" ADD CONSTRAINT "WaitlistEntry_customerAccountId_fkey" FOREIGN KEY ("customerAccountId") REFERENCES "CustomerAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "WaitlistEntry" ADD CONSTRAINT "WaitlistEntry_customerProfileId_fkey" FOREIGN KEY ("customerProfileId") REFERENCES "CustomerProfile"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "WaitlistEntry" ADD CONSTRAINT "WaitlistEntry_customerProfileId_fkey" FOREIGN KEY ("customerProfileId") REFERENCES "CustomerProfile"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "WaitlistEntry" ADD CONSTRAINT "WaitlistEntry_stationId_fkey" FOREIGN KEY ("stationId") REFERENCES "GameStation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "WaitlistEntry" ADD CONSTRAINT "WaitlistEntry_stationId_fkey" FOREIGN KEY ("stationId") REFERENCES "GameStation"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "WaitlistOffer" ADD CONSTRAINT "WaitlistOffer_waitlistEntryId_fkey" FOREIGN KEY ("waitlistEntryId") REFERENCES "WaitlistEntry"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "WaitlistOffer" ADD CONSTRAINT "WaitlistOffer_waitlistEntryId_fkey" FOREIGN KEY ("waitlistEntryId") REFERENCES "WaitlistEntry"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "WaitlistOffer" ADD CONSTRAINT "WaitlistOffer_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "WaitlistOffer" ADD CONSTRAINT "WaitlistOffer_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "WaitlistOffer" ADD CONSTRAINT "WaitlistOffer_stationId_fkey" FOREIGN KEY ("stationId") REFERENCES "GameStation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "WaitlistOffer" ADD CONSTRAINT "WaitlistOffer_stationId_fkey" FOREIGN KEY ("stationId") REFERENCES "GameStation"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
 
 -- AddForeignKey
-ALTER TABLE "WaitlistOffer" ADD CONSTRAINT "WaitlistOffer_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN ALTER TABLE "WaitlistOffer" ADD CONSTRAINT "WaitlistOffer_reservationId_fkey" FOREIGN KEY ("reservationId") REFERENCES "Reservation"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object OR undefined_table OR undefined_column THEN NULL; END $$;
