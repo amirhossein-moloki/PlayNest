@@ -58,6 +58,8 @@ Services will be accessible via Nginx reverse proxy on port 80:
 - **Sayra Health Check**: `http://localhost/health`
 - **Sayra Swagger Docs**: `http://localhost/api-docs`
 
+For details on launching without SSL/HTTPS, see [Local Development Guide (HTTP Mode)](docs/LOCAL_HTTP_DEVELOPMENT_GUIDE.md).
+
 ### 4. Local Development
 
 #### Sayra Reservation Backend (`sayra/`):
