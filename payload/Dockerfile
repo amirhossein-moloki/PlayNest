@@ -6,6 +6,7 @@ WORKDIR /app
 
 # Disable Husky during Docker build
 ENV HUSKY=0
+ENV NODE_OPTIONS="--max-old-space-size=8192"
 
 RUN corepack enable pnpm
 
@@ -15,7 +16,7 @@ COPY tools ./tools
 COPY test ./test
 COPY templates ./templates
 
-RUN pnpm i --frozen-lockfile
+RUN pnpm i --no-frozen-lockfile
 
 FROM base AS builder
 WORKDIR /app
@@ -34,6 +35,7 @@ COPY --from=deps /app/templates ./templates
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV PAYLOAD_SECRET="build_time_payload_secret_for_docker_build_32_chars"
 RUN pnpm run build:all && pnpm run build:app
 
 FROM base AS runner
