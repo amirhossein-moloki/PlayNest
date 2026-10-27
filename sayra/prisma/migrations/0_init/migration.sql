@@ -94,6 +94,16 @@ CREATE TYPE "TicketSenderType" AS ENUM ('USER', 'SUPPORT');
 -- CreateEnum
 CREATE TYPE "PaymentProvider" AS ENUM ('MANUAL', 'STRIPE', 'ZARINPAL');
 
+-- Additional Base Enums
+CREATE TYPE "NotificationType" AS ENUM ('RESERVATION_CREATED', 'RESERVATION_CONFIRMED', 'RESERVATION_REJECTED', 'RESERVATION_CANCELLED', 'RESERVATION_TIME_PROPOSED');
+CREATE TYPE "ExpenseCategory" AS ENUM ('RENT', 'ELECTRICITY_ENERGY', 'INTERNET_COMMUNICATION', 'SALARIES_WAGES', 'MAINTENANCE_REPAIR', 'PARTS_EQUIPMENT', 'MARKETING', 'ADMINISTRATIVE', 'OTHER_SERVICES', 'OTHER_DOCUMENTED');
+CREATE TYPE "ExpenseStatus" AS ENUM ('DRAFT', 'APPROVED', 'REJECTED', 'VOID');
+CREATE TYPE "MaintenanceStatus" AS ENUM ('REPORTED', 'IN_MAINTENANCE', 'REPAIRED', 'CANCELLED');
+CREATE TYPE "MaintenanceSeverity" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL');
+CREATE TYPE "CancellationCategory" AS ENUM ('CUSTOMER_CANCEL', 'CENTER_CANCEL', 'PAYMENT_FAILED', 'CAPACITY_UNAVAILABLE', 'TECHNICAL_ISSUE', 'SCHEDULE_CONFLICT', 'OPERATIONAL_ISSUE', 'EMERGENCY', 'OTHER', 'UNKNOWN');
+CREATE TYPE "CancellationActor" AS ENUM ('CUSTOMER', 'STAFF', 'SYSTEM');
+
+
 -- CreateTable
 CREATE TABLE "GamingCenter" (
     "id" TEXT NOT NULL,
@@ -537,6 +547,95 @@ CREATE TABLE "PageSlugHistory" (
 );
 
 -- CreateTable
+
+-- CreateTable Notification
+CREATE TABLE "Notification" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "type" "NotificationType" NOT NULL,
+    "title" TEXT NOT NULL,
+    "message" TEXT NOT NULL,
+    "read" BOOLEAN NOT NULL DEFAULT false,
+    "data" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Notification_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable AnalyticsEvent
+CREATE TABLE "AnalyticsEvent" (
+    "id" TEXT NOT NULL,
+    "gamingCenterId" TEXT,
+    "eventType" TEXT NOT NULL,
+    "visitorId" TEXT NOT NULL,
+    "sessionId" TEXT NOT NULL,
+    "pagePath" TEXT,
+    "stationId" TEXT,
+    "reservationId" TEXT,
+    "utmSource" TEXT,
+    "utmMedium" TEXT,
+    "utmCampaign" TEXT,
+    "schemaVersion" INTEGER NOT NULL DEFAULT 1,
+    "deduplicationKey" TEXT,
+    "payload" JSONB,
+    "timestamp" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AnalyticsEvent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable GamingCenterExpense
+CREATE TABLE "GamingCenterExpense" (
+    "id" TEXT NOT NULL,
+    "gamingCenterId" TEXT NOT NULL,
+    "category" "ExpenseCategory" NOT NULL,
+    "amount" DOUBLE PRECISION NOT NULL,
+    "currency" TEXT NOT NULL DEFAULT 'IRR',
+    "expenseDate" TIMESTAMPTZ(6) NOT NULL,
+    "description" TEXT,
+    "referenceNumber" TEXT,
+    "status" "ExpenseStatus" NOT NULL DEFAULT 'APPROVED',
+    "createdById" TEXT,
+    "approvedById" TEXT,
+    "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "GamingCenterExpense_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable MarketingCampaignSpend
+CREATE TABLE "MarketingCampaignSpend" (
+    "id" TEXT NOT NULL,
+    "gamingCenterId" TEXT,
+    "campaignId" TEXT,
+    "campaignName" TEXT NOT NULL,
+    "source" TEXT NOT NULL,
+    "medium" TEXT,
+    "amount" DOUBLE PRECISION NOT NULL,
+    "currency" TEXT NOT NULL DEFAULT 'IRR',
+    "startDate" TIMESTAMPTZ(6) NOT NULL,
+    "endDate" TIMESTAMPTZ(6) NOT NULL,
+    "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "MarketingCampaignSpend_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable RevenueForecastRun
+CREATE TABLE "RevenueForecastRun" (
+    "id" TEXT NOT NULL,
+    "gamingCenterId" TEXT NOT NULL,
+    "modelName" TEXT NOT NULL,
+    "modelVersion" TEXT NOT NULL,
+    "forecastHorizonDays" INTEGER NOT NULL,
+    "evaluationMetrics" JSONB,
+    "sufficiencyStatus" TEXT NOT NULL,
+    "forecastData" JSONB NOT NULL,
+    "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RevenueForecastRun_pkey" PRIMARY KEY ("id")
+);
+
 CREATE TABLE "GamingCenterAnalytics" (
     "gamingCenterId" TEXT NOT NULL,
     "date" DATE NOT NULL,
@@ -1053,3 +1152,30 @@ ALTER TABLE "Membership" ADD CONSTRAINT "Membership_customerAccountId_fkey" FORE
 
 -- AddForeignKey
 ALTER TABLE "Tournament" ADD CONSTRAINT "Tournament_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+
+-- Foreign key and indexes for Notification
+CREATE INDEX "Notification_userId_createdAt_idx" ON "Notification"("userId", "createdAt");
+CREATE INDEX "Notification_userId_read_idx" ON "Notification"("userId", "read");
+ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Foreign keys and indexes for AnalyticsEvent
+CREATE INDEX "AnalyticsEvent_gamingCenterId_timestamp_idx" ON "AnalyticsEvent"("gamingCenterId", "timestamp");
+CREATE INDEX "AnalyticsEvent_eventType_timestamp_idx" ON "AnalyticsEvent"("eventType", "timestamp");
+CREATE INDEX "AnalyticsEvent_visitorId_timestamp_idx" ON "AnalyticsEvent"("visitorId", "timestamp");
+CREATE INDEX "AnalyticsEvent_deduplicationKey_idx" ON "AnalyticsEvent"("deduplicationKey");
+ALTER TABLE "AnalyticsEvent" ADD CONSTRAINT "AnalyticsEvent_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Foreign key and indexes for GamingCenterExpense
+CREATE INDEX "GamingCenterExpense_gamingCenterId_expenseDate_idx" ON "GamingCenterExpense"("gamingCenterId", "expenseDate");
+CREATE INDEX "GamingCenterExpense_gamingCenterId_category_expenseDate_idx" ON "GamingCenterExpense"("gamingCenterId", "category", "expenseDate");
+ALTER TABLE "GamingCenterExpense" ADD CONSTRAINT "GamingCenterExpense_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Foreign key and indexes for MarketingCampaignSpend
+CREATE INDEX "MarketingCampaignSpend_gamingCenterId_startDate_endDate_idx" ON "MarketingCampaignSpend"("gamingCenterId", "startDate", "endDate");
+CREATE INDEX "MarketingCampaignSpend_campaignId_idx" ON "MarketingCampaignSpend"("campaignId");
+ALTER TABLE "MarketingCampaignSpend" ADD CONSTRAINT "MarketingCampaignSpend_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Foreign key and indexes for RevenueForecastRun
+CREATE INDEX "RevenueForecastRun_gamingCenterId_createdAt_idx" ON "RevenueForecastRun"("gamingCenterId", "createdAt");
+ALTER TABLE "RevenueForecastRun" ADD CONSTRAINT "RevenueForecastRun_gamingCenterId_fkey" FOREIGN KEY ("gamingCenterId") REFERENCES "GamingCenter"("id") ON DELETE CASCADE ON UPDATE CASCADE;
