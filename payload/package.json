@@ -158,6 +158,7 @@
     "@libsql/client": "0.14.0",
     "@next/bundle-analyzer": "16.4.0",
     "@payloadcms/db-postgres": "workspace:*",
+    "@payloadcms/email-nodemailer": "workspace:*",
     "@payloadcms/eslint-config": "workspace:*",
     "@payloadcms/richtext-lexical": "workspace:*",
     "@payloadcms/transformer-sharp": "workspace:*",
