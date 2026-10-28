@@ -302,33 +302,64 @@
     },
     "/articles": {
       "get": {
-        "operationId": "listArticles",
+        "summary": "List articles",
+        "description": "Retrieves a paginated list of articles. Unauthenticated requests return only published articles. Authenticated requests can filter by draft status.",
+        "operationId": "list_articles",
         "tags": [
           "Articles"
         ],
-        "summary": "List articles",
-        "description": "Retrieves a paginated list of articles. Unauthenticated users receive only published articles.",
         "parameters": [
           {
-            "$ref": "#/components/parameters/depth"
+            "name": "depth",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            },
+            "description": "Depth of nested relationship resolution."
           },
           {
-            "$ref": "#/components/parameters/limit"
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            },
+            "description": "Page number."
           },
           {
-            "$ref": "#/components/parameters/page"
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10
+            },
+            "description": "Items per page."
           },
           {
-            "$ref": "#/components/parameters/sort"
+            "name": "where[status][equals]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "published"
+              ]
+            },
+            "description": "Filter by article publication status."
           },
           {
-            "$ref": "#/components/parameters/where"
-          },
-          {
-            "$ref": "#/components/parameters/draft"
-          },
-          {
-            "$ref": "#/components/parameters/locale"
+            "name": "where[slug][equals]",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by exact article slug."
           }
         ],
         "responses": {
@@ -1670,18 +1701,20 @@
         "type": "object",
         "required": [
           "title",
-          "slug"
+          "slug",
+          "status"
         ],
         "properties": {
           "title": {
-            "type": "string"
+            "type": "string",
+            "example": "Ultimate Gaming Center Guide 2026"
           },
           "slug": {
-            "type": "string"
+            "type": "string",
+            "example": "ultimate-gaming-center-guide-2026"
           },
           "content": {
-            "type": "object",
-            "description": "Lexical RichText AST object"
+            "$ref": "#/components/schemas/LexicalRichText"
           },
           "status": {
             "type": "string",
@@ -1704,14 +1737,15 @@
               ],
               "properties": {
                 "sayraVenueId": {
-                  "type": "string"
+                  "type": "string",
+                  "example": "clh1234560000yy0887654321"
                 }
               }
             }
           },
           "heroMedia": {
             "type": "string",
-            "description": "Media CUID ID"
+            "description": "Media file ID"
           },
           "seo": {
             "$ref": "#/components/schemas/SEO"
@@ -1719,27 +1753,76 @@
         }
       },
       "Article": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/ArticleInput"
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "slug",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "clh9876540000yy0812345678"
           },
-          {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "createdAt": {
-                "type": "string",
-                "format": "date-time"
-              },
-              "updatedAt": {
-                "type": "string",
-                "format": "date-time"
+          "title": {
+            "type": "string",
+            "example": "Ultimate Gaming Center Guide 2026"
+          },
+          "slug": {
+            "type": "string",
+            "example": "ultimate-gaming-center-guide-2026"
+          },
+          "content": {
+            "$ref": "#/components/schemas/LexicalRichText"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published"
+            ]
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "featuredVenues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "sayraVenueId": {
+                  "type": "string"
+                }
               }
             }
+          },
+          "heroMedia": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/components/schemas/Media"
+              }
+            ]
+          },
+          "seo": {
+            "$ref": "#/components/schemas/SEO"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
           }
-        ]
+        }
       },
       "PaginatedArticles": {
         "type": "object",
@@ -2158,6 +2241,872 @@
             }
           }
         }
+      },
+      "ImageBlock": {
+        "type": "object",
+        "required": [
+          "blockType",
+          "media"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "imageBlock"
+            ]
+          },
+          "media": {
+            "type": "string",
+            "description": "Media upload ID or object"
+          },
+          "caption": {
+            "type": "string"
+          },
+          "aspectRatio": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "16/9",
+              "4/3",
+              "1/1"
+            ]
+          },
+          "altText": {
+            "type": "string"
+          }
+        }
+      },
+      "GalleryBlock": {
+        "type": "object",
+        "required": [
+          "blockType",
+          "items"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "galleryBlock"
+            ]
+          },
+          "layout": {
+            "type": "string",
+            "enum": [
+              "grid",
+              "carousel",
+              "masonry"
+            ]
+          },
+          "columns": {
+            "type": "integer",
+            "enum": [
+              2,
+              3,
+              4
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "media": {
+                  "type": "string"
+                },
+                "caption": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "TableBlock": {
+        "type": "object",
+        "required": [
+          "blockType",
+          "rows"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "tableBlock"
+            ]
+          },
+          "hasHeader": {
+            "type": "boolean",
+            "default": true
+          },
+          "caption": {
+            "type": "string"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "cells": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "CalloutBlock": {
+        "type": "object",
+        "required": [
+          "blockType",
+          "content"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "calloutBlock"
+            ]
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warning",
+              "success",
+              "danger",
+              "tip"
+            ],
+            "default": "info"
+          },
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          }
+        }
+      },
+      "CtaBlock": {
+        "type": "object",
+        "required": [
+          "blockType",
+          "headline",
+          "buttonText",
+          "buttonUrl"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "ctaBlock"
+            ]
+          },
+          "headline": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "buttonText": {
+            "type": "string"
+          },
+          "buttonUrl": {
+            "type": "string"
+          },
+          "variant": {
+            "type": "string",
+            "enum": [
+              "primary",
+              "secondary",
+              "accent"
+            ],
+            "default": "primary"
+          }
+        }
+      },
+      "TableOfContentsBlock": {
+        "type": "object",
+        "required": [
+          "blockType"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "tableOfContentsBlock"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "default": "Table of Contents"
+          },
+          "maxDepth": {
+            "type": "integer",
+            "enum": [
+              2,
+              3,
+              4
+            ],
+            "default": 3
+          }
+        }
+      },
+      "VenueCardBlock": {
+        "type": "object",
+        "required": [
+          "blockType",
+          "sayraVenueId"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "venueCardBlock"
+            ]
+          },
+          "sayraVenueId": {
+            "type": "string"
+          },
+          "customTitle": {
+            "type": "string"
+          },
+          "highlightFeatures": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ctaText": {
+            "type": "string",
+            "default": "Book Now"
+          }
+        }
+      },
+      "MapBlock": {
+        "type": "object",
+        "required": [
+          "blockType",
+          "latitude",
+          "longitude"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "mapBlock"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "zoom": {
+            "type": "integer",
+            "default": 15
+          },
+          "address": {
+            "type": "string"
+          }
+        }
+      },
+      "EventListBlock": {
+        "type": "object",
+        "required": [
+          "blockType"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "eventListBlock"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "filterByVenue": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 5
+          },
+          "selectedEvents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CalendarBlock": {
+        "type": "object",
+        "required": [
+          "blockType"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "calendarBlock"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "sayraVenueId": {
+            "type": "string"
+          }
+        }
+      },
+      "BannerBlock": {
+        "type": "object",
+        "required": [
+          "blockType",
+          "message"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "bannerBlock"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "linkUrl": {
+            "type": "string"
+          },
+          "linkText": {
+            "type": "string"
+          },
+          "style": {
+            "type": "string",
+            "enum": [
+              "promo",
+              "announcement",
+              "alert"
+            ],
+            "default": "promo"
+          }
+        }
+      },
+      "VideoBlock": {
+        "type": "object",
+        "required": [
+          "blockType",
+          "url"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "videoBlock"
+            ]
+          },
+          "url": {
+            "type": "string"
+          },
+          "caption": {
+            "type": "string"
+          },
+          "autoplay": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "FaqBlock": {
+        "type": "object",
+        "required": [
+          "blockType",
+          "items"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "faqBlock"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "question",
+                "answer"
+              ],
+              "properties": {
+                "question": {
+                  "type": "string"
+                },
+                "answer": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "QuoteBlock": {
+        "type": "object",
+        "required": [
+          "blockType",
+          "quoteText"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "quoteBlock"
+            ]
+          },
+          "quoteText": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string"
+          },
+          "roleTitle": {
+            "type": "string"
+          }
+        }
+      },
+      "StatsBlock": {
+        "type": "object",
+        "required": [
+          "blockType",
+          "items"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "statsBlock"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "value",
+                "label"
+              ],
+              "properties": {
+                "value": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "subtext": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "CardGridBlock": {
+        "type": "object",
+        "required": [
+          "blockType",
+          "cards"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "cardGridBlock"
+            ]
+          },
+          "columns": {
+            "type": "integer",
+            "enum": [
+              2,
+              3,
+              4
+            ],
+            "default": 3
+          },
+          "cards": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "title"
+              ],
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "icon": {
+                  "type": "string"
+                },
+                "linkUrl": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ComparisonBlock": {
+        "type": "object",
+        "required": [
+          "blockType",
+          "columns"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "comparisonBlock"
+            ]
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "heading",
+                "features"
+              ],
+              "properties": {
+                "heading": {
+                  "type": "string"
+                },
+                "isHighlighted": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "features": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "StepsBlock": {
+        "type": "object",
+        "required": [
+          "blockType",
+          "steps"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "stepsBlock"
+            ]
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "title",
+                "description"
+              ],
+              "properties": {
+                "stepNumber": {
+                  "type": "integer"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DownloadBlock": {
+        "type": "object",
+        "required": [
+          "blockType",
+          "title",
+          "fileUrl"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "downloadBlock"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "fileUrl": {
+            "type": "string"
+          },
+          "fileSize": {
+            "type": "string"
+          },
+          "fileType": {
+            "type": "string"
+          }
+        }
+      },
+      "RelatedContentBlock": {
+        "type": "object",
+        "required": [
+          "blockType"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "relatedContentBlock"
+            ]
+          },
+          "heading": {
+            "type": "string",
+            "default": "Related Articles"
+          },
+          "strategy": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "manual"
+            ],
+            "default": "auto"
+          },
+          "selectedArticles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ArticleMetadataBlock": {
+        "type": "object",
+        "required": [
+          "blockType"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "articleMetadataBlock"
+            ]
+          },
+          "readingTimeMinutes": {
+            "type": "integer"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "relatedArticles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "EmbedBlock": {
+        "type": "object",
+        "required": [
+          "blockType",
+          "embedCode"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "embedBlock"
+            ]
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "youtube",
+              "twitch",
+              "twitter",
+              "custom"
+            ]
+          },
+          "embedCode": {
+            "type": "string"
+          },
+          "caption": {
+            "type": "string"
+          }
+        }
+      },
+      "CodeBlock": {
+        "type": "object",
+        "required": [
+          "blockType",
+          "code"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "codeBlock"
+            ]
+          },
+          "language": {
+            "type": "string",
+            "default": "typescript"
+          },
+          "code": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          }
+        }
+      },
+      "CustomExtensionBlock": {
+        "type": "object",
+        "required": [
+          "blockType",
+          "extensionName"
+        ],
+        "properties": {
+          "blockType": {
+            "type": "string",
+            "enum": [
+              "customExtensionBlock"
+            ]
+          },
+          "extensionName": {
+            "type": "string"
+          },
+          "jsonPayload": {
+            "type": "string"
+          }
+        }
+      },
+      "ContentBlock": {
+        "type": "object",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ImageBlock"
+          },
+          {
+            "$ref": "#/components/schemas/GalleryBlock"
+          },
+          {
+            "$ref": "#/components/schemas/TableBlock"
+          },
+          {
+            "$ref": "#/components/schemas/CalloutBlock"
+          },
+          {
+            "$ref": "#/components/schemas/CtaBlock"
+          },
+          {
+            "$ref": "#/components/schemas/TableOfContentsBlock"
+          },
+          {
+            "$ref": "#/components/schemas/VenueCardBlock"
+          },
+          {
+            "$ref": "#/components/schemas/MapBlock"
+          },
+          {
+            "$ref": "#/components/schemas/EventListBlock"
+          },
+          {
+            "$ref": "#/components/schemas/CalendarBlock"
+          },
+          {
+            "$ref": "#/components/schemas/BannerBlock"
+          },
+          {
+            "$ref": "#/components/schemas/VideoBlock"
+          },
+          {
+            "$ref": "#/components/schemas/FaqBlock"
+          },
+          {
+            "$ref": "#/components/schemas/QuoteBlock"
+          },
+          {
+            "$ref": "#/components/schemas/StatsBlock"
+          },
+          {
+            "$ref": "#/components/schemas/CardGridBlock"
+          },
+          {
+            "$ref": "#/components/schemas/ComparisonBlock"
+          },
+          {
+            "$ref": "#/components/schemas/StepsBlock"
+          },
+          {
+            "$ref": "#/components/schemas/DownloadBlock"
+          },
+          {
+            "$ref": "#/components/schemas/RelatedContentBlock"
+          },
+          {
+            "$ref": "#/components/schemas/ArticleMetadataBlock"
+          },
+          {
+            "$ref": "#/components/schemas/EmbedBlock"
+          },
+          {
+            "$ref": "#/components/schemas/CodeBlock"
+          },
+          {
+            "$ref": "#/components/schemas/CustomExtensionBlock"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "blockType"
+        }
+      },
+      "LexicalRichText": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "type": "object",
+            "properties": {
+              "children": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "type": {
+                "type": "string",
+                "example": "root"
+              },
+              "version": {
+                "type": "integer",
+                "example": 1
+              }
+            }
+          }
+        },
+        "description": "Lexical rich-text AST node structure including inline formatting and embedded content blocks."
       }
     }
   }

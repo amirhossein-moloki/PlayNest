@@ -103,6 +103,8 @@ npm run test:cov
 
 ## 📚 Documentation | مستندات
 
+- [API Reference](docs/api.md)
+- [CMS, Blog & SEO Guide](docs/cms-seo.md)
 - [NGINX Integration Guide](NGINX_INTEGRATION_GUIDE.md)
 - [Local Setup Guide (Persian)](docs/LOCAL_SETUP_GUIDE_FA.md)
 - [Docker Guide (راهنمای داکر)](docs/DOCKER_GUIDE_FA.md)

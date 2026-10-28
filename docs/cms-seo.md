@@ -73,6 +73,57 @@ Mounted under `/api/v1/public/gamingCenters/:gamingCenterSlug`.
 - `GET /addresses`
   - Returns JSON `{ data: addresses[] }`.
 
+## Payload CMS Editorial Articles & Content Builder
+
+Payload CMS manages global editorial articles (`ArticlesCollection` in `payload/src/collections/Articles.ts`).
+
+### Data Model & SEO
+- **Fields**: `title`, `slug` (unique), `status` (`draft` | `published`), `publishedAt`, `featuredVenues` (`sayraVenueId[]`), `heroMedia` (upload), `content` (Lexical rich-text AST), `seo` (`title`, `description`, `keywords`).
+- **Access Control**: Public users can read only published articles (`status = published`). Authenticated Payload users have full CRUD access.
+
+### Lexical RichText AST & Custom Blocks
+The article body is rendered via Payload's `@payloadcms/richtext-lexical` editor enhanced with `BlocksFeature`. Stored content consists of a Lexical JSON AST containing node structures and embedded custom block objects under `node.fields`.
+
+### Verified Content Blocks (24 Total)
+All 24 content blocks implemented in `payload/src/blocks/index.ts` and rendered via `payload/src/components/ArticleRenderer.tsx`:
+
+1. `imageBlock`: Single image with caption, alt text, and aspect ratio (`auto`, `16/9`, `4/3`, `1/1`).
+2. `galleryBlock`: Image gallery grid, carousel, or masonry layout (2-4 columns).
+3. `tableBlock`: Structured data table with header row support and caption.
+4. `calloutBlock`: Highlighted notice box with tone (`info`, `warning`, `success`, `danger`, `tip`).
+5. `ctaBlock`: Call to action banner with headline, description, button text/URL, and style variant.
+6. `tableOfContentsBlock`: Auto-generated document outline up to max depth (H2-H4).
+7. `venueCardBlock`: Featured gaming center card linked via `sayraVenueId` with key highlights and booking CTA.
+8. `mapBlock`: Interactive or embedded map with lat/long coordinates, address, and zoom level.
+9. `eventListBlock`: Tournament or venue event list filtered by venue ID or explicit event selections.
+10. `calendarBlock`: Venue event calendar view linked to a gaming center.
+11. `bannerBlock`: Promotional banner with message, link, and style (`promo`, `announcement`, `alert`).
+12. `videoBlock`: Embedded video player (MP4/HLS) or video embed with autoplay toggle.
+13. `faqBlock`: Frequently Asked Questions accordions list (`question`, `answer`).
+14. `quoteBlock`: Pull quote with author name and title.
+15. `statsBlock`: Key performance indicators / stats display (`value`, `label`, `subtext`).
+16. `cardGridBlock`: Grid layout of feature cards with icons, descriptions, and links.
+17. `comparisonBlock`: Multi-column comparison table for gaming gear or venue tiers.
+18. `stepsBlock`: Numbered step-by-step instructional guide.
+19. `downloadBlock`: Resource download card with file URL, file size, and file type.
+20. `relatedContentBlock`: Related articles links (`auto` or `manual` selection).
+21. `articleMetadataBlock`: Reading time in minutes, author profile, and related article links.
+22. `embedBlock`: Third-party embeds (YouTube, Twitch, Twitter, Custom embed code).
+23. `codeBlock`: Syntax-highlighted code snippet (`language`, `code`, `filename`).
+24. `customExtensionBlock`: Flexible JSON extension payload for custom component rendering.
+
+### Frontend Display Routes & Rendering
+- **Articles Overview Page**: `payload/app/(app)/articles/page.tsx` (`GET /articles`)
+- **Article Detail Page**: `payload/app/(app)/articles/[slug]/page.tsx` (`GET /articles/[slug]`)
+- **Renderer Component**: `ArticleRenderer` (`payload/src/components/ArticleRenderer.tsx`) dynamically switch-renders Lexical AST nodes and all 24 content blocks.
+
+## How to Add a New Content Block
+1. Define the block configuration using `Block` type from Payload in `payload/src/blocks/index.ts`.
+2. Add the block definition to `ALL_ARTICLE_BLOCKS` array in `payload/src/blocks/index.ts`.
+3. Add a corresponding rendering switch case in `payload/src/components/ArticleRenderer.tsx` (and component implementation in `payload/src/components/blocks/`).
+4. Update the block schema in `payload/src/docs/payload-openapi.yaml` and `payload/src/docs/payload-openapi.json`.
+5. Run OpenAPI validation script: `npx @stoplight/spectral-cli lint payload/src/docs/payload-openapi.yaml --ruleset sayra/.spectral.yaml`.
+
 ## Known Gaps / TODO
 
 - Private CMS links/addresses routes are placeholders (501).

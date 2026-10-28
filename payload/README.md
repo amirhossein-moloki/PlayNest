@@ -128,6 +128,33 @@ You can see more examples at:
 - [Payload Blog](https://payloadcms.com/blog)
 - [Payload YouTube](https://www.youtube.com/@payloadcms)
 
+## 📰 PlayNest Article Content Builder & OpenAPI Docs
+
+Payload CMS serves as PlayNest's global editorial engine for articles, news, and gaming content.
+
+### Article Content Builder
+Articles (`payload/src/collections/Articles.ts`) utilize Payload's Lexical rich-text editor with 24 custom content blocks (`payload/src/blocks/index.ts`):
+
+- **Media & Visuals**: `imageBlock`, `galleryBlock`, `videoBlock`, `bannerBlock`
+- **Interactive & Gaming**: `venueCardBlock`, `mapBlock`, `eventListBlock`, `calendarBlock`
+- **Layout & Structure**: `tableBlock`, `calloutBlock`, `ctaBlock`, `tableOfContentsBlock`, `cardGridBlock`, `comparisonBlock`, `stepsBlock`
+- **Social & Engagement**: `faqBlock`, `quoteBlock`, `statsBlock`, `downloadBlock`, `relatedContentBlock`, `articleMetadataBlock`, `embedBlock`, `codeBlock`, `customExtensionBlock`
+
+### Frontend Display Routes
+- Overview: `/articles` (`payload/app/(app)/articles/page.tsx`)
+- Article Detail: `/articles/[slug]` (`payload/app/(app)/articles/[slug]/page.tsx`)
+- Renderer: `ArticleRenderer` (`payload/src/components/ArticleRenderer.tsx`)
+
+### OpenAPI Specification & Swagger UI
+- **OpenAPI Specification**: `src/docs/payload-openapi.yaml` & `src/docs/payload-openapi.json`
+- **Swagger UI Interactive Endpoint**: `/payload-api-docs`
+- **OpenAPI Spec Endpoint**: `/payload-openapi.json` & `/payload-openapi.yaml`
+
+To validate the Payload OpenAPI spec using Spectral:
+```bash
+npx @stoplight/spectral-cli lint src/docs/payload-openapi.yaml --ruleset ../sayra/.spectral.yaml
+```
+
 ## 🔌 Plugins
 
 Payload is highly extensible and allows you to install or distribute plugins that add or remove functionality. There are both officially-supported and community-supported plugins available. If you maintain your own plugin, consider adding the `payload-plugin` topic to your GitHub repository for others to find.
