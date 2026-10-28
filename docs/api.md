@@ -394,6 +394,88 @@ All CMS routes require auth + `MANAGER` role + tenant guard.
 - Returns a static HTML admin UI for CMS pages.
 - Not protected by auth in the route itself.
 
+## Blog & Article APIs
+
+PlayNest supports a dual-engine blog system:
+1. **Sayra Tenant-Scoped Blog Engine**: Multi-tenant blog system scoped to individual gaming centers.
+2. **Payload CMS Global Editorial Engine**: Global editorial articles collection with rich-text content blocks.
+
+### Sayra Private Blog Routes (Tenant-Scoped)
+
+All private blog routes are mounted under `/api/v1/gamingCenters/:gamingCenterId/blog` and require authentication + tenant guard.
+
+#### Posts & Series
+- **POST** `/posts` - Create blog post (Authors: `STAFF`, `SUPERVISOR`, `MANAGER`, `ADMIN`).
+- **GET** `/posts` - List blog posts for gaming center (Supports pagination, `search`, `status`, `categoryId`, `authorId`, `isActive`).
+- **GET** `/posts/:id` - Get blog post by ID.
+- **PATCH** `/posts/:id` - Update blog post (Authors can edit own post; Manager/Admin can edit any).
+- **DELETE** `/posts/:id` - Delete blog post (`MANAGER`, `ADMIN`).
+- **POST** `/posts/series` - Create post series (`MANAGER`, `ADMIN`).
+- **GET** `/posts/series` - List post series.
+- **GET** `/posts/series/:id` - Get post series by ID with ordered posts.
+- **PATCH** `/posts/series/:id` - Update post series (`MANAGER`, `ADMIN`).
+
+#### Comments & Reactions
+- **POST** `/comments` - Post comment on article/post.
+- **GET** `/comments` - List comments for moderation (`ADMIN`, `MANAGER`, `SUPERVISOR`).
+- **GET** `/comments/tree` - Get nested comment tree for post.
+- **PATCH** `/comments/:id` - Update author's comment.
+- **DELETE** `/comments/:id` - Delete comment.
+- **PATCH** `/comments/:id/moderate` - Moderate comment status (`PENDING`, `APPROVED`, `REJECTED`, `FLAGGED`, `SPAM`).
+- **PATCH** `/comments/:id/pin` - Pin or unpin comment on post.
+- **POST** `/comments/:id/flag` - Flag comment.
+- **POST** `/reactions/toggle` - Toggle reaction (`LIKE`, `DISLIKE`, `LOVE`, `FIRE`, `CLAP`, `LAUGH`, `SAD`, `THINKING`) on post or comment.
+- **GET** `/reactions/aggregates` - Get aggregated reaction counts.
+
+#### Taxonomy & Navigation
+- **POST** `/taxonomy/categories` - Create category (`MANAGER`, `ADMIN`).
+- **GET** `/taxonomy/categories` - List categories.
+- **GET** `/taxonomy/categories/:id` - Get category by ID.
+- **PATCH** `/taxonomy/categories/:id` - Update category (`MANAGER`, `ADMIN`).
+- **DELETE** `/taxonomy/categories/:id` - Delete category (`MANAGER`, `ADMIN`).
+- **POST** `/taxonomy/tags` - Create tag (`MANAGER`, `ADMIN`).
+- **GET** `/taxonomy/tags` - List tags.
+- **GET** `/taxonomy/tags/:id` - Get tag by ID.
+- **PATCH** `/taxonomy/tags/:id` - Update tag (`MANAGER`, `ADMIN`).
+- **DELETE** `/taxonomy/tags/:id` - Delete tag (`MANAGER`, `ADMIN`).
+- **GET** `/navigation/tree/:location` - Get navigation menu tree (`HEADER`, `FOOTER`, `SIDEBAR`, `MOBILE_DRAWER`).
+- **POST** `/navigation/menus` - Create navigation menu (`MANAGER`, `ADMIN`).
+- **POST** `/navigation/items` - Add navigation menu item (`MANAGER`, `ADMIN`).
+- **PATCH** `/navigation/items/:id` - Update navigation item (`MANAGER`, `ADMIN`).
+- **DELETE** `/navigation/items/:id` - Delete navigation item (`MANAGER`, `ADMIN`).
+
+### Sayra Public Blog Routes
+
+Mounted under `/api/v1/public/gamingCenters/:gamingCenterSlug/blog` (No auth required).
+
+- **GET** `/posts` - Public list published blog posts.
+- **GET** `/posts/:id` - Public get blog post by ID or slug.
+- **GET** `/series` - Public list post series.
+- **GET** `/series/:id` - Public get post series by ID.
+- **GET** `/comments/tree` - Public get comment tree.
+- **GET** `/reactions/aggregates` - Public get reaction counts.
+- **GET** `/navigation/tree/:location` - Public get menu tree.
+- **GET** `/categories` - Public list categories.
+- **GET** `/categories/:id` - Public get category by ID.
+- **GET** `/tags` - Public list tags.
+- **GET** `/tags/:id` - Public get tag by ID.
+
+### Payload CMS Articles REST API
+
+Mounted on Payload CMS server (`/api/articles`):
+
+- **GET** `/api/articles` - Paginated articles list (Query params: `depth`, `page`, `limit`, `where[status][equals]=published`). Unauthenticated users receive only published articles.
+- **GET** `/api/articles/:id` - Get article by ID or slug.
+- **POST** `/api/articles` - Create article document (Requires auth).
+- **PATCH** `/api/articles/:id` - Update article document (Requires auth).
+- **DELETE** `/api/articles/:id` - Delete article document (Requires auth).
+
+### OpenAPI Specs & Interactive Swagger UI
+- **Sayra OpenAPI Spec**: `/openapi.yaml`, `/openapi.json`
+- **Sayra Swagger UI**: `/api-docs`, `/swagger`, `/docs`
+- **Payload OpenAPI Spec**: `/payload-openapi.yaml`, `/payload-openapi.json`
+- **Payload Swagger UI**: `/payload-api-docs`
+
 ## Public CMS
 
 ### GET `/public/gamingCenters/:gamingCenterSlug/pages/:pageSlug`
