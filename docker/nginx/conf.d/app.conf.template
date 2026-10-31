@@ -139,6 +139,10 @@ server {
         proxy_pass http://sayra_backend/redoc;
     }
 
+    location /redoc-assets {
+        proxy_pass http://sayra_backend/redoc-assets;
+    }
+
     location /docs {
         proxy_pass http://sayra_backend/docs;
     }

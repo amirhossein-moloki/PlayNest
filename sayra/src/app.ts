@@ -59,6 +59,10 @@ app.use(helmet({
 // Serve static files from the uploads directory
 app.use('/uploads', express.static('uploads'));
 
+// Serve ReDoc static assets (locally hosted for offline/intranet reliability)
+const redocAssetsPath = path.join(__dirname, 'public/redoc');
+app.use('/redoc-assets', express.static(redocAssetsPath));
+
 import loggerMiddleware from './common/middleware/logger';
 
 // Disable pino-http logger in test environment to avoid Jest compatibility issues
@@ -103,7 +107,7 @@ const redocHtml = `<!DOCTYPE html>
   </head>
   <body>
     <redoc spec-url="/openapi.json"></redoc>
-    <script src="https://cdn.redoc.ly/redoc/v2.1.5/bundles/redoc.standalone.js"></script>
+    <script src="/redoc-assets/redoc.standalone.js"></script>
   </body>
 </html>`;
 
