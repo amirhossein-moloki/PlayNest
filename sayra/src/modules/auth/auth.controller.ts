@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { authService } from './auth.station';
+import { AuthRepository } from './auth.repository';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 
@@ -8,6 +9,12 @@ export const login = async (req: Request, res: Response) => {
 
   const result = await authService.loginUser(phone, password, gamingCenterId);
 
+  res.ok(result);
+};
+
+export const loginPlatformAdmin = async (req: Request, res: Response) => {
+  const { phone, password } = req.body;
+  const result = await authService.loginPlatformAdmin(phone, password);
   res.ok(result);
 };
 
@@ -59,6 +66,17 @@ export const logout = async (req: Request, res: Response) => {
 };
 
 export const me = async (req: Request, res: Response) => {
+  if (req.actor?.actorType === 'PLATFORM_ADMIN') {
+    const adminId = req.actor.id || req.actor.actorId || '';
+    const admin = await AuthRepository.findPlatformAdminById(adminId);
+    if (admin) {
+      const { passwordHash: _, ...safeAdmin } = admin;
+      return res.ok({
+        ...req.actor,
+        profile: safeAdmin,
+      });
+    }
+  }
   // The user/customer object should be attached to the request by the auth middleware
   res.ok(req.actor);
 };

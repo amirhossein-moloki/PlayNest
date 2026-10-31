@@ -12,6 +12,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "backfill:analytics": "node --import tsx --require dotenv/config ./scripts/backfill-analytics.ts",
+    "bootstrap:platform-admin": "node --import tsx --require dotenv/config ./scripts/bootstrap-platform-admin.ts",
     "db:seed": "prisma db seed",
     "docker:up": "docker compose up --build -d"
   },

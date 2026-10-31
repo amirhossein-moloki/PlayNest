@@ -6,6 +6,21 @@ export const AuthRepository = {
     return prisma.user.findFirst({ where: { phone, gamingCenterId } });
   },
 
+  async findPlatformAdminByPhone(phone: string) {
+    return (prisma as any).platformAdmin.findUnique({ where: { phone } });
+  },
+
+  async findPlatformAdminById(id: string) {
+    return (prisma as any).platformAdmin.findUnique({ where: { id } });
+  },
+
+  async updatePlatformAdminLastLogin(id: string) {
+    return (prisma as any).platformAdmin.update({
+      where: { id },
+      data: { lastLogin: new Date() },
+    });
+  },
+
   async findCustomerByPhone(phone: string) {
     return prisma.customerAccount.findFirst({ where: { phone } });
   },
