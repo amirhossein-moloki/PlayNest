@@ -44,12 +44,13 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ['\'self\''],
-      scriptSrc: ['\'self\'', '\'unsafe-inline\''],
+      scriptSrc: ['\'self\'', '\'unsafe-inline\'', 'https://cdn.redoc.ly', 'https://unpkg.com'],
       scriptSrcAttr: ['\'unsafe-inline\''],
       styleSrc: ['\'self\'', '\'unsafe-inline\'', 'https:', 'http:'],
       imgSrc: ['\'self\'', 'data:', 'blob:', 'https:', 'http:'],
       fontSrc: ['\'self\'', 'https:', 'http:', 'data:'],
-      connectSrc: ['\'self\''],
+      workerSrc: ['\'self\'', 'blob:'],
+      connectSrc: ['\'self\'', 'https:', 'http:'],
       upgradeInsecureRequests: null,
     },
   },
@@ -84,6 +85,35 @@ app.get('/openapi.yaml', (req, res) => {
 app.get('/openapi.json', (req, res) => {
   res.json(swaggerDocument);
 });
+
+// ReDoc Documentation (Public)
+const redocHtml = `<!DOCTYPE html>
+<html>
+  <head>
+    <title>PlayNest API Documentation - ReDoc</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700" rel="stylesheet">
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <redoc spec-url="/openapi.json"></redoc>
+    <script src="https://cdn.redoc.ly/redoc/v2.1.5/bundles/redoc.standalone.js"></script>
+  </body>
+</html>`;
+
+const renderRedoc: express.RequestHandler = (_req, res) => {
+  res.type('html');
+  res.send(redocHtml);
+};
+
+app.get('/redoc', renderRedoc);
+app.get('/redoc/*', renderRedoc);
 
 // API Routes (Protected by API Key middleware)
 app.use('/api/v1', apiKeyMiddleware, routes);

@@ -135,6 +135,10 @@ server {
         proxy_pass http://sayra_backend/swagger;
     }
 
+    location /redoc {
+        proxy_pass http://sayra_backend/redoc;
+    }
+
     location /docs {
         proxy_pass http://sayra_backend/docs;
     }

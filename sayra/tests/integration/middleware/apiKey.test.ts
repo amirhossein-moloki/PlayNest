@@ -34,9 +34,12 @@ describe('API Key Middleware', () => {
     expect([httpStatus.OK, httpStatus.MOVED_PERMANENTLY]).toContain(response.status);
   });
 
-  it('should allow access to /swagger and /docs without x-api-key header', async () => {
+  it('should allow access to /swagger, /redoc, and /docs without x-api-key header', async () => {
     const swaggerRes = await request(app).get('/swagger/');
     expect([httpStatus.OK, httpStatus.MOVED_PERMANENTLY]).toContain(swaggerRes.status);
+
+    const redocRes = await request(app).get('/redoc/');
+    expect([httpStatus.OK, httpStatus.MOVED_PERMANENTLY]).toContain(redocRes.status);
 
     const docsRes = await request(app).get('/docs/');
     expect([httpStatus.OK, httpStatus.MOVED_PERMANENTLY]).toContain(docsRes.status);
