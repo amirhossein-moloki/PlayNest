@@ -24,9 +24,6 @@ The Sayra backend applies defense-in-depth security principles across authentica
 [ Rate Limiter (Redis / Express Rate Limit) ]
        │
        ▼
-[ Static API Key Middleware ] ── (Validates X-API-KEY header)
-       │
-       ▼
 [ Authentication Middleware ] ── (Validates Bearer JWT Access Token)
        │
        ▼
@@ -58,7 +55,6 @@ The Sayra backend applies defense-in-depth security principles across authentica
 `sayra/src/config/env.ts` enforces that when `NODE_ENV=production`, application startup fails immediately if default placeholder secrets are detected:
 - `JWT_ACCESS_SECRET` must not equal `'generate_at_least_32_chars_long_random_string'`.
 - `JWT_REFRESH_SECRET` must not equal `'generate_another_at_least_32_chars_long_random_string'`.
-- `STATIC_API_KEY` must not equal `'generate_a_secure_api_key_at_least_10_chars'`.
 
 ---
 

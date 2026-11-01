@@ -10,7 +10,6 @@ import routes from './routes';
 import healthRouter from './routes/health.routes';
 import { errorHandler } from './common/errors/errorHandler';
 import { responseMiddleware } from './common/middleware/response';
-import { apiKeyMiddleware } from './common/middleware/apiKey';
 import { env } from './config/env';
 import { initReservationEvents } from './modules/reservation/reservation.events';
 
@@ -119,8 +118,8 @@ const renderRedoc: express.RequestHandler = (_req, res) => {
 app.get('/redoc', renderRedoc);
 app.get('/redoc/*', renderRedoc);
 
-// API Routes (Protected by API Key middleware)
-app.use('/api/v1', apiKeyMiddleware, routes);
+// API Routes
+app.use('/api/v1', routes);
 
 if (env.SENTRY_ENABLED && env.SENTRY_DSN) {
   Sentry.setupExpressErrorHandler(app);

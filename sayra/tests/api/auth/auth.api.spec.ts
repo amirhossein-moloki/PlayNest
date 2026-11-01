@@ -1,5 +1,4 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { env } from '../../../src/config/env';
 
 import request from 'supertest';
 import app from '../../../src/app';
@@ -42,7 +41,7 @@ describe('Authentication API', () => {
   describe('OTP Flow', () => {
     it('should return 404 when requesting OTP for non-existent user', async () => {
       MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue([]);
-      const res = await request(app).post('/api/v1/auth/user/otp/request').set('x-api-key', env.STATIC_API_KEY).send({ phone });
+      const res = await request(app).post('/api/v1/auth/user/otp/request').send({ phone });
       expect(res.status).toBe(httpStatus.NOT_FOUND);
       expect(res.body.success).toBe(false);
       expect(res.body.error.message).toContain('No user found');
@@ -50,7 +49,7 @@ describe('Authentication API', () => {
 
     it('should return 401 when verifying with invalid/expired OTP', async () => {
       MockedAuthRepository.findRecentOtp.mockResolvedValue(null);
-      const res = await request(app).post('/api/v1/auth/user/otp/verify').set('x-api-key', env.STATIC_API_KEY).send({ phone, code: '123456' });
+      const res = await request(app).post('/api/v1/auth/user/otp/verify').send({ phone, code: '123456' });
       expect(res.status).toBe(httpStatus.UNAUTHORIZED);
       expect(res.body.error.message).toBe('Invalid or expired OTP.');
     });
@@ -60,7 +59,7 @@ describe('Authentication API', () => {
       MockedArgon2.verify.mockResolvedValue(true /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue([{ gamingCenter: { id: gamingCenterId, name: 'Center' } }] /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
-      const res = await request(app).post('/api/v1/auth/user/otp/verify').set('x-api-key', env.STATIC_API_KEY).send({ phone, code: '123456' });
+      const res = await request(app).post('/api/v1/auth/user/otp/verify').send({ phone, code: '123456' });
       expect(res.status).toBe(httpStatus.OK);
       expect(res.body.data.gamingCenters).toBeDefined();
     });
@@ -71,7 +70,7 @@ describe('Authentication API', () => {
       MockedAuthRepository.findUserByPhone.mockResolvedValue({ id: userId, passwordHash: 'h' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       MockedArgon2.verify.mockResolvedValue(false /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
-      const res = await request(app).post('/api/v1/auth/login').set('x-api-key', env.STATIC_API_KEY).send({ phone, password: 'wrong', gamingCenterId });
+      const res = await request(app).post('/api/v1/auth/login').send({ phone, password: 'wrong', gamingCenterId });
       expect(res.status).toBe(httpStatus.UNAUTHORIZED);
     });
 
@@ -80,7 +79,7 @@ describe('Authentication API', () => {
       MockedArgon2.verify.mockResolvedValue(true /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       MockedAuthRepository.createSession.mockResolvedValue({ id: 's1' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
-      const res = await request(app).post('/api/v1/auth/login').set('x-api-key', env.STATIC_API_KEY).send({ phone, password: 'correct', gamingCenterId });
+      const res = await request(app).post('/api/v1/auth/login').send({ phone, password: 'correct', gamingCenterId });
       expect(res.status).toBe(httpStatus.OK);
       expect(res.body.data.tokens).toBeDefined();
     });
@@ -94,14 +93,14 @@ describe('Authentication API', () => {
     });
 
     it('GET /auth/me should return actor profile', async () => {
-      const res = await request(app).get('/api/v1/auth/me').set('x-api-key', env.STATIC_API_KEY).set('Authorization', `Bearer ${token}`);
+      const res = await request(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${token}`);
       expect(res.status).toBe(200);
       expect(res.body.data.id).toBe(userId);
     });
 
     it('POST /auth/logout should revoke session', async () => {
       MockedAuthRepository.revokeSession.mockResolvedValue({ id: 's1' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      const res = await request(app).post('/api/v1/auth/logout').set('x-api-key', env.STATIC_API_KEY).set('Authorization', `Bearer ${token}`);
+      const res = await request(app).post('/api/v1/auth/logout').set('Authorization', `Bearer ${token}`);
       expect(res.status).toBe(200);
       expect(MockedAuthRepository.revokeSession).toHaveBeenCalledWith('s1');
     });

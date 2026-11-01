@@ -1,5 +1,4 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { env } from '../../../src/config/env';
 
 import request from 'supertest';
 import app from '../../../src/app';
@@ -30,7 +29,7 @@ describe('Reservation API', () => {
   });
 
   it('should return 401 for unauthorized reservation list', async () => {
-    const res = await request(app).get(`/api/v1/gamingCenters/${gamingCenterId}/reservation`).set('x-api-key', env.STATIC_API_KEY);
+    const res = await request(app).get(`/api/v1/gamingCenters/${gamingCenterId}/reservation`);
     expect(res.status).toBe(401);
   });
 
@@ -38,7 +37,7 @@ describe('Reservation API', () => {
     const token = generateAccessToken({ sessionId: 's1', actorId: userId, actorType: 'USER' });
     (prisma.user.findUnique /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).mockResolvedValue({ id: userId, gamingCenterId, role: 'STAFF' });
 
-    const res = await request(app).post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/res-1/confirm`).set('x-api-key', env.STATIC_API_KEY)
+    const res = await request(app).post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/res-1/confirm`)
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(403);

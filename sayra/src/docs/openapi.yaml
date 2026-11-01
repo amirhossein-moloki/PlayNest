@@ -17,11 +17,6 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: JWT Bearer Token for authenticated user sessions
-    ApiKeyAuth:
-      type: apiKey
-      in: header
-      name: x-api-key
-      description: Static API Key required for /api/v1 endpoints
   responses:
     UnauthorizedError:
       description: Access token is missing or invalid
@@ -4320,8 +4315,7 @@ paths:
       description: Invalidate current session and logout user
       operationId: auth_logout
       security:
-      - ApiKeyAuth: []
-        bearerAuth: []
+      - bearerAuth: []
       responses:
         '200':
           description: Logout successful
@@ -6719,6 +6713,4 @@ tags:
 - name: Blog
   description: Blog posts, series, comments, reactions, taxonomy, and navigation management
 security:
-- ApiKeyAuth: []
-  bearerAuth: []
-- ApiKeyAuth: []
+- bearerAuth: []

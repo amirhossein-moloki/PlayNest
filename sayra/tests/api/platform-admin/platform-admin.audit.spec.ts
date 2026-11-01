@@ -2,7 +2,6 @@
 import request from 'supertest';
 import app from '../../../src/app';
 import { prisma } from '../../../src/config/prisma';
-import { env } from '../../../src/config/env';
 import { generateAccessToken } from '../../../src/modules/auth/auth.tokens';
 
 jest.mock('../../../src/config/redis', () => ({
@@ -77,7 +76,6 @@ describe('PLATFORM_ADMIN Audit Logging', () => {
 
     const res = await request(app)
       .patch('/api/v1/platform-admin/users/usr_target_1/status')
-      .set('x-api-key', env.STATIC_API_KEY)
       .set('Authorization', `Bearer ${platformAdminToken}`)
       .send({ isActive: false });
 

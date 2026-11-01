@@ -35,7 +35,7 @@ While the modular structure, static type system, and containerization provide a 
 - **Edge / Proxy**: NGINX 1.25 reverse proxy with HTTP header proxying, trust-proxy configuration for client IP preservation, and dynamic envsubst filtering.
 
 ### Key Data Flows & Module Responsibilities
-- **Authentication**: JWT access/refresh token validation via `AuthRepository` and static `x-api-key` header checks on `/api/v1` routes.
+- **Authentication**: JWT access/refresh token validation via `AuthRepository` on `/api/v1` routes.
 - **Reservations & Time Slots**: Double-booking prevention via `ReservationRepo.lockStationForUpdate` (Pessimistic Row Locking using Prisma `$transaction` with `RepeatableRead` isolation) and database exclusion constraint support (`Reservation_no_overlap_active`).
 - **Finance & Commissions**: Multi-provider payment handling (`MANUAL`, `STRIPE`, `ZARINPAL`), earning calculation, and wallet transaction recording.
 - **Background Tasks**: BullMQ queue producers (`sayra/src/jobs/producers/`) dispatching background jobs to dedicated workers (`sms.worker.ts`, `analytics.worker.ts`, `cmsSyncMedia.worker.ts`).

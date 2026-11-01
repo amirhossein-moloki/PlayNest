@@ -31,7 +31,6 @@ const EnvSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(10, 'JWT_REFRESH_SECRET is too short'),
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
-  STATIC_API_KEY: z.string().min(10, 'STATIC_API_KEY must be at least 10 characters'),
   COOKIE_SECRET: z.string().min(10).optional(),
 
   // CORS
@@ -141,11 +140,6 @@ if (parsed.success) {
   }
 
   if (parsed.data.NODE_ENV === 'production') {
-    if (parsed.data.STATIC_API_KEY === 'generate_a_secure_api_key_at_least_10_chars') {
-      throw new Error(
-        'STATIC_API_KEY must be changed from the default placeholder value in production.'
-      );
-    }
     if (parsed.data.JWT_ACCESS_SECRET === 'generate_at_least_32_chars_long_random_string') {
       throw new Error(
         'JWT_ACCESS_SECRET must be changed from the default placeholder value in production.'

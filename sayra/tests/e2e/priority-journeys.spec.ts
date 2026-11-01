@@ -1,5 +1,4 @@
 import request from 'supertest';
-import { env } from '../../src/config/env';
 
 import app from '../../src/app';
 import { prisma } from '../../src/config/prisma';
@@ -38,7 +37,7 @@ jest.mock('../../src/common/middleware/rateLimit', () => ({
 describe('Priority User Journeys (E2E Logic)', () => {
   it('Journey 1: Registration OTP Flow', async () => {
     (prisma.customerAccount.findUnique as any).mockResolvedValue(null);
-    const res = await request(app).post('/api/v1/auth/customer/otp/request').set('x-api-key', env.STATIC_API_KEY)
+    const res = await request(app).post('/api/v1/auth/customer/otp/request')
       .send({ phone: '09123456789' });
     expect(res.status).toBe(200);
   });

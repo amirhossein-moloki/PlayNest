@@ -139,7 +139,6 @@ describe('Analytics API Integration Tests', () => {
     it('should reject access to STAFF role with 403 Forbidden', async () => {
       const res = await request(app)
         .get('/api/v1/gamingCenters/gc-1/analytics/summary')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${STAFF_TOKEN}`);
 
       expect(res.status).toBe(403);
@@ -148,7 +147,6 @@ describe('Analytics API Integration Tests', () => {
     it('should reject cross-tenant access attempt with 404 Not Found (Enumeration Defense)', async () => {
       const res = await request(app)
         .get('/api/v1/gamingCenters/gc-2/analytics/summary')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
 
       expect(res.status).toBe(404);
@@ -157,7 +155,6 @@ describe('Analytics API Integration Tests', () => {
     it('should reject invalid date range (startDate > endDate) with 400 Bad Request', async () => {
       const res = await request(app)
         .get('/api/v1/gamingCenters/gc-1/analytics/summary?startDate=2026-02-01&endDate=2026-01-01')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
 
       expect(res.status).toBe(400);
@@ -180,7 +177,6 @@ describe('Analytics API Integration Tests', () => {
 
       const res = await request(app)
         .get('/api/v1/gamingCenters/gc-1/analytics/summary')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
 
       expect(res.status).toBe(200);
@@ -203,7 +199,6 @@ describe('Analytics API Integration Tests', () => {
 
       const res = await request(app)
         .get('/api/v1/gamingCenters/gc-1/analytics/reservations')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
 
       expect(res.status).toBe(200);
@@ -224,7 +219,6 @@ describe('Analytics API Integration Tests', () => {
 
       const res = await request(app)
         .get('/api/v1/gamingCenters/gc-1/analytics/financials?currency=IRR')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
 
       expect(res.status).toBe(200);
@@ -247,7 +241,6 @@ describe('Analytics API Integration Tests', () => {
 
       const res = await request(app)
         .get('/api/v1/gamingCenters/gc-1/analytics/operations/waitlist')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
 
       expect(res.status).toBe(200);
@@ -265,7 +258,6 @@ describe('Analytics API Integration Tests', () => {
 
       const res = await request(app)
         .get('/api/v1/gamingCenters/gc-1/analytics/operations/notifications')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
 
       expect(res.status).toBe(200);
@@ -290,7 +282,6 @@ describe('Analytics API Integration Tests', () => {
 
       const res = await request(app)
         .get('/api/v1/gamingCenters/gc-1/analytics/benchmarks')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
 
       expect(res.status).toBe(200);
@@ -313,7 +304,6 @@ describe('Analytics API Integration Tests', () => {
 
       const res = await request(app)
         .get('/api/v1/gamingCenters/gc-1/analytics/growth-insights')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
 
       expect(res.status).toBe(200);
@@ -332,7 +322,6 @@ describe('Analytics API Integration Tests', () => {
 
       const res = await request(app)
         .get('/api/v1/gamingCenters/gc-1/analytics/ingestion-status')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
 
       expect(res.status).toBe(200);
@@ -345,7 +334,6 @@ describe('Analytics API Integration Tests', () => {
     it('should render HTML dashboard for MANAGER role at /gamingCenters/:gamingCenterId/dashboard', async () => {
       const res = await request(app)
         .get('/api/v1/gamingCenters/gc-1/dashboard')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
 
       expect(res.status).toBe(200);
@@ -356,7 +344,6 @@ describe('Analytics API Integration Tests', () => {
     it('should render HTML dashboard for MANAGER role at /admin/gamingCenters/:gamingCenterId/dashboard', async () => {
       const res = await request(app)
         .get('/api/v1/admin/gamingCenters/gc-1/dashboard')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
 
       expect(res.status).toBe(200);
@@ -367,7 +354,6 @@ describe('Analytics API Integration Tests', () => {
     it('should reject access to dashboard for STAFF role with 403', async () => {
       const res = await request(app)
         .get('/api/v1/gamingCenters/gc-1/dashboard')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${STAFF_TOKEN}`);
 
       expect(res.status).toBe(403);
