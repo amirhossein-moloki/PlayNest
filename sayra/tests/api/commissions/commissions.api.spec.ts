@@ -99,7 +99,6 @@ describe('Commissions API', () => {
 
       const res = await request(app)
         .get('/api/v1/gamingCenters/gc-1/commissions/policy')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
 
       expect(res.status).toBe(200);
@@ -110,7 +109,6 @@ describe('Commissions API', () => {
     it('should deny STAFF access to policy', async () => {
       const res = await request(app)
         .get('/api/v1/gamingCenters/gc-1/commissions/policy')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${STAFF_TOKEN}`);
 
       expect(res.status).toBe(403);
@@ -131,7 +129,6 @@ describe('Commissions API', () => {
 
       const res = await request(app)
         .put('/api/v1/gamingCenters/gc-1/commissions/policy')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${MANAGER_TOKEN}`)
         .send({
           type: 'PERCENT',
@@ -147,7 +144,6 @@ describe('Commissions API', () => {
     it('should reject invalid percentBps exceeding maxPercentBps', async () => {
       const res = await request(app)
         .post('/api/v1/gamingCenters/gc-1/commissions/policy')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${MANAGER_TOKEN}`)
         .send({
           type: 'PERCENT',
@@ -161,7 +157,6 @@ describe('Commissions API', () => {
     it('should reject negative monthlyTarget', async () => {
       const res = await request(app)
         .post('/api/v1/gamingCenters/gc-1/commissions/policy')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${MANAGER_TOKEN}`)
         .send({
           type: 'PERCENT',
@@ -185,7 +180,6 @@ describe('Commissions API', () => {
 
       const res = await request(app)
         .get('/api/v1/gamingCenters/gc-1/commissions/target-progress?targetPeriod=2026-10')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
 
       expect(res.status).toBe(200);
@@ -219,7 +213,6 @@ describe('Commissions API', () => {
 
       const res = await request(app)
         .get('/api/v1/gamingCenters/gc-1/commissions?page=1&pageSize=10')
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
 
       expect(res.status).toBe(200);

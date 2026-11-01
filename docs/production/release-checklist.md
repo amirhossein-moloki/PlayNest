@@ -15,7 +15,6 @@
   - [ ] `NODE_ENV=production`
   - [ ] `JWT_ACCESS_SECRET` (min 32 random characters)
   - [ ] `JWT_REFRESH_SECRET` (min 32 random characters)
-  - [ ] `STATIC_API_KEY` (min 10 random characters)
   - [ ] `DATABASE_URL` pointing to PostgreSQL 15 instance
   - [ ] `REDIS_URL` pointing to Redis instance
   - [ ] `CORS_ORIGIN` restricted to specific production client domain(s)
@@ -64,8 +63,6 @@
   `GET /metrics` returns valid Prometheus application metrics.
 - [ ] **Swagger Documentation Check:**
   `GET /api-docs` loads Swagger UI cleanly.
-- [ ] **API Key Guard Test:**
-  Requests without `X-API-KEY` or `apikey` header return `401 Unauthorized`.
 - [ ] **Authentication Check:**
   Login endpoint `POST /api/v1/auth/login` generates valid JWT access and refresh tokens.
 

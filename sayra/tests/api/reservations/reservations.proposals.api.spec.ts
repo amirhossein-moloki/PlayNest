@@ -1,5 +1,4 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { env } from '../../../src/config/env';
 import request from 'supertest';
 import app from '../../../src/app';
 import { prisma } from '../../../src/config/prisma';
@@ -33,7 +32,6 @@ describe('Reservation Proposals API Integration', () => {
   it('should return 401 if request is not authenticated', async () => {
     const res = await request(app)
       .post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/propose-time`)
-      .set('x-api-key', env.STATIC_API_KEY)
       .send({
         startTime: '2026-11-01T10:00:00.000Z',
         endTime: '2026-11-01T12:00:00.000Z',
@@ -48,7 +46,6 @@ describe('Reservation Proposals API Integration', () => {
 
     const res = await request(app)
       .post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/propose-time`)
-      .set('x-api-key', env.STATIC_API_KEY)
       .set('Authorization', `Bearer ${token}`)
       .send({
         startTime: '2026-11-01T10:00:00.000Z',
@@ -64,7 +61,6 @@ describe('Reservation Proposals API Integration', () => {
 
     const res = await request(app)
       .post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/propose-time`)
-      .set('x-api-key', env.STATIC_API_KEY)
       .set('Authorization', `Bearer ${token}`)
       .send({
         startTime: 'invalid-date',

@@ -2,7 +2,6 @@
 import request from 'supertest';
 import app from '../../../src/app';
 import { prisma } from '../../../src/config/prisma';
-import { env } from '../../../src/config/env';
 import { generateAccessToken } from '../../../src/modules/auth/auth.tokens';
 
 jest.mock('../../../src/config/redis', () => ({
@@ -108,7 +107,6 @@ describe('PLATFORM_ADMIN Authorization & Tenant Isolation', () => {
 
     const res = await request(app)
       .get('/api/v1/gamingCenters/center_target_1/stations')
-      .set('x-api-key', env.STATIC_API_KEY)
       .set('Authorization', `Bearer ${platformAdminToken}`);
 
     expect(res.status).toBe(200);
@@ -126,7 +124,6 @@ describe('PLATFORM_ADMIN Authorization & Tenant Isolation', () => {
 
     const res = await request(app)
       .get('/api/v1/gamingCenters/non_existent_center/stations')
-      .set('x-api-key', env.STATIC_API_KEY)
       .set('Authorization', `Bearer ${platformAdminToken}`);
 
     expect(res.status).toBe(404);
@@ -142,7 +139,6 @@ describe('PLATFORM_ADMIN Authorization & Tenant Isolation', () => {
 
     const res = await request(app)
       .get('/api/v1/gamingCenters/center_foreign_2/stations')
-      .set('x-api-key', env.STATIC_API_KEY)
       .set('Authorization', `Bearer ${tenantManagerToken}`);
 
     expect(res.status).toBe(404);
@@ -158,7 +154,6 @@ describe('PLATFORM_ADMIN Authorization & Tenant Isolation', () => {
 
     const res = await request(app)
       .get('/api/v1/platform-admin/operations/overview')
-      .set('x-api-key', env.STATIC_API_KEY)
       .set('Authorization', `Bearer ${staffToken}`);
 
     expect(res.status).toBe(403);
@@ -180,7 +175,6 @@ describe('PLATFORM_ADMIN Authorization & Tenant Isolation', () => {
 
     const res = await request(app)
       .get('/api/v1/platform-admin/operations/overview')
-      .set('x-api-key', env.STATIC_API_KEY)
       .set('Authorization', `Bearer ${platformAdminToken}`);
 
     expect(res.status).toBe(200);

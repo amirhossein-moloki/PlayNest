@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import request from 'supertest';
 import app from '../../../src/app';
-import { env } from '../../../src/config/env';
 import { AuthRepository } from '../../../src/modules/auth/auth.repository';
 import argon2 from 'argon2';
 
@@ -58,7 +57,6 @@ describe('PLATFORM_ADMIN Authentication API', () => {
 
     const res = await request(app)
       .post('/api/v1/auth/platform-admin/login')
-      .set('x-api-key', env.STATIC_API_KEY)
       .send({ phone, password });
 
     expect(res.status).toBe(200);
@@ -86,7 +84,6 @@ describe('PLATFORM_ADMIN Authentication API', () => {
 
     const res = await request(app)
       .post('/api/v1/auth/platform-admin/login')
-      .set('x-api-key', env.STATIC_API_KEY)
       .send({ phone, password: 'wrong_password' });
 
     expect(res.status).toBe(401);
@@ -108,7 +105,6 @@ describe('PLATFORM_ADMIN Authentication API', () => {
 
     const res = await request(app)
       .post('/api/v1/auth/platform-admin/login')
-      .set('x-api-key', env.STATIC_API_KEY)
       .send({ phone, password });
 
     expect(res.status).toBe(401);
@@ -119,7 +115,6 @@ describe('PLATFORM_ADMIN Authentication API', () => {
 
     const res = await request(app)
       .post('/api/v1/auth/platform-admin/login')
-      .set('x-api-key', env.STATIC_API_KEY)
       .send({ phone, password });
 
     expect(res.status).toBe(401);

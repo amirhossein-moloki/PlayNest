@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { env } from '../../../src/config/env';
 
 import request from 'supertest';
 import app from '../../../src/app';
@@ -38,7 +37,6 @@ describe('Payment API', () => {
     it('should return 401 if token is missing', async () => {
       const res = await request(app)
         .post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/init`)
-        .set('x-api-key', env.STATIC_API_KEY)
         .send({});
       expect(res.status).toBe(httpStatus.UNAUTHORIZED);
     });
@@ -49,7 +47,6 @@ describe('Payment API', () => {
 
       const res = await request(app)
         .post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/init`)
-        .set('x-api-key', env.STATIC_API_KEY)
         .set('Authorization', `Bearer ${token}`)
         .send({});
       expect(res.status).toBe(httpStatus.NOT_FOUND);
@@ -59,8 +56,7 @@ describe('Payment API', () => {
   describe('GET /payments/verify', () => {
     it('should return 401 if token is missing', async () => {
       const res = await request(app)
-        .get(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/verify?Authority=A0001&Status=OK`)
-        .set('x-api-key', env.STATIC_API_KEY);
+        .get(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/verify?Authority=A0001&Status=OK`);
       expect(res.status).toBe(httpStatus.UNAUTHORIZED);
     });
   });
@@ -68,8 +64,7 @@ describe('Payment API', () => {
   describe('GET /payments/status', () => {
     it('should return 401 if token is missing', async () => {
       const res = await request(app)
-        .get(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/status`)
-        .set('x-api-key', env.STATIC_API_KEY);
+        .get(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/status`);
       expect(res.status).toBe(httpStatus.UNAUTHORIZED);
     });
   });
@@ -78,7 +73,6 @@ describe('Payment API', () => {
     it('should return 401 if webhook signature is missing', async () => {
       const res = await request(app)
         .post('/api/v1/webhooks/payments/zarinpal')
-        .set('x-api-key', env.STATIC_API_KEY)
         .send({ authority: 'a' });
       expect(res.status).toBe(httpStatus.UNAUTHORIZED);
     });
