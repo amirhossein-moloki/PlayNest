@@ -37,10 +37,13 @@ const smtpFromName = process.env.PAYLOAD_SMTP_FROM_NAME || 'PlayNest CMS'
 export default buildConfig({
   admin: {
     user: UsersCollection.slug,
-    disable: true,
+    autoLogin: false,
+    importMap: {
+      baseDir: path.resolve(dirname),
+    },
   },
   graphQL: {
-    disable: true,
+    disable: false,
     disablePlaygroundInProduction: true,
   },
   collections: [
