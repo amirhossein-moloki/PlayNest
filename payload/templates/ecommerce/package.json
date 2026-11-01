@@ -27,7 +27,6 @@
     "@payloadcms/email-nodemailer": "workspace:*",
     "@payloadcms/live-preview-react": "workspace:*",
     "@payloadcms/next": "workspace:*",
-    "@payloadcms/plugin-ecommerce": "workspace:*",
     "@payloadcms/plugin-form-builder": "workspace:*",
     "@payloadcms/plugin-seo": "workspace:*",
     "@payloadcms/richtext-lexical": "workspace:*",

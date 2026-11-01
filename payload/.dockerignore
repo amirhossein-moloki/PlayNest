@@ -6,7 +6,5 @@ node_modules
 .turbo
 dist
 examples
-templates
 docs
-test
 *.md
