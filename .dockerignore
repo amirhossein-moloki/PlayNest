@@ -11,7 +11,6 @@ payload/
 backups/
 docker-data/
 docker/volumes/
-playnest_seed_dataset_*.json
 errors.txt
 
 # Dependencies and build artifacts
