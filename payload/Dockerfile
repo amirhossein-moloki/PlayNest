@@ -40,6 +40,7 @@ COPY src ./src
 COPY public ./public
 COPY next.config.mjs ./
 COPY instrumentation.ts ./
+COPY sentry.server.config.ts sentry.client.config.ts ./
 COPY payload-types.ts ./
 
 ENV NEXT_TELEMETRY_DISABLED=1
