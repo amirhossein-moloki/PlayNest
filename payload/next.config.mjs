@@ -15,6 +15,19 @@ const config = withBundleAnalyzer(
   withPayload(
     {
       output: 'standalone',
+      outputFileTracingExcludes: {
+        '*': [
+          './examples/**',
+          './templates/**',
+          './docs/**',
+          './test/**',
+          './node_modules/@swc/core-linux-x64-gnu/**',
+          './node_modules/@swc/core-linux-x64-musl/**',
+          './node_modules/@esbuild/**',
+          './node_modules/webpack/**',
+          './node_modules/terser/**',
+        ],
+      },
       cacheComponents: process.env.PAYLOAD_CACHE_COMPONENTS === 'true',
       basePath: process.env?.NEXT_BASE_PATH || undefined,
       typescript: {
@@ -36,7 +49,7 @@ const config = withBundleAnalyzer(
       async redirects() {
         return [
           {
-            destination: '/admin',
+            destination: '/payload-api-docs',
             permanent: false,
             source: '/',
           },

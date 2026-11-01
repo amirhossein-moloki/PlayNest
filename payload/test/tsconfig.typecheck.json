@@ -67,9 +67,6 @@
       "path": "../packages/plugin-seo"
     },
     {
-      "path": "../packages/plugin-stripe"
-    },
-    {
       "path": "../packages/richtext-lexical"
     },
     {
@@ -80,9 +77,6 @@
     },
     {
       "path": "../packages/ui"
-    },
-    {
-      "path": "../packages/plugin-ecommerce"
     }
   ]
 }

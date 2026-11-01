@@ -48,7 +48,6 @@ async function main() {
         'next',
         'payload-cloud',
         'plugin-form-builder',
-        'plugin-ecommerce',
         'plugin-nested-docs',
         'plugin-redirects',
         'plugin-search',

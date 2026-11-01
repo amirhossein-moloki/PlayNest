@@ -45,7 +45,6 @@ export const packagePublishList = [
   'live-preview-vue',
 
   // Plugins
-  'plugin-ecommerce',
   'plugin-form-builder',
   'plugin-import-export',
   'plugin-mcp',
@@ -55,7 +54,6 @@ export const packagePublishList = [
   'plugin-search',
   'plugin-sentry',
   'plugin-seo',
-  'plugin-stripe',
 
   // Leaves
   'sdk',
