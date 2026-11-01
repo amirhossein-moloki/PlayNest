@@ -159,6 +159,43 @@ describe('PLATFORM_ADMIN Authorization & Tenant Isolation', () => {
     expect(res.status).toBe(403);
   });
 
+  it('Tenant Manager CANNOT access platform admin endpoints (403 forbidden)', async () => {
+    ((prisma as any).user.findUnique as jest.Mock).mockResolvedValue({
+      id: 'usr_mgr_1',
+      gamingCenterId: 'center_owner_1',
+      role: 'MANAGER',
+      isActive: true,
+    });
+
+    const res = await request(app)
+      .get('/api/v1/platform-admin/operations/overview')
+      .set('Authorization', `Bearer ${tenantManagerToken}`);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('Unauthenticated request CANNOT access platform admin endpoints (401 unauthorized)', async () => {
+    const res = await request(app)
+      .get('/api/v1/platform-admin/operations/overview');
+
+    expect(res.status).toBe(401);
+  });
+
+  it('Deactivated PlatformAdmin CANNOT access platform admin endpoints (401 unauthorized)', async () => {
+    ((prisma as any).platformAdmin.findUnique as jest.Mock).mockResolvedValue({
+      id: 'pa_1',
+      fullName: 'Deactivated Super User',
+      isActive: false,
+      isSuperuser: true,
+    });
+
+    const res = await request(app)
+      .get('/api/v1/platform-admin/operations/overview')
+      .set('Authorization', `Bearer ${platformAdminToken}`);
+
+    expect(res.status).toBe(401);
+  });
+
   it('PLATFORM_ADMIN can access global platform endpoints', async () => {
     ((prisma as any).platformAdmin.findUnique as jest.Mock).mockResolvedValue({
       id: 'pa_1',

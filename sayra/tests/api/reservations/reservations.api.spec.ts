@@ -42,4 +42,18 @@ describe('Reservation API', () => {
 
     expect(res.status).toBe(403);
   });
+
+  it('should enforce strict tenant isolation and return 404 when user belongs to another gaming center', async () => {
+    const token = generateAccessToken({ sessionId: 's2', actorId: 'u2', actorType: 'USER' });
+    (prisma.user.findUnique /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).mockResolvedValue({
+      id: 'u2',
+      gamingCenterId: 'other-gaming-center-id',
+      role: 'MANAGER',
+    });
+
+    const res = await request(app).get(`/api/v1/gamingCenters/${gamingCenterId}/reservation`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(404);
+  });
 });

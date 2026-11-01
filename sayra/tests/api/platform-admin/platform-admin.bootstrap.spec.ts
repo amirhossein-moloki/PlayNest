@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { bootstrapPlatformAdmin } from '../../../scripts/bootstrap-platform-admin';
-import { prisma } from '../../../dist/config/prisma.js';
+import { bootstrapPlatformAdmin, prisma } from '../../../scripts/bootstrap-platform-admin';
 import argon2 from 'argon2';
 
-jest.mock('../../../dist/config/prisma.js', () => ({
+jest.mock('../../../src/config/prisma', () => ({
   prisma: {
     platformAdmin: {
       findUnique: jest.fn(),

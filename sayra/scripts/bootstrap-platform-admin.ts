@@ -1,7 +1,30 @@
 import readline from 'readline';
 import argon2 from 'argon2';
-// Import compiled Prisma configuration from dist to support environments where src is stripped (e.g. production Docker image)
-import { prisma, connectPrisma, disconnectPrisma } from '../dist/config/prisma.js';
+import type { PrismaClient } from '@prisma/client';
+
+// Resolve Prisma configuration dynamically: prefer src/config/prisma in development/testing (TS), and dist/config/prisma in production
+let prisma: PrismaClient;
+let connectPrisma: (() => Promise<void>) | undefined;
+let disconnectPrisma: (() => Promise<void>) | undefined;
+
+try {
+  /* eslint-disable @typescript-eslint/no-var-requires */
+  const prismaConfig = require('../src/config/prisma');
+  prisma = prismaConfig.prisma;
+  connectPrisma = prismaConfig.connectPrisma;
+  disconnectPrisma = prismaConfig.disconnectPrisma;
+  /* eslint-enable @typescript-eslint/no-var-requires */
+} catch {
+  // Fallback for compiled environments where src is omitted (e.g., Docker production image)
+  /* eslint-disable @typescript-eslint/no-var-requires */
+  const prismaConfig = require('../dist/config/prisma.js');
+  prisma = prismaConfig.prisma;
+  connectPrisma = prismaConfig.connectPrisma;
+  disconnectPrisma = prismaConfig.disconnectPrisma;
+  /* eslint-enable @typescript-eslint/no-var-requires */
+}
+
+export { prisma, connectPrisma, disconnectPrisma };
 
 export const isValidIranPhone = (phone: string): boolean => {
   const digits = phone.replace(/\D/g, '');
