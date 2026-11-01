@@ -55,7 +55,7 @@ docker compose up -d --build
 برای تعریف امن اولین اکانت `PLATFORM_ADMIN` از طریق خط فرمان در محیط کانتینری پروداکشن، از دستور تعاملی زیر استفاده نمایید:
 
 ```bash
-docker compose exec sayra pnpm admin:create
+docker compose exec sayra node --import tsx ./scripts/bootstrap-platform-admin.ts
 ```
 
 این دستور به صورت تعاملی اطلاعات زیر را دریافت می‌کند:

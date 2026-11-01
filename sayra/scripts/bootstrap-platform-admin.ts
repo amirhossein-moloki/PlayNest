@@ -1,6 +1,7 @@
 import readline from 'readline';
 import argon2 from 'argon2';
-import { prisma } from '../src/config/prisma';
+// Import compiled Prisma configuration from dist to support environments where src is stripped (e.g. production Docker image)
+import { prisma, connectPrisma, disconnectPrisma } from '../dist/config/prisma.js';
 
 export const isValidIranPhone = (phone: string): boolean => {
   const digits = phone.replace(/\D/g, '');
@@ -197,12 +198,22 @@ export async function bootstrapPlatformAdmin(opts: BootstrapOptions = {}) {
 }
 
 if (require.main === module) {
-  bootstrapPlatformAdmin()
-    .then(() => {
-      process.exit(0);
-    })
-    .catch((err) => {
-      console.error('[Bootstrap Error]', err.message || err);
-      process.exit(1);
-    });
+  (async () => {
+    try {
+      if (typeof connectPrisma === 'function') {
+        await connectPrisma();
+      }
+      await bootstrapPlatformAdmin();
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error('[Bootstrap Error]', errorMsg);
+      process.exitCode = 1;
+    } finally {
+      if (typeof disconnectPrisma === 'function') {
+        await disconnectPrisma();
+      } else if (prisma && typeof (prisma as { $disconnect?: () => Promise<void> }).$disconnect === 'function') {
+        await prisma.$disconnect();
+      }
+    }
+  })();
 }

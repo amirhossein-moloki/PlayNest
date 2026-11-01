@@ -62,7 +62,7 @@ Services will be accessible via Nginx reverse proxy on port 80:
 To bootstrap the initial `PLATFORM_ADMIN` account in production or fresh staging environments, execute the interactive CLI wizard inside the running Sayra container:
 
 ```bash
-docker compose exec sayra pnpm admin:create
+docker compose exec sayra node --import tsx ./scripts/bootstrap-platform-admin.ts
 ```
 
 The terminal wizard interactively prompts for:
