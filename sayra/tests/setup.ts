@@ -41,6 +41,24 @@ jest.mock('bullmq', () => ({
   })),
 }));
 
+jest.mock('../src/config/redis', () => {
+  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-var-requires */
+  const { EventEmitter } = require('events');
+  const mockRedis: any = new EventEmitter();
+  mockRedis.status = 'ready';
+  mockRedis.get = ((jest as any).fn() as any).mockResolvedValue(null);
+  mockRedis.set = ((jest as any).fn() as any).mockResolvedValue('OK');
+  mockRedis.del = ((jest as any).fn() as any).mockResolvedValue(1);
+  mockRedis.quit = ((jest as any).fn() as any).mockResolvedValue('OK');
+  mockRedis.disconnect = (jest as any).fn();
+  /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-var-requires */
+  return {
+    __esModule: true,
+    redis: mockRedis,
+    default: mockRedis,
+  };
+});
+
 afterAll(async () => {
   try {
     const { disconnectPrisma } = await import('../src/config/prisma');
@@ -79,7 +97,7 @@ afterAll(async () => {
   try {
     const { redis } = await import('../src/config/redis');
     if (redis && redis.status !== 'end') {
-      redis.disconnect();
+      redis.disconnect(false);
     }
   } catch {
     // Ignore
