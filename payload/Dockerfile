@@ -64,6 +64,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/src/docs ./src/docs
 # Ensure media directory exists and is owned by nextjs
 RUN mkdir -p /app/public/media && chown -R nextjs:nodejs /app/public/media
 
