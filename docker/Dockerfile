@@ -62,6 +62,7 @@ RUN apt-get update && \
 # Copy build artifacts and production dependencies with non-root ownership directly
 # This avoids running recursive 'chown -R' on OverlayFS, which causes duplicate layer storage and ENOSPC failures
 COPY --from=builder --chown=appuser:appuser /app/dist ./dist
+COPY --from=builder --chown=appuser:appuser /app/src ./src
 COPY --from=builder --chown=appuser:appuser /app/node_modules ./node_modules
 COPY --from=builder --chown=appuser:appuser /app/package*.json ./
 COPY --from=builder --chown=appuser:appuser /app/prisma ./prisma
