@@ -1,0 +1,86 @@
+export const SEED_CONFIG = {
+  randomSeed: 987654321,
+  defaultPassword: 'PlayNest@2026',
+
+  platformAdmin: {
+    fullName: 'مدیر کل سامانه پلی‌نست',
+    phone: '09993000001',
+    email: 'superadmin@playenest.ir',
+  },
+
+  daysHistory: 30,
+  daysFuture: 7,
+
+  pcGames: [
+    'Counter-Strike 2',
+    'Dota 2',
+    'Valorant',
+    'Apex Legends',
+    'Grand Theft Auto V',
+    'Cyberpunk 2077',
+    'Call of Duty: Warzone',
+    'League of Legends',
+    'Overwatch 2',
+    'Rainbow Six Siege',
+    'Red Dead Redemption 2',
+    'Forza Horizon 5',
+  ],
+  consoleGames: [
+    'FC 25',
+    'Mortal Kombat 1',
+    'Tekken 8',
+    'eFootball 2025',
+    'God of War Ragnarök',
+    'Spider-Man 2',
+    'NBA 2K25',
+    'Gran Turismo 7',
+    'Elden Ring',
+    'It Takes Two',
+    'UFC 5',
+  ],
+
+  archetypes: {
+    FLAGSHIP: {
+      key: 'FLAGSHIP',
+      label: 'مرکز پرچمدار و مجلل',
+      stationCount: 20,
+      baseHourly: 95000,
+      vipHourly: 150000,
+    },
+    ESPORTS: {
+      key: 'ESPORTS',
+      label: 'مرکز تخصصی مسابقات و ورزش‌های الکترونیک',
+      stationCount: 16,
+      baseHourly: 85000,
+      vipHourly: 130000,
+    },
+    COMMUNITY: {
+      key: 'COMMUNITY',
+      label: 'مرکز محلی و اقتصادی',
+      stationCount: 10,
+      baseHourly: 55000,
+      vipHourly: 80000,
+    },
+    NEWLY_OPENED: {
+      key: 'NEWLY_OPENED',
+      label: 'مرکز تازه‌تأسیس با تخفیف‌های ویژه افتتاحیه',
+      stationCount: 12,
+      baseHourly: 60000,
+      vipHourly: 90000,
+    },
+    STUDENT_HUB: {
+      key: 'STUDENT_HUB',
+      label: 'مرکز دانشجویی شلوغ و اقتصادی',
+      stationCount: 14,
+      baseHourly: 65000,
+      vipHourly: 95000,
+    },
+    VIP_LOUNGE: {
+      key: 'VIP_LOUNGE',
+      label: 'کلوپ اختصاصی کنسول و وی‌آی‌پی',
+      stationCount: 8,
+      baseHourly: 110000,
+      vipHourly: 180000,
+    },
+  },
+};
