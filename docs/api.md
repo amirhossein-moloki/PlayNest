@@ -80,6 +80,14 @@ Example request:
   - `gamingCenterId` (string, CUID)
 - **Response**: `{ "success": true, "data": { "user": "...", "tokens": "..." } }`
 
+### POST `/auth/platform-admin/login`
+
+- **Auth**: public
+- **Body** (`platformAdminLoginSchema`)
+  - `phone` (string)
+  - `password` (string)
+- **Response**: `{ "success": true, "data": { "user": "...", "tokens": "..." } }`
+
 ### POST `/auth/login`
 
 - **Auth**: public
@@ -106,6 +114,61 @@ Example request:
 
 - **Auth**: required (Bearer access token)
 - **Response**: `{ "success": true, "data": { "id": "...", "role": "..." } }`
+
+## Platform Admin
+
+All routes under `/api/v1/platform-admin` are protected by `authMiddleware` and `requirePlatformAdmin` (or global superuser).
+
+### GET `/platform-admin/dashboard`
+- **Auth**: required (`PLATFORM_ADMIN`)
+- **Response**: HTML Platform Admin Web Dashboard.
+
+### GET `/platform-admin/gaming-centers`
+- **Auth**: required (`PLATFORM_ADMIN`)
+- **Query**: `page`, `limit`, `search`
+- **Response**: List of all gaming centers across the platform.
+
+### PATCH `/platform-admin/gaming-centers/:id/status`
+- **Auth**: required (`PLATFORM_ADMIN`)
+- **Body**: `{ "isActive": boolean, "subscriptionStatus": string }`
+- **Response**: `{ "success": true, "data": { ... } }`
+
+### GET `/platform-admin/users`
+- **Auth**: required (`PLATFORM_ADMIN`)
+- **Query**: `page`, `limit`, `gamingCenterId`, `role`, `search`, `isActive`
+- **Response**: Paginated list of users across all centers.
+
+### PATCH `/platform-admin/users/:id/status`
+- **Auth**: required (`PLATFORM_ADMIN`)
+- **Body**: `{ "isActive": boolean }`
+- **Response**: `{ "success": true, "data": { ... } }`
+
+### POST `/platform-admin/users/:id/reset-password`
+- **Auth**: required (`PLATFORM_ADMIN`)
+- **Body**: `{ "newPassword": "..." }`
+- **Response**: `{ "success": true, "data": { ... } }`
+
+### POST `/platform-admin/users/:id/revoke-sessions`
+- **Auth**: required (`PLATFORM_ADMIN`)
+- **Response**: `{ "success": true, "data": { ... } }`
+
+### GET `/platform-admin/customers`
+- **Auth**: required (`PLATFORM_ADMIN`)
+- **Query**: `page`, `limit`, `search`
+- **Response**: Paginated list of customers across all centers.
+
+### GET `/platform-admin/operations/overview`
+- **Auth**: required (`PLATFORM_ADMIN`)
+- **Response**: System-wide operational overview metrics.
+
+### GET `/platform-admin/financials/overview`
+- **Auth**: required (`PLATFORM_ADMIN`)
+- **Response**: System-wide financial metrics and ledger balances.
+
+### GET `/platform-admin/audit-logs`
+- **Auth**: required (`PLATFORM_ADMIN`)
+- **Query**: `page`, `limit`, `gamingCenterId`, `action`, `entity`, `userId`, `startDate`, `endDate`
+- **Response**: Paginated system-wide audit logs.
 
 ## Health
 
@@ -326,26 +389,31 @@ Example response:
 - **Response**: `{ "success": true, "data": { "...": "..." } }`
 - **Note**: service implementation is a placeholder.
 
-## Payments
+## Payments & Refunds
 
-### POST `/gamingCenters/:gamingCenterId/bookings/:bookingId/payments/init`
+### Scoped to Reservation:
+- **POST** `/gamingCenters/:gamingCenterId/reservation/:reservationId/payments/init` - Initialize online gateway payment (`MANAGER`, `SUPERVISOR`, `STAFF`).
+- **GET** `/gamingCenters/:gamingCenterId/reservation/:reservationId/payments/verify` - Gateway callback verification URL.
+- **POST** `/gamingCenters/:gamingCenterId/reservation/:reservationId/payments/verify` - Manual or programmatic payment verification.
+- **GET** `/gamingCenters/:gamingCenterId/reservation/:reservationId/payments/status` - Inquire payment status.
 
-- **Auth**: required
-- **Roles**: `MANAGER`, `RECEPTIONIST`, `STAFF`
-- **Headers**: `Idempotency-Key`
-- **Body**: none (params validation only via `InitPaymentValidators`)
-- **Response**: `201 Created`:
+### Payments Management:
+- **POST** `/gamingCenters/:gamingCenterId/payments/:paymentId/refunds` - Initiate partial or full refund (`MANAGER`, `ADMIN`).
+- **GET** `/gamingCenters/:gamingCenterId/payments/:paymentId/refunds/:refundId` - Get refund details.
+- **GET** `/gamingCenters/:gamingCenterId/payments/:paymentId/refunds` - List all refunds for a payment.
+- **GET** `/gamingCenters/:gamingCenterId/payments/ledger` - View double-entry financial ledger history (`MANAGER`, `ADMIN`).
+- **POST** `/gamingCenters/:gamingCenterId/payments/reconcile` - Run financial reconciliation check (`MANAGER`, `ADMIN`).
 
-```json
-{
-  "success": true,
-  "data": {
-    "paymentId": "...",
-    "paymentStatus": "INITIATED",
-    "checkoutUrl": "https://sandbox.zarinpal.com/pg/StartPay/..."
-  }
-}
-```
+## Expenses
+
+Mounted under `/api/v1/gamingCenters/:gamingCenterId/expenses` (`MANAGER`, `ADMIN`).
+
+- **POST** `/` - Record a new center operating expense.
+- **GET** `/` - List expenses with filters for `category`, `status`, `startDate`, `endDate`.
+- **GET** `/:id` - Get expense details by ID.
+- **PATCH** `/:id` - Update expense details.
+- **POST** `/:id/approve` - Approve draft expense.
+- **DELETE** `/:id` - Void or remove expense record.
 
 ## CMS (Private)
 
