@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   login,
+  loginPlatformAdmin,
   refresh,
   logout,
   me,
@@ -13,6 +14,7 @@ import {
 import { validate } from '../../common/middleware/validate';
 import {
   loginSchema,
+  platformAdminLoginSchema,
   refreshSchema,
   requestOtpSchema,
   verifyOtpSchema,
@@ -37,6 +39,9 @@ router.post('/user/login/otp', validate(loginWithOtpSchema), asyncHandler(loginU
 // --- Customer OTP Flow ---
 router.post('/customer/otp/request', validate(requestOtpSchema), asyncHandler(requestCustomerOtp));
 router.post('/customer/otp/verify', validate(verifyOtpSchema), asyncHandler(verifyCustomerOtp));
+
+// --- Platform Admin Login ---
+router.post('/platform-admin/login', validate(platformAdminLoginSchema), asyncHandler(loginPlatformAdmin));
 
 // --- Classic Login ---
 router.post('/login', validate(loginSchema), asyncHandler(login));

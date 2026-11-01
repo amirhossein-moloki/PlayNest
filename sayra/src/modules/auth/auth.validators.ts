@@ -33,3 +33,10 @@ export const loginWithOtpSchema = z.object({
     gamingCenterId: z.string().cuid('Invalid GamingCenter ID format'),
   }),
 });
+
+export const platformAdminLoginSchema = z.object({
+  body: z.object({
+    phone: z.string().min(10, 'Phone number must be at least 10 digits'),
+    password: z.string().min(1, 'Password is required'),
+  }),
+});

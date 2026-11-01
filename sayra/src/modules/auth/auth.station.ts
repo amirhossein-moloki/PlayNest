@@ -74,6 +74,33 @@ export const authService = {
     };
   },
 
+  async loginPlatformAdmin(phone: string, password: string) {
+    const admin = await AuthRepository.findPlatformAdminByPhone(phone);
+    if (!admin || !admin.passwordHash) {
+      throw new AppError('Invalid credentials', httpStatus.UNAUTHORIZED);
+    }
+
+    if (!admin.isActive) {
+      throw new AppError('Account is deactivated', httpStatus.UNAUTHORIZED);
+    }
+
+    const isPasswordValid = await argon2.verify(admin.passwordHash, password);
+    if (!isPasswordValid) {
+      throw new AppError('Invalid credentials', httpStatus.UNAUTHORIZED);
+    }
+
+    await AuthRepository.updatePlatformAdminLastLogin(admin.id);
+
+    const { accessToken, refreshToken } = await createAndSaveSession(admin.id, 'PLATFORM_ADMIN');
+
+    const { passwordHash: _passwordHash, ...safeAdmin } = admin; void _passwordHash;
+
+    return {
+      admin: safeAdmin,
+      tokens: { accessToken, refreshToken },
+    };
+  },
+
   async requestUserOtp(phone: string) {
     const users = await AuthRepository.findUsersWithGamingCenters(phone);
     if (users.length === 0) {

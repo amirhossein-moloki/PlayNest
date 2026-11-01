@@ -240,6 +240,7 @@ enum CommissionPaymentStatus {
 enum SessionActorType {
   USER
   CUSTOMER
+  PLATFORM_ADMIN
 }
 
 enum OtpPurpose {
@@ -1852,7 +1853,32 @@ model Rating {
   @@index([customerAccountId, createdAt])
 }
 
+
+model PlatformAdmin {
+  id String @id @default(cuid())
+
+  fullName String
+  phone    String  @unique
+  email    String? @unique
+
+  passwordHash String
+  isActive     Boolean   @default(true)
+  isSuperuser  Boolean   @default(true)
+  lastLogin    DateTime?
+
+  auditLogs AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([phone])
+  @@index([isActive])
+}
+
 model AuditLog {
+  platformAdminId String?
+  platformAdmin   PlatformAdmin? @relation(fields: [platformAdminId], references: [id])
+
   id String @id @default(cuid())
 
   gamingCenterId String?

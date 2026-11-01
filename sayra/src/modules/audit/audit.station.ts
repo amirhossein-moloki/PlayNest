@@ -1,10 +1,10 @@
-
 import { SessionActorType } from '@prisma/client';
 import { AuditRepo } from './audit.repo';
 
 export interface RecordLogInput {
   gamingCenterId?: string;
   userId?: string;
+  platformAdminId?: string;
   customerId?: string;
   actorType?: SessionActorType;
   action: string;
@@ -28,9 +28,11 @@ export const auditService = {
     data: { old?: any; new?: any }, // eslint-disable-line @typescript-eslint/no-explicit-any
     context?: { ip?: string; userAgent?: string }
   ) {
+    const isPlatformAdmin = actor.actorType === 'PLATFORM_ADMIN';
     return this.recordLog({
-      gamingCenterId,
-      userId: actor.id,
+      gamingCenterId: gamingCenterId || undefined,
+      userId: !isPlatformAdmin ? actor.id : undefined,
+      platformAdminId: isPlatformAdmin ? actor.id : undefined,
       actorType: actor.actorType,
       action,
       entity: entity.name,
@@ -51,6 +53,7 @@ export const auditService = {
       return await AuditRepo.createLog({
         gamingCenterId: data.gamingCenterId,
         userId: data.userId,
+        platformAdminId: data.platformAdminId,
         customerId: data.customerId,
 
         action: data.action,
