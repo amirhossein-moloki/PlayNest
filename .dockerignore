@@ -1,0 +1,29 @@
+# Ignore version control, documentation, and agent folders
+.git
+.github
+docs/
+*.md
+
+# Ignore the 104MB payload directory when building Sayra from repo root
+payload/
+
+# Ignore backups, local data, and json datasets
+backups/
+docker-data/
+docker/volumes/
+playnest_seed_dataset_*.json
+errors.txt
+
+# Dependencies and build artifacts
+node_modules/
+dist/
+build/
+.cache/
+.turbo/
+*.tsbuildinfo
+
+# Ignore environment files
+.env
+.env.*
+!.env.example
+!.env.dev
