@@ -7,15 +7,15 @@ export const AuthRepository = {
   },
 
   async findPlatformAdminByPhone(phone: string) {
-    return (prisma as any).platformAdmin.findUnique({ where: { phone } });
+    return (prisma as any).platformAdmin.findUnique /* eslint-disable-line @typescript-eslint/no-explicit-any */({ where: { phone } });
   },
 
   async findPlatformAdminById(id: string) {
-    return (prisma as any).platformAdmin.findUnique({ where: { id } });
+    return (prisma as any).platformAdmin.findUnique /* eslint-disable-line @typescript-eslint/no-explicit-any */({ where: { id } });
   },
 
   async updatePlatformAdminLastLogin(id: string) {
-    return (prisma as any).platformAdmin.update({
+    return (prisma as any).platformAdmin.update /* eslint-disable-line @typescript-eslint/no-explicit-any */({
       where: { id },
       data: { lastLogin: new Date() },
     });

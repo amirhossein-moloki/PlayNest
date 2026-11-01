@@ -70,7 +70,7 @@ export const me = async (req: Request, res: Response) => {
     const adminId = req.actor.id || req.actor.actorId || '';
     const admin = await AuthRepository.findPlatformAdminById(adminId);
     if (admin) {
-      const { passwordHash: _, ...safeAdmin } = admin;
+      const { passwordHash: _passwordHash, ...safeAdmin } = admin; void _passwordHash;
       return res.ok({
         ...req.actor,
         profile: safeAdmin,

@@ -93,7 +93,7 @@ export const authService = {
 
     const { accessToken, refreshToken } = await createAndSaveSession(admin.id, 'PLATFORM_ADMIN');
 
-    const { passwordHash: _, ...safeAdmin } = admin;
+    const { passwordHash: _passwordHash, ...safeAdmin } = admin; void _passwordHash;
 
     return {
       admin: safeAdmin,

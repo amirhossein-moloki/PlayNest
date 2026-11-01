@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
@@ -98,11 +99,11 @@ export const PlatformAdminRepo = {
   }) {
     const where: any = params.search
       ? {
-          OR: [
-            { phone: { contains: params.search } },
-            { profiles: { some: { displayName: { contains: params.search, mode: 'insensitive' } } } },
-          ],
-        }
+        OR: [
+          { phone: { contains: params.search } },
+          { profiles: { some: { displayName: { contains: params.search, mode: 'insensitive' } } } },
+        ],
+      }
       : {};
 
     const [items, total] = await Promise.all([

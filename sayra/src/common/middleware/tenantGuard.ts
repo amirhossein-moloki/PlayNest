@@ -33,7 +33,7 @@ export const tenantGuard = async (req: Request, res: Response, next: NextFunctio
     }
 
     try {
-      const center = await (prisma as any).gamingCenter.findUnique({
+      const center = await (prisma as any).gamingCenter.findUnique /* eslint-disable-line @typescript-eslint/no-explicit-any */({
         where: { id: gamingCenterId },
         select: { id: true, slug: true },
       });

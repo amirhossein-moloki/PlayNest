@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import argon2 from 'argon2';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
@@ -73,7 +74,7 @@ export const PlatformAdminStation = {
     });
 
     const sanitizedItems = items.map((u: any) => {
-      const { passwordHash: _, ...rest } = u;
+      const { passwordHash: _passwordHash, ...rest } = u; void _passwordHash;
       return rest;
     });
 
@@ -114,7 +115,7 @@ export const PlatformAdminStation = {
       userAgent: context?.userAgent,
     });
 
-    const { passwordHash: _, ...rest } = updated as any;
+    const { passwordHash: _passwordHash, ...rest } = updated as any; void _passwordHash;
     return rest;
   },
 

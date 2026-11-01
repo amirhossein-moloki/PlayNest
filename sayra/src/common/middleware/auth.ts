@@ -116,7 +116,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     gamingCenterId,
     actorType,
     isActive: true,
-    isSuperuser,
+    ...(isSuperuser ? { isSuperuser: true } : {}),
   };
 
   // 4. Attempt Redis write (non-blocking errors)

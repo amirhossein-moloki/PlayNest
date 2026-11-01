@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { bootstrapPlatformAdmin } from '../../../scripts/bootstrap-platform-admin';
 import { prisma } from '../../../src/config/prisma';
 import argon2 from 'argon2';
