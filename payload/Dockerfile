@@ -23,6 +23,7 @@ WORKDIR /app
 ENV HUSKY=0
 ENV NODE_ENV=production
 ENV PAYLOAD_SECRET=build_time_payload_secret_32_characters_min
+ENV PAYLOAD_CONFIG_PATH=/app/src/payload.config.ts
 ENV NODE_OPTIONS="--max-old-space-size=8192"
 
 RUN corepack enable pnpm

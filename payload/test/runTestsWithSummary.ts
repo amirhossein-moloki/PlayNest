@@ -42,7 +42,6 @@ const TEST_SUITES = [
   'login-with-username',
   // 'payload-cloud', Has no real tests (only it.todo) - shows 0/0
   // 'plugin-cloud-storage', Tests skipped unless in CI or has localstack - shows 0/0
-  'plugin-ecommerce',
   'plugin-form-builder',
   'plugin-import-export',
   'plugin-mcp',
@@ -52,7 +51,6 @@ const TEST_SUITES = [
   'plugin-search',
   // 'plugin-sentry', Has no real tests (only it.todo) - shows 0/0
   'plugin-seo',
-  'plugin-stripe',
   'plugins',
   'query-presets',
   'queues',

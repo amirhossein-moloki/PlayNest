@@ -5,3 +5,8 @@ node_modules
 .next
 .turbo
 dist
+examples
+templates
+docs
+test
+*.md
