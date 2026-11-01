@@ -1,10 +1,40 @@
+# Version control, agents, and tooling
 .git
 .github
 .husky
+.agents
+.claude
+.claude-plugin
+.codex
+.cursor
+.devcontainer
+
+# Dependencies and caches
 node_modules
 .next
 .turbo
 dist
-examples
+.cache
+*.tsbuildinfo
+
+# Documentation and markdown files
 docs
 *.md
+ISSUE_GUIDE.md
+SECURITY.md
+VERSIONING.md
+CONTRIBUTING.md
+github-stars.md
+
+# Examples and test suites (44MB test suite including 15MB mock uploads)
+# NOTE: templates are kept as they are referenced in pnpm-workspace.yaml
+examples
+test
+
+# Temporary and log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+tmp
+temp
