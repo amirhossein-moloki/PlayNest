@@ -1,15 +1,30 @@
+import { Server } from 'http';
 import app from './app';
 import { env } from './config/env';
 import { initWorkers } from './jobs/workers';
+import { initPlatformAdminPanel } from './platform-admin';
 import logger from './config/logger';
 
 const PORT = env.PORT;
 
-initWorkers();
+let server: Server;
 
-const server = app.listen(PORT, () => {
-  logger.info(`Server is successfully running and listening on port ${PORT} [PID: ${process.pid}]`);
-});
+async function bootstrap() {
+  initWorkers();
+
+  // Initialize Platform Admin Panel before starting listener
+  try {
+    await initPlatformAdminPanel(app);
+  } catch (err) {
+    logger.error({ err }, 'Failed to initialize Platform Admin Panel during bootstrap');
+  }
+
+  server = app.listen(PORT, () => {
+    logger.info(`Server is successfully running and listening on port ${PORT} [PID: ${process.pid}]`);
+  });
+}
+
+bootstrap();
 
 const gracefulShutdown = (signal: string) => {
   logger.info(`${signal} signal received: closing HTTP server`);

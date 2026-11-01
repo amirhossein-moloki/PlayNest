@@ -44,7 +44,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ['\'self\''],
-      scriptSrc: ['\'self\'', '\'unsafe-inline\'', 'https://cdn.redoc.ly', 'https://unpkg.com'],
+      scriptSrc: ['\'self\'', '\'unsafe-inline\'', '\'unsafe-eval\'', 'https://cdn.redoc.ly', 'https://unpkg.com', 'https://cdnjs.cloudflare.com'],
       scriptSrcAttr: ['\'unsafe-inline\''],
       styleSrc: ['\'self\'', '\'unsafe-inline\'', 'https:', 'http:'],
       imgSrc: ['\'self\'', 'data:', 'blob:', 'https:', 'http:'],
