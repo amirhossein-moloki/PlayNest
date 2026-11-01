@@ -1,6 +1,8 @@
 # Stage 1: Base & Dependencies
 FROM node:22-slim AS base
 
+RUN corepack enable pnpm
+
 RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
 
 WORKDIR /app
@@ -41,6 +43,8 @@ RUN npm prune --production
 
 # Stage 3: Runtime
 FROM node:22-slim AS runtime
+
+RUN corepack enable pnpm
 
 RUN groupadd -r appuser && \
     useradd -r -g appuser -d /app -s /sbin/nologin appuser

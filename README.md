@@ -58,7 +58,22 @@ Services will be accessible via Nginx reverse proxy on port 80:
 - **Sayra Health Check**: `http://localhost/health`
 - **Sayra Swagger Docs**: `http://localhost/api-docs`
 
-### 4. Local Development
+### 4. Creating the First Platform Administrator (CLI)
+To bootstrap the initial `PLATFORM_ADMIN` account in production or fresh staging environments, execute the interactive CLI wizard inside the running Sayra container:
+
+```bash
+docker compose exec sayra pnpm admin:create
+```
+
+The terminal wizard interactively prompts for:
+1. **Full Name**
+2. **Phone Number** (Iranian format: `09xxxxxxxxx`)
+3. **Password** (hidden input with strong password policy)
+4. **Confirm Password** (hidden input)
+
+This command is completely decoupled from any Gaming Center, executes within a database transaction, records an audit log entry, and safely exits without modifying any existing data if an administrator already exists.
+
+### 5. Local Development
 
 #### Sayra Reservation Backend (`sayra/`):
 ```bash

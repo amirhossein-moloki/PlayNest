@@ -7,14 +7,41 @@ export const isValidIranPhone = (phone: string): boolean => {
   return /^09\d{9}$/.test(digits) || /^989\d{9}$/.test(digits);
 };
 
-interface BootstrapOptions {
+export const normalizeIranPhone = (phone: string): string => {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('989') && digits.length === 12) {
+    return '0' + digits.slice(2);
+  }
+  return digits;
+};
+
+export const validatePasswordPolicy = (password: string): void => {
+  if (password.length < 8) {
+    throw new Error('Validation error: Password must be at least 8 characters long.');
+  }
+  if (!/[A-Z]/.test(password)) {
+    throw new Error('Validation error: Password must contain at least one uppercase letter.');
+  }
+  if (!/[a-z]/.test(password)) {
+    throw new Error('Validation error: Password must contain at least one lowercase letter.');
+  }
+  if (!/[0-9]/.test(password)) {
+    throw new Error('Validation error: Password must contain at least one number.');
+  }
+  if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
+    throw new Error('Validation error: Password must contain at least one special character.');
+  }
+};
+
+export interface BootstrapOptions {
   fullName?: string;
   phone?: string;
   email?: string;
   password?: string;
+  passwordConfirm?: string;
 }
 
-const prompt = (rl: readline.Interface, query: string, hide = false): Promise<string> => {
+export const promptInput = (rl: readline.Interface, query: string, hide = false): Promise<string> => {
   return new Promise((resolve) => {
     if (!hide) {
       rl.question(query, resolve);
@@ -54,12 +81,20 @@ const prompt = (rl: readline.Interface, query: string, hide = false): Promise<st
 };
 
 export async function bootstrapPlatformAdmin(opts: BootstrapOptions = {}) {
-  let fullName = opts.fullName || process.env.PLATFORM_ADMIN_NAME;
-  let phone = opts.phone || process.env.PLATFORM_ADMIN_PHONE;
-  let email = opts.email || process.env.PLATFORM_ADMIN_EMAIL;
-  let password = opts.password || process.env.PLATFORM_ADMIN_PASSWORD;
+  // Check if any platform administrator already exists
+  const existingCount = await prisma.platformAdmin.count();
+  if (existingCount > 0) {
+    console.warn('[Bootstrap] A platform administrator already exists. Refusing to create or overwrite.');
+    return null;
+  }
 
-  const isInteractive = !fullName || !phone || !password;
+  let fullName = opts.fullName;
+  let phone = opts.phone;
+  let email = opts.email;
+  let password = opts.password;
+  let passwordConfirm = opts.passwordConfirm;
+
+  const isInteractive = !fullName || !phone || !password || !passwordConfirm;
 
   if (isInteractive && process.stdin.isTTY) {
     const rl = readline.createInterface({
@@ -67,18 +102,22 @@ export async function bootstrapPlatformAdmin(opts: BootstrapOptions = {}) {
       output: process.stdout,
     });
 
+    console.log('====================================================');
+    console.log('   PlayNest - First Platform Admin Bootstrap Wizard  ');
+    console.log('====================================================');
+
     try {
       if (!fullName) {
-        fullName = await prompt(rl, 'Full Name: ');
+        fullName = await promptInput(rl, '1. Full Name: ');
       }
       if (!phone) {
-        phone = await prompt(rl, 'Phone (e.g. 09121234567): ');
-      }
-      if (!email) {
-        email = await prompt(rl, 'Email (optional): ');
+        phone = await promptInput(rl, '2. Phone Number (e.g. 09121234567): ');
       }
       if (!password) {
-        password = await prompt(rl, 'Password: ', true);
+        password = await promptInput(rl, '3. Password: ', true);
+      }
+      if (!passwordConfirm) {
+        passwordConfirm = await promptInput(rl, '4. Confirm Password: ', true);
       }
     } finally {
       rl.close();
@@ -97,39 +136,63 @@ export async function bootstrapPlatformAdmin(opts: BootstrapOptions = {}) {
     throw new Error('Validation error: Invalid Iranian phone number format.');
   }
 
-  if (!password || password.length < 8) {
-    throw new Error('Validation error: Password must be at least 8 characters long.');
+  const normalizedPhone = normalizeIranPhone(phone);
+
+  if (!password) {
+    throw new Error('Validation error: Password is required.');
   }
 
-  // Idempotency: Check if an admin already exists with this phone or email
-  const existingByPhone = await prisma.platformAdmin.findUnique({ where: { phone } });
-  if (existingByPhone) {
-    console.warn(`[Bootstrap] Platform admin with phone ${phone} already exists. Refusing to overwrite.`);
-    return existingByPhone;
+  if (passwordConfirm !== undefined && password !== passwordConfirm) {
+    throw new Error('Validation error: Password confirmation does not match.');
   }
 
-  if (email) {
-    const existingByEmail = await prisma.platformAdmin.findUnique({ where: { email } });
-    if (existingByEmail) {
-      console.warn(`[Bootstrap] Platform admin with email ${email} already exists. Refusing to overwrite.`);
-      return existingByEmail;
-    }
-  }
+  validatePasswordPolicy(password);
 
   const passwordHash = await argon2.hash(password);
 
-  const admin = await prisma.platformAdmin.create({
-    data: {
-      fullName,
-      phone,
-      email,
-      passwordHash,
-      isActive: true,
-      isSuperuser: true,
-    },
+  // Execute atomically in a transaction: double check count, create admin, and record audit log
+  const admin = await prisma.$transaction(async (tx) => {
+    const countInsideTx = await tx.platformAdmin.count();
+    if (countInsideTx > 0) {
+      throw new Error('Conflict: A platform administrator already exists.');
+    }
+
+    const newAdmin = await tx.platformAdmin.create({
+      data: {
+        fullName: fullName!,
+        phone: normalizedPhone,
+        email,
+        passwordHash,
+        isActive: true,
+        isSuperuser: true,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        platformAdminId: newAdmin.id,
+        action: 'PLATFORM_ADMIN_BOOTSTRAP',
+        entity: 'PlatformAdmin',
+        entityId: newAdmin.id,
+        newData: {
+          id: newAdmin.id,
+          fullName: newAdmin.fullName,
+          phone: newAdmin.phone,
+          email: newAdmin.email,
+        },
+      },
+    });
+
+    return newAdmin;
   });
 
-  console.log(`[Bootstrap] Successfully created PLATFORM_ADMIN: ${admin.fullName} (${admin.phone}) [ID: ${admin.id}]`);
+  console.log('----------------------------------------------------');
+  console.log('[Bootstrap] Successfully created first PLATFORM_ADMIN');
+  console.log(`Administrator ID: ${admin.id}`);
+  console.log(`Full Name:        ${admin.fullName}`);
+  console.log(`Phone:            ${admin.phone}`);
+  console.log('----------------------------------------------------');
+
   return admin;
 }
 
