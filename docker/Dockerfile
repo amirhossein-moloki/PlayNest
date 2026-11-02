@@ -61,7 +61,7 @@ COPY --from=builder --chown=appuser:appuser /app/scripts ./scripts
 RUN chmod +x scripts/*.sh
 
 # Create storage directory for local media driver with non-root write access
-RUN mkdir -p storage/media && chown -R appuser:appuser storage
+RUN mkdir -p storage/media .adminjs     && chown -R appuser:appuser storage .adminjs     && chown appuser:appuser /app
 
 USER appuser
 
