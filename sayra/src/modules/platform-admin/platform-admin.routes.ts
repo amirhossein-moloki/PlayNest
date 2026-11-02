@@ -17,6 +17,8 @@ router.use(authMiddleware, requirePlatformAdmin);
 
 // Gaming Centers Management
 router.get('/gaming-centers', asyncHandler(PlatformAdminController.getAllGamingCenters));
+router.get('/gaming-centers/:id', asyncHandler(PlatformAdminController.getGamingCenterById));
+router.patch('/gaming-centers/:id', asyncHandler(PlatformAdminController.updateGamingCenter));
 router.patch('/gaming-centers/:id/status', asyncHandler(PlatformAdminController.updateGamingCenterStatus));
 
 // Users Management across all centers

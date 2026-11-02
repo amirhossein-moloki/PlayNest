@@ -12,6 +12,61 @@ export const PlatformAdminStation = {
     return PlatformAdminRepo.listAllGamingCenters();
   },
 
+  async getGamingCenterById(gamingCenterId: string) {
+    const center = await PlatformAdminRepo.findGamingCenterById(gamingCenterId);
+    if (!center) {
+      throw new AppError('GamingCenter not found', httpStatus.NOT_FOUND);
+    }
+    return center;
+  },
+
+  async updateGamingCenter(
+    gamingCenterId: string,
+    data: {
+      name?: string;
+      slug?: string;
+      isActive?: boolean;
+      subscriptionStatus?: string;
+      games?: string[];
+      ownerId?: string;
+    },
+    adminActor: { id: string },
+    context?: { ip?: string; userAgent?: string }
+  ) {
+    const center = await PlatformAdminRepo.findGamingCenterById(gamingCenterId);
+    if (!center) {
+      throw new AppError('GamingCenter not found', httpStatus.NOT_FOUND);
+    }
+
+    if (data.slug && data.slug !== center.slug) {
+      const existing = await PlatformAdminRepo.findGamingCenterBySlug(data.slug);
+      if (existing) {
+        throw new AppError('A gamingCenter with this slug already exists', httpStatus.CONFLICT);
+      }
+    }
+
+    const updated = await PlatformAdminRepo.updateGamingCenter(gamingCenterId, data);
+
+    await auditService.recordLog({
+      gamingCenterId,
+      platformAdminId: adminActor.id || (adminActor as any).actorId,
+      action: 'PLATFORM_ADMIN_GAMING_CENTER_UPDATE',
+      entity: 'GamingCenter',
+      entityId: gamingCenterId,
+      oldData: {
+        name: (center as any).name,
+        slug: (center as any).slug,
+        isActive: (center as any).isActive,
+        subscriptionStatus: (center as any).subscriptionStatus,
+      },
+      newData: data,
+      ipAddress: context?.ip,
+      userAgent: context?.userAgent,
+    });
+
+    return updated;
+  },
+
   async updateGamingCenterStatus(
     gamingCenterId: string,
     data: { isActive?: boolean; subscriptionStatus?: string },

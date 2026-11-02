@@ -6,6 +6,7 @@ import {
   updatePlatformUserStatusSchema,
   resetUserPasswordSchema,
   updateGamingCenterStatusSchema,
+  updatePlatformGamingCenterSchema,
   listPlatformAuditLogsQuerySchema,
   listPlatformCustomersQuerySchema,
 } from './platform-admin.validators';
@@ -15,6 +16,32 @@ export const PlatformAdminController = {
     try {
       const centers = await PlatformAdminStation.getAllGamingCenters();
       res.ok(centers);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async getGamingCenterById(req: AppRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const center = await PlatformAdminStation.getGamingCenterById(id);
+      res.ok(center);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateGamingCenter(req: AppRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const validated = updatePlatformGamingCenterSchema.parse(req).body;
+      const updated = await PlatformAdminStation.updateGamingCenter(
+        id,
+        validated,
+        req.actor,
+        { ip: req.ip, userAgent: req.headers['user-agent'] as string }
+      );
+      res.ok(updated);
     } catch (err) {
       next(err);
     }

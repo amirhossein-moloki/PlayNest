@@ -17,7 +17,7 @@ import { prisma } from '../../config/prisma';
  * @throws {HttpError} 500 - If the actor object is not found on the request.
  */
 export const tenantGuard = async (req: Request, res: Response, next: NextFunction) => {
-  const { gamingCenterId } = req.params;
+  const gamingCenterId = req.params.gamingCenterId || req.params.id;
   const actor = (req as any).actor; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   if (!actor) {

@@ -73,6 +73,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       gamingCenterId: cachedActor.gamingCenterId,
       actorType: cachedActor.actorType,
       sessionId: sessionId as string | undefined,
+      isSuperuser: cachedActor.isSuperuser,
     };
     return next();
   }
@@ -89,7 +90,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       return next(new AppError('User account is deactivated', httpStatus.UNAUTHORIZED));
     }
     user = admin;
-    isSuperuser = true;
+    isSuperuser = admin.isSuperuser ?? true;
   } else if (actorType === 'USER') {
     user = await prisma.user.findUnique({ where: { id: actorId } });
     if (!user) {
@@ -133,6 +134,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     gamingCenterId,
     actorType,
     sessionId: sessionId as string | undefined,
+    isSuperuser: isSuperuser ? true : undefined,
   };
 
   next();

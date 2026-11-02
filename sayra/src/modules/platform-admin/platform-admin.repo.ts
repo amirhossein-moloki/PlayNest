@@ -22,6 +22,9 @@ export const PlatformAdminRepo = {
     return (prisma as any).gamingCenter.findUnique({
       where: { id },
       include: {
+        addresses: true,
+        socialLinks: true,
+        settings: true,
         _count: {
           select: {
             users: true,
@@ -30,6 +33,12 @@ export const PlatformAdminRepo = {
           },
         },
       },
+    });
+  },
+
+  async findGamingCenterBySlug(slug: string) {
+    return (prisma as any).gamingCenter.findUnique({
+      where: { slug },
     });
   },
 
