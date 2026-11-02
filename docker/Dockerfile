@@ -1,24 +1,15 @@
-# Stage 1: Base & Dependencies
+# Stage 1: Base image
 FROM node:22-slim AS base
-
-RUN corepack enable pnpm
-
-RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
 
 WORKDIR /app
 
-# Install system dependencies needed for prisma and native modules (argon2/bcrypt/sharp)
-RUN apt-get update && \
-    apt-get install -y \
-        openssl \
-        python3 \
-        make \
-        g++ \
-        libvips-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Stage 2: Builder
+# Stage 2: Dependencies and Builder
 FROM base AS builder
+
+# Install OpenSSL needed for Prisma CLI engine generation
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends openssl && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY sayra/package*.json ./
 COPY sayra/prisma ./prisma/
@@ -28,36 +19,32 @@ RUN npm config set fetch-retry-maxtimeout 600000 && \
     npm config set fetch-retry-mintimeout 100000 && \
     npm config set fetch-retries 10
 
-# Install all dependencies including devDependencies
+# Install dependencies and generate Prisma Client
 RUN --mount=type=cache,target=/root/.npm \
     npm ci && \
     npx prisma generate
 
 COPY sayra .
 
-# Build the application
+# Build the TypeScript application and copy static assets
 RUN npm run build
 
 # Remove development dependencies to keep the image slim
 RUN npm prune --production
 
 # Stage 3: Runtime
-FROM node:22-slim AS runtime
+FROM base AS runtime
 
-RUN corepack enable pnpm
-
-RUN groupadd -r appuser && \
-    useradd -r -g appuser -d /app -s /sbin/nologin appuser
-
-WORKDIR /app
-
-# Install runtime system dependencies
+# Install only minimal runtime system dependencies (OpenSSL for Prisma engine, postgresql-client for wait-for-db.sh)
 RUN apt-get update && \
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
         openssl \
         postgresql-client \
-        libvips \
     && rm -rf /var/lib/apt/lists/*
+
+# Run application as a non-root system user
+RUN groupadd -r appuser && \
+    useradd -r -g appuser -d /app -s /sbin/nologin appuser
 
 # Copy build artifacts and production dependencies with non-root ownership directly
 # This avoids running recursive 'chown -R' on OverlayFS, which causes duplicate layer storage and ENOSPC failures

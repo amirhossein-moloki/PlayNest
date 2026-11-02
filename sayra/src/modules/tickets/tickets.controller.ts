@@ -2,7 +2,7 @@ import { Response, NextFunction } from 'express';
 import * as ticketStation from './tickets.station';
 import { AppRequest } from '../../types/express';
 import { listTicketsQuerySchema } from './tickets.validators';
-import { TicketSenderType, UserRole } from '@prisma/client';
+import { TicketSenderType } from '@prisma/client';
 
 // --- User APIs ---
 

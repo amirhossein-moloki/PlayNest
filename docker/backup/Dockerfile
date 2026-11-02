@@ -1,9 +1,9 @@
-FROM alpine:3.18
+FROM alpine:3.21
 
-# Install dependencies
+# Install dependencies including matching PostgreSQL 15 client
 RUN apk add --no-cache \
     restic \
-    postgresql-client \
+    postgresql15-client \
     redis \
     bash \
     curl \
