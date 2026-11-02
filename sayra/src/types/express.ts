@@ -11,6 +11,7 @@ export interface RequestActor {
   gamingCenterId?: string;
   actorType: SessionActorType;
   sessionId?: string;
+  isSuperuser?: boolean;
 }
 
 export interface RequestTenant {

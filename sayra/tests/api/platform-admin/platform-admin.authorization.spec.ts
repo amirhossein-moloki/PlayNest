@@ -218,4 +218,90 @@ describe('PLATFORM_ADMIN Authorization & Tenant Isolation', () => {
     expect(res.body.data.totalCenters).toBe(5);
     expect(res.body.data.totalStations).toBe(30);
   });
+
+  it('PLATFORM_ADMIN can view and patch gamingCenter details directly via /api/v1/gamingCenters/:id', async () => {
+    ((prisma as any).platformAdmin.findUnique as jest.Mock).mockResolvedValue({
+      id: 'pa_1',
+      fullName: 'Super User',
+      isActive: true,
+      isSuperuser: true,
+    });
+
+    ((prisma as any).gamingCenter.findUnique as jest.Mock).mockResolvedValue({
+      id: 'gc_target_1',
+      name: 'Old Center Name',
+      slug: 'center-1',
+      isActive: true,
+    });
+
+    ((prisma as any).gamingCenter.update as jest.Mock).mockResolvedValue({
+      id: 'gc_target_1',
+      name: 'New Center Name',
+      slug: 'center-1',
+      isActive: true,
+    });
+
+    // 1. GET /api/v1/gamingCenters/:id
+    const getRes = await request(app)
+      .get('/api/v1/gamingCenters/gc_target_1')
+      .set('Authorization', `Bearer ${platformAdminToken}`);
+
+    expect(getRes.status).toBe(200);
+    expect(getRes.body.data.name).toBe('Old Center Name');
+
+    // 2. PATCH /api/v1/gamingCenters/:id
+    const patchRes = await request(app)
+      .patch('/api/v1/gamingCenters/gc_target_1')
+      .set('Authorization', `Bearer ${platformAdminToken}`)
+      .send({ name: 'New Center Name' });
+
+    expect(patchRes.status).toBe(200);
+    expect(patchRes.body.data.name).toBe('New Center Name');
+  });
+
+  it('PLATFORM_ADMIN can view and edit gamingCenter details via /api/v1/platform-admin/gaming-centers/:id', async () => {
+    ((prisma as any).platformAdmin.findUnique as jest.Mock).mockResolvedValue({
+      id: 'pa_1',
+      fullName: 'Super User',
+      isActive: true,
+      isSuperuser: true,
+    });
+
+    ((prisma as any).gamingCenter.findUnique as jest.Mock).mockResolvedValue({
+      id: 'gc_target_2',
+      name: 'PlayStation Arena',
+      slug: 'ps-arena',
+      isActive: true,
+      subscriptionStatus: 'ACTIVE',
+      addresses: [],
+      settings: null,
+      _count: { users: 2, stations: 10, reservations: 50 },
+    });
+
+    ((prisma as any).gamingCenter.update as jest.Mock).mockResolvedValue({
+      id: 'gc_target_2',
+      name: 'PlayStation Arena VIP',
+      slug: 'ps-arena',
+      isActive: true,
+      subscriptionStatus: 'ACTIVE',
+    });
+
+    // 1. GET /api/v1/platform-admin/gaming-centers/:id
+    const getRes = await request(app)
+      .get('/api/v1/platform-admin/gaming-centers/gc_target_2')
+      .set('Authorization', `Bearer ${platformAdminToken}`);
+
+    expect(getRes.status).toBe(200);
+    expect(getRes.body.data.name).toBe('PlayStation Arena');
+    expect(getRes.body.data._count.stations).toBe(10);
+
+    // 2. PATCH /api/v1/platform-admin/gaming-centers/:id
+    const patchRes = await request(app)
+      .patch('/api/v1/platform-admin/gaming-centers/gc_target_2')
+      .set('Authorization', `Bearer ${platformAdminToken}`)
+      .send({ name: 'PlayStation Arena VIP' });
+
+    expect(patchRes.status).toBe(200);
+    expect(patchRes.body.data.name).toBe('PlayStation Arena VIP');
+  });
 });

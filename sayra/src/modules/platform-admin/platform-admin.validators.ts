@@ -31,6 +31,24 @@ export const updateGamingCenterStatusSchema = z.object({
   }),
 });
 
+export const updatePlatformGamingCenterSchema = z.object({
+  body: z.object({
+    name: z.string().min(2, 'Name must be at least 2 characters long').optional(),
+    slug: z
+      .string()
+      .min(3, 'Slug must be at least 3 characters long')
+      .regex(
+        /^[a-z0-9-]+$/,
+        'Slug can only contain lowercase letters, numbers, and hyphens',
+      )
+      .optional(),
+    isActive: z.boolean().optional(),
+    subscriptionStatus: z.string().optional(),
+    games: z.array(z.string()).max(100, 'Games list cannot exceed 100 items').optional(),
+    ownerId: z.string().optional(),
+  }),
+});
+
 export const listPlatformAuditLogsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
