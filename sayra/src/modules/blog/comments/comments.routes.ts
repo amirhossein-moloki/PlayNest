@@ -17,9 +17,9 @@ router.patch('/:id', commentsController.updateComment);
 router.delete('/:id', commentsController.deleteComment);
 
 // Moderation & Interaction routes (restricted to administrative/staff roles)
-router.get('/', requireRole([UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPERVISOR]), commentsController.getComments);
-router.patch('/:id/moderate', requireRole([UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPERVISOR]), commentsController.moderateComment);
-router.patch('/:id/pin', requireRole([UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPERVISOR]), commentsController.pinComment);
+router.get('/', requireRole([UserRole.ADMIN, UserRole.MANAGER]), commentsController.getComments);
+router.patch('/:id/moderate', requireRole([UserRole.ADMIN, UserRole.MANAGER]), commentsController.moderateComment);
+router.patch('/:id/pin', requireRole([UserRole.ADMIN, UserRole.MANAGER]), commentsController.pinComment);
 router.post('/:id/flag', commentsController.flagComment);
 
 export { router as commentsRouter };

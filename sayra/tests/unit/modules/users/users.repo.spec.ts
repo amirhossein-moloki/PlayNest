@@ -14,7 +14,7 @@ describe('UsersRepository', () => {
       const userInput = {
         fullName: 'John Doe',
         phone: '09123456789',
-        role: UserRole.STAFF,
+        role: UserRole.MANAGER,
       };
       const mockUser = { id: 'u-1', gamingCenterId, ...userInput, isActive: true, createdAt: new Date(), updatedAt: new Date() };
 

@@ -128,10 +128,6 @@ components:
           type: string
           enum:
           - MANAGER
-          - SUPERVISOR
-          - STAFF
-          - TRAINEE
-          - SUPPORT
           - ADMIN
         isActive:
           type: boolean
@@ -3859,9 +3855,7 @@ paths:
                   type: string
                   enum:
                   - MANAGER
-                  - SUPERVISOR
-                  - STAFF
-                  - TRAINEE
+                  - ADMIN
                 isPublic:
                   type: boolean
                 publicName:
@@ -5052,8 +5046,7 @@ paths:
                       $ref: '#/components/schemas/Meta'
     post:
       summary: Create blog post
-      description: Create a new blog post. Requires author role (STAFF, SUPERVISOR,
-        MANAGER, ADMIN).
+      description: Create a new blog post. Requires author role (MANAGER, ADMIN).
       operationId: create_blog_post
       tags:
       - Blog
@@ -5470,7 +5463,7 @@ paths:
     get:
       summary: List blog comments for moderation
       description: List all comments across posts for moderation. Restricted to ADMIN,
-        MANAGER, SUPERVISOR.
+        MANAGER.
       operationId: list_blog_comments_admin
       tags:
       - Blog
@@ -5684,8 +5677,7 @@ paths:
   /gamingCenters/{gamingCenterId}/blog/comments/{id}/moderate:
     patch:
       summary: Moderate comment status
-      description: Approve, reject, or flag a comment. Restricted to ADMIN, MANAGER,
-        SUPERVISOR.
+      description: Approve, reject, or flag a comment. Restricted to ADMIN, MANAGER.
       operationId: moderate_blog_comment
       tags:
       - Blog
@@ -5734,8 +5726,7 @@ paths:
   /gamingCenters/{gamingCenterId}/blog/comments/{id}/pin:
     patch:
       summary: Pin or unpin comment
-      description: Pin or unpin a comment on a blog post. Restricted to ADMIN, MANAGER,
-        SUPERVISOR.
+      description: Pin or unpin a comment on a blog post. Restricted to ADMIN, MANAGER.
       operationId: pin_blog_comment
       tags:
       - Blog
@@ -7699,9 +7690,8 @@ paths:
                 role:
                   type: string
                   enum:
-                  - STAFF
-                  - SUPERVISOR
                   - MANAGER
+                  - ADMIN
                 phone:
                   type: string
                 isActive:

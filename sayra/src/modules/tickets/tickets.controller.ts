@@ -82,13 +82,6 @@ export const getAllTickets = async (req: AppRequest, res: Response, next: NextFu
       endDate: validatedQuery.endDate ? new Date(validatedQuery.endDate) : undefined,
     };
 
-    // Support can only see assigned tickets OR open tickets
-    if (req.actor.role === UserRole.SUPPORT) {
-      filters.OR = [
-        { assignedToUserId: req.actor.id },
-        { status: 'OPEN' }
-      ];
-    }
 
     const result = await ticketStation.getTicketsList(
       filters,

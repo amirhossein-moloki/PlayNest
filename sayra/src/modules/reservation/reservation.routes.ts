@@ -27,8 +27,8 @@ if (env.NODE_ENV !== 'test') {
 }
 router.use(authMiddleware, tenantGuard);
 
-const M_R = [UserRole.MANAGER, UserRole.SUPERVISOR]; // Manager or Receptionist for write actions
-const M_R_S = [UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]; // All roles for read actions
+const M_R = [UserRole.MANAGER, UserRole.ADMIN];
+const M_R_S = [UserRole.MANAGER, UserRole.ADMIN];
 
 // 1. Create Reservation
 router.post(

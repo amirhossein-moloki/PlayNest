@@ -11,25 +11,25 @@ router.use(authMiddleware, tenantGuard);
 
 router.post(
   '/start',
-  requireRole([UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]),
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
   GamingSessionsController.startSession
 );
 
 router.post(
   '/stop',
-  requireRole([UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]),
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
   GamingSessionsController.endSession
 );
 
 router.post(
   '/pause',
-  requireRole([UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]),
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
   GamingSessionsController.pauseSession
 );
 
 router.post(
   '/resume',
-  requireRole([UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]),
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
   GamingSessionsController.resumeSession
 );
 

@@ -505,9 +505,6 @@ export const reservationStation = {
       },
     };
 
-    if (actor.role === 'STAFF') {
-      where.staffId = actor.id;
-    }
 
     const [reservation, totalItems] = await ReservationRepo.transaction(async (tx) => {
       const b = await ReservationRepo.findManyReservation(
@@ -530,9 +527,6 @@ export const reservationStation = {
   async getReservationById(reservationId: string, gamingCenterId: string, actor: { id: string, role: UserRole }) {
     const reservation = await findAndValidateReservation(reservationId, gamingCenterId);
 
-    if (actor.role === 'STAFF' && reservation.staffId !== actor.id) {
-      throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
-    }
 
     return reservation;
   },

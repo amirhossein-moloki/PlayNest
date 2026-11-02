@@ -103,8 +103,8 @@ export const postsStation = {
 
     // Author vs Editor check:
     // Only Author (owner) can edit their own post.
-    // Editor (SUPERVISOR, MANAGER, ADMIN) can edit any post.
-    const isEditorOrAdmin = actor.role && ([UserRole.SUPERVISOR, UserRole.MANAGER, UserRole.ADMIN] as UserRole[]).includes(actor.role);
+    // Editor (MANAGER, ADMIN) can edit any post.
+    const isEditorOrAdmin = actor.role && ([UserRole.MANAGER, UserRole.ADMIN] as UserRole[]).includes(actor.role);
     if (!isEditorOrAdmin && post.authorId !== actor.id) {
       throw new AppError('Forbidden: You can only edit your own posts.', httpStatus.FORBIDDEN);
     }

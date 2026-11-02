@@ -50,7 +50,7 @@ describe('authMiddleware Redis Caching (FIND-05)', () => {
     const cachedUser = {
       id: 'user-123',
       actorId: 'user-123',
-      role: UserRole.STAFF,
+      role: UserRole.MANAGER,
       gamingCenterId: 'gc-1',
       actorType: 'USER',
       isActive: true,
@@ -65,7 +65,7 @@ describe('authMiddleware Redis Caching (FIND-05)', () => {
     expect(req.actor).toEqual({
       id: 'user-123',
       actorId: 'user-123',
-      role: UserRole.STAFF,
+      role: UserRole.MANAGER,
       gamingCenterId: 'gc-1',
       actorType: 'USER',
       sessionId: 'sess-1',
@@ -80,7 +80,7 @@ describe('authMiddleware Redis Caching (FIND-05)', () => {
     const cachedUser = {
       id: 'user-123',
       actorId: 'user-123',
-      role: UserRole.STAFF,
+      role: UserRole.MANAGER,
       gamingCenterId: 'gc-1',
       actorType: 'USER',
       isActive: false,

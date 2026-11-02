@@ -329,7 +329,7 @@ export async function seedFromDataset(
         });
 
         if (!existing) {
-          const role = u.role === 'MANAGER' ? UserRole.MANAGER : UserRole.STAFF;
+          const role = u.role === 'ADMIN' ? UserRole.ADMIN : UserRole.MANAGER;
           const created = await prisma.user.create({
             data: {
               ...(u.id ? { id: u.id } : {}),

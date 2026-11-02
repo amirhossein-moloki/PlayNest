@@ -24,7 +24,7 @@ userRouter.post('/:ticketId/messages', validate(addMessageSchema), asyncHandler(
 
 // --- Support Routes ---
 const supportRouter = Router();
-supportRouter.use(authMiddleware, requireRole([UserRole.SUPPORT, UserRole.ADMIN]));
+supportRouter.use(authMiddleware, requireRole([UserRole.ADMIN]));
 supportRouter.get('/', asyncHandler(ticketController.getAllTickets));
 supportRouter.get('/:ticketId', asyncHandler(ticketController.getTicketById));
 supportRouter.patch('/:ticketId/assign', validate(assignTicketSchema), asyncHandler(ticketController.assignTicket));

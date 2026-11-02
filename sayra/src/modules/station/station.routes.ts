@@ -31,13 +31,13 @@ privateStationRouter.post(
 
 privateStationRouter.get(
   '/',
-  requireRole([UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]),
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
   asyncHandler(StationController.getStations)
 );
 
 privateStationRouter.get(
   '/:stationId',
-  requireRole([UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]),
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
   validate(stationIdParamSchema),
   asyncHandler(StationController.getStationById)
 );

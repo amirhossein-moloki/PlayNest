@@ -114,7 +114,7 @@ const createStaff = (centerId: string) => {
       gamingCenterId: centerId,
       fullName: `Staff 1 of ${centerId}`,
       phone: `0912200000${centerId.split('-')[1]}`,
-      role: 'STAFF',
+      role: 'MANAGER',
       isActive: true,
       isPublic: true,
       publicName: 'Staff 1',

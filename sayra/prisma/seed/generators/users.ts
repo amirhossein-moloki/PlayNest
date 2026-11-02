@@ -81,7 +81,7 @@ export async function seedUsersAndCustomers(
           gamingCenterId: center.id,
           fullName: `${prng.pick(IRAN_FIRST_NAMES)} ${prng.pick(IRAN_LAST_NAMES)} (${conf.title})`,
           phone: `0914200${String(phoneCounter).padStart(4, '0')}`,
-          role: UserRole.STAFF,
+          role: UserRole.MANAGER,
           isActive: true,
           passwordHash: commonPasswordHash,
         },

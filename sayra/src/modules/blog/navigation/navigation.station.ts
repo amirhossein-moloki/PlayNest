@@ -42,7 +42,7 @@ export const navigationStation = {
       if (item.visibility === NavigationVisibilityRule.PUBLIC) return true;
       if (!user) return false;
       if (item.visibility === NavigationVisibilityRule.AUTHENTICATED) return true;
-      if (item.visibility === NavigationVisibilityRule.STAFF && (user.role === UserRole.STAFF || user.role === UserRole.MANAGER || user.role === UserRole.ADMIN)) return true;
+      if (item.visibility === NavigationVisibilityRule.STAFF && (user.role === UserRole.MANAGER || user.role === UserRole.ADMIN)) return true;
       if (item.visibility === NavigationVisibilityRule.ADMIN && user.role === UserRole.ADMIN) return true;
       return false;
     });

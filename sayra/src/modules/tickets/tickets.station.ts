@@ -50,14 +50,6 @@ export const addMessage = async (
     throw new AppError('Unauthorized to reply to this ticket', httpStatus.FORBIDDEN);
   }
 
-  // Support check: SUPPORT can only respond to assigned tickets unless they are ADMIN
-  if (
-    senderType === TicketSenderType.SUPPORT &&
-    actor?.role === UserRole.SUPPORT &&
-    ticket.assignedToUserId !== senderId
-  ) {
-    throw new AppError('Cannot respond to an unassigned ticket', httpStatus.FORBIDDEN);
-  }
 
   const message = await ticketRepo.createMessage({
     ticketId,
@@ -173,11 +165,6 @@ export const getTicketDetails = async (ticketId: string, actor: { id: string; ro
   if (actor.actorType === 'CUSTOMER') {
     if (ticket.customerAccountId !== actor.id) {
       throw new AppError('Access denied', httpStatus.FORBIDDEN);
-    }
-  } else if (actor.role === UserRole.SUPPORT) {
-    // Support can access assigned tickets OR unassigned tickets (OPEN)
-    if (ticket.assignedToUserId !== actor.id && ticket.status !== TicketStatus.OPEN) {
-      throw new AppError('Access denied: ticket not assigned to you', httpStatus.FORBIDDEN);
     }
   }
 

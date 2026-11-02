@@ -18,7 +18,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
     } else if (token === 'mock-staff-token') {
       req.actor = {
         id: 'mock-staff-id',
-        role: 'STAFF',
+        role: 'MANAGER',
         gamingCenterId: req.params.gamingCenterId,
         actorType: SessionActorType.USER,
       };
