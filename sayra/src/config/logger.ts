@@ -32,24 +32,4 @@ const logger = pino({
     },
 });
 
-// Bridge symbol compatibility when pino-http bundles its own nested pino version
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const pinoInHttp = require('pino-http/node_modules/pino');
-  if (pinoInHttp && pinoInHttp.symbols) {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
-    const pinoAny = pino as any;
-    const loggerAny = logger as any;
-    for (const [key, sym] of Object.entries(pinoInHttp.symbols as Record<string, symbol>)) {
-      const topSym = pinoAny.symbols ? pinoAny.symbols[key] : undefined;
-      if (sym && topSym && sym !== topSym && loggerAny[topSym] !== undefined) {
-        loggerAny[sym] = loggerAny[topSym];
-      }
-    }
-    /* eslint-enable @typescript-eslint/no-explicit-any */
-  }
-} catch {
-  // Nested pino not present or already unified
-}
-
 export default logger;
