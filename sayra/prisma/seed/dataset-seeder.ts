@@ -22,7 +22,6 @@ import {
 } from '@prisma/client';
 import * as argon2 from 'argon2';
 import * as fs from 'fs';
-import * as path from 'path';
 
 export interface SeedReportMetrics {
   newCentersCreated: number;
