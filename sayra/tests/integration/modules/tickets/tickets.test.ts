@@ -52,7 +52,7 @@ describe('Ticket System Station Unit Tests (Mocked Repo)', () => {
     MockedTicketRepo.findTicketById.mockResolvedValue(ticket /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
     MockedTicketRepo.createMessage.mockResolvedValue(message /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
-    await ticketStation.addMessage(ticketId, supportUserId, TicketSenderType.SUPPORT, 'Reply', undefined, { id: supportUserId, role: UserRole.SUPPORT, actorType: 'USER' }, context);
+    await ticketStation.addMessage(ticketId, supportUserId, TicketSenderType.SUPPORT, 'Reply', undefined, { id: supportUserId, role: UserRole.ADMIN, actorType: 'USER' }, context);
 
     expect(MockedTicketRepo.createMessage).toHaveBeenCalled();
     expect(MockedTicketRepo.updateTicket).toHaveBeenCalledWith(ticketId, { status: TicketStatus.ANSWERED });

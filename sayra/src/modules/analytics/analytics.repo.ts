@@ -353,7 +353,7 @@ export const AnalyticsRepo = {
 
   async getStaffDetails(gamingCenterId: string) {
     return prisma.user.findMany({
-      where: { gamingCenterId, role: 'STAFF' },
+      where: { gamingCenterId },
       select: { id: true, fullName: true },
     });
   },

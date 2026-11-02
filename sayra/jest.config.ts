@@ -9,7 +9,7 @@ const config: Config = {
   transform: {
     '^.+\\.[tj]sx?$': 'ts-jest',
   },
-  transformIgnorePatterns: ['node_modules/(?!(@paralleldrive|@noble/hashes)/)'],
+  transformIgnorePatterns: ['node_modules/(?!(@paralleldrive|@noble/hashes|\\.pnpm)/)'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },

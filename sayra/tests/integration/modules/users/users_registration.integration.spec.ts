@@ -24,7 +24,7 @@ describe('User Registration Integration (Mocked Repo)', () => {
     const input = {
       fullName: 'John Doe',
       phone: '09123456789',
-      role: UserRole.STAFF,
+      role: UserRole.MANAGER,
     };
 
     const createdUser = UserFactory.create({ ...input, gamingCenterId });
@@ -51,7 +51,7 @@ describe('User Registration Integration (Mocked Repo)', () => {
     const input = {
       fullName: 'Duplicate User',
       phone: '09123456789',
-      role: UserRole.STAFF,
+      role: UserRole.MANAGER,
     };
 
     const error = new Error('Unique constraint failed');

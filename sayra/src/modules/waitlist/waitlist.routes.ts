@@ -22,7 +22,7 @@ const adminWaitlistRouter = Router({ mergeParams: true });
 adminWaitlistRouter.use(
   tenantGuard,
   authMiddleware,
-  requireRole([UserRole.MANAGER, UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.STAFF])
+  requireRole([UserRole.MANAGER, UserRole.ADMIN])
 );
 
 adminWaitlistRouter.get(

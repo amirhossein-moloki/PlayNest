@@ -13,10 +13,6 @@ generator client {
 
 enum UserRole {
   MANAGER
-  SUPERVISOR
-  STAFF
-  TRAINEE
-  SUPPORT
   ADMIN
 }
 
@@ -495,14 +491,14 @@ model GamingCenter {
   ratings Rating[]
 
   // Commission
-  commissionPolicy CommissionPolicy?
-  earnings         Earning[]
-  auditLogs        AuditLog[]
-  discounts        Discount[]
+  commissionPolicy  CommissionPolicy?
+  earnings          Earning[]
+  auditLogs         AuditLog[]
+  discounts         Discount[]
   discountCampaigns DiscountCampaign[]
 
   // New features
-  tournaments Tournament[]
+  tournaments   Tournament[]
   groupBookings GroupBooking[]
 
   createdAt DateTime  @default(now())
@@ -515,10 +511,10 @@ model GamingCenter {
   waitlistEntries       WaitlistEntry[]
   waitlistOffers        WaitlistOffer[]
 
-  expenses              GamingCenterExpense[]
-  analyticsEvents       AnalyticsEvent[]
-  marketingSpends       MarketingCampaignSpend[]
-  forecastRuns          RevenueForecastRun[]
+  expenses        GamingCenterExpense[]
+  analyticsEvents AnalyticsEvent[]
+  marketingSpends MarketingCampaignSpend[]
+  forecastRuns    RevenueForecastRun[]
 
   @@index([slug])
 }
@@ -535,7 +531,7 @@ model User {
   passwordHash    String?
   phoneVerifiedAt DateTime?
 
-  role     UserRole @default(STAFF)
+  role     UserRole @default(MANAGER)
   isActive Boolean  @default(true)
 
   // Django-inspired extensions for CMS
@@ -551,16 +547,16 @@ model User {
   bio        String? @db.Text
   avatarUrl  String?
 
-  authorProfile        AuthorProfile?
-  shifts               StaffShift[]
-  reservationsAsStaff  Reservation[]  @relation("ReservationStaff")
-  reservationsCreated  Reservation[]  @relation("ReservationCreator")
-  canceledReservations Reservation[]  @relation("ReservationCanceler")
-  proposalsCreated     ReservationTimeProposal[] @relation("ProposalCreator")
-  discountsCreated     Discount[]     @relation("DiscountCreator")
-  campaignsCreated     DiscountCampaign[] @relation("CampaignCreator")
-  groupBookingsCreated GroupBooking[] @relation("GroupBookingCreator")
-  canceledGroupBookings GroupBooking[] @relation("GroupBookingCanceler")
+  authorProfile         AuthorProfile?
+  shifts                StaffShift[]
+  reservationsAsStaff   Reservation[]             @relation("ReservationStaff")
+  reservationsCreated   Reservation[]             @relation("ReservationCreator")
+  canceledReservations  Reservation[]             @relation("ReservationCanceler")
+  proposalsCreated      ReservationTimeProposal[] @relation("ProposalCreator")
+  discountsCreated      Discount[]                @relation("DiscountCreator")
+  campaignsCreated      DiscountCampaign[]        @relation("CampaignCreator")
+  groupBookingsCreated  GroupBooking[]            @relation("GroupBookingCreator")
+  canceledGroupBookings GroupBooking[]            @relation("GroupBookingCanceler")
 
   // CMS relations
   uploadedMedias Media[]    @relation("UploadedBy")
@@ -572,9 +568,9 @@ model User {
   stationSkills StaffStationSkill[]
   auditLogs     AuditLog[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  Ticket    Ticket[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  Ticket        Ticket[]
   notifications Notification[]
 
   @@unique([gamingCenterId, phone])
@@ -617,9 +613,9 @@ model CustomerAccount {
   groupBookings      GroupBooking[]
   discountUsages     DiscountUsage[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  Ticket    Ticket[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  Ticket          Ticket[]
   waitlistEntries WaitlistEntry[]
 
   @@index([phone])
@@ -1293,32 +1289,32 @@ model Reservation {
   // Snapshot
   stationSnapshot Json
 
-  totalHours     Float
-  totalPrice     Float
-  discountAmount Float                   @default(0)
-  originalAmount Float                   @default(0)
-  customerPayableAmount Float            @default(0)
-  platformFundedDiscount Float           @default(0)
-  merchantPayoutAmount Float             @default(0)
-  discountFundingSource DiscountFundingSource?
-  voucherCode    String?
-  discountId     String?
-  discount       Discount?               @relation(fields: [discountId], references: [id], onDelete: SetNull)
-  campaignId     String?
-  campaign       DiscountCampaign?       @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  discountUsages DiscountUsage[]
-  paymentState   ReservationPaymentState @default(UNPAID)
+  totalHours             Float
+  totalPrice             Float
+  discountAmount         Float                   @default(0)
+  originalAmount         Float                   @default(0)
+  customerPayableAmount  Float                   @default(0)
+  platformFundedDiscount Float                   @default(0)
+  merchantPayoutAmount   Float                   @default(0)
+  discountFundingSource  DiscountFundingSource?
+  voucherCode            String?
+  discountId             String?
+  discount               Discount?               @relation(fields: [discountId], references: [id], onDelete: SetNull)
+  campaignId             String?
+  campaign               DiscountCampaign?       @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  discountUsages         DiscountUsage[]
+  paymentState           ReservationPaymentState @default(UNPAID)
 
   status ReservationStatus @default(CONFIRMED)
   source ReservationSource @default(WALK_IN)
   note   String?
 
-  canceledAt       DateTime? @db.Timestamptz(6)
+  canceledAt       DateTime?             @db.Timestamptz(6)
   cancelReason     String?
   cancelCategory   CancellationCategory?
   cancelActor      CancellationActor?
   canceledByUserId String?
-  canceledBy       User?     @relation("ReservationCanceler", fields: [canceledByUserId], references: [id])
+  canceledBy       User?                 @relation("ReservationCanceler", fields: [canceledByUserId], references: [id])
 
   utmSource   String?
   utmMedium   String?
@@ -1733,7 +1729,7 @@ model CommissionPolicy {
 
   // Monthly target reservation count (null = disabled / no target)
   monthlyTarget Int?
-  maxPercentBps Int @default(10000)
+  maxPercentBps Int  @default(10000)
 
   // Usually only charge commission for ONLINE bookings
   applyToOnlineOnly Boolean @default(true)
@@ -1852,7 +1848,6 @@ model Rating {
   @@index([reservationId])
   @@index([customerAccountId, createdAt])
 }
-
 
 model PlatformAdmin {
   id String @id @default(cuid())
@@ -2018,65 +2013,65 @@ model Discount {
 }
 
 model DiscountCampaign {
-  id             String                @id @default(cuid())
+  id             String        @id @default(cuid())
   gamingCenterId String?
-  gamingCenter   GamingCenter?         @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+  gamingCenter   GamingCenter? @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
 
-  name           String
-  code           String?               @unique
-  codeType       DiscountCodeType      @default(PROMO_CODE)
-  description    String?
+  name        String
+  code        String?          @unique
+  codeType    DiscountCodeType @default(PROMO_CODE)
+  description String?
 
-  targetType     DiscountTargetType    @default(GAMING_CENTER)
-  targetId       String?
+  targetType DiscountTargetType @default(GAMING_CENTER)
+  targetId   String?
 
-  valueType      DiscountValueType     @default(PERCENTAGE)
-  value          Float
-  maxDiscountAmount Float?
+  valueType            DiscountValueType @default(PERCENTAGE)
+  value                Float
+  maxDiscountAmount    Float?
   minReservationAmount Float?
 
-  fundingSource  DiscountFundingSource @default(PLATFORM)
+  fundingSource DiscountFundingSource @default(PLATFORM)
 
-  totalBudget    Float?
-  usedBudget     Float                 @default(0)
+  totalBudget Float?
+  usedBudget  Float  @default(0)
 
-  maxUsageCount  Int?
-  currentUsageCount Int                @default(0)
+  maxUsageCount     Int?
+  currentUsageCount Int  @default(0)
 
-  maxUsagePerUser Int                  @default(1)
+  maxUsagePerUser Int @default(1)
 
-  startAt        DateTime              @db.Timestamptz(6)
-  endAt          DateTime              @db.Timestamptz(6)
-  isActive       Boolean               @default(true)
+  startAt  DateTime @db.Timestamptz(6)
+  endAt    DateTime @db.Timestamptz(6)
+  isActive Boolean  @default(true)
 
   createdByUserId String?
-  createdBy       User?                @relation("CampaignCreator", fields: [createdByUserId], references: [id])
+  createdBy       User?   @relation("CampaignCreator", fields: [createdByUserId], references: [id])
 
-  reservations   Reservation[]
-  usages         DiscountUsage[]
+  reservations Reservation[]
+  usages       DiscountUsage[]
 
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([gamingCenterId, isActive, startAt, endAt])
   @@index([code])
 }
 
 model DiscountUsage {
-  id                String                @id @default(cuid())
-  campaignId        String
-  campaign          DiscountCampaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  id         String           @id @default(cuid())
+  campaignId String
+  campaign   DiscountCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
-  reservationId     String
-  reservation       Reservation           @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  reservationId String
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
 
   customerAccountId String
-  customerAccount   CustomerAccount       @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
 
-  discountAmount    Float
-  fundingSource     DiscountFundingSource @default(PLATFORM)
+  discountAmount Float
+  fundingSource  DiscountFundingSource @default(PLATFORM)
 
-  createdAt         DateTime              @default(now())
+  createdAt DateTime @default(now())
 
   @@index([campaignId, customerAccountId])
   @@index([reservationId])
@@ -2137,11 +2132,11 @@ model NotificationLog {
   providerRefId  String?
   idempotencyKey String                     @unique
 
-  entityType     String?
-  entityId       String?
+  entityType String?
+  entityId   String?
 
-  createdAt      DateTime                   @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime                   @updatedAt @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   @@index([status, scheduledAt])
   @@index([status, nextRetryAt])
@@ -2223,7 +2218,7 @@ model ReconciliationRecord {
   paymentId String
   payment   Payment @relation(fields: [paymentId], references: [id])
 
-  status ReconciliationStatus
+  status  ReconciliationStatus
   details Json?
 
   reconciledAt DateTime @default(now())
@@ -2311,7 +2306,7 @@ model AnalyticsWatermark {
 model AnalyticsIngestionRun {
   id              String    @id @default(cuid())
   entity          String
-  status          String    // IN_PROGRESS, SUCCESS, FAILED
+  status          String // IN_PROGRESS, SUCCESS, FAILED
   startedAt       DateTime  @default(now()) @db.Timestamptz(6)
   completedAt     DateTime? @db.Timestamptz(6)
   recordsRead     Int       @default(0)
@@ -2321,20 +2316,20 @@ model AnalyticsIngestionRun {
   watermarkAfter  DateTime? @db.Timestamptz(6)
   errorMessage    String?   @db.Text
 
-  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([entity, startedAt])
   @@index([status, startedAt])
 }
 
 model AnalyticsTenant {
-  id           String   @id
+  id           String  @id
   name         String
   slug         String
-  isActive     Boolean  @default(true)
-  pcCount      Int      @default(0)
-  consoleCount Int      @default(0)
-  hourlyRate   Float    @default(0)
+  isActive     Boolean @default(true)
+  pcCount      Int     @default(0)
+  consoleCount Int     @default(0)
+  hourlyRate   Float   @default(0)
 
   sourceCreatedAt DateTime @db.Timestamptz(6)
   sourceUpdatedAt DateTime @db.Timestamptz(6)
@@ -2345,11 +2340,11 @@ model AnalyticsTenant {
 }
 
 model AnalyticsCustomer {
-  id             String   @id
+  id             String  @id
   gamingCenterId String?
   phone          String
   fullName       String?
-  walletBalance  Int      @default(0)
+  walletBalance  Int     @default(0)
 
   sourceCreatedAt DateTime @db.Timestamptz(6)
   sourceUpdatedAt DateTime @db.Timestamptz(6)
@@ -2376,24 +2371,24 @@ model AnalyticsStation {
 }
 
 model AnalyticsReservation {
-  id                String                  @id
-  gamingCenterId    String
-  customerAccountId String
-  stationId         String
-  startTime         DateTime                @db.Timestamptz(6)
-  endTime           DateTime                @db.Timestamptz(6)
-  totalHours        Float
-  totalPrice        Float
-  discountAmount    Float                   @default(0)
-  originalAmount    Float                   @default(0)
-  customerPayableAmount Float            @default(0)
-  platformFundedDiscount Float           @default(0)
-  merchantPayoutAmount Float             @default(0)
-  discountFundingSource DiscountFundingSource?
-  campaignId        String?
-  paymentState      ReservationPaymentState @default(UNPAID)
-  status            ReservationStatus       @default(CONFIRMED)
-  source            ReservationSource       @default(WALK_IN)
+  id                     String                  @id
+  gamingCenterId         String
+  customerAccountId      String
+  stationId              String
+  startTime              DateTime                @db.Timestamptz(6)
+  endTime                DateTime                @db.Timestamptz(6)
+  totalHours             Float
+  totalPrice             Float
+  discountAmount         Float                   @default(0)
+  originalAmount         Float                   @default(0)
+  customerPayableAmount  Float                   @default(0)
+  platformFundedDiscount Float                   @default(0)
+  merchantPayoutAmount   Float                   @default(0)
+  discountFundingSource  DiscountFundingSource?
+  campaignId             String?
+  paymentState           ReservationPaymentState @default(UNPAID)
+  status                 ReservationStatus       @default(CONFIRMED)
+  source                 ReservationSource       @default(WALK_IN)
 
   sourceCreatedAt DateTime @db.Timestamptz(6)
   sourceUpdatedAt DateTime @db.Timestamptz(6)

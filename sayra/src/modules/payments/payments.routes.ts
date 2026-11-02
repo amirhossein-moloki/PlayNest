@@ -29,7 +29,7 @@ router.post(
   gamingCenterIdMiddleware,
   tenantGuard,
   asyncHandler(idempotencyMiddleware),
-  requireRole([UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF]),
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
   validate(InitPaymentValidators),
   asyncHandler<AppRequest>(PaymentsController.initiatePayment)
 );
@@ -87,7 +87,7 @@ managementRouter.get(
   authMiddleware,
   gamingCenterIdMiddleware,
   tenantGuard,
-  requireRole([UserRole.MANAGER, UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.STAFF]),
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
   validate(GetRefundValidators),
   asyncHandler<AppRequest>(PaymentsController.getRefundStatus)
 );
@@ -98,7 +98,7 @@ managementRouter.get(
   authMiddleware,
   gamingCenterIdMiddleware,
   tenantGuard,
-  requireRole([UserRole.MANAGER, UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.STAFF]),
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
   validate(ListRefundsValidators),
   asyncHandler<AppRequest>(PaymentsController.listRefunds)
 );

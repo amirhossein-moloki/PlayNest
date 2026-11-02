@@ -39,7 +39,7 @@ if (env.NODE_ENV === 'test' && process.env.ENABLE_TEST_LOGGER !== 'true') {
   loggerMiddleware = (req: Request, res: Response, next: NextFunction) => next();
 } else {
   const middleware = pinoHttp({
-    logger,
+    logger: logger as any,
     genReqId: (req: CustomIncomingMessage) => (req.id ? String(req.id) : cuid()),
     customAttributeKeys: {
       req: 'request',
