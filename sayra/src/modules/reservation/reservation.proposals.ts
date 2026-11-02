@@ -99,10 +99,10 @@ export const reservationProposals = {
   async getProposals(
     reservationId: string,
     gamingCenterId: string,
+    /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
     actor: { id: string; role: UserRole }
   ) {
-    const reservation = await findAndValidateReservation(reservationId, gamingCenterId);
-
+    await findAndValidateReservation(reservationId, gamingCenterId);
 
     return ReservationRepo.listProposalsByReservationId(reservationId);
   },

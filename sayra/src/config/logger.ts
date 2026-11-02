@@ -37,6 +37,7 @@ try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const pinoInHttp = require('pino-http/node_modules/pino');
   if (pinoInHttp && pinoInHttp.symbols) {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
     const pinoAny = pino as any;
     const loggerAny = logger as any;
     for (const [key, sym] of Object.entries(pinoInHttp.symbols as Record<string, symbol>)) {
@@ -45,6 +46,7 @@ try {
         loggerAny[sym] = loggerAny[topSym];
       }
     }
+    /* eslint-enable @typescript-eslint/no-explicit-any */
   }
 } catch {
   // Nested pino not present or already unified

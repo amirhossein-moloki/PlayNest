@@ -492,6 +492,7 @@ export const reservationStation = {
     }
   },
 
+  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
   async getReservation(gamingCenterId: string, query: ListReservationQuery, actor: { id: string, role: UserRole }) {
     const { page = 1, pageSize = 20, sortBy = 'startTime', sortOrder = 'asc', status, staffId, customerProfileId, dateFrom, dateTo } = query;
     const where: Prisma.ReservationWhereInput = {
@@ -524,6 +525,7 @@ export const reservationStation = {
     };
   },
 
+  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
   async getReservationById(reservationId: string, gamingCenterId: string, actor: { id: string, role: UserRole }) {
     const reservation = await findAndValidateReservation(reservationId, gamingCenterId);
 
