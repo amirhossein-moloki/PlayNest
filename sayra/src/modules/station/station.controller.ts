@@ -39,7 +39,12 @@ export async function getStations(
   try {
     const { gamingCenterId } = req.params;
 
-    const targetGamingCenterId = gamingCenterId || req.gamingCenter?.id;
+    const targetGamingCenterId =
+      req.tenant?.gamingCenterId ||
+      gamingCenterId ||
+      req.gamingCenter?.id ||
+      req.gamingCenterId;
+
     if (!targetGamingCenterId) {
       return next(new AppError('GamingCenter ID or slug is required.', httpStatus.BAD_REQUEST));
     }
