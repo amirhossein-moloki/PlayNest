@@ -1,0 +1,4 @@
+[submodule "Blog"]
+	path = Blog
+	url = https://github.com/amirhossein-moloki/Blog.git
+	branch = master
