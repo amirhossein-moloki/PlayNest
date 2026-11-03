@@ -9,24 +9,8 @@ services:
       - RUN_SEED=true
       - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:-change_this_secure_password_in_production}@db:5432/${POSTGRES_DB:-playenest_prod}
       - REDIS_URL=redis://redis:6379
-      - POSTGRES_MULTIPLE_DATABASES=${POSTGRES_MULTIPLE_DATABASES:-payload_db}
     volumes:
       - ./sayra:/app
       - /app/node_modules
     working_dir: /app
     command: ["sh", "-c", "npm install && npx prisma generate && ./scripts/migrate.sh && npm run dev"]
-
-  payload:
-    build:
-      context: ./payload
-      dockerfile: Dockerfile
-      target: deps
-    environment:
-      - NODE_ENV=development
-      - DATABASE_URI=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:-change_this_secure_password_in_production}@db:5432/${PAYLOAD_POSTGRES_DB:-payload_db}
-      - PAYLOAD_SECRET=${PAYLOAD_SECRET:-change_this_payload_secret_in_production}
-    volumes:
-      - ./payload:/app
-      - /app/node_modules
-    working_dir: /app
-    command: ["pnpm", "dev"]

@@ -5,8 +5,7 @@
 ### Technical Health Assessment
 The codebase presents a modern, multi-service architecture comprising:
 1. **Sayra Backend (`/sayra`)**: Node.js / TypeScript Express REST API with Prisma ORM, BullMQ background job processing, Pino structured logging, and Redis caching.
-2. **Payload CMS (`/payload`)**: Next.js 15 App Router monorepo application using `@payloadcms/db-postgres` to manage CMS collections (`Articles`, `VenueProfiles`, `CityLandingPages`).
-3. **Infrastructure / Operations**: Multi-container Docker setup (`docker-compose.yml`) managed by an NGINX reverse proxy (`docker/nginx/`), dual PostgreSQL databases (`playenest_prod` for Sayra and `payload_db` for Payload CMS), Redis Alpine, and an automated backup agent with AES-256 encryption.
+2. **Infrastructure / Operations**: Multi-container Docker setup (`docker-compose.yml`) managed by an NGINX reverse proxy (`docker/nginx/`), PostgreSQL database (`playenest_prod`), Redis Alpine, and an automated backup agent with AES-256 encryption.
 
 While the modular structure, static type system, and containerization provide a solid foundation, **critical reliability and consistency flaws exist** in transaction boundaries, queue error handling, wallet state management, and HTTP client connection handling.
 
@@ -28,9 +27,9 @@ While the modular structure, static type system, and containerization provide a 
 
 ### Stack & Infrastructure
 - **Runtime & Language**: Node.js (v20+), TypeScript (v5.x).
-- **Core Frameworks**: Express.js (`sayra`), Next.js 15 (`payload`).
-- **Data Stores**: PostgreSQL 16 (two isolated databases on a single PostgreSQL instance: `playenest_prod` and `payload_db`), Redis 7 (caching, idempotency keys, and BullMQ queues).
-- **ORM & DB Tools**: Prisma ORM v5.22.0 (`sayra`), Drizzle / `@payloadcms/db-postgres` (`payload`).
+- **Core Frameworks**: Express.js (`sayra`).
+- **Data Stores**: PostgreSQL 15 (`playenest_prod`), Redis 7 (caching, idempotency keys, and BullMQ queues).
+- **ORM & DB Tools**: Prisma ORM v5.22.0 (`sayra`).
 - **Messaging & Queues**: BullMQ backed by Redis (`sayra/src/jobs/`).
 - **Edge / Proxy**: NGINX 1.25 reverse proxy with HTTP header proxying, trust-proxy configuration for client IP preservation, and dynamic envsubst filtering.
 

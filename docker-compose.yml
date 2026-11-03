@@ -6,7 +6,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-playenest_admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
       POSTGRES_DB: ${POSTGRES_DB:-playenest_prod}
-      POSTGRES_MULTIPLE_DATABASES: ${POSTGRES_MULTIPLE_DATABASES:-payload_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
@@ -48,7 +47,6 @@ services:
       - PORT=3000
       - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@db:5432/${POSTGRES_DB:-playenest_prod}
       - REDIS_URL=redis://redis:6379
-      - POSTGRES_MULTIPLE_DATABASES=${POSTGRES_MULTIPLE_DATABASES:-payload_db}
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET environment variable is required}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET environment variable is required}
       - PAYMENT_PROVIDER_WEBHOOK_SECRET=${PAYMENT_PROVIDER_WEBHOOK_SECRET:?PAYMENT_PROVIDER_WEBHOOK_SECRET environment variable is required}
@@ -70,42 +68,6 @@ services:
       retries: 5
       start_period: 10s
 
-  payload:
-    image: playenest-payload:latest
-    build:
-      context: ./payload
-      dockerfile: Dockerfile
-    restart: always
-    expose:
-      - '3000'
-    depends_on:
-      db:
-        condition: service_healthy
-    env_file:
-      - path: .env
-        required: false
-    environment:
-      - NODE_ENV=${NODE_ENV:-production}
-      - PORT=3000
-      - PAYLOAD_DB_PUSH=${PAYLOAD_DB_PUSH:-true}
-      - DATABASE_URI=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@db:5432/${PAYLOAD_POSTGRES_DB:-payload_db}
-      - PAYLOAD_SECRET=${PAYLOAD_SECRET:?PAYLOAD_SECRET environment variable is required}
-      - PAYLOAD_SMTP_HOST=${PAYLOAD_SMTP_HOST:-}
-      - PAYLOAD_SMTP_PORT=${PAYLOAD_SMTP_PORT:-587}
-      - PAYLOAD_SMTP_USER=${PAYLOAD_SMTP_USER:-}
-      - PAYLOAD_SMTP_PASSWORD=${PAYLOAD_SMTP_PASSWORD:-}
-      - PAYLOAD_SMTP_SECURE=${PAYLOAD_SMTP_SECURE:-false}
-      - PAYLOAD_SMTP_FROM_ADDRESS=${PAYLOAD_SMTP_FROM_ADDRESS:-cms@playenest.com}
-      - PAYLOAD_SMTP_FROM_NAME=${PAYLOAD_SMTP_FROM_NAME:-PlayNest CMS}
-    volumes:
-      - payload_media:/app/public/media
-    healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/payload-openapi.json || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-
   nginx:
     image: playenest-nginx:latest
     build:
@@ -119,13 +81,9 @@ services:
       - NGINX_ENVSUBST_FILTER=MEDIA_LOCAL_PUBLIC_PATH
     volumes:
       - app_storage:/app/storage:ro
-      - payload_media:/app/payload_media:ro
     depends_on:
       sayra:
         condition: service_healthy
-      payload:
-        condition: service_healthy
-
   backup:
     image: playenest-backup:latest
     build:
@@ -167,5 +125,4 @@ volumes:
   postgres_data:
   redis_data:
   app_storage:
-  payload_media:
   backup_data:

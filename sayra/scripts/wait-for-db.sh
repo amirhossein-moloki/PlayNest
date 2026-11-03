@@ -13,11 +13,10 @@ until pg_isready -h "$host" -U "${POSTGRES_USER:-playenest_admin}" -d "${POSTGRE
   sleep 1
 done
 
->&2 echo "Postgres is up - checking multiple database initialization"
+>&2 echo "Postgres is up"
 
-dbs="${POSTGRES_MULTIPLE_DATABASES:-${PAYLOAD_POSTGRES_DB:-payload_db}}"
-if [ -n "$dbs" ]; then
-  for db in $(echo "$dbs" | tr ',' ' '); do
+if [ -n "$POSTGRES_MULTIPLE_DATABASES" ]; then
+  for db in $(echo "$POSTGRES_MULTIPLE_DATABASES" | tr ',' ' '); do
     echo "Ensuring database '$db' exists..."
     PGPASSWORD="${POSTGRES_PASSWORD:-change_this_secure_password_in_production}" psql -h "$host" -U "${POSTGRES_USER:-playenest_admin}" -d "${POSTGRES_DB:-playenest_prod}" <<-EOSQL
       SELECT 'CREATE DATABASE "$db"'

@@ -11,10 +11,8 @@ mkdir -p /data/db
 
 # Determine all target databases to dump
 MAIN_DB="${POSTGRES_DB:-playenest_prod}"
-PAYLOAD_DB="${PAYLOAD_POSTGRES_DB:-payload_db}"
 
 # Build list of unique databases
-DB_LIST="$MAIN_DB $PAYLOAD_DB"
 if [ -n "$POSTGRES_MULTIPLE_DATABASES" ]; then
   DB_LIST="$DB_LIST $(echo "$POSTGRES_MULTIPLE_DATABASES" | tr ',' ' ')"
 fi

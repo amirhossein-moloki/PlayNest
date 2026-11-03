@@ -79,7 +79,6 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
     </div>
     <div class="nav-links">
       <a href="/api/v1/platform-admin/dashboard" class="active"><i class="fa-solid fa-gauge"></i> Global Overview</a>
-      <a href="/admin" target="_blank"><i class="fa-solid fa-newspaper"></i> Payload CMS</a>
       <button class="btn btn-danger btn-sm" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
     </div>
   </header>
