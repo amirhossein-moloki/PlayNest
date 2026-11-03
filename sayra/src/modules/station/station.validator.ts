@@ -6,6 +6,8 @@ import { baseFilterSchema } from '../../common/validators/query.validators';
 const stationBaseSchema = {
   name: z.string().min(1, 'Name is required'),
   stationType: z.nativeEnum(GameStationType).default(GameStationType.PC),
+  catalogDeviceId: z.string().cuid('Invalid catalog device ID format').optional(),
+  coverImageUrl: z.string().url('Invalid cover image URL').optional(),
   hourlyPrice: z.number().min(0, 'Hourly price cannot be negative'),
   minRentHours: z.number().int().positive().default(1),
   maxRentHours: z.number().int().positive().default(8),
@@ -22,11 +24,35 @@ export const createStationSchema = z.object({
   }),
 });
 
+// Schema for creating stations from catalog device (with quantity and hourlyPrice)
+export const createStationsFromCatalogSchema = z.object({
+  body: z.object({
+    catalogDeviceId: z.string().cuid('Invalid catalog device ID format'),
+    quantity: z.number().int().min(1, 'Quantity must be at least 1').max(100, 'Quantity cannot exceed 100'),
+    hourlyPrice: z.number().min(0, 'Hourly price cannot be negative'),
+    customNamePrefix: z.string().min(1).max(50).optional(),
+    isVip: z.boolean().optional().default(false),
+    minRentHours: z.number().int().positive().optional().default(1),
+    maxRentHours: z.number().int().positive().optional().default(8),
+    defaultDurationHours: z.number().int().positive().optional().default(1),
+    incrementMinutes: z.number().int().positive().optional().default(30),
+  }),
+});
+
+// Schema for adding catalog games to gaming center
+export const addGamesFromCatalogSchema = z.object({
+  body: z.object({
+    gameCatalogIds: z.array(z.string().cuid('Invalid game catalog ID format')).min(1, 'At least one game must be provided'),
+  }),
+});
+
 // Schema for updating an existing station
 export const updateStationSchema = z.object({
   body: z.object({
     name: stationBaseSchema.name.optional(),
     stationType: z.nativeEnum(GameStationType).optional(),
+    catalogDeviceId: stationBaseSchema.catalogDeviceId.optional(),
+    coverImageUrl: stationBaseSchema.coverImageUrl.optional(),
     hourlyPrice: stationBaseSchema.hourlyPrice.optional(),
     minRentHours: stationBaseSchema.minRentHours.optional(),
     maxRentHours: stationBaseSchema.maxRentHours.optional(),

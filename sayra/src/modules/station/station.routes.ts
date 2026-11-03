@@ -5,6 +5,8 @@ import {
   createStationSchema,
   updateStationSchema,
   stationIdParamSchema,
+  createStationsFromCatalogSchema,
+  addGamesFromCatalogSchema,
 } from './station.validator';
 import { authMiddleware } from '../../common/middleware/auth';
 import { requireRole } from '../../common/middleware/requireRole';
@@ -62,6 +64,28 @@ privateStationRouter.post(
   requireRole([UserRole.MANAGER]),
   validate(createStationSchema),
   asyncHandler(StationController.createStation)
+);
+
+// Create stations in bulk from catalog device (choosing device, quantity, and hourlyPrice)
+privateStationRouter.post(
+  '/from-catalog',
+  privateApiRateLimiter,
+  authMiddleware,
+  tenantGuard,
+  requireRole([UserRole.MANAGER]),
+  validate(createStationsFromCatalogSchema),
+  asyncHandler(StationController.createStationsFromCatalog)
+);
+
+// Add games to gaming center from game catalog
+privateStationRouter.post(
+  '/games/from-catalog',
+  privateApiRateLimiter,
+  authMiddleware,
+  tenantGuard,
+  requireRole([UserRole.MANAGER]),
+  validate(addGamesFromCatalogSchema),
+  asyncHandler(StationController.addGamesFromCatalog)
 );
 
 privateStationRouter.get(

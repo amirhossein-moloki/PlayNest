@@ -3,6 +3,10 @@ import healthRouter from './health.routes';
 import authRouter from '../modules/auth/auth.routes';
 import gamingCenterRouter from '../modules/gamingCenter/gamingCenter.routes';
 import platformAdminRouter from '../modules/platform-admin/platform-admin.routes';
+import {
+  platformAdminCatalogRouter,
+  publicCatalogRouter,
+} from '../modules/catalog/catalog.routes';
 
 // Import the new station routers
 import {
@@ -61,6 +65,8 @@ const router = Router();
 router.use('/health', healthRouter);
 router.use('/auth', authRouter);
 router.use('/platform-admin', platformAdminRouter);
+router.use('/platform-admin/catalog', platformAdminCatalogRouter);
+router.use('/catalog', publicCatalogRouter);
 router.use('/gamingCenters', gamingCenterRouter);
 
 // --- GameStation Module Routes ---
