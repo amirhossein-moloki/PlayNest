@@ -23,6 +23,7 @@ jest.mock('../../../src/config/prisma', () => ({
     },
     gamingCenter: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
       update: jest.fn(),
@@ -227,12 +228,14 @@ describe('PLATFORM_ADMIN Authorization & Tenant Isolation', () => {
       isSuperuser: true,
     });
 
-    ((prisma as any).gamingCenter.findUnique as jest.Mock).mockResolvedValue({
+    const targetGc = {
       id: 'gc_target_1',
       name: 'Old Center Name',
       slug: 'center-1',
       isActive: true,
-    });
+    };
+    ((prisma as any).gamingCenter.findUnique as jest.Mock).mockResolvedValue(targetGc);
+    ((prisma as any).gamingCenter.findFirst as jest.Mock).mockResolvedValue(targetGc);
 
     ((prisma as any).gamingCenter.update as jest.Mock).mockResolvedValue({
       id: 'gc_target_1',

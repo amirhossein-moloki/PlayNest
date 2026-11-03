@@ -144,8 +144,14 @@ export const gamingCenterRepository = {
   },
 
   async findById(id: string): Promise<GamingCenterListItem | null> {
-    const gc = await prisma.gamingCenter.findUnique({
-      where: { id, isActive: true },
+    const gc = await prisma.gamingCenter.findFirst({
+      where: {
+        OR: [
+          { id },
+          { slug: id },
+        ],
+        isActive: true,
+      },
       include: {
         addresses: true,
         stations: true,
@@ -159,7 +165,7 @@ export const gamingCenterRepository = {
   },
 
   async findBySlug(slug: string) {
-    return prisma.gamingCenter.findUnique({
+    return prisma.gamingCenter.findFirst({
       where: { slug, isActive: true },
     });
   },

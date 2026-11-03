@@ -17,7 +17,7 @@ describe('GamingCenterRepository', () => {
 
   describe('findById', () => {
     it('should find by id and isActive and transform', async () => {
-      gcMock.findUnique.mockResolvedValue({
+      gcMock.findFirst.mockResolvedValue({
         id: 'center_10',
         name: 'کافی گیم نت آرشا',
         isActive: true,
@@ -43,8 +43,14 @@ describe('GamingCenterRepository', () => {
       });
 
       const result = await gamingCenterRepository.findById('center_10');
-      expect(gcMock.findUnique).toHaveBeenCalledWith({
-        where: { id: 'center_10', isActive: true },
+      expect(gcMock.findFirst).toHaveBeenCalledWith({
+        where: {
+          OR: [
+            { id: 'center_10' },
+            { slug: 'center_10' },
+          ],
+          isActive: true,
+        },
         include: {
           addresses: true,
           stations: true,
@@ -63,8 +69,49 @@ describe('GamingCenterRepository', () => {
       expect(typeof result?.is_open).toBe('boolean');
     });
 
+    it('should find by slug and isActive and transform', async () => {
+      gcMock.findFirst.mockResolvedValue({
+        id: 'center_10',
+        name: 'کافی گیم نت آرشا',
+        isActive: true,
+        slug: 'arsha-cafe-game-net',
+        description: 'مرکز نمونه',
+        pcCount: 10,
+        consoleCount: 4,
+        hourlyRate: 70000,
+        openingTime: '10:00',
+        closingTime: '23:00',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        addresses: [],
+        stations: [],
+        ratings: [],
+        settings: null,
+      });
+
+      const result = await gamingCenterRepository.findById('arsha-cafe-game-net');
+      expect(gcMock.findFirst).toHaveBeenCalledWith({
+        where: {
+          OR: [
+            { id: 'arsha-cafe-game-net' },
+            { slug: 'arsha-cafe-game-net' },
+          ],
+          isActive: true,
+        },
+        include: {
+          addresses: true,
+          stations: true,
+          ratings: true,
+          settings: true,
+        },
+      });
+
+      expect(result).toBeDefined();
+      expect(result?.slug).toBe('arsha-cafe-game-net');
+    });
+
     it('should return null when not found', async () => {
-      gcMock.findUnique.mockResolvedValue(null);
+      gcMock.findFirst.mockResolvedValue(null);
       const result = await gamingCenterRepository.findById('missing');
       expect(result).toBeNull();
     });
@@ -160,9 +207,11 @@ describe('GamingCenterRepository', () => {
 
   describe('findBySlug', () => {
     it('should find by slug', async () => {
-      gcMock.findUnique.mockResolvedValue({ id: 'gc-1' });
+      gcMock.findFirst.mockResolvedValue({ id: 'gc-1' });
       await gamingCenterRepository.findBySlug('slug');
-      expect(gcMock.findUnique).toHaveBeenCalled();
+      expect(gcMock.findFirst).toHaveBeenCalledWith({
+        where: { slug: 'slug', isActive: true },
+      });
     });
   });
 
