@@ -441,6 +441,24 @@ enum CancellationActor {
   SYSTEM
 }
 
+enum OnboardingStep {
+  INITIAL
+  OTP_PENDING
+  AUTHENTICATED
+  LOCATION_PENDING
+  WORKING_HOURS_PENDING
+  MEDIA_PENDING
+  PREVIEW
+  COMPLETED
+}
+
+enum GamingCenterVerificationStatus {
+  NOT_SUBMITTED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 // =======================
 // Identity Domain
 // =======================
@@ -454,10 +472,16 @@ model GamingCenter {
   slug        String  @unique
   description String?
 
+  verificationStatus GamingCenterVerificationStatus @default(NOT_SUBMITTED)
+  verifiedAt         DateTime?
+  rejectionReason    String?
+
   pcCount        Int      @default(0)
   consoleCount   Int      @default(0)
   openingTime    String? // e.g., "09:00"
   closingTime    String? // e.g., "23:00"
+  closedDays     Int[]    @default([])
+  timezone       String   @default("Asia/Tehran")
   hourlyRate     Float    @default(0)
   vipHourlyRate  Float?
   hasFoodService Boolean  @default(false)
@@ -516,7 +540,11 @@ model GamingCenter {
   marketingSpends MarketingCampaignSpend[]
   forecastRuns    RevenueForecastRun[]
 
+  verifications GamingCenterVerification[]
+  onboarding    GameCenterOnboarding?
+
   @@index([slug])
+  @@index([verificationStatus])
 }
 
 model User {
@@ -1010,6 +1038,73 @@ model SiteSettings {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model GameCenterOnboarding {
+  id String @id @default(cuid())
+
+  step OnboardingStep @default(INITIAL)
+
+  // Manager details
+  managerId       String?
+  managerFullName String?
+  managerPhone    String
+
+  // Draft GameCenter data
+  gameCenterName String
+  gamingCenterId String?       @unique
+  gamingCenter   GamingCenter? @relation(fields: [gamingCenterId], references: [id], onDelete: SetNull)
+
+  // Location draft
+  provinceId String?
+  cityId     String?
+  address    String?
+  latitude   Decimal?
+  longitude  Decimal?
+
+  // Working Hours draft
+  timezone    String   @default("Asia/Tehran")
+  openingTime String?
+  closingTime String?
+  closedDays  Int[]    @default([])
+
+  // Media draft
+  logoMediaId     String?
+  galleryMediaIds String[] @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([managerPhone])
+  @@index([step])
+}
+
+model GamingCenterVerification {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+
+  status GamingCenterVerificationStatus @default(PENDING)
+
+  // 1. National ID card / Shenasnameh photo
+  nationalCardUrl String
+  // 2. Selfie holding National ID / Shenasnameh
+  idWithSelfieUrl String
+  // 3. Business license / Activity permit photo
+  businessLicenseUrl String
+
+  reviewerAdminId String?
+  reviewerAdmin   PlatformAdmin? @relation(fields: [reviewerAdminId], references: [id])
+
+  rejectionReason String?
+  reviewedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gamingCenterId])
+  @@index([status])
 }
 
 model Page {
@@ -1897,6 +1992,7 @@ model PlatformAdmin {
   lastLogin    DateTime?
 
   auditLogs AuditLog[]
+  reviewedVerifications GamingCenterVerification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
