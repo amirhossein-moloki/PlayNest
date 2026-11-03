@@ -24,6 +24,7 @@ export const TENANT_MODELS = new Set([
   'StaffAnalytics',
   'StationAnalytics',
   'Tournament',
+  'GamingCenterVerification',
 ]);
 
 /**

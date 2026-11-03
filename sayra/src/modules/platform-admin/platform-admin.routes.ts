@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../../common/middleware/auth';
 import { requirePlatformAdmin } from '../../common/middleware/requirePlatformAdmin';
 import { PlatformAdminController } from './platform-admin.controller';
+import { VerificationController } from '../verification/verification.controller';
 import { platformAdminDashboardTemplate } from './platform-admin-ui.templates';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
 
@@ -20,6 +21,12 @@ router.get('/gaming-centers', asyncHandler(PlatformAdminController.getAllGamingC
 router.get('/gaming-centers/:id', asyncHandler(PlatformAdminController.getGamingCenterById));
 router.patch('/gaming-centers/:id', asyncHandler(PlatformAdminController.updateGamingCenter));
 router.patch('/gaming-centers/:id/status', asyncHandler(PlatformAdminController.updateGamingCenterStatus));
+
+// KYC Verification Management
+router.get('/verifications', asyncHandler(VerificationController.listVerifications));
+router.get('/verifications/:id', asyncHandler(VerificationController.getVerificationDetails));
+router.post('/verifications/:id/approve', asyncHandler(VerificationController.approveVerification));
+router.post('/verifications/:id/reject', asyncHandler(VerificationController.rejectVerification));
 
 // Users Management across all centers
 router.get('/users', asyncHandler(PlatformAdminController.listUsers));

@@ -3,6 +3,9 @@ import healthRouter from './health.routes';
 import authRouter from '../modules/auth/auth.routes';
 import gamingCenterRouter from '../modules/gamingCenter/gamingCenter.routes';
 import platformAdminRouter from '../modules/platform-admin/platform-admin.routes';
+import { locationsRouter } from '../modules/locations/locations.routes';
+import { onboardingRouter } from '../modules/onboarding/onboarding.routes';
+import { gamingCenterVerificationRouter } from '../modules/verification/verification.routes';
 
 // Import the new station routers
 import {
@@ -60,6 +63,9 @@ const router = Router();
 // --- Existing Routes ---
 router.use('/health', healthRouter);
 router.use('/auth', authRouter);
+router.use('/locations', locationsRouter);
+router.use('/onboarding', onboardingRouter);
+router.use('/gamingCenters/:gamingCenterId/verification', gamingCenterVerificationRouter);
 router.use('/platform-admin', platformAdminRouter);
 router.use('/gamingCenters', gamingCenterRouter);
 
