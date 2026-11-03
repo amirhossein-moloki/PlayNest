@@ -137,9 +137,63 @@ export function transformGamingCenter(gc: GamingCenterWithRelations): GamingCent
 }
 
 export const gamingCenterRepository = {
-  async create(data: CreateGamingCenterInput) {
-    return prisma.gamingCenter.create({
-      data: data as Prisma.GamingCenterCreateInput,
+  async transaction<T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    return prisma.$transaction(callback);
+  },
+
+  async findUserById(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.user.findUnique({
+      where: { id },
+      include: {
+        gamingCenter: true,
+      },
+    });
+  },
+
+  async findPlatformAdminById(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.platformAdmin.findUnique({
+      where: { id },
+    });
+  },
+
+  async create(data: CreateGamingCenterInput, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    const createData: Prisma.GamingCenterCreateInput = {
+      name: data.name,
+      slug: data.slug,
+      games: data.games || [],
+    };
+    return client.gamingCenter.create({
+      data: createData,
+    });
+  },
+
+  async updateUserGamingCenter(
+    userId: string,
+    gamingCenterId: string,
+    data?: Partial<Prisma.UserUncheckedUpdateInput>,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx || prisma;
+    const updateData: Prisma.UserUncheckedUpdateInput = {
+      gamingCenterId,
+      ...data,
+    };
+    return client.user.update({
+      where: { id: userId },
+      data: updateData,
+    });
+  },
+
+  async createUser(
+    data: Prisma.UserUncheckedCreateInput,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx || prisma;
+    return client.user.create({
+      data,
     });
   },
 
@@ -164,8 +218,9 @@ export const gamingCenterRepository = {
     return transformGamingCenter(gc);
   },
 
-  async findBySlug(slug: string) {
-    return prisma.gamingCenter.findFirst({
+  async findBySlug(slug: string, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.gamingCenter.findFirst({
       where: { slug, isActive: true },
     });
   },
@@ -220,15 +275,17 @@ export const gamingCenterRepository = {
     return formatPaginatedResult(data, total, page, limit);
   },
 
-  async update(id: string, data: UpdateGamingCenterInput) {
-    return prisma.gamingCenter.update({
+  async update(id: string, data: UpdateGamingCenterInput, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.gamingCenter.update({
       where: { id },
       data,
     });
   },
 
-  async softDelete(id: string) {
-    return prisma.gamingCenter.update({
+  async softDelete(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.gamingCenter.update({
       where: { id },
       data: { isActive: false },
     });

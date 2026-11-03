@@ -1,5 +1,6 @@
 import logger from '../../config/logger';
 import { waitlistStation } from '../../modules/waitlist/waitlist.station';
+import { runWithSystemContext } from '../../common/context/request-context';
 
 export class WaitlistExpiryWorker {
   private timer: NodeJS.Timeout | null = null;
@@ -51,19 +52,21 @@ export class WaitlistExpiryWorker {
     this.processing = true;
 
     try {
-      const result = await waitlistStation.processExpiryBatch({
-        batchSize: this.batchSize,
-        now,
-      });
-
-      if (result.expiredOffersCount > 0 || result.expiredEntriesCount > 0) {
-        logger.info({
-          msg: 'Waitlist expiry tick completed',
-          expiredOffersCount: result.expiredOffersCount,
-          expiredEntriesCount: result.expiredEntriesCount,
+      return await runWithSystemContext('WaitlistExpiryWorker', async () => {
+        const result = await waitlistStation.processExpiryBatch({
+          batchSize: this.batchSize,
+          now,
         });
-      }
-      return result;
+
+        if (result.expiredOffersCount > 0 || result.expiredEntriesCount > 0) {
+          logger.info({
+            msg: 'Waitlist expiry tick completed',
+            expiredOffersCount: result.expiredOffersCount,
+            expiredEntriesCount: result.expiredEntriesCount,
+          });
+        }
+        return result;
+      });
     } catch (error) {
       logger.error({
         msg: 'Error during waitlist expiry worker tick',

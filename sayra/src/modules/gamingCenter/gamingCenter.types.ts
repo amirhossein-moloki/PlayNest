@@ -24,4 +24,10 @@ export interface GamingCenterListItem {
   createdAt: Date | string;
   updatedAt: Date | string;
   addresses: Address[];
+  owner?: {
+    id: string;
+    fullName: string;
+    role: string;
+    type: 'USER' | 'PLATFORM_ADMIN';
+  } | null;
 }
