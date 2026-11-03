@@ -3,6 +3,10 @@ import healthRouter from './health.routes';
 import authRouter from '../modules/auth/auth.routes';
 import gamingCenterRouter from '../modules/gamingCenter/gamingCenter.routes';
 import platformAdminRouter from '../modules/platform-admin/platform-admin.routes';
+import {
+  platformAdminCatalogRouter,
+  publicCatalogRouter,
+} from '../modules/catalog/catalog.routes';
 import { locationsRouter } from '../modules/locations/locations.routes';
 import { onboardingRouter } from '../modules/onboarding/onboarding.routes';
 import { gamingCenterVerificationRouter } from '../modules/verification/verification.routes';
@@ -67,6 +71,8 @@ router.use('/locations', locationsRouter);
 router.use('/onboarding', onboardingRouter);
 router.use('/gamingCenters/:gamingCenterId/verification', gamingCenterVerificationRouter);
 router.use('/platform-admin', platformAdminRouter);
+router.use('/platform-admin/catalog', platformAdminCatalogRouter);
+router.use('/catalog', publicCatalogRouter);
 router.use('/gamingCenters', gamingCenterRouter);
 
 // --- GameStation Module Routes ---

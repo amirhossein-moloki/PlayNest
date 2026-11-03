@@ -1286,6 +1286,38 @@ model Settings {
   updatedAt DateTime @updatedAt
 }
 
+model DeviceCatalog {
+  id            String          @id @default(cuid())
+  name          String
+  deviceType    GameStationType @default(PC)
+  coverImageUrl String
+  description   String?
+  isActive      Boolean         @default(true)
+
+  stations      GameStation[]
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([deviceType, isActive])
+  @@index([isActive])
+}
+
+model GameCatalog {
+  id                 String            @id @default(cuid())
+  title              String
+  coverImageUrl      String
+  supportedPlatforms GameStationType[] @default([PC])
+  genre              String?
+  description        String?
+  isActive           Boolean           @default(true)
+
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([isActive])
+}
+
 model GameStation {
   id String @id @default(cuid())
 
@@ -1294,6 +1326,9 @@ model GameStation {
 
   name                 String
   stationType          GameStationType @default(PC)
+  catalogDeviceId      String?
+  catalogDevice        DeviceCatalog?  @relation(fields: [catalogDeviceId], references: [id], onDelete: SetNull)
+  coverImageUrl        String?
   isVip                Boolean         @default(false)
   hourlyPrice          Float
   minRentHours         Int             @default(1)

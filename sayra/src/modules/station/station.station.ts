@@ -1,10 +1,145 @@
 import { SessionActorType } from '@prisma/client';
 import { auditService } from '../audit/audit.station';
 import * as StationRepo from './station.repo';
-import { CreateStationInput, UpdateStationInput } from './station.types';
+import {
+  CreateStationInput,
+  UpdateStationInput,
+  CreateStationsFromCatalogInput,
+  AddGamesFromCatalogInput,
+} from './station.types';
 import { ListStationsQuery } from './station.validator';
+import * as CatalogRepo from '../catalog/catalog.repo';
+import { prisma } from '../../config/prisma';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
+
+/**
+ * Business logic to create stations from a DeviceCatalog entry.
+ */
+export async function createStationsFromCatalog(
+  gamingCenterId: string,
+  input: CreateStationsFromCatalogInput,
+  actor?: { id: string; actorType: SessionActorType },
+  context?: { ip?: string; userAgent?: string }
+) {
+  const catalogDevice = await CatalogRepo.findDeviceById(input.catalogDeviceId);
+  if (!catalogDevice) {
+    throw new AppError('Catalog device not found', httpStatus.NOT_FOUND);
+  }
+
+  // Count existing stations of this device or center to generate unique sequential names
+  const existingCount = await prisma.gameStation.count({
+    where: {
+      gamingCenterId,
+      stationType: catalogDevice.deviceType,
+    },
+  });
+
+  const basePrefix = input.customNamePrefix || catalogDevice.name;
+  const stationsToCreate: CreateStationInput[] = [];
+
+  for (let i = 1; i <= input.quantity; i++) {
+    const stationNumber = existingCount + i;
+    stationsToCreate.push({
+      name: `${basePrefix} #${stationNumber}`,
+      stationType: catalogDevice.deviceType,
+      catalogDeviceId: catalogDevice.id,
+      coverImageUrl: catalogDevice.coverImageUrl,
+      hourlyPrice: input.hourlyPrice,
+      isVip: input.isVip ?? false,
+      minRentHours: input.minRentHours ?? 1,
+      maxRentHours: input.maxRentHours ?? 8,
+      defaultDurationHours: input.defaultDurationHours ?? 1,
+      incrementMinutes: input.incrementMinutes ?? 30,
+      isActive: true,
+    });
+  }
+
+  const createdStations = await StationRepo.createManyStations(gamingCenterId, stationsToCreate);
+
+  // Update gaming center PC/Console counts accordingly
+  if (catalogDevice.deviceType === 'PC') {
+    await prisma.gamingCenter.update({
+      where: { id: gamingCenterId },
+      data: { pcCount: { increment: input.quantity } },
+    });
+  } else if (['PLAYSTATION', 'XBOX', 'SWITCH', 'VR'].includes(catalogDevice.deviceType)) {
+    await prisma.gamingCenter.update({
+      where: { id: gamingCenterId },
+      data: { consoleCount: { increment: input.quantity } },
+    });
+  }
+
+  if (actor) {
+    await auditService.log(
+      gamingCenterId,
+      actor,
+      'STATIONS_BULK_CREATE_FROM_CATALOG',
+      { name: 'GameStation', id: catalogDevice.id },
+      { new: { quantity: input.quantity, hourlyPrice: input.hourlyPrice, createdStationsCount: createdStations.length } },
+      context
+    );
+  }
+
+  return createdStations;
+}
+
+/**
+ * Business logic to add games from GameCatalog into GamingCenter's games list.
+ */
+export async function addGamesFromCatalog(
+  gamingCenterId: string,
+  input: AddGamesFromCatalogInput,
+  actor?: { id: string; actorType: SessionActorType },
+  context?: { ip?: string; userAgent?: string }
+) {
+  const games = await prisma.gameCatalog.findMany({
+    where: {
+      id: { in: input.gameCatalogIds },
+    },
+  });
+
+  if (games.length === 0) {
+    throw new AppError('No matching games found in catalog', httpStatus.NOT_FOUND);
+  }
+
+  const center = await prisma.gamingCenter.findUnique({
+    where: { id: gamingCenterId },
+    select: { games: true },
+  });
+
+  if (!center) {
+    throw new AppError('Gaming center not found', httpStatus.NOT_FOUND);
+  }
+
+  const existingGameTitles = new Set(center.games || []);
+  const newTitles = games.map((g) => g.title).filter((title) => !existingGameTitles.has(title));
+
+  const updatedGames = [...(center.games || []), ...newTitles];
+
+  const updatedCenter = await prisma.gamingCenter.update({
+    where: { id: gamingCenterId },
+    data: { games: updatedGames },
+    select: { id: true, name: true, games: true },
+  });
+
+  if (actor) {
+    await auditService.log(
+      gamingCenterId,
+      actor,
+      'GAMING_CENTER_ADD_GAMES_FROM_CATALOG',
+      { name: 'GamingCenter', id: gamingCenterId },
+      { old: { games: center.games }, new: { games: updatedGames, added: newTitles } },
+      context
+    );
+  }
+
+  return {
+    gamingCenterId,
+    addedGames: newTitles,
+    allGames: updatedCenter.games,
+  };
+}
 
 /**
  * Business logic to create a new station.

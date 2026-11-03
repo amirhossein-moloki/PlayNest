@@ -21,6 +21,22 @@ export async function createStation(gamingCenterId: string, data: CreateStationI
 }
 
 /**
+ * Creates multiple stations in a transaction.
+ */
+export async function createManyStations(gamingCenterId: string, stationsData: CreateStationInput[]) {
+  return prisma.$transaction(
+    stationsData.map((data) =>
+      prisma.gameStation.create({
+        data: {
+          ...(data as any), // eslint-disable-line @typescript-eslint/no-explicit-any
+          gamingCenterId,
+        },
+      })
+    )
+  );
+}
+
+/**
  * Finds a station by its ID for a specific gamingCenter.
  * @param stationId - The ID of the station to find.
  * @param gamingCenterId - The ID of the gamingCenter.

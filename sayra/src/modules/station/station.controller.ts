@@ -1,6 +1,11 @@
 import { NextFunction, Request, Response } from 'express';
 import * as stationLogic from './station.station';
-import { CreateStationInput, UpdateStationInput } from './station.types';
+import {
+  CreateStationInput,
+  UpdateStationInput,
+  CreateStationsFromCatalogInput,
+  AddGamesFromCatalogInput,
+} from './station.types';
 import { listStationsSchema } from './station.validator';
 import { GamingCenter } from '@prisma/client';
 import AppError from '../../common/errors/AppError';
@@ -23,6 +28,50 @@ export async function createStation(
     const { gamingCenterId } = req.params;
     const newStation = await stationLogic.createStation(gamingCenterId, req.body);
     res.created(newStation);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Handle request to create multiple stations from a catalog device.
+ */
+export async function createStationsFromCatalog(
+  req: Request<{ gamingCenterId: string }, unknown, CreateStationsFromCatalogInput>,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { gamingCenterId } = req.params;
+    const stations = await stationLogic.createStationsFromCatalog(
+      gamingCenterId,
+      req.body,
+      (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
+      { ip: req.ip, userAgent: req.headers['user-agent'] }
+    );
+    res.created(stations);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Handle request to add games from catalog to gaming center.
+ */
+export async function addGamesFromCatalog(
+  req: Request<{ gamingCenterId: string }, unknown, AddGamesFromCatalogInput>,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { gamingCenterId } = req.params;
+    const result = await stationLogic.addGamesFromCatalog(
+      gamingCenterId,
+      req.body,
+      (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
+      { ip: req.ip, userAgent: req.headers['user-agent'] }
+    );
+    res.ok(result);
   } catch (error) {
     next(error);
   }
