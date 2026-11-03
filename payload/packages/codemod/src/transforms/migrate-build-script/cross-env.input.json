@@ -1,5 +1,0 @@
-{
-  "scripts": {
-    "build": "cross-env NODE_OPTIONS=--no-deprecation next build"
-  }
-}

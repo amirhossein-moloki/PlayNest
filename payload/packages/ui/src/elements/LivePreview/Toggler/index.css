@@ -1,9 +1,0 @@
-@layer payload-default {
-  .live-preview-toggler--active {
-    background-color: var(--color-bg-secondary);
-
-    &:hover {
-      background-color: var(--color-bg-hover);
-    }
-  }
-}

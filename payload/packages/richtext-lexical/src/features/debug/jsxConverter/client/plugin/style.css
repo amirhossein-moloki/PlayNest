@@ -1,9 +1,0 @@
-.debug-jsx-converter {
-  padding-inline-start: var(--spacer-5);
-
-  ul,
-  ol {
-    padding-inline-start: revert;
-    margin: revert;
-  }
-}

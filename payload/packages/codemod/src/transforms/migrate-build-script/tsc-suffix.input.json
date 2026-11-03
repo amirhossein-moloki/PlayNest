@@ -1,5 +1,0 @@
-{
-  "scripts": {
-    "build": "next build && tsc --project tsconfig.server.json"
-  }
-}

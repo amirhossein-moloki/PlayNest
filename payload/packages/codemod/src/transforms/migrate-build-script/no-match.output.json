@@ -1,6 +1,0 @@
-{
-  "scripts": {
-    "build": "next build-storybook",
-    "start": "next start"
-  }
-}
