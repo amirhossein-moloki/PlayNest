@@ -4,6 +4,7 @@ import { processTenantGuardOperation } from '../../../../src/config/prisma-exten
 import logger from '../../../../src/config/logger';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 describe('System Context & Tenant Guard Integration', () => {
   it('should run callback with isSystemContext=true and correlationId', async () => {
@@ -20,7 +21,7 @@ describe('System Context & Tenant Guard Integration', () => {
 
   it('should log debug and allow query execution when isSystemContext is active', async () => {
     const loggerSpy = jest.spyOn(logger, 'debug').mockImplementation(() => logger as any);
-    const mockQuery = jest.fn((..._args: any[]) => Promise.resolve([{ id: 'res_1' }]));
+    const mockQuery = jest.fn(() => Promise.resolve([{ id: 'res_1' }]));
 
     await runWithSystemContext('ReservationExpiryWorker', async () => {
       const result = await processTenantGuardOperation({
@@ -52,7 +53,7 @@ describe('System Context & Tenant Guard Integration', () => {
 
   it('should log warning on tenant-scoped query when isSystemContext is not active and tenant filter is missing', async () => {
     const loggerWarnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => logger as any);
-    const mockQuery = jest.fn((..._args: any[]) => Promise.resolve([{ id: 'res_1' }]));
+    const mockQuery = jest.fn(() => Promise.resolve([{ id: 'res_1' }]));
 
     // Normal execution (e.g. regular HTTP user request missing tenant filter)
     await processTenantGuardOperation({
