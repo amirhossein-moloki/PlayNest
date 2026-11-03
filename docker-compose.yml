@@ -6,6 +6,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-playenest_admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
       POSTGRES_DB: ${POSTGRES_DB:-playenest_prod}
+      POSTGRES_MULTIPLE_DATABASES: ${POSTGRES_MULTIPLE_DATABASES:-blog_prod}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
@@ -68,6 +69,194 @@ services:
       retries: 5
       start_period: 10s
 
+  blog_redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - blog_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  blog_web:
+    image: playenest-blog:latest
+    build:
+      context: ./Blog
+      dockerfile: Dockerfile
+    restart: always
+    expose:
+      - '8000'
+    depends_on:
+      db:
+        condition: service_healthy
+      blog_redis:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+      - path: ./Blog/.env
+        required: false
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${BLOG_POSTGRES_DB:-blog_prod}
+      - POSTGRES_USER=${POSTGRES_USER:-playenest_admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@db:5432/${BLOG_POSTGRES_DB:-blog_prod}
+      - REDIS_HOST=blog_redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://blog_redis:6379
+      - USE_REDIS=True
+      - SECRET_KEY=${BLOG_SECRET_KEY:-replace-this-with-a-very-secret-key-for-blog}
+      - DEBUG=${BLOG_DEBUG:-False}
+      - DOMAIN=${BLOG_DOMAIN:-blog.playnest.com}
+      - ALLOWED_HOSTS=${BLOG_ALLOWED_HOSTS:-localhost,127.0.0.1,blog.playnest.com}
+      - CSRF_TRUSTED_ORIGINS=${BLOG_CSRF_TRUSTED_ORIGINS:-http://localhost,http://127.0.0.1,http://blog.playnest.com,https://blog.playnest.com}
+    volumes:
+      - blog_static:/app/staticfiles
+      - blog_media:/app/media
+    command: sh -c "/usr/local/bin/docker-entrypoint.sh"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8000 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  blog_celery_default:
+    image: playenest-blog:latest
+    build:
+      context: ./Blog
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      blog_redis:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+      - path: ./Blog/.env
+        required: false
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${BLOG_POSTGRES_DB:-blog_prod}
+      - POSTGRES_USER=${POSTGRES_USER:-playenest_admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@db:5432/${BLOG_POSTGRES_DB:-blog_prod}
+      - REDIS_HOST=blog_redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://blog_redis:6379
+      - USE_REDIS=True
+      - SECRET_KEY=${BLOG_SECRET_KEY:-replace-this-with-a-very-secret-key-for-blog}
+      - DEBUG=${BLOG_DEBUG:-False}
+    volumes:
+      - blog_media:/app/media
+    command: celery -A blog worker -l info -Q default
+
+  blog_celery_high:
+    image: playenest-blog:latest
+    build:
+      context: ./Blog
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      blog_redis:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+      - path: ./Blog/.env
+        required: false
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${BLOG_POSTGRES_DB:-blog_prod}
+      - POSTGRES_USER=${POSTGRES_USER:-playenest_admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@db:5432/${BLOG_POSTGRES_DB:-blog_prod}
+      - REDIS_HOST=blog_redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://blog_redis:6379
+      - USE_REDIS=True
+      - SECRET_KEY=${BLOG_SECRET_KEY:-replace-this-with-a-very-secret-key-for-blog}
+      - DEBUG=${BLOG_DEBUG:-False}
+    volumes:
+      - blog_media:/app/media
+    command: celery -A blog worker -l info -Q high_priority
+
+  blog_celery_low:
+    image: playenest-blog:latest
+    build:
+      context: ./Blog
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      blog_redis:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+      - path: ./Blog/.env
+        required: false
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${BLOG_POSTGRES_DB:-blog_prod}
+      - POSTGRES_USER=${POSTGRES_USER:-playenest_admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@db:5432/${BLOG_POSTGRES_DB:-blog_prod}
+      - REDIS_HOST=blog_redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://blog_redis:6379
+      - USE_REDIS=True
+      - SECRET_KEY=${BLOG_SECRET_KEY:-replace-this-with-a-very-secret-key-for-blog}
+      - DEBUG=${BLOG_DEBUG:-False}
+    volumes:
+      - blog_media:/app/media
+    command: celery -A blog worker -l info -Q low_priority
+
+  blog_celery_beat:
+    image: playenest-blog:latest
+    build:
+      context: ./Blog
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      blog_redis:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+      - path: ./Blog/.env
+        required: false
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${BLOG_POSTGRES_DB:-blog_prod}
+      - POSTGRES_USER=${POSTGRES_USER:-playenest_admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@db:5432/${BLOG_POSTGRES_DB:-blog_prod}
+      - REDIS_HOST=blog_redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://blog_redis:6379
+      - USE_REDIS=True
+      - SECRET_KEY=${BLOG_SECRET_KEY:-replace-this-with-a-very-secret-key-for-blog}
+      - DEBUG=${BLOG_DEBUG:-False}
+    volumes:
+      - blog_media:/app/media
+    command: celery -A blog beat -l info
+
   nginx:
     image: playenest-nginx:latest
     build:
@@ -78,12 +267,19 @@ services:
       - '80:80'
     environment:
       - MEDIA_LOCAL_PUBLIC_PATH=/media
-      - NGINX_ENVSUBST_FILTER=MEDIA_LOCAL_PUBLIC_PATH
+      - PLAYNEST_DOMAIN=${PLAYNEST_DOMAIN:-playnest.com}
+      - BLOG_DOMAIN=${BLOG_DOMAIN:-blog.playnest.com}
+      - NGINX_ENVSUBST_FILTER=MEDIA_LOCAL_PUBLIC_PATH PLAYNEST_DOMAIN BLOG_DOMAIN
     volumes:
       - app_storage:/app/storage:ro
+      - blog_static:/app/blog_static:ro
+      - blog_media:/app/blog_media:ro
     depends_on:
       sayra:
         condition: service_healthy
+      blog_web:
+        condition: service_healthy
+
   backup:
     image: playenest-backup:latest
     build:
@@ -95,11 +291,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      blog_redis:
+        condition: service_healthy
     env_file:
       - path: .env
         required: false
     environment:
       - POSTGRES_HOST=db
+      - POSTGRES_MULTIPLE_DATABASES=${POSTGRES_MULTIPLE_DATABASES:-blog_prod}
       - RESTIC_REPOSITORY=/backups
       - BACKUP_CRON=0 * * * *
       - RETENTION_HOURLY=24
@@ -114,7 +313,9 @@ services:
       start_period: 30s
     volumes:
       - app_storage:/storage:ro
+      - blog_media:/blog_media:ro
       - redis_data:/redis_data:ro
+      - blog_redis_data:/blog_redis_data:ro
       - ./docker/nginx:/nginx_config:ro
       - ./backups:/backups
       - backup_data:/data
@@ -125,4 +326,7 @@ volumes:
   postgres_data:
   redis_data:
   app_storage:
+  blog_redis_data:
+  blog_static:
+  blog_media:
   backup_data:
