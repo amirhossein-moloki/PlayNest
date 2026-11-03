@@ -1,6 +1,7 @@
 import request from 'supertest';
 import app from '../../../src/app';
 import { prisma } from '../../../src/config/prisma';
+import { generateAccessToken } from '../../../src/modules/auth/auth.tokens';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -16,6 +17,9 @@ jest.mock('../../../src/config/prisma', () => ({
     },
     user: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
     },
     platformAdmin: {
       findUnique: jest.fn(),
@@ -143,5 +147,224 @@ describe('Gaming Centers API - Retrieval by ID and Slug', () => {
       expect(res.status).toBe(404);
       expect(res.body.success).toBe(false);
     });
+  });
+});
+
+describe('POST /api/v1/gamingCenters (Creation & Ownership Architecture)', () => {
+  const adminActor = {
+    id: 'platform_admin_hadi_001',
+    fullName: 'Platform Admin Hadi',
+    phone: '09120000001',
+    email: 'hadi@playnest.test',
+    passwordHash: 'argon2id$hashedpassword',
+    isActive: true,
+    isSuperuser: true,
+  };
+
+  const platformAdminToken = generateAccessToken({
+    sessionId: 'session_admin_01',
+    actorId: adminActor.id,
+    actorType: 'PLATFORM_ADMIN',
+  });
+
+  const existingUserOwner = {
+    id: 'user_owner_01',
+    fullName: 'Mohammad Manager',
+    phone: '09141001001',
+    role: 'MANAGER',
+    gamingCenterId: 'old_center_01',
+    isActive: true,
+  };
+
+  beforeEach(() => {
+    (prisma as any).$transaction = jest.fn((cb: any) => cb(prisma));
+  });
+
+  it('should successfully create a gaming center when ownerId references a PlatformAdmin', async () => {
+    (prisma.gamingCenter.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+    (prisma.user.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.platformAdmin.findUnique as jest.Mock).mockResolvedValue(adminActor);
+
+    const createdCenterMock = {
+      id: 'center_new_01',
+      name: 'پلی سنتر تبریز',
+      slug: 'play-center-tabriz',
+      games: ['EA Sports FC 25', 'Call of Duty: Modern Warfare III'],
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    (prisma.gamingCenter.create as jest.Mock).mockResolvedValue(createdCenterMock);
+    (prisma.user.create as jest.Mock).mockResolvedValue({
+      id: 'user_created_for_admin',
+      fullName: adminActor.fullName,
+      phone: adminActor.phone,
+      role: 'MANAGER',
+      gamingCenterId: createdCenterMock.id,
+    });
+
+    const res = await request(app)
+      .post('/api/v1/gamingCenters')
+      .set('Authorization', `Bearer ${platformAdminToken}`)
+      .send({
+        name: 'پلی سنتر تبریز',
+        slug: 'play-center-tabriz',
+        ownerId: 'platform_admin_hadi_001',
+        games: ['EA Sports FC 25', 'Call of Duty: Modern Warfare III'],
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.id).toBe('center_new_01');
+    expect(res.body.data.owner).toBeDefined();
+    expect(res.body.data.owner.type).toBe('PLATFORM_ADMIN');
+    expect(res.body.data.owner.id).toBe('platform_admin_hadi_001');
+
+    // Verify gamingCenter.create was called WITHOUT the unknown ownerId property
+    expect(prisma.gamingCenter.create).toHaveBeenCalledWith({
+      data: {
+        name: 'پلی سنتر تبریز',
+        slug: 'play-center-tabriz',
+        games: ['EA Sports FC 25', 'Call of Duty: Modern Warfare III'],
+      },
+    });
+  });
+
+  it('should successfully create a gaming center and assign an existing User owner', async () => {
+    (prisma.gamingCenter.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      ...existingUserOwner,
+      gamingCenterId: null, // New/unassigned user
+    });
+    (prisma.platformAdmin.findUnique as jest.Mock).mockResolvedValue(adminActor);
+
+    const createdCenterMock = {
+      id: 'center_new_02',
+      name: 'گیم نت صبا',
+      slug: 'saba-gaming-center',
+      games: ['GTA V'],
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    (prisma.gamingCenter.create as jest.Mock).mockResolvedValue(createdCenterMock);
+    (prisma.user.update as jest.Mock).mockResolvedValue({
+      ...existingUserOwner,
+      gamingCenterId: createdCenterMock.id,
+      role: 'MANAGER',
+    });
+
+    const res = await request(app)
+      .post('/api/v1/gamingCenters')
+      .set('Authorization', `Bearer ${platformAdminToken}`)
+      .send({
+        name: 'گیم نت صبا',
+        slug: 'saba-gaming-center',
+        ownerId: existingUserOwner.id,
+        games: ['GTA V'],
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.id).toBe('center_new_02');
+    expect(res.body.data.owner.type).toBe('USER');
+    expect(res.body.data.owner.id).toBe(existingUserOwner.id);
+    expect(res.body.data.owner.role).toBe('MANAGER');
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: existingUserOwner.id },
+      data: {
+        gamingCenterId: createdCenterMock.id,
+        role: 'MANAGER',
+        isActive: true,
+      },
+    });
+  });
+
+  it('should reject creation with 404 if ownerId does not exist in User or PlatformAdmin', async () => {
+    (prisma.gamingCenter.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+    (prisma.platformAdmin.findUnique as jest.Mock).mockResolvedValue(adminActor); // auth check passes
+
+    // In station ownership check:
+    (prisma.platformAdmin.findUnique as jest.Mock).mockImplementation((args: any) => {
+      if (args.where.id === adminActor.id) return Promise.resolve(adminActor);
+      return Promise.resolve(null);
+    });
+
+    const res = await request(app)
+      .post('/api/v1/gamingCenters')
+      .set('Authorization', `Bearer ${platformAdminToken}`)
+      .send({
+        name: 'گیم نت نامعتبر',
+        slug: 'invalid-center',
+        ownerId: 'non_existent_owner_999',
+        games: [],
+      });
+
+    expect(res.status).toBe(404);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('should return 409 conflict when duplicate slug is used', async () => {
+    (prisma.gamingCenter.findFirst as jest.Mock).mockResolvedValue({
+      id: 'center_existing',
+      slug: 'duplicate-center',
+    });
+    (prisma.platformAdmin.findUnique as jest.Mock).mockResolvedValue(adminActor);
+
+    const res = await request(app)
+      .post('/api/v1/gamingCenters')
+      .set('Authorization', `Bearer ${platformAdminToken}`)
+      .send({
+        name: 'گیم نت تکراری',
+        slug: 'duplicate-center',
+        ownerId: 'platform_admin_hadi_001',
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('should reject unauthorized reassignment if user belongs to another center and actor is not superuser', async () => {
+    (prisma.gamingCenter.findFirst as jest.Mock).mockResolvedValue(null);
+
+    const tenantUserToken = generateAccessToken({
+      sessionId: 'sess_user_02',
+      actorId: 'other_user_id',
+      actorType: 'USER',
+    });
+
+    (prisma.user.findUnique as jest.Mock).mockImplementation((args: any) => {
+      if (args.where.id === 'other_user_id') {
+        return Promise.resolve({
+          id: 'other_user_id',
+          role: 'MANAGER',
+          gamingCenterId: 'center_1',
+          isActive: true,
+        });
+      }
+      if (args.where.id === existingUserOwner.id) {
+        return Promise.resolve({
+          ...existingUserOwner,
+          gamingCenterId: 'center_2', // Already belongs to center_2
+        });
+      }
+      return Promise.resolve(null);
+    });
+
+    const res = await request(app)
+      .post('/api/v1/gamingCenters')
+      .set('Authorization', `Bearer ${tenantUserToken}`)
+      .send({
+        name: 'گیم نت تلاش جابجایی غیرمجاز',
+        slug: 'unauthorized-move',
+        ownerId: existingUserOwner.id,
+      });
+
+    expect(res.status).toBe(403);
+    expect(res.body.success).toBe(false);
   });
 });

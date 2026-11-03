@@ -1,6 +1,7 @@
 import logger from '../../config/logger';
 import { env } from '../../config/env';
 import { reservationStation } from '../../modules/reservation/reservation.station';
+import { runWithSystemContext } from '../../common/context/request-context';
 
 export class ReservationExpiryWorker {
   private timer: NodeJS.Timeout | null = null;
@@ -59,21 +60,23 @@ export class ReservationExpiryWorker {
     this.processing = true;
 
     try {
-      const result = await reservationStation.processExpiryBatch({
-        batchSize: this.batchSize,
-        now,
-      });
-
-      if (result.candidatesFound > 0) {
-        logger.info({
-          msg: 'Reservation expiry tick completed',
-          candidatesFound: result.candidatesFound,
-          expiredCount: result.expiredCount,
-          skippedCount: result.skippedCount,
-          failedCount: result.failedCount,
+      return await runWithSystemContext('ReservationExpiryWorker', async () => {
+        const result = await reservationStation.processExpiryBatch({
+          batchSize: this.batchSize,
+          now,
         });
-      }
-      return result;
+
+        if (result.candidatesFound > 0) {
+          logger.info({
+            msg: 'Reservation expiry tick completed',
+            candidatesFound: result.candidatesFound,
+            expiredCount: result.expiredCount,
+            skippedCount: result.skippedCount,
+            failedCount: result.failedCount,
+          });
+        }
+        return result;
+      });
     } catch (error) {
       logger.error({
         msg: 'Error during reservation expiry worker tick',
