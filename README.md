@@ -1,9 +1,8 @@
 # Playenest | پلتفرم مدیریت و رزرو گیم‌نت
 
-Playenest is a specialized Gamenet Management & Reservation system. It provides a robust architecture with two backend applications operating on shared infrastructure:
+Playenest is a specialized Gamenet Management & Reservation system. It provides a robust backend architecture operating on containerized infrastructure:
 
-- `sayra/`: Express.js + Prisma reservation backend.
-- `payload/`: Independent Payload CMS backend for blog/content management.
+- `sayra/`: Express.js + Prisma reservation and gaming center management backend.
 
 [![Node.js Version](https://img.shields.io/badge/node-22.x-blue.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
@@ -19,7 +18,6 @@ Playenest is a specialized Gamenet Management & Reservation system. It provides 
 - **Reservation Engine**: Real-time availability, preventing overlaps, and support for Online, Walk-in, and Phone bookings.
 - **Staff & Shift Management**: Role-based access control (RBAC) and scheduling for staff members.
 - **Financials & Payments**: Integrated with Zarinpal for online payments, wallet system, and commission tracking.
-- **Independent Payload CMS**: Isolated CMS backend for blog management and content authoring.
 - **Analytics & Notifications**: Detailed reporting on revenue, occupancy, and staff performance, plus SMS/In-App notifications.
 
 ---
@@ -27,8 +25,7 @@ Playenest is a specialized Gamenet Management & Reservation system. It provides 
 ## 🛠 Tech Stack & Repository Structure
 
 - **Sayra (`sayra/`)**: Express.js, TypeScript, Prisma ORM, BullMQ, Redis, PostgreSQL.
-- **Payload (`payload/`)**: Payload CMS, Next.js, TypeScript, PostgreSQL.
-- **Infrastructure (`docker/`)**: Shared PostgreSQL 15, Redis, Nginx Reverse Proxy, Restic Backup service.
+- **Infrastructure (`docker/`)**: PostgreSQL 15, Redis, Nginx Reverse Proxy, Restic Backup service.
 
 ---
 
@@ -37,7 +34,6 @@ Playenest is a specialized Gamenet Management & Reservation system. It provides 
 ### 1. Prerequisites
 - **Node.js** (v22 or higher)
 - **Docker & Docker Compose** (recommended for infrastructure services)
-- **pnpm** (for Payload CMS)
 
 ### 2. Environment Setup
 Copy the example environment file and update credentials if necessary:
@@ -46,15 +42,13 @@ cp .env.example .env
 ```
 
 ### 3. Running with Docker Compose
-To start all services (`sayra`, `payload`, `db`, `redis`, `nginx`, `backup`):
+To start all services (`sayra`, `db`, `redis`, `nginx`, `backup`):
 ```bash
 docker compose up -d --build
 ```
 
 Services will be accessible via Nginx reverse proxy on port 80:
 - **Sayra Reservation API**: `http://localhost/api/v1/` or `http://localhost/api/reservations/`
-- **Payload Admin Panel**: `http://localhost/admin`
-- **Payload API**: `http://localhost/api/payload/`
 - **Sayra Health Check**: `http://localhost/health`
 - **Sayra Swagger Docs**: `http://localhost/api-docs`
 
@@ -90,16 +84,6 @@ npx prisma migrate dev
 
 # Run development server
 npm run dev
-```
-
-#### Payload CMS Backend (`payload/`):
-```bash
-# Navigate to Payload
-cd payload
-
-# Install dependencies and start dev server
-pnpm install
-pnpm dev
 ```
 
 ---

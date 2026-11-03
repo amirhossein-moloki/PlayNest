@@ -459,9 +459,8 @@ All CMS routes require auth + `MANAGER` role + tenant guard.
 
 ## Blog & Article APIs
 
-PlayNest supports a dual-engine blog system:
-1. **Sayra Tenant-Scoped Blog Engine**: Multi-tenant blog system scoped to individual gaming centers.
-2. **Payload CMS Global Editorial Engine**: Global editorial articles collection with rich-text content blocks.
+PlayNest provides a tenant-scoped blog engine:
+- **Sayra Tenant-Scoped Blog Engine**: Multi-tenant blog system scoped to individual gaming centers.
 
 ### Sayra Private Blog Routes (Tenant-Scoped)
 
@@ -523,21 +522,9 @@ Mounted under `/api/v1/public/gamingCenters/:gamingCenterSlug/blog` (No auth req
 - **GET** `/tags` - Public list tags.
 - **GET** `/tags/:id` - Public get tag by ID.
 
-### Payload CMS Articles REST API
-
-Mounted on Payload CMS server (`/api/articles`):
-
-- **GET** `/api/articles` - Paginated articles list (Query params: `depth`, `page`, `limit`, `where[status][equals]=published`). Unauthenticated users receive only published articles.
-- **GET** `/api/articles/:id` - Get article by ID or slug.
-- **POST** `/api/articles` - Create article document (Requires auth).
-- **PATCH** `/api/articles/:id` - Update article document (Requires auth).
-- **DELETE** `/api/articles/:id` - Delete article document (Requires auth).
-
 ### OpenAPI Specs & Interactive Swagger UI
 - **Sayra OpenAPI Spec**: `/openapi.yaml`, `/openapi.json`
 - **Sayra Swagger UI**: `/api-docs`, `/swagger`, `/docs`
-- **Payload OpenAPI Spec**: `/payload-openapi.yaml`, `/payload-openapi.json`
-- **Payload Swagger UI**: `/payload-api-docs`
 
 ## Public CMS
 

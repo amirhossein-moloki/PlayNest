@@ -5,7 +5,7 @@ set -e
 
 # Configuration
 OUTPUT_FILE="playenest-deployment.tar"
-IMAGES=("playenest-sayra:latest" "playenest-payload:latest" "playenest-nginx:latest" "playenest-backup:latest")
+IMAGES=("playenest-sayra:latest" "playenest-nginx:latest" "playenest-backup:latest")
 
 echo "🚀 Preparing deployment package..."
 

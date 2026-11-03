@@ -4,7 +4,7 @@ This document describes the NGINX integration into the PlayNest Docker-based inf
 
 ## Architecture Overview
 
-The integration introduces NGINX as a production-grade reverse proxy and load balancer in front of the Sayra reservation backend and Payload CMS backend.
+The integration introduces NGINX as a production-grade reverse proxy and load balancer in front of the Sayra reservation backend.
 
 ### Network Flow Diagram
 
@@ -14,9 +14,7 @@ graph LR
 
     subgraph "Docker Internal Network"
         NGINX -->|/api/v1, /api/reservations| Sayra[Sayra Express Backend]
-        NGINX -->|/admin, /api/payload| Payload[Payload CMS Backend]
-        Sayra -->|Port 5432| DB[(PostgreSQL Shared Server)]
-        Payload -->|Port 5432| DB
+        Sayra -->|Port 5432| DB[(PostgreSQL Server)]
         Sayra -->|Port 6379| Redis[(Redis)]
     end
 
@@ -26,10 +24,8 @@ graph LR
 ## Routing & Services Overview
 
 - `/api/v1/` & `/api/reservations/` → `sayra` backend service (`http://sayra:3000`).
-- `/health`, `/api-docs`, `/swagger`, `/openapi.yaml`, `/openapi.json` → `sayra` health checks and Sayra Swagger UI.
-- `/admin` → `payload` CMS admin panel (`http://payload:3000`).
-- `/api/payload/` & `/api/graphql` → `payload` CMS API endpoints.
-- `/payload-api-docs`, `/payload-openapi.yaml`, `/payload-openapi.json` → `payload` CMS Swagger UI and OpenAPI specifications.
+- `/health`, `/api-docs`, `/swagger`, `/redoc`, `/redoc-assets`, `/docs`, `/openapi.yaml`, `/openapi.json` → `sayra` health checks and Sayra documentation endpoints.
+- `${MEDIA_LOCAL_PUBLIC_PATH}` (e.g. `/media`) → Static media storage (`/app/storage`).
 - `/` → Gateway status placeholder.
 
 ## Configuration Files

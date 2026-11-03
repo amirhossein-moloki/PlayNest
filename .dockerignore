@@ -4,8 +4,6 @@
 docs/
 *.md
 
-# Ignore the 104MB payload directory when building Sayra from repo root
-payload/
 
 # Ignore backups, local data, and json datasets
 backups/
