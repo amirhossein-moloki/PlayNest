@@ -119,4 +119,16 @@ describe('PLATFORM_ADMIN Authentication API', () => {
 
     expect(res.status).toBe(401);
   });
+
+  it('should serve platform admin SSR dashboard template without prompt() and with login modal', async () => {
+    const res = await request(app).get('/api/v1/platform-admin/dashboard');
+
+    expect(res.status).toBe(200);
+    expect(res.type).toBe('text/html');
+    expect(res.text).toContain('PlayNest - Platform Superuser Administration');
+    expect(res.text).toContain('id="authOverlay"');
+    expect(res.text).toContain('id="loginForm"');
+    expect(res.text).toContain('/api/v1/auth/platform-admin/login');
+    expect(res.text).not.toContain('prompt(');
+  });
 });
