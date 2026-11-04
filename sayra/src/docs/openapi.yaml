@@ -49,6 +49,415 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   schemas:
+    PlatformCampaign:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+        discountType:
+          type: string
+          enum: [PERCENTAGE, FIXED_AMOUNT]
+        discountValue:
+          type: number
+        maxDiscountAmount:
+          type: number
+        minOrderAmount:
+          type: number
+        scopeType:
+          type: string
+          enum: [GLOBAL, SPECIFIC_GAMECENTERS, SPECIFIC_DEVICE_TYPES]
+        applicableGamecenterIds:
+          type: array
+          items:
+            type: string
+        applicableDeviceTypes:
+          type: array
+          items:
+            type: string
+        targetAudience:
+          type: string
+          enum: [ALL_USERS, NEW_USERS, LOYAL_USERS, SPECIFIC_USERS]
+        specificUserIds:
+          type: array
+          items:
+            type: string
+        totalUsageLimit:
+          type: integer
+        perUserUsageLimit:
+          type: integer
+        usedCount:
+          type: integer
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, SCHEDULED, EXPIRED]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+    CreatePlatformCampaignInput:
+      type: object
+      required:
+      - title
+      - code
+      - discountType
+      - discountValue
+      - startDate
+      - endDate
+      properties:
+        title:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+        discountType:
+          type: string
+          enum: [PERCENTAGE, FIXED_AMOUNT]
+        discountValue:
+          type: number
+        maxDiscountAmount:
+          type: number
+        minOrderAmount:
+          type: number
+        scopeType:
+          type: string
+          enum: [GLOBAL, SPECIFIC_GAMECENTERS, SPECIFIC_DEVICE_TYPES]
+        applicableGamecenterIds:
+          type: array
+          items:
+            type: string
+        applicableDeviceTypes:
+          type: array
+          items:
+            type: string
+        targetAudience:
+          type: string
+          enum: [ALL_USERS, NEW_USERS, LOYAL_USERS, SPECIFIC_USERS]
+        specificUserIds:
+          type: array
+          items:
+            type: string
+        totalUsageLimit:
+          type: integer
+        perUserUsageLimit:
+          type: integer
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, SCHEDULED, EXPIRED]
+    UpdatePlatformCampaignInput:
+      type: object
+      properties:
+        title:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+        discountType:
+          type: string
+          enum: [PERCENTAGE, FIXED_AMOUNT]
+        discountValue:
+          type: number
+        maxDiscountAmount:
+          type: number
+        minOrderAmount:
+          type: number
+        scopeType:
+          type: string
+          enum: [GLOBAL, SPECIFIC_GAMECENTERS, SPECIFIC_DEVICE_TYPES]
+        applicableGamecenterIds:
+          type: array
+          items:
+            type: string
+        applicableDeviceTypes:
+          type: array
+          items:
+            type: string
+        targetAudience:
+          type: string
+          enum: [ALL_USERS, NEW_USERS, LOYAL_USERS, SPECIFIC_USERS]
+        specificUserIds:
+          type: array
+          items:
+            type: string
+        totalUsageLimit:
+          type: integer
+        perUserUsageLimit:
+          type: integer
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, SCHEDULED, EXPIRED]
+    PlatformSetting:
+      type: object
+      properties:
+        siteTitle:
+          type: string
+        supportPhone:
+          type: string
+        supportEmail:
+          type: string
+        centralAddress:
+          type: string
+        maintenanceMode:
+          type: boolean
+        maintenanceMessage:
+          type: string
+        platformCommissionPercent:
+          type: number
+        maxAdvanceBookingDays:
+          type: integer
+        onlinePaymentTimeoutMinutes:
+          type: integer
+        cancellationPenaltyPercent:
+          type: number
+        freeCancellationHours:
+          type: integer
+        autoSendBookingSms:
+          type: boolean
+        autoSendReminderSms:
+          type: boolean
+        welcomeSmsTemplate:
+          type: string
+        bookingConfirmationSmsTemplate:
+          type: string
+        bookingReminderSmsTemplate:
+          type: string
+        reviewApprovalPolicy:
+          type: string
+          enum: [AUTO, MANUAL]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    PlatformSettingsWithInfrastructure:
+      type: object
+      properties:
+        settings:
+          $ref: '#/components/schemas/PlatformSetting'
+        infrastructure:
+          type: object
+          properties:
+            smsGatewayStatus:
+              type: string
+            smsProvider:
+              type: string
+            paymentGatewayStatus:
+              type: string
+            paymentProvider:
+              type: string
+            sslStatus:
+              type: string
+            apiVersion:
+              type: string
+            lastSuccessfulBackupAt:
+              type: string
+    UpdatePlatformSettingsInput:
+      type: object
+      properties:
+        siteTitle:
+          type: string
+        supportPhone:
+          type: string
+        supportEmail:
+          type: string
+        centralAddress:
+          type: string
+        maintenanceMode:
+          type: boolean
+        maintenanceMessage:
+          type: string
+        platformCommissionPercent:
+          type: number
+        maxAdvanceBookingDays:
+          type: integer
+        onlinePaymentTimeoutMinutes:
+          type: integer
+        cancellationPenaltyPercent:
+          type: number
+        freeCancellationHours:
+          type: integer
+        autoSendBookingSms:
+          type: boolean
+        autoSendReminderSms:
+          type: boolean
+        welcomeSmsTemplate:
+          type: string
+        bookingConfirmationSmsTemplate:
+          type: string
+        bookingReminderSmsTemplate:
+          type: string
+        reviewApprovalPolicy:
+          type: string
+          enum: [AUTO, MANUAL]
+    CreatePlatformUserInput:
+      type: object
+      required:
+      - gamingCenterId
+      - firstName
+      - lastName
+      - phone
+      properties:
+        gamingCenterId:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+          enum: [MANAGER, ADMIN]
+        isActive:
+          type: boolean
+    UpdatePlatformUserInput:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        isActive:
+          type: boolean
+        bio:
+          type: string
+        publicName:
+          type: string
+        isPublic:
+          type: boolean
+    PlatformAnalyticsReport:
+      type: object
+      properties:
+        period:
+          type: object
+          properties:
+            startDate:
+              type: string
+              format: date-time
+            endDate:
+              type: string
+              format: date-time
+        financials:
+          type: object
+          properties:
+            totalRevenue:
+              type: number
+            totalPaidAmount:
+              type: number
+            totalRefundAmount:
+              type: number
+            totalDiscountAmount:
+              type: number
+            platformCommission:
+              type: number
+            gamingCentersRevenue:
+              type: number
+            averageReservationValue:
+              type: number
+        reservations:
+          type: object
+          properties:
+            totalReservations:
+              type: integer
+            confirmedReservations:
+              type: integer
+            pendingReservations:
+              type: integer
+            cancelledReservations:
+              type: integer
+            completedReservations:
+              type: integer
+            expiredReservations:
+              type: integer
+            cancellationRate:
+              type: number
+            averageReservationDuration:
+              type: number
+        users:
+          type: object
+          properties:
+            totalUsers:
+              type: integer
+            newUsers:
+              type: integer
+            activeUsers:
+              type: integer
+            returningUsers:
+              type: integer
+        gamingCenters:
+          type: object
+          properties:
+            totalGamingCenters:
+              type: integer
+            activeGamingCenters:
+              type: integer
+            inactiveGamingCenters:
+              type: integer
+            totalStations:
+              type: integer
+            averageReservationsPerGamingCenter:
+              type: number
+            topGamingCenters:
+              type: array
+              items:
+                type: object
+        timeSeries:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+              reservationCount:
+                type: integer
+              revenue:
+                type: number
+              discountAmount:
+                type: number
+              cancellationCount:
+                type: integer
+              newUsers:
+                type: integer
+        comparison:
+          type: object
     Error:
       type: object
       properties:
@@ -7066,10 +7475,282 @@ paths:
                       $ref: '#/components/schemas/AuthResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+  /platform-admin/campaigns:
+    get:
+      summary: List global campaigns and discount codes
+      description: Retrieve all platform-wide discount campaigns with filtering and pagination
+      tags:
+      - PlatformAdmin
+      operationId: get_platform_admin_campaigns
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      - name: search
+        in: query
+        schema:
+          type: string
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [ACTIVE, INACTIVE, SCHEDULED, EXPIRED]
+      - name: discountType
+        in: query
+        schema:
+          type: string
+          enum: [PERCENTAGE, FIXED_AMOUNT]
+      - name: scopeType
+        in: query
+        schema:
+          type: string
+          enum: [GLOBAL, SPECIFIC_GAMECENTERS, SPECIFIC_DEVICE_TYPES]
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: sortBy
+        in: query
+        schema:
+          type: string
+          enum: [createdAt, startDate, usedCount]
+      - name: sortOrder
+        in: query
+        schema:
+          type: string
+          enum: [asc, desc]
+      responses:
+        '200':
+          description: Campaigns retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Success'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/PlatformCampaign'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+    post:
+      summary: Create a new platform-wide discount campaign
+      description: Create a global or scoped campaign with usage rules
+      tags:
+      - PlatformAdmin
+      operationId: post_platform_admin_campaigns
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlatformCampaignInput'
+      responses:
+        '201':
+          description: Campaign created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Success'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PlatformCampaign'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Discount code already exists
+  /platform-admin/campaigns/{id}:
+    patch:
+      summary: Update a platform-wide campaign
+      description: Update campaign fields, status, limits, or dates
+      tags:
+      - PlatformAdmin
+      operationId: patch_platform_admin_campaigns_id
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlatformCampaignInput'
+      responses:
+        '200':
+          description: Campaign updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Success'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PlatformCampaign'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      summary: Delete or soft-delete a platform-wide campaign
+      description: Safely deactivates or removes a campaign depending on usage history
+      tags:
+      - PlatformAdmin
+      operationId: delete_platform_admin_campaigns_id
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Campaign deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /platform-admin/settings:
+    get:
+      summary: Get platform global settings & infrastructure status
+      description: Returns central platform settings alongside live infrastructure operational statuses
+      tags:
+      - PlatformAdmin
+      operationId: get_platform_admin_settings
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Global settings and infrastructure status
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Success'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PlatformSettingsWithInfrastructure'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+    put:
+      summary: Update platform global settings
+      description: Updates central site parameters, reservation rules, notifications, and moderation policy
+      tags:
+      - PlatformAdmin
+      operationId: put_platform_admin_settings
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlatformSettingsInput'
+      responses:
+        '200':
+          description: Platform settings updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Success'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PlatformSetting'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /platform-admin/analytics/reports:
+    get:
+      summary: Get platform aggregated analytics and reports
+      description: Central financial and operational reports across centers and cities with time series and comparisons
+      tags:
+      - PlatformAdmin
+      operationId: get_platform_admin_analytics_reports
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: period
+        in: query
+        schema:
+          type: string
+          enum: [DAILY, WEEKLY, MONTHLY, YEARLY]
+      - name: city
+        in: query
+        schema:
+          type: string
+      - name: gamingCenterId
+        in: query
+        schema:
+          type: string
+      - name: compare
+        in: query
+        schema:
+          type: boolean
+          default: false
+      - name: groupBy
+        in: query
+        schema:
+          type: string
+          enum: [DAILY, WEEKLY, MONTHLY]
+          default: DAILY
+      responses:
+        '200':
+          description: Platform aggregated report
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Success'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PlatformAnalyticsReport'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
   /platform-admin/gaming-centers:
     get:
       summary: List all gaming centers across the platform
-      description: Global view of all registered gaming centers for platform admins
+      description: Global view of all registered gaming centers for platform admins including owner and address
       tags:
       - PlatformAdmin
       operationId: get_platform_admin_gaming_centers
@@ -7193,6 +7874,94 @@ paths:
                         $ref: '#/components/schemas/PlatformAdmin'
         '403':
           $ref: '#/components/responses/ForbiddenError'
+    post:
+      summary: Create a new user for a gaming center
+      description: Provision a new user/manager with secure password hashing
+      tags:
+      - PlatformAdmin
+      operationId: post_platform_admin_users
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlatformUserInput'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Success'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Phone or email already exists in the gaming center
+  /platform-admin/users/{id}:
+    patch:
+      summary: Update user profile
+      description: Update user identity, contact details, or profile flags
+      tags:
+      - PlatformAdmin
+      operationId: patch_platform_admin_users_id
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlatformUserInput'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Success'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      summary: Delete or soft-delete a user
+      description: Delete user or deactivate if financial/booking records depend on it
+      tags:
+      - PlatformAdmin
+      operationId: delete_platform_admin_users_id
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: User deleted or safely deactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
   /platform-admin/users/{id}/status:
     patch:
       summary: Update user active status across platform
@@ -7319,189 +8088,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-  /platform-admin/reservations:
-    get:
-      summary: List reservations across all gaming centers
-      description: Central platform view of all reservations across all gaming centers with filtering and pagination
-      tags:
-      - PlatformAdmin
-      operationId: get_platform_admin_reservations
-      security:
-      - bearerAuth: []
-      parameters:
-      - name: page
-        in: query
-        description: Page number for pagination
-        schema:
-          type: integer
-          default: 1
-      - name: limit
-        in: query
-        description: Number of reservations per page
-        schema:
-          type: integer
-          default: 20
-      - name: search
-        in: query
-        description: Search by customer name, phone number, or reservation ID
-        schema:
-          type: string
-      - name: city
-        in: query
-        description: Filter by gaming center city
-        schema:
-          type: string
-      - name: gamingCenterId
-        in: query
-        description: Filter by gaming center ID
-        schema:
-          type: string
-      - name: customerId
-        in: query
-        description: Filter by customer ID
-        schema:
-          type: string
-      - name: status
-        in: query
-        description: Filter by reservation status
-        schema:
-          type: string
-          enum:
-          - PENDING
-          - CONFIRMED
-          - PAID
-          - CANCELLED
-          - COMPLETED
-          - EXPIRED
-          - REJECTED
-      - name: startDate
-        in: query
-        description: Filter reservations starting on or after this ISO date-time
-        schema:
-          type: string
-          format: date-time
-      - name: endDate
-        in: query
-        description: Filter reservations starting on or before this ISO date-time
-        schema:
-          type: string
-          format: date-time
-      - name: sortBy
-        in: query
-        description: Field to sort by
-        schema:
-          type: string
-          default: startTime
-      - name: sortOrder
-        in: query
-        description: Sorting order (asc or desc)
-        schema:
-          type: string
-          enum:
-          - asc
-          - desc
-          - ASC
-          - DESC
-          default: desc
-      responses:
-        '200':
-          description: List of reservations with pagination
-          content:
-            application/json:
-              schema:
-                allOf:
-                - $ref: '#/components/schemas/Success'
-                - type: object
-                  properties:
-                    data:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          id:
-                            type: string
-                          reservationCode:
-                            type: string
-                          status:
-                            type: string
-                          startTime:
-                            type: string
-                            format: date-time
-                          endTime:
-                            type: string
-                            format: date-time
-                          reservationDate:
-                            type: string
-                            format: date-time
-                          duration:
-                            type: number
-                          totalPrice:
-                            type: number
-                          discountAmount:
-                            type: number
-                          finalPrice:
-                            type: number
-                          customer:
-                            type: object
-                            nullable: true
-                            properties:
-                              id:
-                                type: string
-                              fullName:
-                                type: string
-                                nullable: true
-                              phone:
-                                type: string
-                              email:
-                                type: string
-                                nullable: true
-                          gamingCenter:
-                            type: object
-                            nullable: true
-                            properties:
-                              id:
-                                type: string
-                              name:
-                                type: string
-                              slug:
-                                type: string
-                              city:
-                                type: string
-                                nullable: true
-                          station:
-                            type: object
-                            nullable: true
-                            properties:
-                              id:
-                                type: string
-                              name:
-                                type: string
-                              type:
-                                type: string
-                          payment:
-                            type: object
-                            nullable: true
-                            properties:
-                              id:
-                                type: string
-                              status:
-                                type: string
-                              amount:
-                                type: number
-                              method:
-                                type: string
-                              transactionId:
-                                type: string
-                              paidAt:
-                                type: string
-                                format: date-time
-                                nullable: true
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
   /platform-admin/operations/overview:
