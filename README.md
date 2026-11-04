@@ -1,11 +1,15 @@
-# Playenest | پلتفرم مدیریت و رزرو گیم‌نت
+# Playenest | پلتفرم مدیریت و رزرو گیم‌نت و بلاگ یکپارچه
 
-Playenest is a specialized Gamenet Management & Reservation system. It provides a robust backend architecture operating on containerized infrastructure:
+Playenest is a specialized Gamenet Management & Reservation system integrated with an enterprise Django content blog. It operates on a unified, containerized microservice/modular architecture:
 
 - `sayra/`: Express.js + Prisma reservation and gaming center management backend.
+- `Blog/`: Django + DRF + Daphne + Celery blogging and content platform (Git Submodule).
+- `docker/`: Centralized Nginx Reverse Proxy, PostgreSQL 15, Redis, and Restic Backup services.
 
 [![Node.js Version](https://img.shields.io/badge/node-22.x-blue.svg)](https://nodejs.org)
+[![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
+[![Django](https://img.shields.io/badge/Django-5.2-green.svg)](https://www.djangoproject.com/)
 [![Prisma](https://img.shields.io/badge/Prisma-5.x-teal.svg)](https://www.prisma.io/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue.svg)](https://www.postgresql.org/)
 
@@ -19,13 +23,17 @@ Playenest is a specialized Gamenet Management & Reservation system. It provides 
 - **Staff & Shift Management**: Role-based access control (RBAC) and scheduling for staff members.
 - **Financials & Payments**: Integrated with Zarinpal for online payments, wallet system, and commission tracking.
 - **Analytics & Notifications**: Detailed reporting on revenue, occupancy, and staff performance, plus SMS/In-App notifications.
+- **Unified Central Reverse Proxy**: Single Nginx gateway routing `playnest.com` to Sayra and `blog.playnest.com` to Blog with WebSocket and static/media acceleration.
+- **Multi-Database Isolation**: Isolated `playenest_prod` and `blog_prod` on PostgreSQL 15 with zero cross-migration contamination.
+- **Isolated Caching**: Dedicated Redis instances for PlayNest and Blog to avoid task queue/cache key conflicts.
 
 ---
 
 ## 🛠 Tech Stack & Repository Structure
 
 - **Sayra (`sayra/`)**: Express.js, TypeScript, Prisma ORM, BullMQ, Redis, PostgreSQL.
-- **Infrastructure (`docker/`)**: PostgreSQL 15, Redis, Nginx Reverse Proxy, Restic Backup service.
+- **Blog (`Blog/`)**: Django 5.2, Django REST Framework, Daphne (ASGI), Celery, Redis, PostgreSQL.
+- **Infrastructure (`docker/`)**: Central Nginx Reverse Proxy, PostgreSQL 15, Redis, Restic automated backup.
 
 ---
 
@@ -33,78 +41,38 @@ Playenest is a specialized Gamenet Management & Reservation system. It provides 
 
 ### 1. Prerequisites
 - **Node.js** (v22 or higher)
-- **Docker & Docker Compose** (recommended for infrastructure services)
+- **Python** (v3.12 or higher)
+- **Docker & Docker Compose** (recommended for production and staging)
 
 ### 2. Environment Setup
-Copy the example environment file and update credentials if necessary:
+Copy the example environment file and update credentials:
 ```bash
 cp .env.example .env
 ```
 
 ### 3. Running with Docker Compose
-To start all services (`sayra`, `db`, `redis`, `nginx`, `backup`):
+To start all services (`sayra`, `blog_web`, `blog_celery_*`, `db`, `redis`, `blog_redis`, `nginx`, `backup`):
 ```bash
 docker compose up -d --build
 ```
 
-Services will be accessible via Nginx reverse proxy on port 80:
-- **Sayra Reservation API**: `http://localhost/api/v1/` or `http://localhost/api/reservations/`
-- **Sayra Health Check**: `http://localhost/health`
-- **Sayra Swagger Docs**: `http://localhost/api-docs`
-
-### 4. Creating the First Platform Administrator (CLI)
-To bootstrap the initial `PLATFORM_ADMIN` account in production or fresh staging environments, execute the interactive CLI wizard inside the running Sayra container:
-
-```bash
-docker compose exec sayra node --import tsx ./scripts/bootstrap-platform-admin.ts
-```
-
-The terminal wizard interactively prompts for:
-1. **Full Name**
-2. **Phone Number** (Iranian format: `09xxxxxxxxx`)
-3. **Password** (hidden input with strong password policy)
-4. **Confirm Password** (hidden input)
-
-This command is completely decoupled from any Gaming Center, executes within a database transaction, records an audit log entry, and safely exits without modifying any existing data if an administrator already exists.
-
-### 5. Local Development
-
-#### Sayra Reservation Backend (`sayra/`):
-```bash
-# Start DB and Redis infrastructure
-docker compose up -d db redis
-
-# Navigate to Sayra
-cd sayra
-
-# Install dependencies and setup database
-npm install
-npx prisma generate
-npx prisma migrate dev
-
-# Run development server
-npm run dev
-```
-
----
-
-## 🧪 Testing | تست‌ها
-
-Run tests in the `sayra/` directory:
-
-```bash
-cd sayra
-npm test
-npm run test:cov
-```
+Services will be accessible via Central Nginx reverse proxy on port 80:
+- **PlayNest Main Platform (`playnest.com`)**:
+  - API: `http://playnest.com/api/v1/`
+  - Health: `http://playnest.com/health`
+  - Swagger: `http://playnest.com/api-docs`
+- **Blog Platform (`blog.playnest.com`)**:
+  - Web & API: `http://blog.playnest.com/`
+  - Admin & Endpoints: `http://blog.playnest.com/admin/` / `http://blog.playnest.com/api/`
 
 ---
 
 ## 📚 Documentation | مستندات
 
+- [Unified Deployment Architecture Report](docs/architecture/unified-deployment-architecture.md)
+- [NGINX Integration Guide](NGINX_INTEGRATION_GUIDE.md)
 - [API Reference](docs/api.md)
 - [CMS, Blog & SEO Guide](docs/cms-seo.md)
-- [NGINX Integration Guide](NGINX_INTEGRATION_GUIDE.md)
 - [Local Setup Guide (Persian)](docs/LOCAL_SETUP_GUIDE_FA.md)
 - [Docker Guide (راهنمای داکر)](docs/DOCKER_GUIDE_FA.md)
 

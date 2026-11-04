@@ -46,18 +46,30 @@ if [ -d "/restore/data/db" ]; then
     fi
 fi
 
-# 3. Restore Redis
+# 3. Restore Redis (PlayNest & Blog)
 if [ -d "/restore/redis_data" ]; then
-    echo "Restoring Redis data..."
+    echo "Restoring PlayNest Redis data..."
     cp -rp /restore/redis_data/* /redis_data/
-    echo "Redis restoration complete."
+    echo "PlayNest Redis restoration complete."
 fi
 
-# 4. Restore Storage/Media
+if [ -d "/restore/blog_redis_data" ]; then
+    echo "Restoring Blog Redis data..."
+    cp -rp /restore/blog_redis_data/* /blog_redis_data/
+    echo "Blog Redis restoration complete."
+fi
+
+# 4. Restore Storage/Media (Sayra & Blog)
 if [ -d "/restore/storage" ]; then
-    echo "Restoring storage/media files..."
+    echo "Restoring Sayra storage/media files..."
     cp -rp /restore/storage/* /storage/
-    echo "Storage restoration complete."
+    echo "Sayra storage restoration complete."
+fi
+
+if [ -d "/restore/blog_media" ]; then
+    echo "Restoring Blog media files..."
+    cp -rp /restore/blog_media/* /blog_media/
+    echo "Blog media restoration complete."
 fi
 
 # 5. Restore Nginx Config

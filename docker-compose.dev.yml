@@ -14,3 +14,25 @@ services:
       - /app/node_modules
     working_dir: /app
     command: ["sh", "-c", "npm install && npx prisma generate && ./scripts/migrate.sh && npm run dev"]
+
+  blog_web:
+    build:
+      context: ./Blog
+      dockerfile: Dockerfile
+    environment:
+      - DEBUG=True
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${BLOG_POSTGRES_DB:-blog_prod}
+      - POSTGRES_USER=${POSTGRES_USER:-playenest_admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-change_this_secure_password_in_production}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:-change_this_secure_password_in_production}@db:5432/${BLOG_POSTGRES_DB:-blog_prod}
+      - REDIS_HOST=blog_redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://blog_redis:6379
+      - USE_REDIS=True
+      - SECRET_KEY=dev-secret-key-blog-playnest
+    volumes:
+      - ./Blog:/app
+      - blog_static:/app/staticfiles
+      - blog_media:/app/media
