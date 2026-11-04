@@ -115,6 +115,115 @@ components:
               type: string
             user:
               $ref: '#/components/schemas/User'
+    AdvertisementRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        bannerUrl:
+          type: string
+        mediaType:
+          type: string
+          enum: [IMAGE, VIDEO, AUDIO, DOCUMENT, FILE]
+        destinationUrl:
+          type: string
+          nullable: true
+        durationDays:
+          type: integer
+        startDate:
+          type: string
+          format: date-time
+          nullable: true
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED, EXPIRED]
+        decisionReason:
+          type: string
+          nullable: true
+        reviewedBy:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+            fullName:
+              type: string
+            email:
+              type: string
+              nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        adminNote:
+          type: string
+          nullable: true
+        gamingCenter:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            slug:
+              type: string
+            city:
+              type: string
+              nullable: true
+            address:
+              type: string
+              nullable: true
+        owner:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+            firstName:
+              type: string
+            lastName:
+              type: string
+            fullName:
+              type: string
+            phone:
+              type: string
+            email:
+              type: string
+              nullable: true
+        media:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+            url:
+              type: string
+            thumbUrl:
+              type: string
+              nullable: true
+            type:
+              type: string
+            mime:
+              type: string
+              nullable: true
+            sizeBytes:
+              type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     User:
       type: object
       properties:
@@ -7504,6 +7613,199 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
+  /platform-admin/ad-requests:
+    get:
+      summary: List advertisement requests across all gaming centers
+      description: Central platform view of all gaming center advertisement requests with filtering and pagination
+      tags:
+      - PlatformAdmin
+      operationId: get_platform_admin_ad_requests
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: page
+        in: query
+        description: Page number for pagination
+        schema:
+          type: integer
+          default: 1
+      - name: limit
+        in: query
+        description: Number of advertisement requests per page
+        schema:
+          type: integer
+          default: 20
+      - name: search
+        in: query
+        description: Search by ad title or gaming center name
+        schema:
+          type: string
+      - name: status
+        in: query
+        description: Filter by request status
+        schema:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED, EXPIRED]
+      - name: gamingCenterId
+        in: query
+        description: Filter by gaming center ID
+        schema:
+          type: string
+      - name: ownerId
+        in: query
+        description: Filter by owner ID
+        schema:
+          type: string
+      - name: city
+        in: query
+        description: Filter by gaming center city
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        description: Filter by created date range start
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        description: Filter by created date range end
+        schema:
+          type: string
+          format: date-time
+      - name: sortBy
+        in: query
+        description: Field to sort results by
+        schema:
+          type: string
+          enum: [createdAt, updatedAt, startDate, endDate, durationDays, title, status]
+          default: createdAt
+      - name: sortOrder
+        in: query
+        description: Sorting order (asc or desc)
+        schema:
+          type: string
+          enum: [asc, desc, ASC, DESC]
+          default: desc
+      responses:
+        '200':
+          description: List of advertisement requests
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Success'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/AdvertisementRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /platform-admin/ad-requests/{id}:
+    get:
+      summary: Get advertisement request details
+      description: Retrieve complete details of a specific advertisement request
+      tags:
+      - PlatformAdmin
+      operationId: get_platform_admin_ad_request_by_id
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Advertisement request ID
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Advertisement request details
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Success'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/AdvertisementRequest'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /platform-admin/ad-requests/{id}/status:
+    patch:
+      summary: Approve or reject an advertisement request
+      description: Update advertisement request status to APPROVED or REJECTED with decision reason and review details
+      tags:
+      - PlatformAdmin
+      operationId: update_platform_admin_ad_request_status
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: Advertisement request ID
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - status
+              properties:
+                status:
+                  type: string
+                  enum: [APPROVED, REJECTED]
+                decisionReason:
+                  type: string
+                  description: Explanation or reason for decision (mandatory if REJECTED)
+                adminNote:
+                  type: string
+                  description: Internal notes by platform admin
+                startDate:
+                  type: string
+                  format: date-time
+                durationDays:
+                  type: integer
+      responses:
+        '200':
+          description: Advertisement request status updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Success'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/AdvertisementRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Advertisement request has already been decided
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /platform-admin/operations/overview:
     get:
       summary: Platform-wide operational overview

@@ -5,6 +5,7 @@ import { PlatformAdminController } from './platform-admin.controller';
 import { VerificationController } from '../verification/verification.controller';
 import { platformAdminDashboardTemplate } from './platform-admin-ui.templates';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
+import { PlatformAdRequestsController } from './ad-requests.controller';
 
 const router = Router();
 
@@ -21,6 +22,11 @@ router.get('/gaming-centers', asyncHandler(PlatformAdminController.getAllGamingC
 router.get('/gaming-centers/:id', asyncHandler(PlatformAdminController.getGamingCenterById));
 router.patch('/gaming-centers/:id', asyncHandler(PlatformAdminController.updateGamingCenter));
 router.patch('/gaming-centers/:id/status', asyncHandler(PlatformAdminController.updateGamingCenterStatus));
+
+// Advertisements Management across all centers
+router.get('/ad-requests', asyncHandler(PlatformAdRequestsController.listAdRequests));
+router.get('/ad-requests/:id', asyncHandler(PlatformAdRequestsController.getAdRequestById));
+router.patch('/ad-requests/:id/status', asyncHandler(PlatformAdRequestsController.updateAdRequestStatus));
 
 // KYC Verification Management
 router.get('/verifications', asyncHandler(VerificationController.listVerifications));

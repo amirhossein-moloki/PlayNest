@@ -542,6 +542,7 @@ model GamingCenter {
 
   verifications GamingCenterVerification[]
   onboarding    GameCenterOnboarding?
+  advertisements AdvertisementRequest[]
 
   @@index([slug])
   @@index([verificationStatus])
@@ -600,6 +601,7 @@ model User {
   updatedAt     DateTime       @updatedAt
   Ticket        Ticket[]
   notifications Notification[]
+  advertisementRequests AdvertisementRequest[] @relation("AdRequestOwner")
 
   @@unique([gamingCenterId, phone])
   @@unique([gamingCenterId, username])
@@ -756,6 +758,7 @@ model Media {
   postOgImages    Post[]          @relation("PostOgImage")
   postAttachments PostMedia[]
   pageAttachments PageMedia[]
+  advertisementRequests AdvertisementRequest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1993,6 +1996,7 @@ model PlatformAdmin {
 
   auditLogs AuditLog[]
   reviewedVerifications GamingCenterVerification[]
+  reviewedAdvertisements AdvertisementRequest[] @relation("AdRequestReviewer")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2601,4 +2605,52 @@ model AnalyticsRefund {
 
   @@index([gamingCenterId, status, sourceCreatedAt])
   @@index([paymentId])
+}
+
+enum AdvertisementRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+model AdvertisementRequest {
+  id String @id @default(cuid())
+
+  // Main ad information
+  title          String
+  description    String?   @db.Text
+  bannerUrl      String
+  mediaType      MediaType @default(IMAGE)
+  destinationUrl String?
+  durationDays   Int       @default(30)
+  startDate      DateTime?
+  endDate        DateTime?
+
+  // Relations
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+
+  ownerId String
+  owner   User   @relation("AdRequestOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  mediaId String?
+  media   Media?  @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+
+  // Status & Decision
+  status         AdvertisementRequestStatus @default(PENDING)
+  decisionReason String?                    @db.Text
+  reviewedById   String?
+  reviewedBy     PlatformAdmin?             @relation("AdRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt     DateTime?
+  adminNote      String?                    @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gamingCenterId])
+  @@index([ownerId])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@index([createdAt])
 }
