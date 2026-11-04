@@ -67,6 +67,80 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
     .tabs { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
     .tab-btn { background: none; border: none; color: var(--text-muted); font-weight: 600; font-size: 14px; padding: 8px 16px; cursor: pointer; border-radius: 6px; }
     .tab-btn.active { background: var(--border); color: white; }
+
+    /* Auth Modal Overlay */
+    .auth-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(11, 15, 25, 0.9);
+      backdrop-filter: blur(8px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .auth-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+    }
+    .auth-card h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: white;
+    }
+    .auth-card p {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-bottom: 24px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .form-control {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: white;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-control:focus {
+      border-color: var(--primary);
+    }
+    .auth-error {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid var(--accent);
+      color: #fca5a5;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .btn-block {
+      width: 100%;
+      justify-content: center;
+      padding: 10px;
+    }
   </style>
 </head>
 <body>
@@ -171,14 +245,94 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
     </div>
   </main>
 
+  <!-- Platform Admin Authentication Modal (SSR Authentication Flow) -->
+  <div id="authOverlay" class="auth-overlay" style="display: none;">
+    <div class="auth-card">
+      <h2><i class="fa-solid fa-shield-halved" style="color: var(--primary);"></i> Platform Admin Login</h2>
+      <p>Enter your platform superuser credentials to access global administration.</p>
+      <div id="authError" class="auth-error"></div>
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label for="adminPhone">Phone Number</label>
+          <input type="text" id="adminPhone" class="form-control" placeholder="09123456789" required autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label for="adminPassword">Password</label>
+          <input type="password" id="adminPassword" class="form-control" placeholder="••••••••" required autocomplete="current-password" />
+        </div>
+        <button type="submit" id="loginSubmitBtn" class="btn btn-primary btn-block">
+          <i class="fa-solid fa-lock"></i> Sign In to Platform Console
+        </button>
+      </form>
+    </div>
+  </div>
+
   <script>
-    const token = localStorage.getItem('platform_token');
+    let token = localStorage.getItem('platform_token');
 
     function headers() {
       return {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + (token || '')
       };
+    }
+
+    function showLoginModal(errorMessage) {
+      const overlay = document.getElementById('authOverlay');
+      const errorDiv = document.getElementById('authError');
+      if (errorMessage) {
+        errorDiv.textContent = errorMessage;
+        errorDiv.style.display = 'block';
+      } else {
+        errorDiv.style.display = 'none';
+      }
+      overlay.style.display = 'flex';
+      document.getElementById('adminPhone').focus();
+    }
+
+    function hideLoginModal() {
+      document.getElementById('authOverlay').style.display = 'none';
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const phone = document.getElementById('adminPhone').value.trim();
+      const password = document.getElementById('adminPassword').value;
+      const btn = document.getElementById('loginSubmitBtn');
+      const errorDiv = document.getElementById('authError');
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Authenticating...';
+      errorDiv.style.display = 'none';
+
+      try {
+        const response = await fetch('/api/v1/auth/platform-admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, password })
+        });
+
+        const resData = await response.json();
+        if (!response.ok) {
+          throw new Error(resData.message || 'Invalid credentials or access denied');
+        }
+
+        const issuedToken = resData.data?.tokens?.accessToken || resData.data?.token || resData.token;
+        if (!issuedToken) {
+          throw new Error('Authentication failed: Missing token in response');
+        }
+
+        token = issuedToken;
+        localStorage.setItem('platform_token', token);
+        hideLoginModal();
+        loadData();
+      } catch (err) {
+        errorDiv.textContent = err.message || 'Authentication failed';
+        errorDiv.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-lock"></i> Sign In to Platform Console';
+      }
     }
 
     function switchTab(tab) {
@@ -201,11 +355,9 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
         ]);
 
         if (opsRes.status === 401 || opsRes.status === 403) {
-          const authKey = prompt('Please enter your PLATFORM_ADMIN Bearer Token:');
-          if (authKey) {
-            localStorage.setItem('platform_token', authKey.replace('Bearer ', ''));
-            window.location.reload();
-          }
+          localStorage.removeItem('platform_token');
+          token = null;
+          showLoginModal(opsRes.status === 403 ? 'Access Denied: Platform superuser privileges required.' : 'Session expired or not authenticated. Please log in.');
           return;
         }
 
@@ -294,10 +446,15 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
 
     function logout() {
       localStorage.removeItem('platform_token');
-      window.location.reload();
+      token = null;
+      showLoginModal('You have been logged out.');
     }
 
-    loadData();
+    if (!token) {
+      showLoginModal();
+    } else {
+      loadData();
+    }
   </script>
 </body>
 </html>`;
