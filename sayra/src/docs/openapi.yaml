@@ -49,6 +49,190 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   schemas:
+    DeviceCatalog:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        deviceType:
+          type: string
+          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+        coverImageUrl:
+          type: string
+          format: uri
+        description:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    GameCatalog:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        coverImageUrl:
+          type: string
+          format: uri
+        supportedPlatforms:
+          type: array
+          items:
+            type: string
+            enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+        genre:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateDeviceCatalogInput:
+      type: object
+      required:
+        - name
+        - coverImageUrl
+      properties:
+        name:
+          type: string
+        deviceType:
+          type: string
+          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+          default: PC
+        coverImageUrl:
+          type: string
+          format: uri
+        description:
+          type: string
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateDeviceCatalogInput:
+      type: object
+      properties:
+        name:
+          type: string
+        deviceType:
+          type: string
+          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+        coverImageUrl:
+          type: string
+          format: uri
+        description:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+
+    CreateGameCatalogInput:
+      type: object
+      required:
+        - title
+        - coverImageUrl
+      properties:
+        title:
+          type: string
+        coverImageUrl:
+          type: string
+          format: uri
+        supportedPlatforms:
+          type: array
+          items:
+            type: string
+            enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+          default: [PC]
+        genre:
+          type: string
+        description:
+          type: string
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateGameCatalogInput:
+      type: object
+      properties:
+        title:
+          type: string
+        coverImageUrl:
+          type: string
+          format: uri
+        supportedPlatforms:
+          type: array
+          items:
+            type: string
+            enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+        genre:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+
+    CreateStationsFromCatalogInput:
+      type: object
+      required:
+        - catalogDeviceId
+        - quantity
+        - hourlyPrice
+      properties:
+        catalogDeviceId:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 100
+        hourlyPrice:
+          type: number
+          minimum: 0
+        customNamePrefix:
+          type: string
+        isVip:
+          type: boolean
+          default: false
+        minRentHours:
+          type: integer
+          default: 1
+        maxRentHours:
+          type: integer
+          default: 8
+        defaultDurationHours:
+          type: integer
+          default: 1
+        incrementMinutes:
+          type: integer
+          default: 30
+
+    AddGamesFromCatalogInput:
+      type: object
+      required:
+        - gameCatalogIds
+      properties:
+        gameCatalogIds:
+          type: array
+          items:
+            type: string
+
     PlatformCampaign:
       type: object
       properties:
@@ -1590,6 +1774,664 @@ components:
           type: string
           format: date-time
 paths:
+  /gamingCenters/{gamingCenterId}/stations/from-catalog:
+    post:
+      summary: Create stations in bulk from a catalog device
+      description: Allows a gaming center manager to choose a device from the catalog, specify quantity and hourly price, and automatically create station instances.
+      tags:
+      - Stations
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStationsFromCatalogInput'
+      responses:
+        '201':
+          description: Stations created from catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GameStation'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      operationId: post_gamingCenters_gamingCenterId_stations_from_catalog
+
+  /gamingCenters/{gamingCenterId}/stations/games/from-catalog:
+    post:
+      summary: Add games to gaming center from game catalog
+      description: Allows a gaming center manager to select games from the central catalog and add them to their gaming center list.
+      tags:
+      - Stations
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddGamesFromCatalogInput'
+      responses:
+        '200':
+          description: Games added from catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      gamingCenterId:
+                        type: string
+                      addedGames:
+                        type: array
+                        items:
+                          type: string
+                      allGames:
+                        type: array
+                        items:
+                          type: string
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      operationId: post_gamingCenters_gamingCenterId_stations_games_from_catalog
+
+  /catalog/devices:
+    get:
+      summary: Browse device catalog (public / gaming center manager)
+      description: Retrieve catalog of hardware devices (consoles, PCs, VR) with specifications and cover images.
+      tags:
+      - Catalog
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      - name: deviceType
+        in: query
+        schema:
+          type: string
+          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+      - name: isActive
+        in: query
+        schema:
+          type: boolean
+          default: true
+      - name: search
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: List of catalog devices
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeviceCatalog'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+      operationId: get_catalog_devices
+
+  /catalog/devices/{id}:
+    get:
+      summary: Get device from catalog by ID
+      tags:
+      - Catalog
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Device catalog details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/DeviceCatalog'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      operationId: get_catalog_devices_id
+
+  /catalog/games:
+    get:
+      summary: Browse game catalog (public / gaming center manager)
+      description: Retrieve catalog of video games with cover images, genres, and supported platforms.
+      tags:
+      - Catalog
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      - name: platform
+        in: query
+        schema:
+          type: string
+          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+      - name: genre
+        in: query
+        schema:
+          type: string
+      - name: isActive
+        in: query
+        schema:
+          type: boolean
+          default: true
+      - name: search
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: List of catalog games
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GameCatalog'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+      operationId: get_catalog_games
+
+  /catalog/games/{id}:
+    get:
+      summary: Get game from catalog by ID
+      tags:
+      - Catalog
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Game catalog details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/GameCatalog'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      operationId: get_catalog_games_id
+
+  /platform-admin/catalog/devices:
+    post:
+      summary: Create new device in global catalog (Platform Admin)
+      description: Define device type, device name, and cover image to make available for all gaming center managers.
+      tags:
+      - PlatformAdmin
+      - Catalog
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDeviceCatalogInput'
+      responses:
+        '201':
+          description: Device created in catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/DeviceCatalog'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+      operationId: post_platform_admin_catalog_devices
+    get:
+      summary: List all devices in catalog (Platform Admin)
+      tags:
+      - PlatformAdmin
+      - Catalog
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      - name: deviceType
+        in: query
+        schema:
+          type: string
+          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+      - name: isActive
+        in: query
+        schema:
+          type: boolean
+      - name: search
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: List of devices
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeviceCatalog'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+      operationId: get_platform_admin_catalog_devices
+
+  /platform-admin/catalog/devices/{id}:
+    get:
+      summary: Get device from catalog by ID (Platform Admin)
+      tags:
+      - PlatformAdmin
+      - Catalog
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Device catalog details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/DeviceCatalog'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      operationId: get_platform_admin_catalog_devices_id
+    patch:
+      summary: Update device in catalog (Platform Admin)
+      tags:
+      - PlatformAdmin
+      - Catalog
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDeviceCatalogInput'
+      responses:
+        '200':
+          description: Device updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/DeviceCatalog'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      operationId: patch_platform_admin_catalog_devices_id
+    delete:
+      summary: Soft-delete device in catalog (Platform Admin)
+      tags:
+      - PlatformAdmin
+      - Catalog
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Device deactivated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/DeviceCatalog'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      operationId: delete_platform_admin_catalog_devices_id
+
+  /platform-admin/catalog/games:
+    post:
+      summary: Create new game in global catalog (Platform Admin)
+      description: Define game title, cover image, and supported platforms to make available for all gaming centers.
+      tags:
+      - PlatformAdmin
+      - Catalog
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGameCatalogInput'
+      responses:
+        '201':
+          description: Game created in catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/GameCatalog'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+      operationId: post_platform_admin_catalog_games
+    get:
+      summary: List all games in catalog (Platform Admin)
+      tags:
+      - PlatformAdmin
+      - Catalog
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      - name: platform
+        in: query
+        schema:
+          type: string
+          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+      - name: genre
+        in: query
+        schema:
+          type: string
+      - name: isActive
+        in: query
+        schema:
+          type: boolean
+      - name: search
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: List of games
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GameCatalog'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+      operationId: get_platform_admin_catalog_games
+
+  /platform-admin/catalog/games/{id}:
+    get:
+      summary: Get game from catalog by ID (Platform Admin)
+      tags:
+      - PlatformAdmin
+      - Catalog
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Game catalog details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/GameCatalog'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      operationId: get_platform_admin_catalog_games_id
+    patch:
+      summary: Update game in catalog (Platform Admin)
+      tags:
+      - PlatformAdmin
+      - Catalog
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGameCatalogInput'
+      responses:
+        '200':
+          description: Game updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/GameCatalog'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      operationId: patch_platform_admin_catalog_games_id
+    delete:
+      summary: Soft-delete game in catalog (Platform Admin)
+      tags:
+      - PlatformAdmin
+      - Catalog
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Game deactivated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/GameCatalog'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      operationId: delete_platform_admin_catalog_games_id
   /health:
     get:
       summary: Health Check
@@ -10916,6 +11758,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
 tags:
+- name: Catalog
+  description: Central hardware device and video game catalogs for platform and gaming center management
 - name: Admin
   description: Administrative endpoints for system management
 - name: Analytics
