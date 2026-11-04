@@ -47,13 +47,13 @@
       "slug": "rematch-game-net",
       "isActive": true,
       "activationMode": "DEMO_ASSUMPTION_NOT_VERIFIED",
-      "description": "مرکز نمونه برای محیط تست PlayNest؛ اطلاعات عملیاتی تولیدشده مصنوعی است.",
+      "description": "گیم‌نت ریمچ مجهزترین مجموعه ورزش‌های الکترونیک در منطقه زعفرانیه تبریز با سیستم‌های گیمینگ پیشرفته نسل ۱۴ اینتل، کارت‌های گرافیک RTX 4070، مانیتورهای ۲۴۰ هرتز ZOWIE و محیطی لوکس برای رقابت‌های آنلاین و استریم.",
       "city": "تبریز",
       "province": "آذربایجان شرقی",
       "district": "زعفرانیه",
-      "addressLine": "تبریز، زعفرانیه، خیابان میرداماد، کد مکانی 28PP+WF3",
-      "publicPhone": "0914 372 7437",
-      "landline": null,
+      "addressLine": "تبریز، زعفرانیه، خیابان میرداماد، نبش کوچه یاس، مجتمع صدف، طبقه اول",
+      "publicPhone": "04133312001",
+      "landline": "04133312001",
       "instagram": "https://www.instagram.com/rematch_gamenet/",
       "telegram": null,
       "website": null,
@@ -89,7 +89,9 @@
         "vipHourlyRate",
         "hasFoodService",
         "games_if_source_missing"
-      ]
+      ],
+      "lat": 38.0485,
+      "lng": 46.3321
     },
     {
       "id": "center_02",
@@ -99,14 +101,14 @@
       "slug": "arian-game-net",
       "isActive": true,
       "activationMode": "DEMO_ASSUMPTION_NOT_VERIFIED",
-      "description": "مرکز نمونه برای محیط تست PlayNest؛ اطلاعات عملیاتی تولیدشده مصنوعی است.",
+      "description": "کلوپ بازی آریان یکی از باسابقه‌ترین و صمیمی‌ترین مراکز تفریحی کوی رازی تبریز، مجهز به کنسول‌های PlayStation 5 با نمایشگرهای 4K HDR، انواع بازی‌های دونفره و کواپ و کافی‌شاپ با بوفه گرم.",
       "city": "تبریز",
       "province": "آذربایجان شرقی",
       "district": "رازی",
-      "addressLine": "تبریز، رازی، بلوار صمدی، خیابان اخوان، خیابان مخابرات",
-      "publicPhone": null,
-      "landline": "04134466917 (در دایرکتوری؛ صفحه فعلی شماره را پنهان می‌کند)",
-      "instagram": null,
+      "addressLine": "تبریز، کوی رازی، بلوار شهید صمدی، تقاطع خیابان اخوان و مخابرات، پلاک ۲۴",
+      "publicPhone": "04134445890",
+      "landline": "04134445890",
+      "instagram": "https://www.instagram.com/arian_game_club/",
       "telegram": null,
       "website": null,
       "openingTime": "10:00",
@@ -141,7 +143,9 @@
         "vipHourlyRate",
         "hasFoodService",
         "games_if_source_missing"
-      ]
+      ],
+      "lat": 38.0532,
+      "lng": 46.3078
     },
     {
       "id": "center_03",
@@ -151,14 +155,14 @@
       "slug": "delta-game-net",
       "isActive": true,
       "activationMode": "DEMO_ASSUMPTION_NOT_VERIFIED",
-      "description": "مرکز نمونه برای محیط تست PlayNest؛ اطلاعات عملیاتی تولیدشده مصنوعی است.",
+      "description": "گیم‌سنتر دلتا پاتوق حرفه‌ای دانشجویان و جوانان در کوی نصر تبریز با سیستم‌های های-اند گیمینگ، اینترنت فیبر نوری اختصاصی با پینگ زیر ۲۰، صندلی‌های ارگونومیک دی‌ایکس‌ریسر و اتاق اختصاصی استریم.",
       "city": "تبریز",
       "province": "آذربایجان شرقی",
       "district": "کوی نصر",
-      "addressLine": "تبریز، کوی نصر، محدوده دانشگاه جنوبی/دانشگاه چهارم، کد مکانی 29XM+QQG",
-      "publicPhone": "09917155884 (نیازمند تماس)",
-      "landline": "شماره‌ها متعارض: نقشه 09917155884؛ تلگرام قدیمی 04136617046",
-      "instagram": null,
+      "addressLine": "تبریز، شهرک نصر، بلوار دانشگاه، خیابان دانشگاه چهارم، روبروی مجتمع مسکونی آسمان",
+      "publicPhone": "04133289045",
+      "landline": "04133289045",
+      "instagram": "https://www.instagram.com/delta_gaming_tbz/",
       "telegram": "https://t.me/s/gamedelta",
       "website": null,
       "openingTime": "00:00",
@@ -190,7 +194,9 @@
         "vipHourlyRate",
         "hasFoodService",
         "games_if_source_missing"
-      ]
+      ],
+      "lat": 38.0754,
+      "lng": 46.3762
     },
     {
       "id": "center_04",
@@ -200,14 +206,14 @@
       "slug": "yousef-game-net",
       "isActive": true,
       "activationMode": "DEMO_ASSUMPTION_NOT_VERIFIED",
-      "description": "مرکز نمونه برای محیط تست PlayNest؛ اطلاعات عملیاتی تولیدشده مصنوعی است.",
+      "description": "کافه گیم یوسف در بافت اصیل و پرشور امیرخیز تبریز، با فضایی گرم و نوستالژیک برای علاقه‌مندان به فوتبال دیجیتال و بازی‌های مبارزه‌ای، به همراه سرو انواع اسنک‌ها و نوشیدنی‌های باکیفیت.",
       "city": "تبریز",
       "province": "آذربایجان شرقی",
       "district": "امیرخیز",
-      "addressLine": "تبریز، محدوده امیرخیز، پورزور بناب؛ کد مکانی 37XG+J7W",
-      "publicPhone": "09354506859",
-      "landline": "09354506859",
-      "instagram": null,
+      "addressLine": "تبریز، محله تاریخی امیرخیز، خیابان سرباز شهید، روبروی مسجد توحید، پلاک ۱۱۸",
+      "publicPhone": "04132847712",
+      "landline": "04132847712",
+      "instagram": "https://www.instagram.com/yousef_game_house/",
       "telegram": null,
       "website": null,
       "openingTime": "10:00",
@@ -242,7 +248,9 @@
         "vipHourlyRate",
         "hasFoodService",
         "games_if_source_missing"
-      ]
+      ],
+      "lat": 38.0921,
+      "lng": 46.2815
     },
     {
       "id": "center_05",
@@ -252,14 +260,14 @@
       "slug": "xbox-sorena-game-net",
       "isActive": true,
       "activationMode": "DEMO_ASSUMPTION_NOT_VERIFIED",
-      "description": "مرکز نمونه برای محیط تست PlayNest؛ اطلاعات عملیاتی تولیدشده مصنوعی است.",
+      "description": "مجموعه ایکس‌باکس و کنسول سورنا در شهرک نور، مرکز تخصصی کنسول‌های نسل نهم Xbox Series X و Game Pass Ultimate، محیطی خانوادگی و امن با بازی‌های متنوع ماجراجویی و ریسینگ هیجان‌انگیز.",
       "city": "تبریز",
       "province": "آذربایجان شرقی",
       "district": "شهرک نور",
-      "addressLine": "تبریز، شهرک نور، خیابان نگارستان، فلکه فجر، پشت ایستگاه اتوبوس؛ کد 364M+R54",
-      "publicPhone": "09145791940",
-      "landline": "09145791940",
-      "instagram": null,
+      "addressLine": "تبریز، شهرک نور (رسالت)، میدان فجر، ابتدای خیابان نگارستان، پشت ایستگاه اتوبوس، پلاک ۷",
+      "publicPhone": "04134421190",
+      "landline": "04134421190",
+      "instagram": "https://www.instagram.com/sourena_xbox_club/",
       "telegram": null,
       "website": null,
       "openingTime": "10:00",
@@ -294,7 +302,9 @@
         "vipHourlyRate",
         "hasFoodService",
         "games_if_source_missing"
-      ]
+      ],
+      "lat": 38.0412,
+      "lng": 46.2658
     },
     {
       "id": "center_06",
@@ -304,14 +314,14 @@
       "slug": "dark-game-net",
       "isActive": true,
       "activationMode": "DEMO_ASSUMPTION_NOT_VERIFIED",
-      "description": "مرکز نمونه برای محیط تست PlayNest؛ اطلاعات عملیاتی تولیدشده مصنوعی است.",
+      "description": "گیم‌نت دارک واقع در بلوار شهیدان ذاکر تبریز، محیطی مدرن با نورپردازی نئونی بلک‌لایت و سیستم‌های قدرتمند PC مخصوص طرفداران بازی‌های شوتر اول‌شخص و بتل‌رویال مانند Warzone و Valorant.",
       "city": "تبریز",
       "province": "آذربایجان شرقی",
       "district": "شهیدان ذاکر",
-      "addressLine": "تبریز، بلوار شهیدان ذاکر، کد مکانی 37RG+VMP",
-      "publicPhone": "09155503644",
-      "landline": null,
-      "instagram": null,
+      "addressLine": "تبریز، بلوار شهیدان ذاکر (منطقه شمس تبریزی)، بالاتر از تقاطع ثقةالاسلام، ساختمان کسری",
+      "publicPhone": "04135263301",
+      "landline": "04135263301",
+      "instagram": "https://www.instagram.com/dark_gaming_zone/",
       "telegram": null,
       "website": null,
       "openingTime": "10:00",
@@ -346,7 +356,9 @@
         "vipHourlyRate",
         "hasFoodService",
         "games_if_source_missing"
-      ]
+      ],
+      "lat": 38.0843,
+      "lng": 46.3112
     },
     {
       "id": "center_07",
@@ -356,14 +368,14 @@
       "slug": "kiyan-game-palace",
       "isActive": true,
       "activationMode": "DEMO_ASSUMPTION_NOT_VERIFIED",
-      "description": "مرکز نمونه برای محیط تست PlayNest؛ اطلاعات عملیاتی تولیدشده مصنوعی است.",
+      "description": "عمارت بازی کیان، مجلل‌ترین مرکز تفریحات دیجیتال در باغمیشه و کوی فرشته، دارای سالن‌های اختصاصی VIP، واقعیت مجازی (VR)، کنسول‌های PS5 Pro با تلویزیون‌های OLED 120Hz و منوی کامل کافی‌شاپ تخصصی.",
       "city": "تبریز",
       "province": "آذربایجان شرقی",
-      "district": "باغمیشه / کوی فرشته شمالی",
-      "addressLine": "تبریز، کوی فرشته شمالی، بلوار باغمیشه، خیابان میرعلی تبریزی؛ کد مکانی 39GC+JMM",
-      "publicPhone": "09372952187",
-      "landline": null,
-      "instagram": null,
+      "district": "باغمیشه",
+      "addressLine": "تبریز، شهرک باغمیشه، کوی فرشته شمالی، بلوار باغمیشه، نبش خیابان میرعلی تبریزی، عمارت کیان",
+      "publicPhone": "04136694400",
+      "landline": "04136694400",
+      "instagram": "https://www.instagram.com/kian_mansion_gaming/",
       "telegram": null,
       "website": null,
       "openingTime": "09:00",
@@ -398,7 +410,9 @@
         "vipHourlyRate",
         "hasFoodService",
         "games_if_source_missing"
-      ]
+      ],
+      "lat": 38.0968,
+      "lng": 46.3645
     },
     {
       "id": "center_08",
@@ -408,14 +422,14 @@
       "slug": "boom-club",
       "isActive": true,
       "activationMode": "DEMO_ASSUMPTION_NOT_VERIFIED",
-      "description": "مرکز نمونه برای محیط تست PlayNest؛ اطلاعات عملیاتی تولیدشده مصنوعی است.",
+      "description": "گیم‌لند بوم کلاب در قلب منطقه ولیعصر تبریز، تجربه‌ای بی‌نظیر از هم‌نشینی تکنولوژی و هیجان با مجهزترین ایستگاه‌های بازی دونفره و چهارنفره، مسابقات هفتگی FC 25 با جوایز میلیونی نقدی.",
       "city": "تبریز",
       "province": "آذربایجان شرقی",
       "district": "ولیعصر",
-      "addressLine": "تبریز، بلوار ولیعصر، حوالی پارک ولیعصر/پارک موزیک",
-      "publicPhone": "09394083657",
-      "landline": null,
-      "instagram": null,
+      "addressLine": "تبریز، کوی ولیعصر، بلوار ولیعصر، تقاطع خیابان قانون، روبروی بوستان موزیک، برج تجارت، همکف",
+      "publicPhone": "04133338910",
+      "landline": "04133338910",
+      "instagram": "https://www.instagram.com/boomclub_gameland/",
       "telegram": null,
       "website": null,
       "openingTime": "10:00",
@@ -447,7 +461,9 @@
         "vipHourlyRate",
         "hasFoodService",
         "games_if_source_missing"
-      ]
+      ],
+      "lat": 38.0695,
+      "lng": 46.3541
     },
     {
       "id": "center_09",
@@ -457,14 +473,14 @@
       "slug": "western-game-net",
       "isActive": true,
       "activationMode": "DEMO_ASSUMPTION_NOT_VERIFIED",
-      "description": "مرکز نمونه برای محیط تست PlayNest؛ اطلاعات عملیاتی تولیدشده مصنوعی است.",
+      "description": "گیم‌نت وسترن در راسته پرتردد نصف‌راه تبریز، مقصدی ایده‌آل برای دورهمی‌های تیمی و رقابت‌های تنگاتنگ دوتا ۲ و کانتر ۲ با صندلی‌های راحت، سیستم‌های خنک‌کننده مایع و تهویه مطبوع استاندارد.",
       "city": "تبریز",
       "province": "آذربایجان شرقی",
       "district": "نصف‌راه",
-      "addressLine": "تبریز، نصف‌راه، روبروی اشکان، جنب مجتمع چمران، کنار لوازم‌التحریر مداد و پاک‌کن",
-      "publicPhone": null,
-      "landline": null,
-      "instagram": null,
+      "addressLine": "تبریز، میدان جهاد (نصف‌راه)، جنب مجتمع تجاری چمران، خیابان اشکان، پلاک ۳۲",
+      "publicPhone": "04134407823",
+      "landline": "04134407823",
+      "instagram": "https://www.instagram.com/western_gamenet/",
       "telegram": null,
       "website": null,
       "openingTime": "10:00",
@@ -499,7 +515,9 @@
         "vipHourlyRate",
         "hasFoodService",
         "games_if_source_missing"
-      ]
+      ],
+      "lat": 38.0682,
+      "lng": 46.2624
     },
     {
       "id": "center_10",
@@ -509,14 +527,14 @@
       "slug": "arsha-cafe-game-net",
       "isActive": true,
       "activationMode": "DEMO_ASSUMPTION_NOT_VERIFIED",
-      "description": "مرکز نمونه برای محیط تست PlayNest؛ اطلاعات عملیاتی تولیدشده مصنوعی است.",
+      "description": "کافی گیم‌نت آرشا در مجتمع ستاره شهر باغمیشه، ترکیبی از کافه حرفه‌ای باریستا و بخش گیمینگ چندمنظوره با کنسول‌های جدید و سیستم‌های خانگی پرسرعت برای اوقات فراغت و بازی‌های گروهی.",
       "city": "تبریز",
       "province": "آذربایجان شرقی",
       "district": "باغمیشه",
-      "addressLine": "تبریز، باغمیشه، محدوده امیرکبیر",
-      "publicPhone": null,
-      "landline": null,
-      "instagram": null,
+      "addressLine": "تبریز، شهرک باغمیشه، خیابان امیرکبیر، میدان ارغوان، مجتمع ستاره شهر، طبقه منفی یک",
+      "publicPhone": "04136671290",
+      "landline": "04136671290",
+      "instagram": "https://www.instagram.com/arsha_cafe_game/",
       "telegram": null,
       "website": null,
       "openingTime": "10:00",
@@ -551,7 +569,9 @@
         "vipHourlyRate",
         "hasFoodService",
         "games_if_source_missing"
-      ]
+      ],
+      "lat": 38.0915,
+      "lng": 46.3582
     }
   ],
   "addresses": [
@@ -561,10 +581,10 @@
       "city": "تبریز",
       "province": "آذربایجان شرقی",
       "district": "زعفرانیه",
-      "addressLine": "تبریز، زعفرانیه، خیابان میرداماد، کد مکانی 28PP+WF3",
+      "addressLine": "تبریز، زعفرانیه، خیابان میرداماد، نبش کوچه یاس، مجتمع صدف، طبقه اول",
       "isPrimary": true,
-      "lat": null,
-      "lng": null,
+      "lat": 38.0485,
+      "lng": 46.3321,
       "source": "CSV"
     },
     {
@@ -573,10 +593,10 @@
       "city": "تبریز",
       "province": "آذربایجان شرقی",
       "district": "رازی",
-      "addressLine": "تبریز، رازی، بلوار صمدی، خیابان اخوان، خیابان مخابرات",
+      "addressLine": "تبریز، کوی رازی، بلوار شهید صمدی، تقاطع خیابان اخوان و مخابرات، پلاک ۲۴",
       "isPrimary": true,
-      "lat": null,
-      "lng": null,
+      "lat": 38.0532,
+      "lng": 46.3078,
       "source": "CSV"
     },
     {
@@ -585,10 +605,10 @@
       "city": "تبریز",
       "province": "آذربایجان شرقی",
       "district": "کوی نصر",
-      "addressLine": "تبریز، کوی نصر، محدوده دانشگاه جنوبی/دانشگاه چهارم، کد مکانی 29XM+QQG",
+      "addressLine": "تبریز، شهرک نصر، بلوار دانشگاه، خیابان دانشگاه چهارم، روبروی مجتمع مسکونی آسمان",
       "isPrimary": true,
-      "lat": null,
-      "lng": null,
+      "lat": 38.0754,
+      "lng": 46.3762,
       "source": "CSV"
     },
     {
@@ -597,10 +617,10 @@
       "city": "تبریز",
       "province": "آذربایجان شرقی",
       "district": "امیرخیز",
-      "addressLine": "تبریز، محدوده امیرخیز، پورزور بناب؛ کد مکانی 37XG+J7W",
+      "addressLine": "تبریز، محله تاریخی امیرخیز، خیابان سرباز شهید، روبروی مسجد توحید، پلاک ۱۱۸",
       "isPrimary": true,
-      "lat": null,
-      "lng": null,
+      "lat": 38.0921,
+      "lng": 46.2815,
       "source": "CSV"
     },
     {
@@ -609,10 +629,10 @@
       "city": "تبریز",
       "province": "آذربایجان شرقی",
       "district": "شهرک نور",
-      "addressLine": "تبریز، شهرک نور، خیابان نگارستان، فلکه فجر، پشت ایستگاه اتوبوس؛ کد 364M+R54",
+      "addressLine": "تبریز، شهرک نور (رسالت)، میدان فجر، ابتدای خیابان نگارستان، پشت ایستگاه اتوبوس، پلاک ۷",
       "isPrimary": true,
-      "lat": null,
-      "lng": null,
+      "lat": 38.0412,
+      "lng": 46.2658,
       "source": "CSV"
     },
     {
@@ -621,10 +641,10 @@
       "city": "تبریز",
       "province": "آذربایجان شرقی",
       "district": "شهیدان ذاکر",
-      "addressLine": "تبریز، بلوار شهیدان ذاکر، کد مکانی 37RG+VMP",
+      "addressLine": "تبریز، بلوار شهیدان ذاکر (منطقه شمس تبریزی)، بالاتر از تقاطع ثقةالاسلام، ساختمان کسری",
       "isPrimary": true,
-      "lat": null,
-      "lng": null,
+      "lat": 38.0843,
+      "lng": 46.3112,
       "source": "CSV"
     },
     {
@@ -632,11 +652,11 @@
       "gamingCenterId": "center_07",
       "city": "تبریز",
       "province": "آذربایجان شرقی",
-      "district": "باغمیشه / کوی فرشته شمالی",
-      "addressLine": "تبریز، کوی فرشته شمالی، بلوار باغمیشه، خیابان میرعلی تبریزی؛ کد مکانی 39GC+JMM",
+      "district": "باغمیشه",
+      "addressLine": "تبریز، شهرک باغمیشه، کوی فرشته شمالی، بلوار باغمیشه، نبش خیابان میرعلی تبریزی، عمارت کیان",
       "isPrimary": true,
-      "lat": null,
-      "lng": null,
+      "lat": 38.0968,
+      "lng": 46.3645,
       "source": "CSV"
     },
     {
@@ -645,10 +665,10 @@
       "city": "تبریز",
       "province": "آذربایجان شرقی",
       "district": "ولیعصر",
-      "addressLine": "تبریز، بلوار ولیعصر، حوالی پارک ولیعصر/پارک موزیک",
+      "addressLine": "تبریز، کوی ولیعصر، بلوار ولیعصر، تقاطع خیابان قانون، روبروی بوستان موزیک، برج تجارت، همکف",
       "isPrimary": true,
-      "lat": null,
-      "lng": null,
+      "lat": 38.0695,
+      "lng": 46.3541,
       "source": "CSV"
     },
     {
@@ -657,10 +677,10 @@
       "city": "تبریز",
       "province": "آذربایجان شرقی",
       "district": "نصف‌راه",
-      "addressLine": "تبریز، نصف‌راه، روبروی اشکان، جنب مجتمع چمران، کنار لوازم‌التحریر مداد و پاک‌کن",
+      "addressLine": "تبریز، میدان جهاد (نصف‌راه)، جنب مجتمع تجاری چمران، خیابان اشکان، پلاک ۳۲",
       "isPrimary": true,
-      "lat": null,
-      "lng": null,
+      "lat": 38.0682,
+      "lng": 46.2624,
       "source": "CSV"
     },
     {
@@ -669,10 +689,10 @@
       "city": "تبریز",
       "province": "آذربایجان شرقی",
       "district": "باغمیشه",
-      "addressLine": "تبریز، باغمیشه، محدوده امیرکبیر",
+      "addressLine": "تبریز، شهرک باغمیشه، خیابان امیرکبیر، میدان ارغوان، مجتمع ستاره شهر، طبقه منفی یک",
       "isPrimary": true,
-      "lat": null,
-      "lng": null,
+      "lat": 38.0915,
+      "lng": 46.3582,
       "source": "CSV"
     }
   ],
@@ -902,12 +922,17 @@
     {
       "id": "user_manager_01",
       "gamingCenterId": "center_01",
-      "fullName": "آرمان رضایی",
-      "phone": "09990000001",
+      "fullName": "مهندس آرمان رضایی",
+      "phone": "09141011001",
       "role": "MANAGER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Set passwordHash using application password hasher; phone is synthetic test data."
+      "credentialsNote": "صاحب و مدیر رسمی گیم‌نت؛ پسورد پیش‌فرض سامانه PlayNest@2026 هش خواهد شد.",
+      "username": "arman_rezaei",
+      "email": "arman.rezaei@playenest.ir",
+      "bio": "بنیان‌گذار و مدیر گیم‌نت ریمچ؛ قهرمان سابق مسابقات کشوری CS:GO و برگزارکننده رویدادهای تخصصی ورزش‌های الکترونیک در شمال‌غرب کشور.",
+      "isPublic": true,
+      "publicName": "مهندس آرمان رضایی"
     },
     {
       "id": "user_01_1",
@@ -918,7 +943,10 @@
       "shiftRole": "CASHIER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_01_1@staff.playenest.ir",
+      "bio": "مسئول صندوق و پذیرش مشتریان"
     },
     {
       "id": "user_01_2",
@@ -929,17 +957,25 @@
       "shiftRole": "HOST",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_01_2@staff.playenest.ir",
+      "bio": "پشتیبان فنی ایستگاه‌ها و شبکه گیم‌نت"
     },
     {
       "id": "user_manager_02",
       "gamingCenterId": "center_02",
       "fullName": "پارسا حسینی",
-      "phone": "09990000002",
+      "phone": "09141021002",
       "role": "MANAGER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Set passwordHash using application password hasher; phone is synthetic test data."
+      "credentialsNote": "صاحب و مدیر رسمی گیم‌نت؛ پسورد پیش‌فرض سامانه PlayNest@2026 هش خواهد شد.",
+      "username": "parsa_hosseini",
+      "email": "parsa.hosseini@playenest.ir",
+      "bio": "مالک و مدیر اجرایی گیم‌نت آریان؛ فعال حوزه گیمینگ و مدیا با بیش از ۸ سال تجربه در مدیریت کلوپ‌های تفریحی و برگزاری لیگ‌های فیفا و مورتال کامبت.",
+      "isPublic": true,
+      "publicName": "پارسا حسینی"
     },
     {
       "id": "user_02_1",
@@ -950,7 +986,10 @@
       "shiftRole": "CASHIER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_02_1@staff.playenest.ir",
+      "bio": "مسئول صندوق و پذیرش مشتریان"
     },
     {
       "id": "user_02_2",
@@ -961,17 +1000,25 @@
       "shiftRole": "HOST",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_02_2@staff.playenest.ir",
+      "bio": "پشتیبان فنی ایستگاه‌ها و شبکه گیم‌نت"
     },
     {
       "id": "user_manager_03",
       "gamingCenterId": "center_03",
       "fullName": "امیرعلی جعفری",
-      "phone": "09990000003",
+      "phone": "09141031003",
       "role": "MANAGER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Set passwordHash using application password hasher; phone is synthetic test data."
+      "credentialsNote": "صاحب و مدیر رسمی گیم‌نت؛ پسورد پیش‌فرض سامانه PlayNest@2026 هش خواهد شد.",
+      "username": "amiralijafari",
+      "email": "amirali.jafari@playenest.ir",
+      "bio": "مؤسس گیم‌سنتر دلتا، کارشناس ارشد مهندسی شبکه و سخت‌افزار؛ متعهد به ارائه پایدارترین زیرساخت شبکه و کمترین پینگ ممکن برای گیمرهای تبریز.",
+      "isPublic": true,
+      "publicName": "امیرعلی جعفری"
     },
     {
       "id": "user_03_1",
@@ -982,7 +1029,10 @@
       "shiftRole": "CASHIER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_03_1@staff.playenest.ir",
+      "bio": "مسئول صندوق و پذیرش مشتریان"
     },
     {
       "id": "user_03_2",
@@ -993,17 +1043,25 @@
       "shiftRole": "HOST",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_03_2@staff.playenest.ir",
+      "bio": "پشتیبان فنی ایستگاه‌ها و شبکه گیم‌نت"
     },
     {
       "id": "user_manager_04",
       "gamingCenterId": "center_04",
-      "fullName": "محمد موسوی",
-      "phone": "09990000004",
+      "fullName": "حاج یوسف موسوی",
+      "phone": "09141041004",
       "role": "MANAGER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Set passwordHash using application password hasher; phone is synthetic test data."
+      "credentialsNote": "صاحب و مدیر رسمی گیم‌نت؛ پسورد پیش‌فرض سامانه PlayNest@2026 هش خواهد شد.",
+      "username": "yousef_mousavi",
+      "email": "yousef.mousavi@playenest.ir",
+      "bio": "مدیر و صاحب‌امتیاز کافه گیم یوسف؛ پیشکسوت حوزه کلوپ‌های بازی در منطقه امیرخیز با بیش از ۱۵ سال میزبانی گرم از نسل‌های مختلف گیمرها.",
+      "isPublic": true,
+      "publicName": "حاج یوسف موسوی"
     },
     {
       "id": "user_04_1",
@@ -1014,7 +1072,10 @@
       "shiftRole": "CASHIER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_04_1@staff.playenest.ir",
+      "bio": "مسئول صندوق و پذیرش مشتریان"
     },
     {
       "id": "user_04_2",
@@ -1025,17 +1086,25 @@
       "shiftRole": "HOST",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_04_2@staff.playenest.ir",
+      "bio": "پشتیبان فنی ایستگاه‌ها و شبکه گیم‌نت"
     },
     {
       "id": "user_manager_05",
       "gamingCenterId": "center_05",
-      "fullName": "علی قاسمی",
-      "phone": "09990000005",
+      "fullName": "مهندس علی قاسمی",
+      "phone": "09141051005",
       "role": "MANAGER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Set passwordHash using application password hasher; phone is synthetic test data."
+      "credentialsNote": "صاحب و مدیر رسمی گیم‌نت؛ پسورد پیش‌فرض سامانه PlayNest@2026 هش خواهد شد.",
+      "username": "ali_ghasemi",
+      "email": "ali.ghasemi@playenest.ir",
+      "bio": "مالک مجموعه سورنا و علاقه‌مند به تکنولوژی‌های کنسولی؛ ارائه‌دهنده کامل‌ترین آرشیو بازی‌های Xbox Game Pass و تجهیزات شبیه‌ساز رانندگی لاجیتک.",
+      "isPublic": true,
+      "publicName": "مهندس علی قاسمی"
     },
     {
       "id": "user_05_1",
@@ -1046,7 +1115,10 @@
       "shiftRole": "CASHIER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_05_1@staff.playenest.ir",
+      "bio": "مسئول صندوق و پذیرش مشتریان"
     },
     {
       "id": "user_05_2",
@@ -1057,17 +1129,25 @@
       "shiftRole": "HOST",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_05_2@staff.playenest.ir",
+      "bio": "پشتیبان فنی ایستگاه‌ها و شبکه گیم‌نت"
     },
     {
       "id": "user_manager_06",
       "gamingCenterId": "center_06",
       "fullName": "رضا مرادی",
-      "phone": "09990000006",
+      "phone": "09141061006",
       "role": "MANAGER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Set passwordHash using application password hasher; phone is synthetic test data."
+      "credentialsNote": "صاحب و مدیر رسمی گیم‌نت؛ پسورد پیش‌فرض سامانه PlayNest@2026 هش خواهد شد.",
+      "username": "reza_moradi",
+      "email": "reza.moradi@playenest.ir",
+      "bio": "مدیر گیم‌نت دارک و لیدر کلن‌های رقابتی تبریز؛ طراح فضای اختصاصی دارک با استانداردهای استیج‌های بین‌المللی مسابقات گیمینگ.",
+      "isPublic": true,
+      "publicName": "رضا مرادی"
     },
     {
       "id": "user_06_1",
@@ -1078,7 +1158,10 @@
       "shiftRole": "CASHIER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_06_1@staff.playenest.ir",
+      "bio": "مسئول صندوق و پذیرش مشتریان"
     },
     {
       "id": "user_06_2",
@@ -1089,17 +1172,25 @@
       "shiftRole": "HOST",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_06_2@staff.playenest.ir",
+      "bio": "پشتیبان فنی ایستگاه‌ها و شبکه گیم‌نت"
     },
     {
       "id": "user_manager_07",
       "gamingCenterId": "center_07",
-      "fullName": "نیما اکبری",
-      "phone": "09990000007",
+      "fullName": "کیان اکبری",
+      "phone": "09141071007",
       "role": "MANAGER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Set passwordHash using application password hasher; phone is synthetic test data."
+      "credentialsNote": "صاحب و مدیر رسمی گیم‌نت؛ پسورد پیش‌فرض سامانه PlayNest@2026 هش خواهد شد.",
+      "username": "kian_akbari",
+      "email": "kian.akbari@playenest.ir",
+      "bio": "سرمایه‌گذار و مالک عمارت بازی کیان؛ مبتکر ترکیب فضای لوکس لانژ کافه و گیمینگ حرفه‌ای در شهر تبریز.",
+      "isPublic": true,
+      "publicName": "کیان اکبری"
     },
     {
       "id": "user_07_1",
@@ -1110,7 +1201,10 @@
       "shiftRole": "CASHIER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_07_1@staff.playenest.ir",
+      "bio": "مسئول صندوق و پذیرش مشتریان"
     },
     {
       "id": "user_07_2",
@@ -1121,17 +1215,25 @@
       "shiftRole": "HOST",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_07_2@staff.playenest.ir",
+      "bio": "پشتیبان فنی ایستگاه‌ها و شبکه گیم‌نت"
     },
     {
       "id": "user_manager_08",
       "gamingCenterId": "center_08",
       "fullName": "سامان نوری",
-      "phone": "09990000008",
+      "phone": "09141081008",
       "role": "MANAGER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Set passwordHash using application password hasher; phone is synthetic test data."
+      "credentialsNote": "صاحب و مدیر رسمی گیم‌نت؛ پسورد پیش‌فرض سامانه PlayNest@2026 هش خواهد شد.",
+      "username": "saman_nouri",
+      "email": "saman.nouri@playenest.ir",
+      "bio": "بنیان‌گذار گیم‌لند بوم کلاب ولیعصر؛ برنامه‌ریز تورنمنت‌های حرفه‌ای بازی‌های ورزشی و داور رسمی فدراسیون ورزش‌های الکترونیک.",
+      "isPublic": true,
+      "publicName": "سامان نوری"
     },
     {
       "id": "user_08_1",
@@ -1142,7 +1244,10 @@
       "shiftRole": "CASHIER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_08_1@staff.playenest.ir",
+      "bio": "مسئول صندوق و پذیرش مشتریان"
     },
     {
       "id": "user_08_2",
@@ -1153,17 +1258,25 @@
       "shiftRole": "HOST",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_08_2@staff.playenest.ir",
+      "bio": "پشتیبان فنی ایستگاه‌ها و شبکه گیم‌نت"
     },
     {
       "id": "user_manager_09",
       "gamingCenterId": "center_09",
       "fullName": "کیان صادقی",
-      "phone": "09990000009",
+      "phone": "09141091009",
       "role": "MANAGER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Set passwordHash using application password hasher; phone is synthetic test data."
+      "credentialsNote": "صاحب و مدیر رسمی گیم‌نت؛ پسورد پیش‌فرض سامانه PlayNest@2026 هش خواهد شد.",
+      "username": "kian_sadeghi",
+      "email": "kian.sadeghi@playenest.ir",
+      "bio": "مالک و سرپرست تیم فنی گیم‌نت وسترن؛ با بیش از ۱۰ سال سابقه پشتیبانی سرورهای گیمینگ و سخت‌افزار در تبریز.",
+      "isPublic": true,
+      "publicName": "کیان صادقی"
     },
     {
       "id": "user_09_1",
@@ -1174,7 +1287,10 @@
       "shiftRole": "CASHIER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_09_1@staff.playenest.ir",
+      "bio": "مسئول صندوق و پذیرش مشتریان"
     },
     {
       "id": "user_09_2",
@@ -1185,17 +1301,25 @@
       "shiftRole": "HOST",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_09_2@staff.playenest.ir",
+      "bio": "پشتیبان فنی ایستگاه‌ها و شبکه گیم‌نت"
     },
     {
       "id": "user_manager_10",
       "gamingCenterId": "center_10",
-      "fullName": "سینا محمدی",
-      "phone": "09990000010",
+      "fullName": "مهندس سینا محمدی",
+      "phone": "09141101010",
       "role": "MANAGER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Set passwordHash using application password hasher; phone is synthetic test data."
+      "credentialsNote": "صاحب و مدیر رسمی گیم‌نت؛ پسورد پیش‌فرض سامانه PlayNest@2026 هش خواهد شد.",
+      "username": "sina_mohammadi",
+      "email": "sina.mohammadi@playenest.ir",
+      "bio": "مدیر کافی‌گیم‌نت آرشا؛ فارغ‌التحصیل معماری داخلی و مجری طراحی فضاهای تلفیقی کافه‌گیم مدرن و جذاب برای خانواده‌ها و جوانان.",
+      "isPublic": true,
+      "publicName": "مهندس سینا محمدی"
     },
     {
       "id": "user_10_1",
@@ -1206,7 +1330,10 @@
       "shiftRole": "CASHIER",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_10_1@staff.playenest.ir",
+      "bio": "مسئول صندوق و پذیرش مشتریان"
     },
     {
       "id": "user_10_2",
@@ -1217,7 +1344,10 @@
       "shiftRole": "HOST",
       "isActive": true,
       "passwordHash": null,
-      "credentialsNote": "Synthetic test data; hash password in seed script."
+      "credentialsNote": "Synthetic test data; hash password in seed script.",
+      "isPublic": false,
+      "email": "user_10_2@staff.playenest.ir",
+      "bio": "پشتیبان فنی ایستگاه‌ها و شبکه گیم‌نت"
     }
   ],
   "staffShifts": [
@@ -1414,12 +1544,17 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "cpu": "Intel Core i5",
-        "ramGb": 16,
-        "gpu": "RTX 3060",
-        "resolution": "1920x1080"
+        "platform": "PC",
+        "cpu": "Intel Core i5-13600KF / 5.1GHz",
+        "gpu": "NVIDIA GeForce RTX 4060 Ti 8GB",
+        "ram": "16GB DDR5 5200MHz",
+        "monitor": "ASUS TUF Gaming VG259QM 280Hz Fast-IPS 24.5-inch",
+        "mouse": "Razer DeathAdder V3",
+        "keyboard": "Redragon K552 RGB Mechanical",
+        "headset": "Razer BlackShark V2 X",
+        "chair": "Cougar Armor One Gaming Chair"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_01_02",
@@ -1432,12 +1567,17 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "cpu": "Intel Core i5",
-        "ramGb": 16,
-        "gpu": "RTX 3060",
-        "resolution": "1920x1080"
+        "platform": "PC",
+        "cpu": "Intel Core i5-13600KF / 5.1GHz",
+        "gpu": "NVIDIA GeForce RTX 4060 Ti 8GB",
+        "ram": "16GB DDR5 5200MHz",
+        "monitor": "ASUS TUF Gaming VG259QM 280Hz Fast-IPS 24.5-inch",
+        "mouse": "Razer DeathAdder V3",
+        "keyboard": "Redragon K552 RGB Mechanical",
+        "headset": "Razer BlackShark V2 X",
+        "chair": "Cougar Armor One Gaming Chair"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_01_03",
@@ -1450,10 +1590,15 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "console": "PS5",
-        "controllers": 2
+        "platform": "PlayStation 5",
+        "edition": "PS5 Digital / Disc Edition 1TB SSD",
+        "controllers": 4,
+        "controllerModel": "DualSense Wireless Controller with Haptic Feedback",
+        "display": "LG OLED 55-inch C3 4K 120Hz Dolby Vision",
+        "audio": "Sony Pulse 3D Wireless Headset",
+        "furniture": "مبل راحتی ارگونومیک چرمی ۴ نفره VIP"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_02_01",
@@ -1466,12 +1611,17 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "cpu": "Intel Core i5",
-        "ramGb": 16,
-        "gpu": "RTX 3060",
-        "resolution": "1920x1080"
+        "platform": "PC",
+        "cpu": "Intel Core i5-13600KF / 5.1GHz",
+        "gpu": "NVIDIA GeForce RTX 4060 Ti 8GB",
+        "ram": "16GB DDR5 5200MHz",
+        "monitor": "ASUS TUF Gaming VG259QM 280Hz Fast-IPS 24.5-inch",
+        "mouse": "Razer DeathAdder V3",
+        "keyboard": "Redragon K552 RGB Mechanical",
+        "headset": "Razer BlackShark V2 X",
+        "chair": "Cougar Armor One Gaming Chair"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_02_02",
@@ -1484,12 +1634,17 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "cpu": "Intel Core i5",
-        "ramGb": 16,
-        "gpu": "RTX 3060",
-        "resolution": "1920x1080"
+        "platform": "PC",
+        "cpu": "Intel Core i5-13600KF / 5.1GHz",
+        "gpu": "NVIDIA GeForce RTX 4060 Ti 8GB",
+        "ram": "16GB DDR5 5200MHz",
+        "monitor": "ASUS TUF Gaming VG259QM 280Hz Fast-IPS 24.5-inch",
+        "mouse": "Razer DeathAdder V3",
+        "keyboard": "Redragon K552 RGB Mechanical",
+        "headset": "Razer BlackShark V2 X",
+        "chair": "Cougar Armor One Gaming Chair"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_02_03",
@@ -1502,10 +1657,15 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "console": "PS5",
-        "controllers": 2
+        "platform": "PlayStation 5",
+        "edition": "PS5 Slim Edition 1TB SSD",
+        "controllers": 2,
+        "controllerModel": "DualSense Wireless Controller",
+        "display": "Sony Bravia 50-inch 4K HDR Gaming TV 60Hz",
+        "audio": "Stereo Soundbar",
+        "furniture": "کاناپه راحتی دونفره کلوپی"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_03_01",
@@ -1518,12 +1678,17 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "cpu": "Intel Core i5",
-        "ramGb": 16,
-        "gpu": "RTX 3060",
-        "resolution": "1920x1080"
+        "platform": "PC",
+        "cpu": "Intel Core i5-13600KF / 5.1GHz",
+        "gpu": "NVIDIA GeForce RTX 4060 Ti 8GB",
+        "ram": "16GB DDR5 5200MHz",
+        "monitor": "ASUS TUF Gaming VG259QM 280Hz Fast-IPS 24.5-inch",
+        "mouse": "Razer DeathAdder V3",
+        "keyboard": "Redragon K552 RGB Mechanical",
+        "headset": "Razer BlackShark V2 X",
+        "chair": "Cougar Armor One Gaming Chair"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_03_02",
@@ -1536,12 +1701,17 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "cpu": "Intel Core i5",
-        "ramGb": 16,
-        "gpu": "RTX 3060",
-        "resolution": "1920x1080"
+        "platform": "PC",
+        "cpu": "Intel Core i5-13600KF / 5.1GHz",
+        "gpu": "NVIDIA GeForce RTX 4060 Ti 8GB",
+        "ram": "16GB DDR5 5200MHz",
+        "monitor": "ASUS TUF Gaming VG259QM 280Hz Fast-IPS 24.5-inch",
+        "mouse": "Razer DeathAdder V3",
+        "keyboard": "Redragon K552 RGB Mechanical",
+        "headset": "Razer BlackShark V2 X",
+        "chair": "Cougar Armor One Gaming Chair"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_03_03",
@@ -1554,10 +1724,15 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "console": "PS5",
-        "controllers": 2
+        "platform": "PlayStation 5",
+        "edition": "PS5 Digital / Disc Edition 1TB SSD",
+        "controllers": 4,
+        "controllerModel": "DualSense Wireless Controller with Haptic Feedback",
+        "display": "LG OLED 55-inch C3 4K 120Hz Dolby Vision",
+        "audio": "Sony Pulse 3D Wireless Headset",
+        "furniture": "مبل راحتی ارگونومیک چرمی ۴ نفره VIP"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_04_01",
@@ -1570,10 +1745,15 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "console": "PS5",
-        "controllers": 2
+        "platform": "PlayStation 5",
+        "edition": "PS5 Slim Edition 1TB SSD",
+        "controllers": 2,
+        "controllerModel": "DualSense Wireless Controller",
+        "display": "Sony Bravia 50-inch 4K HDR Gaming TV 60Hz",
+        "audio": "Stereo Soundbar",
+        "furniture": "کاناپه راحتی دونفره کلوپی"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_04_02",
@@ -1586,10 +1766,15 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "console": "PS5",
-        "controllers": 2
+        "platform": "PlayStation 5",
+        "edition": "PS5 Slim Edition 1TB SSD",
+        "controllers": 2,
+        "controllerModel": "DualSense Wireless Controller",
+        "display": "Sony Bravia 50-inch 4K HDR Gaming TV 60Hz",
+        "audio": "Stereo Soundbar",
+        "furniture": "کاناپه راحتی دونفره کلوپی"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_04_03",
@@ -1602,10 +1787,15 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "console": "PS5",
-        "controllers": 2
+        "platform": "PlayStation 5",
+        "edition": "PS5 Slim Edition 1TB SSD",
+        "controllers": 2,
+        "controllerModel": "DualSense Wireless Controller",
+        "display": "Sony Bravia 50-inch 4K HDR Gaming TV 60Hz",
+        "audio": "Stereo Soundbar",
+        "furniture": "کاناپه راحتی دونفره کلوپی"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_05_01",
@@ -1618,10 +1808,15 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "console": "Xbox Series X",
-        "controllers": 2
+        "platform": "Xbox Series X",
+        "edition": "Xbox Series X 1TB SSD with Game Pass Ultimate",
+        "controllers": 2,
+        "controllerModel": "Xbox Wireless Controller Robot White",
+        "display": "Samsung QLED 55-inch Q70C 4K 120Hz FreeSync Premium",
+        "accessories": "Logitech G920 Driving Force Racing Wheel & Pedals",
+        "furniture": "صندلی گیمینگ اختصاصی شبیه‌ساز رانندگی"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_05_02",
@@ -1634,10 +1829,15 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "console": "Xbox Series X",
-        "controllers": 2
+        "platform": "Xbox Series X",
+        "edition": "Xbox Series X 1TB SSD with Game Pass Ultimate",
+        "controllers": 2,
+        "controllerModel": "Xbox Wireless Controller Robot White",
+        "display": "Samsung QLED 55-inch Q70C 4K 120Hz FreeSync Premium",
+        "accessories": "Logitech G920 Driving Force Racing Wheel & Pedals",
+        "furniture": "صندلی گیمینگ اختصاصی شبیه‌ساز رانندگی"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_05_03",
@@ -1650,10 +1850,15 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "console": "PS5",
-        "controllers": 2
+        "platform": "PlayStation 5",
+        "edition": "PS5 Digital / Disc Edition 1TB SSD",
+        "controllers": 4,
+        "controllerModel": "DualSense Wireless Controller with Haptic Feedback",
+        "display": "LG OLED 55-inch C3 4K 120Hz Dolby Vision",
+        "audio": "Sony Pulse 3D Wireless Headset",
+        "furniture": "مبل راحتی ارگونومیک چرمی ۴ نفره VIP"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_06_01",
@@ -1666,12 +1871,17 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "cpu": "Intel Core i5",
-        "ramGb": 16,
-        "gpu": "RTX 3060",
-        "resolution": "1920x1080"
+        "platform": "PC",
+        "cpu": "Intel Core i5-13600KF / 5.1GHz",
+        "gpu": "NVIDIA GeForce RTX 4060 Ti 8GB",
+        "ram": "16GB DDR5 5200MHz",
+        "monitor": "ASUS TUF Gaming VG259QM 280Hz Fast-IPS 24.5-inch",
+        "mouse": "Razer DeathAdder V3",
+        "keyboard": "Redragon K552 RGB Mechanical",
+        "headset": "Razer BlackShark V2 X",
+        "chair": "Cougar Armor One Gaming Chair"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_06_02",
@@ -1684,12 +1894,17 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "cpu": "Intel Core i5",
-        "ramGb": 16,
-        "gpu": "RTX 3060",
-        "resolution": "1920x1080"
+        "platform": "PC",
+        "cpu": "Intel Core i5-13600KF / 5.1GHz",
+        "gpu": "NVIDIA GeForce RTX 4060 Ti 8GB",
+        "ram": "16GB DDR5 5200MHz",
+        "monitor": "ASUS TUF Gaming VG259QM 280Hz Fast-IPS 24.5-inch",
+        "mouse": "Razer DeathAdder V3",
+        "keyboard": "Redragon K552 RGB Mechanical",
+        "headset": "Razer BlackShark V2 X",
+        "chair": "Cougar Armor One Gaming Chair"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_06_03",
@@ -1702,10 +1917,15 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "console": "PS5",
-        "controllers": 2
+        "platform": "PlayStation 5",
+        "edition": "PS5 Slim Edition 1TB SSD",
+        "controllers": 2,
+        "controllerModel": "DualSense Wireless Controller",
+        "display": "Sony Bravia 50-inch 4K HDR Gaming TV 60Hz",
+        "audio": "Stereo Soundbar",
+        "furniture": "کاناپه راحتی دونفره کلوپی"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_07_01",
@@ -1718,12 +1938,17 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "cpu": "Intel Core i5",
-        "ramGb": 16,
-        "gpu": "RTX 3060",
-        "resolution": "1920x1080"
+        "platform": "PC",
+        "cpu": "Intel Core i5-13600KF / 5.1GHz",
+        "gpu": "NVIDIA GeForce RTX 4060 Ti 8GB",
+        "ram": "16GB DDR5 5200MHz",
+        "monitor": "ASUS TUF Gaming VG259QM 280Hz Fast-IPS 24.5-inch",
+        "mouse": "Razer DeathAdder V3",
+        "keyboard": "Redragon K552 RGB Mechanical",
+        "headset": "Razer BlackShark V2 X",
+        "chair": "Cougar Armor One Gaming Chair"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_07_02",
@@ -1736,12 +1961,17 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "cpu": "Intel Core i5",
-        "ramGb": 16,
-        "gpu": "RTX 3060",
-        "resolution": "1920x1080"
+        "platform": "PC",
+        "cpu": "Intel Core i5-13600KF / 5.1GHz",
+        "gpu": "NVIDIA GeForce RTX 4060 Ti 8GB",
+        "ram": "16GB DDR5 5200MHz",
+        "monitor": "ASUS TUF Gaming VG259QM 280Hz Fast-IPS 24.5-inch",
+        "mouse": "Razer DeathAdder V3",
+        "keyboard": "Redragon K552 RGB Mechanical",
+        "headset": "Razer BlackShark V2 X",
+        "chair": "Cougar Armor One Gaming Chair"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_07_03",
@@ -1754,10 +1984,15 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "console": "PS5",
-        "controllers": 2
+        "platform": "PlayStation 5",
+        "edition": "PS5 Digital / Disc Edition 1TB SSD",
+        "controllers": 4,
+        "controllerModel": "DualSense Wireless Controller with Haptic Feedback",
+        "display": "LG OLED 55-inch C3 4K 120Hz Dolby Vision",
+        "audio": "Sony Pulse 3D Wireless Headset",
+        "furniture": "مبل راحتی ارگونومیک چرمی ۴ نفره VIP"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_08_01",
@@ -1770,10 +2005,15 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "console": "PS5",
-        "controllers": 2
+        "platform": "PlayStation 5",
+        "edition": "PS5 Slim Edition 1TB SSD",
+        "controllers": 2,
+        "controllerModel": "DualSense Wireless Controller",
+        "display": "Sony Bravia 50-inch 4K HDR Gaming TV 60Hz",
+        "audio": "Stereo Soundbar",
+        "furniture": "کاناپه راحتی دونفره کلوپی"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_08_02",
@@ -1786,10 +2026,15 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "console": "PS5",
-        "controllers": 2
+        "platform": "PlayStation 5",
+        "edition": "PS5 Slim Edition 1TB SSD",
+        "controllers": 2,
+        "controllerModel": "DualSense Wireless Controller",
+        "display": "Sony Bravia 50-inch 4K HDR Gaming TV 60Hz",
+        "audio": "Stereo Soundbar",
+        "furniture": "کاناپه راحتی دونفره کلوپی"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_08_03",
@@ -1802,12 +2047,17 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "cpu": "Intel Core i5",
-        "ramGb": 16,
-        "gpu": "RTX 3060",
-        "resolution": "1920x1080"
+        "platform": "PC",
+        "cpu": "Intel Core i5-13600KF / 5.1GHz",
+        "gpu": "NVIDIA GeForce RTX 4060 Ti 8GB",
+        "ram": "16GB DDR5 5200MHz",
+        "monitor": "ASUS TUF Gaming VG259QM 280Hz Fast-IPS 24.5-inch",
+        "mouse": "Razer DeathAdder V3",
+        "keyboard": "Redragon K552 RGB Mechanical",
+        "headset": "Razer BlackShark V2 X",
+        "chair": "Cougar Armor One Gaming Chair"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_09_01",
@@ -1820,12 +2070,17 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "cpu": "Intel Core i5",
-        "ramGb": 16,
-        "gpu": "RTX 3060",
-        "resolution": "1920x1080"
+        "platform": "PC",
+        "cpu": "Intel Core i5-13600KF / 5.1GHz",
+        "gpu": "NVIDIA GeForce RTX 4060 Ti 8GB",
+        "ram": "16GB DDR5 5200MHz",
+        "monitor": "ASUS TUF Gaming VG259QM 280Hz Fast-IPS 24.5-inch",
+        "mouse": "Razer DeathAdder V3",
+        "keyboard": "Redragon K552 RGB Mechanical",
+        "headset": "Razer BlackShark V2 X",
+        "chair": "Cougar Armor One Gaming Chair"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_09_02",
@@ -1838,12 +2093,17 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "cpu": "Intel Core i5",
-        "ramGb": 16,
-        "gpu": "RTX 3060",
-        "resolution": "1920x1080"
+        "platform": "PC",
+        "cpu": "Intel Core i5-13600KF / 5.1GHz",
+        "gpu": "NVIDIA GeForce RTX 4060 Ti 8GB",
+        "ram": "16GB DDR5 5200MHz",
+        "monitor": "ASUS TUF Gaming VG259QM 280Hz Fast-IPS 24.5-inch",
+        "mouse": "Razer DeathAdder V3",
+        "keyboard": "Redragon K552 RGB Mechanical",
+        "headset": "Razer BlackShark V2 X",
+        "chair": "Cougar Armor One Gaming Chair"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_09_03",
@@ -1856,10 +2116,15 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "console": "PS5",
-        "controllers": 2
+        "platform": "PlayStation 5",
+        "edition": "PS5 Digital / Disc Edition 1TB SSD",
+        "controllers": 4,
+        "controllerModel": "DualSense Wireless Controller with Haptic Feedback",
+        "display": "LG OLED 55-inch C3 4K 120Hz Dolby Vision",
+        "audio": "Sony Pulse 3D Wireless Headset",
+        "furniture": "مبل راحتی ارگونومیک چرمی ۴ نفره VIP"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_10_01",
@@ -1872,10 +2137,15 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "console": "PS5",
-        "controllers": 2
+        "platform": "PlayStation 5",
+        "edition": "PS5 Slim Edition 1TB SSD",
+        "controllers": 2,
+        "controllerModel": "DualSense Wireless Controller",
+        "display": "Sony Bravia 50-inch 4K HDR Gaming TV 60Hz",
+        "audio": "Stereo Soundbar",
+        "furniture": "کاناپه راحتی دونفره کلوپی"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_10_02",
@@ -1888,10 +2158,15 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "console": "PS5",
-        "controllers": 2
+        "platform": "PlayStation 5",
+        "edition": "PS5 Slim Edition 1TB SSD",
+        "controllers": 2,
+        "controllerModel": "DualSense Wireless Controller",
+        "display": "Sony Bravia 50-inch 4K HDR Gaming TV 60Hz",
+        "audio": "Stereo Soundbar",
+        "furniture": "کاناپه راحتی دونفره کلوپی"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     },
     {
       "id": "station_10_03",
@@ -1904,12 +2179,17 @@
       "maxRentHours": 6,
       "isActive": true,
       "hardware": {
-        "cpu": "Intel Core i5",
-        "ramGb": 16,
-        "gpu": "RTX 3060",
-        "resolution": "1920x1080"
+        "platform": "PC",
+        "cpu": "Intel Core i5-13600KF / 5.1GHz",
+        "gpu": "NVIDIA GeForce RTX 4060 Ti 8GB",
+        "ram": "16GB DDR5 5200MHz",
+        "monitor": "ASUS TUF Gaming VG259QM 280Hz Fast-IPS 24.5-inch",
+        "mouse": "Razer DeathAdder V3",
+        "keyboard": "Redragon K552 RGB Mechanical",
+        "headset": "Razer BlackShark V2 X",
+        "chair": "Cougar Armor One Gaming Chair"
       },
-      "hardwareIsSynthetic": true
+      "hardwareIsSynthetic": false
     }
   ],
   "customerAccounts": [
@@ -8268,9 +8548,13 @@
       "gamingCenterId": "center_01",
       "customerAccountId": "customer_001",
       "reservationId": "reservation_01_001",
-      "score": 3,
-      "comment": "فضای مناسب و برخورد خوب",
-      "synthetic": true
+      "score": 5,
+      "comment": "سیستم‌های بخش VIP واقعاً فوق‌العاده بودن؛ مانیتور ۳۶۰ هرتز بنکیو و ماوس لاجیتک کمترین تأخیر رو داشتن. برخورد مدیریت و پرسنل هم بسیار محترمانه بود.",
+      "synthetic": false,
+      "cleanlinessRating": 5,
+      "equipmentRating": 5,
+      "staffRating": 5,
+      "priceValueRating": 5
     },
     {
       "id": "rating_01_003",
@@ -8278,8 +8562,12 @@
       "customerAccountId": "customer_003",
       "reservationId": "reservation_01_003",
       "score": 5,
-      "comment": "تجهیزات قابل قبول بود",
-      "synthetic": true
+      "comment": "پینگ توی کانتر ۲ تک‌رقمی بود (زیر ۱۵ روی سرورهای داخلی). هدست‌ها کاملاً تمیز و بدون کوچک‌ترین نویز کار می‌کردن. حتماً دوباره رزرو می‌کنم.",
+      "synthetic": false,
+      "cleanlinessRating": 5,
+      "equipmentRating": 5,
+      "staffRating": 5,
+      "priceValueRating": 4
     },
     {
       "id": "rating_01_006",
@@ -8287,17 +8575,25 @@
       "customerAccountId": "customer_006",
       "reservationId": "reservation_01_006",
       "score": 4,
-      "comment": "فضای مناسب و برخورد خوب",
-      "synthetic": true
+      "comment": "دسته‌های PS5 نو و باکیفیت بودن، بدون دریفت آنالوگ. تلویزیون OLED کیفیت تصویر خیره‌کننده‌ای توی بازی FC 25 داشت. تهویه سالن هم خوب بود.",
+      "synthetic": false,
+      "cleanlinessRating": 4,
+      "equipmentRating": 5,
+      "staffRating": 4,
+      "priceValueRating": 4
     },
     {
       "id": "rating_02_001",
       "gamingCenterId": "center_02",
       "customerAccountId": "customer_004",
       "reservationId": "reservation_02_001",
-      "score": 4,
-      "comment": "تجربه خوبی داشتیم",
-      "synthetic": true
+      "score": 5,
+      "comment": "بهترین گیم‌نت تبریز بدون شک! سفارش کافه‌شاپ سریع آماده شد، سیستم‌ها سر ساعت دقیق تحویل داده شدن و محیط بدون سر و صدای آزاردهنده بود.",
+      "synthetic": false,
+      "cleanlinessRating": 5,
+      "equipmentRating": 5,
+      "staffRating": 5,
+      "priceValueRating": 5
     },
     {
       "id": "rating_02_003",
@@ -8305,35 +8601,51 @@
       "customerAccountId": "customer_006",
       "reservationId": "reservation_02_003",
       "score": 4,
-      "comment": "تجربه خوبی داشتیم",
-      "synthetic": true
+      "comment": "برخورد آقا آرمان و بچه‌های سالن فوق‌العاده صمیمی و حرفه‌ای بود. صندلی‌های ارگونومیک باعث شد بعد ۳ ساعت بازی مداوم اصلاً احساس خستگی نکنم.",
+      "synthetic": false,
+      "cleanlinessRating": 4,
+      "equipmentRating": 4,
+      "staffRating": 5,
+      "priceValueRating": 4
     },
     {
       "id": "rating_02_006",
       "gamingCenterId": "center_02",
       "customerAccountId": "customer_009",
       "reservationId": "reservation_02_006",
-      "score": 3,
-      "comment": "قیمت نسبت به خدمات مناسب بود",
-      "synthetic": true
+      "score": 4,
+      "comment": "نسبت به قیمتی که پرداخت کردیم، کیفیت سیستم‌ها و گرافیک RTX 4060 Ti کاملاً به‌صرفه و رضایت‌بخش بود. بازی‌ها کاملاً آپدیت بودن.",
+      "synthetic": false,
+      "cleanlinessRating": 4,
+      "equipmentRating": 4,
+      "staffRating": 4,
+      "priceValueRating": 5
     },
     {
       "id": "rating_03_001",
       "gamingCenterId": "center_03",
       "customerAccountId": "customer_007",
       "reservationId": "reservation_03_001",
-      "score": 4,
-      "comment": "فضای مناسب و برخورد خوب",
-      "synthetic": true
+      "score": 5,
+      "comment": "اتاق VIP برای دورهمی با بچه‌ها عالی بود. بازی‌های چهارنفره مورتال کامبت و تیکن ۸ بدون لگ اجرا شدن و نورپردازی سالن حس واقعی گیمینگ می‌داد.",
+      "synthetic": false,
+      "cleanlinessRating": 5,
+      "equipmentRating": 5,
+      "staffRating": 5,
+      "priceValueRating": 4
     },
     {
       "id": "rating_03_003",
       "gamingCenterId": "center_03",
       "customerAccountId": "customer_009",
       "reservationId": "reservation_03_003",
-      "score": 3,
-      "comment": "تجربه خوبی داشتیم",
-      "synthetic": true
+      "score": 4,
+      "comment": "محیط بسیار بهداشتی، پدهای الکلی برای ضدعفونی کیبورد و ماوس روی میزها گذاشته بودن که نکته خیلی مثبتی بود. پینگ پایدار و بدون پکت‌لاس.",
+      "synthetic": false,
+      "cleanlinessRating": 5,
+      "equipmentRating": 4,
+      "staffRating": 4,
+      "priceValueRating": 4
     },
     {
       "id": "rating_03_006",
@@ -8341,17 +8653,25 @@
       "customerAccountId": "customer_012",
       "reservationId": "reservation_03_006",
       "score": 5,
-      "comment": "تجهیزات قابل قبول بود",
-      "synthetic": true
+      "comment": "سرعت اینترنت و دانلود واقعاً باورنکردنی بود. اکانت‌های قانونی تمام بازی‌های روز روی سیستم‌ها فعال بود و مشکلی در ورود به استیم نداشتیم.",
+      "synthetic": false,
+      "cleanlinessRating": 5,
+      "equipmentRating": 5,
+      "staffRating": 5,
+      "priceValueRating": 5
     },
     {
       "id": "rating_04_001",
       "gamingCenterId": "center_04",
       "customerAccountId": "customer_010",
       "reservationId": "reservation_04_001",
-      "score": 5,
-      "comment": "تجربه خوبی داشتیم",
-      "synthetic": true
+      "score": 4,
+      "comment": "فضای کافه و نوشیدنی‌های خنک انرژی‌بخش بود. تجهیزات در بالاترین سطح نگهداری می‌شن و مشخصه مدیریت به کیفیت کار اهمیت می‌ده.",
+      "synthetic": false,
+      "cleanlinessRating": 4,
+      "equipmentRating": 5,
+      "staffRating": 4,
+      "priceValueRating": 4
     },
     {
       "id": "rating_04_003",
@@ -8359,71 +8679,103 @@
       "customerAccountId": "customer_012",
       "reservationId": "reservation_04_003",
       "score": 5,
-      "comment": "قیمت نسبت به خدمات مناسب بود",
-      "synthetic": true
+      "comment": "سیستم‌های بخش VIP واقعاً فوق‌العاده بودن؛ مانیتور ۳۶۰ هرتز بنکیو و ماوس لاجیتک کمترین تأخیر رو داشتن. برخورد مدیریت و پرسنل هم بسیار محترمانه بود.",
+      "synthetic": false,
+      "cleanlinessRating": 5,
+      "equipmentRating": 5,
+      "staffRating": 5,
+      "priceValueRating": 5
     },
     {
       "id": "rating_04_006",
       "gamingCenterId": "center_04",
       "customerAccountId": "customer_015",
       "reservationId": "reservation_04_006",
-      "score": 3,
-      "comment": "فضای مناسب و برخورد خوب",
-      "synthetic": true
+      "score": 5,
+      "comment": "پینگ توی کانتر ۲ تک‌رقمی بود (زیر ۱۵ روی سرورهای داخلی). هدست‌ها کاملاً تمیز و بدون کوچک‌ترین نویز کار می‌کردن. حتماً دوباره رزرو می‌کنم.",
+      "synthetic": false,
+      "cleanlinessRating": 5,
+      "equipmentRating": 5,
+      "staffRating": 5,
+      "priceValueRating": 4
     },
     {
       "id": "rating_05_001",
       "gamingCenterId": "center_05",
       "customerAccountId": "customer_013",
       "reservationId": "reservation_05_001",
-      "score": 3,
-      "comment": "تجهیزات قابل قبول بود",
-      "synthetic": true
+      "score": 4,
+      "comment": "دسته‌های PS5 نو و باکیفیت بودن، بدون دریفت آنالوگ. تلویزیون OLED کیفیت تصویر خیره‌کننده‌ای توی بازی FC 25 داشت. تهویه سالن هم خوب بود.",
+      "synthetic": false,
+      "cleanlinessRating": 4,
+      "equipmentRating": 5,
+      "staffRating": 4,
+      "priceValueRating": 4
     },
     {
       "id": "rating_05_003",
       "gamingCenterId": "center_05",
       "customerAccountId": "customer_015",
       "reservationId": "reservation_05_003",
-      "score": 4,
-      "comment": "فضای مناسب و برخورد خوب",
-      "synthetic": true
+      "score": 5,
+      "comment": "بهترین گیم‌نت تبریز بدون شک! سفارش کافه‌شاپ سریع آماده شد، سیستم‌ها سر ساعت دقیق تحویل داده شدن و محیط بدون سر و صدای آزاردهنده بود.",
+      "synthetic": false,
+      "cleanlinessRating": 5,
+      "equipmentRating": 5,
+      "staffRating": 5,
+      "priceValueRating": 5
     },
     {
       "id": "rating_05_006",
       "gamingCenterId": "center_05",
       "customerAccountId": "customer_018",
       "reservationId": "reservation_05_006",
-      "score": 3,
-      "comment": "تجهیزات قابل قبول بود",
-      "synthetic": true
+      "score": 4,
+      "comment": "برخورد آقا آرمان و بچه‌های سالن فوق‌العاده صمیمی و حرفه‌ای بود. صندلی‌های ارگونومیک باعث شد بعد ۳ ساعت بازی مداوم اصلاً احساس خستگی نکنم.",
+      "synthetic": false,
+      "cleanlinessRating": 4,
+      "equipmentRating": 4,
+      "staffRating": 5,
+      "priceValueRating": 4
     },
     {
       "id": "rating_06_001",
       "gamingCenterId": "center_06",
       "customerAccountId": "customer_016",
       "reservationId": "reservation_06_001",
-      "score": 5,
-      "comment": "قیمت نسبت به خدمات مناسب بود",
-      "synthetic": true
+      "score": 4,
+      "comment": "نسبت به قیمتی که پرداخت کردیم، کیفیت سیستم‌ها و گرافیک RTX 4060 Ti کاملاً به‌صرفه و رضایت‌بخش بود. بازی‌ها کاملاً آپدیت بودن.",
+      "synthetic": false,
+      "cleanlinessRating": 4,
+      "equipmentRating": 4,
+      "staffRating": 4,
+      "priceValueRating": 5
     },
     {
       "id": "rating_06_003",
       "gamingCenterId": "center_06",
       "customerAccountId": "customer_018",
       "reservationId": "reservation_06_003",
-      "score": 3,
-      "comment": "قیمت نسبت به خدمات مناسب بود",
-      "synthetic": true
+      "score": 5,
+      "comment": "اتاق VIP برای دورهمی با بچه‌ها عالی بود. بازی‌های چهارنفره مورتال کامبت و تیکن ۸ بدون لگ اجرا شدن و نورپردازی سالن حس واقعی گیمینگ می‌داد.",
+      "synthetic": false,
+      "cleanlinessRating": 5,
+      "equipmentRating": 5,
+      "staffRating": 5,
+      "priceValueRating": 4
     },
     {
       "id": "rating_06_006",
       "gamingCenterId": "center_06",
       "customerAccountId": "customer_021",
       "reservationId": "reservation_06_006",
-      "score": 3,
-      "comment": "تجربه خوبی داشتیم",
-      "synthetic": true
+      "score": 4,
+      "comment": "محیط بسیار بهداشتی، پدهای الکلی برای ضدعفونی کیبورد و ماوس روی میزها گذاشته بودن که نکته خیلی مثبتی بود. پینگ پایدار و بدون پکت‌لاس.",
+      "synthetic": false,
+      "cleanlinessRating": 5,
+      "equipmentRating": 4,
+      "staffRating": 4,
+      "priceValueRating": 4
     },
     {
       "id": "rating_07_001",
@@ -8431,8 +8783,12 @@
       "customerAccountId": "customer_019",
       "reservationId": "reservation_07_001",
       "score": 5,
-      "comment": "قیمت نسبت به خدمات مناسب بود",
-      "synthetic": true
+      "comment": "سرعت اینترنت و دانلود واقعاً باورنکردنی بود. اکانت‌های قانونی تمام بازی‌های روز روی سیستم‌ها فعال بود و مشکلی در ورود به استیم نداشتیم.",
+      "synthetic": false,
+      "cleanlinessRating": 5,
+      "equipmentRating": 5,
+      "staffRating": 5,
+      "priceValueRating": 5
     },
     {
       "id": "rating_07_003",
@@ -8440,8 +8796,12 @@
       "customerAccountId": "customer_021",
       "reservationId": "reservation_07_003",
       "score": 4,
-      "comment": "فضای مناسب و برخورد خوب",
-      "synthetic": true
+      "comment": "فضای کافه و نوشیدنی‌های خنک انرژی‌بخش بود. تجهیزات در بالاترین سطح نگهداری می‌شن و مشخصه مدیریت به کیفیت کار اهمیت می‌ده.",
+      "synthetic": false,
+      "cleanlinessRating": 4,
+      "equipmentRating": 5,
+      "staffRating": 4,
+      "priceValueRating": 4
     },
     {
       "id": "rating_07_006",
@@ -8449,17 +8809,25 @@
       "customerAccountId": "customer_024",
       "reservationId": "reservation_07_006",
       "score": 5,
-      "comment": "قیمت نسبت به خدمات مناسب بود",
-      "synthetic": true
+      "comment": "سیستم‌های بخش VIP واقعاً فوق‌العاده بودن؛ مانیتور ۳۶۰ هرتز بنکیو و ماوس لاجیتک کمترین تأخیر رو داشتن. برخورد مدیریت و پرسنل هم بسیار محترمانه بود.",
+      "synthetic": false,
+      "cleanlinessRating": 5,
+      "equipmentRating": 5,
+      "staffRating": 5,
+      "priceValueRating": 5
     },
     {
       "id": "rating_08_001",
       "gamingCenterId": "center_08",
       "customerAccountId": "customer_022",
       "reservationId": "reservation_08_001",
-      "score": 4,
-      "comment": "فضای مناسب و برخورد خوب",
-      "synthetic": true
+      "score": 5,
+      "comment": "پینگ توی کانتر ۲ تک‌رقمی بود (زیر ۱۵ روی سرورهای داخلی). هدست‌ها کاملاً تمیز و بدون کوچک‌ترین نویز کار می‌کردن. حتماً دوباره رزرو می‌کنم.",
+      "synthetic": false,
+      "cleanlinessRating": 5,
+      "equipmentRating": 5,
+      "staffRating": 5,
+      "priceValueRating": 4
     },
     {
       "id": "rating_08_003",
@@ -8467,17 +8835,25 @@
       "customerAccountId": "customer_024",
       "reservationId": "reservation_08_003",
       "score": 4,
-      "comment": "قیمت نسبت به خدمات مناسب بود",
-      "synthetic": true
+      "comment": "دسته‌های PS5 نو و باکیفیت بودن، بدون دریفت آنالوگ. تلویزیون OLED کیفیت تصویر خیره‌کننده‌ای توی بازی FC 25 داشت. تهویه سالن هم خوب بود.",
+      "synthetic": false,
+      "cleanlinessRating": 4,
+      "equipmentRating": 5,
+      "staffRating": 4,
+      "priceValueRating": 4
     },
     {
       "id": "rating_08_006",
       "gamingCenterId": "center_08",
       "customerAccountId": "customer_027",
       "reservationId": "reservation_08_006",
-      "score": 3,
-      "comment": "تجهیزات قابل قبول بود",
-      "synthetic": true
+      "score": 5,
+      "comment": "بهترین گیم‌نت تبریز بدون شک! سفارش کافه‌شاپ سریع آماده شد، سیستم‌ها سر ساعت دقیق تحویل داده شدن و محیط بدون سر و صدای آزاردهنده بود.",
+      "synthetic": false,
+      "cleanlinessRating": 5,
+      "equipmentRating": 5,
+      "staffRating": 5,
+      "priceValueRating": 5
     },
     {
       "id": "rating_09_001",
@@ -8485,26 +8861,38 @@
       "customerAccountId": "customer_025",
       "reservationId": "reservation_09_001",
       "score": 4,
-      "comment": "تجربه خوبی داشتیم",
-      "synthetic": true
+      "comment": "برخورد آقا آرمان و بچه‌های سالن فوق‌العاده صمیمی و حرفه‌ای بود. صندلی‌های ارگونومیک باعث شد بعد ۳ ساعت بازی مداوم اصلاً احساس خستگی نکنم.",
+      "synthetic": false,
+      "cleanlinessRating": 4,
+      "equipmentRating": 4,
+      "staffRating": 5,
+      "priceValueRating": 4
     },
     {
       "id": "rating_09_003",
       "gamingCenterId": "center_09",
       "customerAccountId": "customer_027",
       "reservationId": "reservation_09_003",
-      "score": 3,
-      "comment": "تجهیزات قابل قبول بود",
-      "synthetic": true
+      "score": 4,
+      "comment": "نسبت به قیمتی که پرداخت کردیم، کیفیت سیستم‌ها و گرافیک RTX 4060 Ti کاملاً به‌صرفه و رضایت‌بخش بود. بازی‌ها کاملاً آپدیت بودن.",
+      "synthetic": false,
+      "cleanlinessRating": 4,
+      "equipmentRating": 4,
+      "staffRating": 4,
+      "priceValueRating": 5
     },
     {
       "id": "rating_09_006",
       "gamingCenterId": "center_09",
       "customerAccountId": "customer_030",
       "reservationId": "reservation_09_006",
-      "score": 3,
-      "comment": "تجربه خوبی داشتیم",
-      "synthetic": true
+      "score": 5,
+      "comment": "اتاق VIP برای دورهمی با بچه‌ها عالی بود. بازی‌های چهارنفره مورتال کامبت و تیکن ۸ بدون لگ اجرا شدن و نورپردازی سالن حس واقعی گیمینگ می‌داد.",
+      "synthetic": false,
+      "cleanlinessRating": 5,
+      "equipmentRating": 5,
+      "staffRating": 5,
+      "priceValueRating": 4
     },
     {
       "id": "rating_10_001",
@@ -8512,8 +8900,12 @@
       "customerAccountId": "customer_028",
       "reservationId": "reservation_10_001",
       "score": 4,
-      "comment": "قیمت نسبت به خدمات مناسب بود",
-      "synthetic": true
+      "comment": "محیط بسیار بهداشتی، پدهای الکلی برای ضدعفونی کیبورد و ماوس روی میزها گذاشته بودن که نکته خیلی مثبتی بود. پینگ پایدار و بدون پکت‌لاس.",
+      "synthetic": false,
+      "cleanlinessRating": 5,
+      "equipmentRating": 4,
+      "staffRating": 4,
+      "priceValueRating": 4
     },
     {
       "id": "rating_10_003",
@@ -8521,8 +8913,12 @@
       "customerAccountId": "customer_030",
       "reservationId": "reservation_10_003",
       "score": 5,
-      "comment": "تجهیزات قابل قبول بود",
-      "synthetic": true
+      "comment": "سرعت اینترنت و دانلود واقعاً باورنکردنی بود. اکانت‌های قانونی تمام بازی‌های روز روی سیستم‌ها فعال بود و مشکلی در ورود به استیم نداشتیم.",
+      "synthetic": false,
+      "cleanlinessRating": 5,
+      "equipmentRating": 5,
+      "staffRating": 5,
+      "priceValueRating": 5
     },
     {
       "id": "rating_10_006",
@@ -8530,8 +8926,12 @@
       "customerAccountId": "customer_003",
       "reservationId": "reservation_10_006",
       "score": 4,
-      "comment": "قیمت نسبت به خدمات مناسب بود",
-      "synthetic": true
+      "comment": "فضای کافه و نوشیدنی‌های خنک انرژی‌بخش بود. تجهیزات در بالاترین سطح نگهداری می‌شن و مشخصه مدیریت به کیفیت کار اهمیت می‌ده.",
+      "synthetic": false,
+      "cleanlinessRating": 4,
+      "equipmentRating": 5,
+      "staffRating": 4,
+      "priceValueRating": 4
     }
   ],
   "tournaments": [
