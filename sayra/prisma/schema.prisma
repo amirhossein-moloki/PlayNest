@@ -13,6 +13,10 @@ generator client {
 
 enum UserRole {
   MANAGER
+  SUPERVISOR
+  STAFF
+  TRAINEE
+  SUPPORT
   ADMIN
 }
 
@@ -327,6 +331,7 @@ enum NotificationDispatchStatus {
   PENDING
   SENT
   FAILED
+  CANCELLED
 }
 
 enum WaitlistStatus {
@@ -2060,6 +2065,7 @@ model AuditLog {
   @@index([gamingCenterId, createdAt])
   @@index([entity, entityId])
   @@index([userId])
+  @@index([platformAdminId])
 }
 
 model GamingCenterAnalytics {
