@@ -24,6 +24,39 @@ export const resetUserPasswordSchema = z.object({
   }),
 });
 
+export const createPlatformUserSchema = z.object({
+  body: z.object({
+    gamingCenterId: z.string().min(1, 'gamingCenterId is required'),
+    firstName: z.string().min(1, 'firstName is required'),
+    lastName: z.string().min(1, 'lastName is required'),
+    phone: z.string().min(10, 'Valid phone number is required'),
+    email: z.string().email('Invalid email address').optional().nullable(),
+    password: z.string().min(6, 'Password must be at least 6 characters long').optional(),
+    role: z.enum(['MANAGER', 'ADMIN']).optional().default('MANAGER'),
+    isActive: z.boolean().optional().default(true),
+  }),
+});
+
+export type CreatePlatformUserInput = z.infer<typeof createPlatformUserSchema>['body'];
+
+export const updatePlatformUserSchema = z.object({
+  params: z.object({
+    id: z.string().min(1),
+  }),
+  body: z.object({
+    firstName: z.string().min(1).optional(),
+    lastName: z.string().min(1).optional(),
+    phone: z.string().min(10).optional(),
+    email: z.string().email('Invalid email address').optional().nullable(),
+    isActive: z.boolean().optional(),
+    bio: z.string().optional().nullable(),
+    publicName: z.string().optional().nullable(),
+    isPublic: z.boolean().optional(),
+  }),
+});
+
+export type UpdatePlatformUserInput = z.infer<typeof updatePlatformUserSchema>['body'];
+
 export const updateGamingCenterStatusSchema = z.object({
   body: z.object({
     isActive: z.boolean().optional(),

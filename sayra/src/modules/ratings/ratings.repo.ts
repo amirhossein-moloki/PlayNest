@@ -1,8 +1,19 @@
 import { prisma } from '../../config/prisma';
 import { RatingStatus } from '@prisma/client';
 import { SubmitReviewInput } from './ratings.types';
+import { PlatformSettingsRepo } from '../platform-admin/settings.station';
 
 export async function createReview(gamingCenterId: string, customerAccountId: string, input: SubmitReviewInput) {
+  let defaultStatus: RatingStatus = RatingStatus.PUBLISHED;
+  try {
+    const globalSettings = await PlatformSettingsRepo.getSettings();
+    if (globalSettings && globalSettings.reviewApprovalPolicy === 'MANUAL') {
+      defaultStatus = RatingStatus.HIDDEN;
+    }
+  } catch {
+    defaultStatus = RatingStatus.PUBLISHED;
+  }
+
   return prisma.rating.create({
     data: {
       gamingCenterId,
@@ -11,7 +22,7 @@ export async function createReview(gamingCenterId: string, customerAccountId: st
       stationId: input.stationId,
       rating: input.rating,
       comment: input.comment,
-      status: RatingStatus.PUBLISHED, // Default to published for now as requested
+      status: defaultStatus,
     },
   });
 }

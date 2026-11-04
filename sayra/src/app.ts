@@ -12,6 +12,7 @@ import { errorHandler } from './common/errors/errorHandler';
 import { responseMiddleware } from './common/middleware/response';
 import { env } from './config/env';
 import { initReservationEvents } from './modules/reservation/reservation.events';
+import { maintenanceModeMiddleware } from './common/middleware/maintenanceMode';
 
 // Initialize Event Listeners
 initReservationEvents();
@@ -70,6 +71,7 @@ if (env.NODE_ENV !== 'test') {
 }
 
 app.use(responseMiddleware);
+app.use(maintenanceModeMiddleware);
 
 // Health Check (Public - root level)
 app.use('/health', healthRouter);

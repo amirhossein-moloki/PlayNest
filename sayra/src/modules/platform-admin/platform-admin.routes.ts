@@ -2,6 +2,9 @@ import { Router } from 'express';
 import { authMiddleware } from '../../common/middleware/auth';
 import { requirePlatformAdmin } from '../../common/middleware/requirePlatformAdmin';
 import { PlatformAdminController } from './platform-admin.controller';
+import { PlatformCampaignsController } from './campaigns.controller';
+import { PlatformSettingsController } from './settings.controller';
+import { PlatformAnalyticsController } from './analytics.controller';
 import { VerificationController } from '../verification/verification.controller';
 import { platformAdminDashboardTemplate } from './platform-admin-ui.templates';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
@@ -15,6 +18,16 @@ router.get('/dashboard', (_req, res) => {
 
 // Secure all platform admin routes
 router.use(authMiddleware, requirePlatformAdmin);
+
+// Platform Campaigns Management
+router.get('/campaigns', asyncHandler(PlatformCampaignsController.listCampaigns));
+router.post('/campaigns', asyncHandler(PlatformCampaignsController.createCampaign));
+router.patch('/campaigns/:id', asyncHandler(PlatformCampaignsController.updateCampaign));
+router.delete('/campaigns/:id', asyncHandler(PlatformCampaignsController.deleteCampaign));
+
+// Platform Global Settings Management
+router.get('/settings', asyncHandler(PlatformSettingsController.getSettings));
+router.put('/settings', asyncHandler(PlatformSettingsController.updateSettings));
 
 // Gaming Centers Management
 router.get('/gaming-centers', asyncHandler(PlatformAdminController.getAllGamingCenters));
@@ -30,12 +43,18 @@ router.post('/verifications/:id/reject', asyncHandler(VerificationController.rej
 
 // Users Management across all centers
 router.get('/users', asyncHandler(PlatformAdminController.listUsers));
+router.post('/users', asyncHandler(PlatformAdminController.createUser));
+router.patch('/users/:id', asyncHandler(PlatformAdminController.updateUser));
+router.delete('/users/:id', asyncHandler(PlatformAdminController.deleteUser));
 router.patch('/users/:id/status', asyncHandler(PlatformAdminController.updateUserStatus));
 router.post('/users/:id/reset-password', asyncHandler(PlatformAdminController.resetUserPassword));
 router.post('/users/:id/revoke-sessions', asyncHandler(PlatformAdminController.revokeUserSessions));
 
 // Customers Management across all centers
 router.get('/customers', asyncHandler(PlatformAdminController.listCustomers));
+
+// Aggregated Platform Analytics & Reports
+router.get('/analytics/reports', asyncHandler(PlatformAnalyticsController.getReports));
 
 // Operational Overview across all centers
 router.get('/operations/overview', asyncHandler(PlatformAdminController.getOperationsOverview));

@@ -82,36 +82,85 @@ export const validateCampaignForReservation = async (
   basePrice: number,
   customerAccountId?: string,
   atTime: Date = new Date(),
-  tx?: Prisma.TransactionClient
+  tx?: Prisma.TransactionClient,
+  gamingCenterId?: string
 ): Promise<{ discountAmount: number; isValid: boolean; reason?: string }> => {
-  if (!campaign.isActive) {
+  if (campaign.deletedAt) {
+    return { discountAmount: 0, isValid: false, reason: 'Campaign has been deleted.' };
+  }
+
+  if (campaign.status === 'INACTIVE' || !campaign.isActive) {
     return { discountAmount: 0, isValid: false, reason: 'Campaign is inactive.' };
   }
 
-  if (atTime < campaign.startAt || atTime > campaign.endAt) {
+  if (campaign.status === 'EXPIRED' || atTime < campaign.startAt || atTime > campaign.endAt) {
     return { discountAmount: 0, isValid: false, reason: 'Campaign is expired or not yet started.' };
+  }
+
+  // Check Scope
+  if (campaign.scopeType === 'SPECIFIC_GAMECENTERS') {
+    if (gamingCenterId && campaign.applicableGamecenterIds.length > 0 && !campaign.applicableGamecenterIds.includes(gamingCenterId)) {
+      return { discountAmount: 0, isValid: false, reason: 'Campaign is not applicable to this gaming center.' };
+    }
+  }
+
+  if (campaign.scopeType === 'SPECIFIC_DEVICE_TYPES' && campaign.applicableDeviceTypes.length > 0) {
+    const station = await ReservationRepo.findStation(stationId, gamingCenterId, undefined, tx);
+    if (!station || !campaign.applicableDeviceTypes.includes(station.stationType)) {
+      return { discountAmount: 0, isValid: false, reason: 'Campaign is not applicable to this device type.' };
+    }
   }
 
   if (campaign.targetType === DiscountTargetType.STATION && campaign.targetId && campaign.targetId !== stationId) {
     return { discountAmount: 0, isValid: false, reason: 'Campaign is not valid for this station.' };
   }
 
-  if (campaign.minReservationAmount && basePrice < campaign.minReservationAmount) {
+  const minAmount = campaign.minOrderAmount ?? campaign.minReservationAmount;
+  if (minAmount && basePrice < minAmount) {
     return {
       discountAmount: 0,
       isValid: false,
-      reason: `Reservation amount must be at least ${campaign.minReservationAmount}.`,
+      reason: `Reservation amount must be at least ${minAmount}.`,
     };
   }
 
-  if (campaign.maxUsageCount !== null && campaign.maxUsageCount !== undefined && campaign.currentUsageCount >= campaign.maxUsageCount) {
+  // Check Target Audience
+  if (customerAccountId) {
+    if (campaign.targetAudience === 'SPECIFIC_USERS') {
+      if (campaign.specificUserIds.length > 0 && !campaign.specificUserIds.includes(customerAccountId)) {
+        return { discountAmount: 0, isValid: false, reason: 'Campaign is not available for this user.' };
+      }
+    } else if (campaign.targetAudience === 'NEW_USERS') {
+      const priorReservations = await (tx ? (tx as any).reservation.count({
+        where: { customerAccountId, status: { not: 'CANCELED' } },
+      }) : 0);
+      if (priorReservations > 0) {
+        return { discountAmount: 0, isValid: false, reason: 'Campaign is only available for new users.' };
+      }
+    } else if (campaign.targetAudience === 'LOYAL_USERS') {
+      const priorReservations = await (tx ? (tx as any).reservation.count({
+        where: { customerAccountId, status: 'COMPLETED' },
+      }) : 0);
+      if (priorReservations < 5) {
+        return { discountAmount: 0, isValid: false, reason: 'Campaign is only available for loyal users.' };
+      }
+    }
+  }
+
+  // Usage Limits
+  const totalLimit = campaign.totalUsageLimit ?? campaign.maxUsageCount;
+  const currentCount = campaign.currentUsageCount;
+  if (totalLimit !== null && totalLimit !== undefined && currentCount >= totalLimit) {
     return { discountAmount: 0, isValid: false, reason: 'Campaign maximum usage limit reached.' };
   }
 
+  const effectiveValueType = campaign.discountType ?? campaign.valueType;
+  const effectiveValue = campaign.discountValue ?? campaign.value;
+
   const calculatedDiscount = calculateCampaignDiscountAmount(
     basePrice,
-    campaign.valueType,
-    campaign.value,
+    effectiveValueType,
+    effectiveValue,
     campaign.maxDiscountAmount
   );
 
@@ -547,7 +596,8 @@ export const discountsStation = {
       basePrice,
       customerAccountId,
       atTime,
-      tx
+      tx,
+      gamingCenterId
     );
 
     if (!validation.isValid) {

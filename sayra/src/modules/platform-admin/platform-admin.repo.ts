@@ -3,19 +3,85 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
 export const PlatformAdminRepo = {
-  async listAllGamingCenters() {
-    return (prisma as any).gamingCenter.findMany({
-      include: {
-        _count: {
-          select: {
-            users: true,
-            stations: true,
-            reservations: true,
+  async listAllGamingCenters(params?: { skip?: number; take?: number; search?: string }) {
+    const where: Prisma.GamingCenterWhereInput = {};
+    if (params?.search) {
+      where.OR = [
+        { name: { contains: params.search, mode: 'insensitive' } },
+        { slug: { contains: params.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      (prisma as any).gamingCenter.findMany({
+        where,
+        skip: params?.skip,
+        take: params?.take,
+        include: {
+          users: {
+            where: { role: 'MANAGER' },
+            take: 1,
+            select: {
+              id: true,
+              fullName: true,
+              phone: true,
+              email: true,
+            },
+          },
+          addresses: {
+            take: 1,
+            orderBy: { isPrimary: 'desc' },
+            select: {
+              id: true,
+              title: true,
+              city: true,
+              province: true,
+              addressLine: true,
+              postalCode: true,
+              lat: true,
+              lng: true,
+            },
+          },
+          _count: {
+            select: {
+              users: true,
+              stations: true,
+              reservations: true,
+            },
           },
         },
+        orderBy: { createdAt: 'desc' },
+      }),
+      (prisma as any).gamingCenter.count({ where }),
+    ]);
+
+    return { items, total };
+  },
+
+  async createUser(data: Prisma.UserUncheckedCreateInput) {
+    return (prisma as any).user.create({
+      data,
+      include: {
+        gamingCenter: {
+          select: { id: true, name: true, slug: true },
+        },
       },
-      orderBy: { createdAt: 'desc' },
     });
+  },
+
+  async deleteUser(id: string) {
+    return (prisma as any).user.delete({
+      where: { id },
+    });
+  },
+
+  async countUserFinancialDependencies(userId: string) {
+    const [reservationsAsCreator, reservationsAsStaff, canceledReservations] = await Promise.all([
+      (prisma as any).reservation.count({ where: { createdByUserId: userId } }),
+      (prisma as any).reservation.count({ where: { staffId: userId } }),
+      (prisma as any).reservation.count({ where: { canceledByUserId: userId } }),
+    ]);
+    return reservationsAsCreator + reservationsAsStaff + canceledReservations;
   },
 
   async findGamingCenterById(id: string) {

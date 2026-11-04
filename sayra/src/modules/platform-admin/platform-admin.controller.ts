@@ -14,8 +14,64 @@ import {
 export const PlatformAdminController = {
   async getAllGamingCenters(req: AppRequest, res: Response, next: NextFunction) {
     try {
-      const centers = await PlatformAdminStation.getAllGamingCenters();
-      res.ok(centers);
+      const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+      const search = req.query.search as string | undefined;
+
+      const result = await PlatformAdminStation.getAllGamingCenters({ page, limit, search });
+      res.ok(result.items, {
+        pagination: {
+          page: result.pagination.page,
+          pageSize: result.pagination.limit,
+          totalItems: result.pagination.totalItems,
+          totalPages: result.pagination.totalPages,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async createUser(req: AppRequest, res: Response, next: NextFunction) {
+    try {
+      const { createPlatformUserSchema } = await import('./platform-admin.validators');
+      const parsed = createPlatformUserSchema.parse({ body: req.body });
+      const result = await PlatformAdminStation.createUser(
+        parsed.body,
+        req.actor,
+        { ip: req.ip, userAgent: req.headers['user-agent'] as string }
+      );
+      res.status(201).json({ success: true, data: result });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateUser(req: AppRequest, res: Response, next: NextFunction) {
+    try {
+      const { updatePlatformUserSchema } = await import('./platform-admin.validators');
+      const parsed = updatePlatformUserSchema.parse({ params: req.params, body: req.body });
+      const result = await PlatformAdminStation.updateUser(
+        parsed.params.id,
+        parsed.body,
+        req.actor,
+        { ip: req.ip, userAgent: req.headers['user-agent'] as string }
+      );
+      res.ok(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async deleteUser(req: AppRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const result = await PlatformAdminStation.deleteUser(
+        id,
+        req.actor,
+        { ip: req.ip, userAgent: req.headers['user-agent'] as string }
+      );
+      res.ok(result);
     } catch (err) {
       next(err);
     }
