@@ -131,16 +131,20 @@ export const validateCampaignForReservation = async (
         return { discountAmount: 0, isValid: false, reason: 'Campaign is not available for this user.' };
       }
     } else if (campaign.targetAudience === 'NEW_USERS') {
-      const priorReservations = await (tx ? (tx as any).reservation.count({
-        where: { customerAccountId, status: { not: 'CANCELED' } },
-      }) : 0);
+      const priorReservations = tx
+        ? await tx.reservation.count({
+          where: { customerAccountId, status: { not: 'CANCELED' } },
+        })
+        : 0;
       if (priorReservations > 0) {
         return { discountAmount: 0, isValid: false, reason: 'Campaign is only available for new users.' };
       }
     } else if (campaign.targetAudience === 'LOYAL_USERS') {
-      const priorReservations = await (tx ? (tx as any).reservation.count({
-        where: { customerAccountId, status: 'COMPLETED' },
-      }) : 0);
+      const priorReservations = tx
+        ? await tx.reservation.count({
+          where: { customerAccountId, status: 'COMPLETED' },
+        })
+        : 0;
       if (priorReservations < 5) {
         return { discountAmount: 0, isValid: false, reason: 'Campaign is only available for loyal users.' };
       }

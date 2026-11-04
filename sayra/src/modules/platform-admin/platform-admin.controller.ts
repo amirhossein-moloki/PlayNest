@@ -9,7 +9,6 @@ import {
   updatePlatformGamingCenterSchema,
   listPlatformAuditLogsQuerySchema,
   listPlatformCustomersQuerySchema,
-  listPlatformReservationsQuerySchema,
 } from './platform-admin.validators';
 
 export const PlatformAdminController = {
@@ -135,36 +134,6 @@ export const PlatformAdminController = {
         pagination: {
           page: result.pagination.page,
           pageSize: result.pagination.limit,
-          totalItems: result.pagination.totalItems,
-          totalPages: result.pagination.totalPages,
-        },
-      });
-    } catch (err) {
-      next(err);
-    }
-  },
-
-  async listReservations(req: AppRequest, res: Response, next: NextFunction) {
-    try {
-      const query = listPlatformReservationsQuerySchema.parse(req.query);
-      const result = await PlatformAdminStation.listReservations({
-        page: query.page ?? 1,
-        limit: query.limit ?? 20,
-        search: query.search,
-        city: query.city,
-        gamingCenterId: query.gamingCenterId,
-        customerId: query.customerId,
-        status: query.status,
-        startDate: query.startDate,
-        endDate: query.endDate,
-        sortBy: query.sortBy,
-        sortOrder: query.sortOrder,
-      });
-      res.ok(result.items, {
-        pagination: {
-          page: result.pagination.page,
-          pageSize: result.pagination.limit,
-          total: result.pagination.total,
           totalItems: result.pagination.totalItems,
           totalPages: result.pagination.totalPages,
         },

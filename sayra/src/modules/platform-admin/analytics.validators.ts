@@ -8,9 +8,9 @@ export const platformAnalyticsReportsQuerySchema = z.object({
   gamingCenterId: z.string().optional(),
   compare: z
     .enum(['true', 'false'])
-    .transform((val) => val === 'true')
     .optional()
-    .default(false as any),
+    .default('false')
+    .transform((val) => val === 'true'),
   groupBy: z.enum(['DAILY', 'WEEKLY', 'MONTHLY']).optional().default('DAILY'),
 });
 

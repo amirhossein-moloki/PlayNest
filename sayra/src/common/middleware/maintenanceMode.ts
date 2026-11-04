@@ -23,7 +23,7 @@ export const maintenanceModeMiddleware = async (req: Request, res: Response, nex
     }
 
     // Check if actor is already authenticated as PLATFORM_ADMIN
-    const actor = (req as any).actor;
+    const actor = (req as { actor?: { actorType?: string; isSuperuser?: boolean } }).actor;
     if (actor && (actor.actorType === 'PLATFORM_ADMIN' || actor.isSuperuser)) {
       return next();
     }
