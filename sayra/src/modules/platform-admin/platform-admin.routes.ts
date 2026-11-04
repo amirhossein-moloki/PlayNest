@@ -55,6 +55,8 @@ router.get('/customers', asyncHandler(PlatformAdminController.listCustomers));
 
 // Aggregated Platform Analytics & Reports
 router.get('/analytics/reports', asyncHandler(PlatformAnalyticsController.getReports));
+// Reservations Management across all centers
+router.get('/reservations', asyncHandler(PlatformAdminController.listReservations));
 
 // Operational Overview across all centers
 router.get('/operations/overview', asyncHandler(PlatformAdminController.getOperationsOverview));
