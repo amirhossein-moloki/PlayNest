@@ -367,13 +367,26 @@ export const waitlistStation = {
       const finalPrice = Math.max(0, basePrice - discountAmount);
 
       // 4. Create reservation
+      let createdByUserId = actor.id;
+      if (actor.actorType === SessionActorType.CUSTOMER) {
+        if (tx && tx.user && typeof tx.user.findFirst === 'function') {
+          const staff = await tx.user.findFirst({
+            where: { gamingCenterId, isActive: true },
+            select: { id: true },
+          });
+          if (staff) {
+            createdByUserId = staff.id;
+          }
+        }
+      }
+
       const reservation = await ReservationRepo.createReservation(
         {
           gamingCenterId,
           stationId: station.id,
           customerProfileId: offer.waitlistEntry.customerProfileId,
           customerAccountId: offer.waitlistEntry.customerAccountId,
-          createdByUserId: actor.id,
+          createdByUserId,
           startTime: offer.offeredStartTime,
           endTime: offer.offeredEndTime,
           status: 'CONFIRMED',

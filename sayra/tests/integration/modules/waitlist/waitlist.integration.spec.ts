@@ -48,6 +48,7 @@ describe('Phase 11 — Waitlist Concurrency & Integration Tests', () => {
     await prisma.user.deleteMany({ where: { gamingCenterId } });
     await prisma.customerProfile.deleteMany({ where: { gamingCenterId } });
     await prisma.customerAccount.deleteMany({ where: { id: { in: [customerAccountId1, customerAccountId2] } } });
+    await prisma.settings.deleteMany({ where: { gamingCenterId } });
     await prisma.gamingCenter.deleteMany({ where: { id: gamingCenterId } });
 
     await prisma.gamingCenter.create({
