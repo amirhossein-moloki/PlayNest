@@ -367,6 +367,31 @@ enum DiscountCodeType {
   AUTOMATIC
 }
 
+enum CampaignScopeType {
+  GLOBAL
+  SPECIFIC_GAMECENTERS
+  SPECIFIC_DEVICE_TYPES
+}
+
+enum CampaignTargetAudience {
+  ALL_USERS
+  NEW_USERS
+  LOYAL_USERS
+  SPECIFIC_USERS
+}
+
+enum CampaignStatus {
+  ACTIVE
+  INACTIVE
+  SCHEDULED
+  EXPIRED
+}
+
+enum ReviewApprovalPolicy {
+  AUTO
+  MANUAL
+}
+
 enum RefundStatus {
   PENDING
   SUCCESSFUL
@@ -2152,10 +2177,29 @@ model DiscountCampaign {
   gamingCenterId String?
   gamingCenter   GamingCenter? @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
 
+  title       String?
   name        String
   code        String?          @unique
   codeType    DiscountCodeType @default(PROMO_CODE)
   description String?
+
+  discountType   DiscountValueType?
+  discountValue  Float?
+  minOrderAmount Float?
+
+  scopeType              CampaignScopeType?      @default(GLOBAL)
+  applicableGamecenterIds String[]               @default([])
+  applicableDeviceTypes   GameStationType[]      @default([])
+
+  targetAudience CampaignTargetAudience? @default(ALL_USERS)
+  specificUserIds String[]               @default([])
+
+  totalUsageLimit   Int?
+  perUserUsageLimit Int?
+
+  status CampaignStatus? @default(ACTIVE)
+
+  deletedAt DateTime? @db.Timestamptz(6)
 
   targetType DiscountTargetType @default(GAMING_CENTER)
   targetId   String?
@@ -2190,6 +2234,40 @@ model DiscountCampaign {
 
   @@index([gamingCenterId, isActive, startAt, endAt])
   @@index([code])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model PlatformSetting {
+  id String @id @default("default")
+
+  // General Settings
+  siteTitle          String  @default("PlayNest")
+  supportPhone       String  @default("02188888888")
+  supportEmail       String  @default("support@playnest.com")
+  centralAddress     String  @default("Tehran, Iran")
+  maintenanceMode    Boolean @default(false)
+  maintenanceMessage String  @default("Site is undergoing maintenance. Please check back later.")
+
+  // Reservation Rules
+  platformCommissionPercent    Float @default(5.0)
+  maxAdvanceBookingDays        Int   @default(14)
+  onlinePaymentTimeoutMinutes  Int   @default(15)
+  cancellationPenaltyPercent   Float @default(10.0)
+  freeCancellationHours        Int   @default(2)
+
+  // Notification Settings
+  autoSendBookingSms              Boolean @default(true)
+  autoSendReminderSms             Boolean @default(true)
+  welcomeSmsTemplate              String  @default("Welcome to PlayNest, {name}!")
+  bookingConfirmationSmsTemplate  String  @default("Your booking #{id} at {center} is confirmed.")
+  bookingReminderSmsTemplate      String  @default("Reminder: Your booking #{id} starts in {hours} hours.")
+
+  // Review Moderation Settings
+  reviewApprovalPolicy ReviewApprovalPolicy @default(AUTO)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model DiscountUsage {

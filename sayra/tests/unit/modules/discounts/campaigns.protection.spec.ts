@@ -46,7 +46,7 @@ describe('Campaign Discount Engine & Merchant Revenue Protection Tests', () => {
   });
 
   describe('Campaign Validation Logic', () => {
-    const activeCampaign: DiscountCampaign = {
+    const activeCampaign = {
       id: 'camp-1',
       gamingCenterId,
       name: 'Summer Sale',
@@ -71,7 +71,7 @@ describe('Campaign Discount Engine & Merchant Revenue Protection Tests', () => {
       createdByUserId: 'admin-1',
       createdAt: new Date(),
       updatedAt: new Date(),
-    };
+    } as unknown as DiscountCampaign;
 
     it('should validate an eligible campaign successfully', async () => {
       MockedDiscountsRepo.countUserCampaignUsages.mockResolvedValue(0);
@@ -138,7 +138,7 @@ describe('Campaign Discount Engine & Merchant Revenue Protection Tests', () => {
       const basePrice = 1000000; // 1,000,000 IRR
       const voucherCode = 'PLATFORM20';
 
-      const campaign: DiscountCampaign = {
+      const campaign = {
         id: 'camp-plat',
         gamingCenterId,
         name: 'Platform Subsidy Campaign',
@@ -163,7 +163,7 @@ describe('Campaign Discount Engine & Merchant Revenue Protection Tests', () => {
         createdByUserId: 'admin-1',
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
+      } as unknown as DiscountCampaign;
 
       MockedDiscountsRepo.findCampaignByCode.mockResolvedValue(campaign);
       MockedDiscountsRepo.findCampaignByCodeForUpdate.mockResolvedValue(campaign);
@@ -211,7 +211,7 @@ describe('Campaign Discount Engine & Merchant Revenue Protection Tests', () => {
       const basePrice = 1000000;
       const voucherCode = 'MERCHANT10';
 
-      const campaign: DiscountCampaign = {
+      const campaign = {
         id: 'camp-merch',
         gamingCenterId,
         name: 'Merchant Local Discount',
@@ -236,7 +236,7 @@ describe('Campaign Discount Engine & Merchant Revenue Protection Tests', () => {
         createdByUserId: 'merchant-1',
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
+      } as unknown as DiscountCampaign;
 
       MockedDiscountsRepo.findCampaignByCode.mockResolvedValue(campaign);
       MockedDiscountsRepo.findCampaignByCodeForUpdate.mockResolvedValue(campaign);
