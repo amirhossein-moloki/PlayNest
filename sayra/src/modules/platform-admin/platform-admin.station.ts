@@ -312,4 +312,171 @@ export const PlatformAdminStation = {
       },
     };
   },
+
+  async listReservations(query: {
+    page: number;
+    limit: number;
+    search?: string;
+    city?: string;
+    gamingCenterId?: string;
+    customerId?: string;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+    sortBy: 'startTime' | 'endTime' | 'createdAt' | 'totalPrice' | 'status';
+    sortOrder: 'asc' | 'desc';
+  }) {
+    const skip = (query.page - 1) * query.limit;
+    const where: Prisma.ReservationWhereInput = {};
+
+    if (query.gamingCenterId) {
+      where.gamingCenterId = query.gamingCenterId;
+    }
+
+    if (query.customerId) {
+      where.customerAccountId = query.customerId;
+    }
+
+    if (query.city) {
+      where.gamingCenter = {
+        addresses: {
+          some: {
+            city: {
+              contains: query.city,
+              mode: 'insensitive',
+            },
+          },
+        },
+      } as any;
+    }
+
+    if (query.status) {
+      const normalizedStatus = query.status.toUpperCase();
+      if (normalizedStatus === 'PAID') {
+        where.paymentState = 'PAID' as any;
+      } else if (normalizedStatus === 'CANCELLED' || normalizedStatus === 'CANCELED') {
+        where.status = 'CANCELED' as any;
+      } else if (normalizedStatus === 'REJECTED') {
+        where.status = 'CANCELED' as any;
+      } else {
+        where.status = normalizedStatus as any;
+      }
+    }
+
+    if (query.startDate || query.endDate) {
+      where.startTime = {};
+      if (query.startDate) {
+        where.startTime.gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        where.startTime.lte = new Date(query.endDate);
+      }
+    }
+
+    if (query.search) {
+      const search = query.search;
+      where.OR = [
+        { id: { contains: search, mode: 'insensitive' } },
+        { customerAccount: { phone: { contains: search } } },
+        { customerAccount: { fullName: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const { items, total } = await PlatformAdminRepo.listReservations({
+      skip,
+      take: query.limit,
+      where,
+      orderBy: { [query.sortBy]: query.sortOrder },
+    });
+
+    const formattedItems = items.map((r: any) => {
+      // Find primary city or first address city
+      const addresses = r.gamingCenter?.addresses || [];
+      const primaryAddress = addresses.find((a: any) => a.isPrimary) || addresses[0];
+      const city = primaryAddress?.city || null;
+
+      // Find latest or successful payment
+      const payment = r.payments && r.payments.length > 0 ? r.payments[0] : null;
+
+      const durationHours = r.totalHours ?? null;
+
+      // Calculate finalPrice
+      const finalPrice = r.customerPayableAmount !== undefined && r.customerPayableAmount !== null
+        ? r.customerPayableAmount
+        : Math.max(0, (r.totalPrice || 0) - (r.discountAmount || 0));
+
+      const reservationDate = r.startTime
+        ? new Date(r.startTime).toISOString().split('T')[0]
+        : null;
+
+      return {
+        id: r.id,
+        reservationCode: r.id.startsWith('res_') || r.id.startsWith('cuid_res_')
+          ? `RES-${r.id.split('_').pop()!.toUpperCase()}`
+          : `RES-${r.id.slice(-6).toUpperCase()}`,
+        status: r.status,
+        startTime: r.startTime ? new Date(r.startTime).toISOString() : null,
+        endTime: r.endTime ? new Date(r.endTime).toISOString() : null,
+        reservationDate,
+        duration: durationHours,
+        totalPrice: r.totalPrice,
+        discountAmount: r.discountAmount || 0,
+        finalPrice,
+        createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : null,
+        updatedAt: r.updatedAt ? new Date(r.updatedAt).toISOString() : null,
+        customer: r.customerAccount
+          ? {
+            id: r.customerAccount.id,
+            fullName: r.customerAccount.fullName || '',
+            phone: r.customerAccount.phone || '',
+            email: null,
+          }
+          : null,
+        gamingCenter: r.gamingCenter
+          ? {
+            id: r.gamingCenter.id,
+            name: r.gamingCenter.name,
+            slug: r.gamingCenter.slug,
+            city,
+          }
+          : null,
+        station: r.station
+          ? {
+            id: r.station.id,
+            name: r.station.name,
+            type: r.station.stationType,
+          }
+          : null,
+        payment: payment
+          ? {
+            id: payment.id,
+            status: payment.status,
+            amount: payment.amount,
+            method: payment.method,
+            transactionId: payment.providerPaymentId || payment.referenceCode || null,
+            paidAt: payment.paidAt ? new Date(payment.paidAt).toISOString() : null,
+          }
+          : null,
+        discount: r.discount
+          ? {
+            id: r.discount.id,
+            code: r.discount.code,
+            percentage: r.discount.percentage,
+            fixedAmount: r.discount.fixedAmount,
+            discountType: r.discount.discountType,
+          }
+          : null,
+      };
+    });
+
+    return {
+      items: formattedItems,
+      pagination: {
+        page: query.page,
+        limit: query.limit,
+        totalItems: total,
+        totalPages: Math.ceil(total / query.limit),
+      },
+    };
+  },
 };

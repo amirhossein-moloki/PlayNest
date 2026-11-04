@@ -7321,6 +7321,246 @@ paths:
                 $ref: '#/components/schemas/Success'
         '403':
           $ref: '#/components/responses/ForbiddenError'
+  /platform-admin/reservations:
+    get:
+      summary: List all reservations across all gaming centers
+      description: Returns aggregated reservations from all gaming centers for platform admins with filtering and pagination.
+      tags:
+      - PlatformAdmin
+      operationId: get_platform_admin_reservations
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: page
+        in: query
+        description: Page number for pagination
+        schema:
+          type: integer
+          default: 1
+      - name: limit
+        in: query
+        description: Number of reservations per page
+        schema:
+          type: integer
+          default: 20
+      - name: search
+        in: query
+        description: Search by customer name, customer phone, or reservation code/ID
+        schema:
+          type: string
+      - name: city
+        in: query
+        description: Filter by gaming center city
+        schema:
+          type: string
+      - name: gamingCenterId
+        in: query
+        description: Filter by gaming center ID
+        schema:
+          type: string
+      - name: customerId
+        in: query
+        description: Filter by customer account ID
+        schema:
+          type: string
+      - name: status
+        in: query
+        description: Filter by reservation status
+        schema:
+          type: string
+          enum: [PENDING, CONFIRMED, PAID, CANCELLED, CANCELED, COMPLETED, EXPIRED, REJECTED, IN_PROGRESS, NO_SHOW]
+      - name: startDate
+        in: query
+        description: Start date filter (ISO 8601 datetime)
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        description: End date filter (ISO 8601 datetime)
+        schema:
+          type: string
+          format: date-time
+      - name: sortBy
+        in: query
+        description: Sort field
+        schema:
+          type: string
+          enum: [startTime, endTime, createdAt, totalPrice, status]
+          default: createdAt
+      - name: sortOrder
+        in: query
+        description: Sort order
+        schema:
+          type: string
+          enum: [asc, desc, ASC, DESC]
+          default: desc
+      responses:
+        '200':
+          description: List of reservations with pagination meta
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: res_cuid123
+                        reservationCode:
+                          type: string
+                          example: RES-10001
+                        status:
+                          type: string
+                          example: CONFIRMED
+                        startTime:
+                          type: string
+                          format: date-time
+                          example: '2026-11-04T10:00:00Z'
+                        endTime:
+                          type: string
+                          format: date-time
+                          example: '2026-11-04T12:00:00Z'
+                        reservationDate:
+                          type: string
+                          example: '2026-11-04'
+                        duration:
+                          type: number
+                          example: 2
+                        totalPrice:
+                          type: number
+                          example: 500000
+                        discountAmount:
+                          type: number
+                          example: 50000
+                        finalPrice:
+                          type: number
+                          example: 450000
+                        createdAt:
+                          type: string
+                          format: date-time
+                        updatedAt:
+                          type: string
+                          format: date-time
+                        customer:
+                          type: object
+                          nullable: true
+                          properties:
+                            id:
+                              type: string
+                              example: customer_123
+                            fullName:
+                              type: string
+                              example: Customer Name
+                            phone:
+                              type: string
+                              example: '09120000000'
+                            email:
+                              type: string
+                              nullable: true
+                        gamingCenter:
+                          type: object
+                          nullable: true
+                          properties:
+                            id:
+                              type: string
+                              example: gc_123
+                            name:
+                              type: string
+                              example: Gaming Center
+                            slug:
+                              type: string
+                              example: gaming-center
+                            city:
+                              type: string
+                              nullable: true
+                              example: Tehran
+                        station:
+                          type: object
+                          nullable: true
+                          properties:
+                            id:
+                              type: string
+                              example: station_123
+                            name:
+                              type: string
+                              example: Station 01
+                            type:
+                              type: string
+                              example: PC
+                        payment:
+                          type: object
+                          nullable: true
+                          properties:
+                            id:
+                              type: string
+                              example: pay_123
+                            status:
+                              type: string
+                              example: PAID
+                            amount:
+                              type: number
+                              example: 450000
+                            method:
+                              type: string
+                              example: ONLINE
+                            transactionId:
+                              type: string
+                              nullable: true
+                              example: txn_123
+                            paidAt:
+                              type: string
+                              format: date-time
+                              nullable: true
+                        discount:
+                          type: object
+                          nullable: true
+                          properties:
+                            id:
+                              type: string
+                            code:
+                              type: string
+                            percentage:
+                              type: number
+                              nullable: true
+                            fixedAmount:
+                              type: number
+                              nullable: true
+                            discountType:
+                              type: string
+                  meta:
+                    type: object
+                    properties:
+                      pagination:
+                        type: object
+                        properties:
+                          page:
+                            type: integer
+                            example: 1
+                          pageSize:
+                            type: integer
+                            example: 20
+                          totalItems:
+                            type: integer
+                            example: 125
+                          totalPages:
+                            type: integer
+                            example: 7
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /platform-admin/operations/overview:
     get:
       summary: Platform-wide operational overview

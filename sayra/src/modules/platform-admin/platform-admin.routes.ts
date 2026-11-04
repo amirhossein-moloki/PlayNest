@@ -37,6 +37,9 @@ router.post('/users/:id/revoke-sessions', asyncHandler(PlatformAdminController.r
 // Customers Management across all centers
 router.get('/customers', asyncHandler(PlatformAdminController.listCustomers));
 
+// Reservations Management across all gaming centers
+router.get('/reservations', asyncHandler(PlatformAdminController.listReservations));
+
 // Operational Overview across all centers
 router.get('/operations/overview', asyncHandler(PlatformAdminController.getOperationsOverview));
 
