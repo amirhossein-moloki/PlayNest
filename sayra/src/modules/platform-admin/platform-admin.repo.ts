@@ -201,4 +201,84 @@ export const PlatformAdminRepo = {
 
     return { items, total };
   },
+
+  async listReservations(params: {
+    skip: number;
+    take: number;
+    where: Prisma.ReservationWhereInput;
+    orderBy: Prisma.ReservationOrderByWithRelationInput | Prisma.ReservationOrderByWithRelationInput[];
+  }) {
+    const [items, total] = await Promise.all([
+      (prisma as any).reservation.findMany({
+        where: params.where,
+        skip: params.skip,
+        take: params.take,
+        orderBy: params.orderBy,
+        include: {
+          gamingCenter: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              addresses: {
+                select: {
+                  city: true,
+                  isPrimary: true,
+                },
+              },
+            },
+          },
+          customerAccount: {
+            select: {
+              id: true,
+              fullName: true,
+              phone: true,
+            },
+          },
+          customerProfile: {
+            select: {
+              id: true,
+              displayName: true,
+            },
+          },
+          station: {
+            select: {
+              id: true,
+              name: true,
+              stationType: true,
+            },
+          },
+          payments: {
+            select: {
+              id: true,
+              status: true,
+              amount: true,
+              method: true,
+              providerPaymentId: true,
+              paidAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+          discount: {
+            select: {
+              id: true,
+              value: true,
+              valueType: true,
+            },
+          },
+          campaign: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+            },
+          },
+        },
+      }),
+      (prisma as any).reservation.count({ where: params.where }),
+    ]);
+
+    return { items, total };
+  },
 };
