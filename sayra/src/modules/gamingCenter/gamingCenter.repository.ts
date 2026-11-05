@@ -51,6 +51,7 @@ type GamingCenterWithRelations = Prisma.GamingCenterGetPayload<{
     addresses: true;
     ratings: true;
     settings: true;
+    manager: true;
   };
 }> & {
   stations?: GameStation[];
@@ -64,6 +65,7 @@ export function transformGamingCenter(
   const ratings: Rating[] = gc.ratings || [];
   const settings: Settings | null = gc.settings || null;
   const addresses: Address[] = gc.addresses || [];
+  const manager = gc.manager || null;
 
   let hasPc = (deviceCounts ? deviceCounts.PC > 0 : false) || gc.pcCount > 0;
   let hasPs4 = false;
@@ -142,6 +144,16 @@ export function transformGamingCenter(
     createdAt: gc.createdAt,
     updatedAt: gc.updatedAt,
     addresses,
+    ...(manager
+      ? {
+        owner: {
+          id: manager.id,
+          fullName: manager.fullName,
+          role: manager.role,
+          type: 'USER' as const,
+        },
+      }
+      : {}),
     ...(deviceCounts ? { deviceCounts } : {}),
   };
 }
@@ -224,6 +236,7 @@ export const gamingCenterRepository = {
           stations: true,
           ratings: true,
           settings: true,
+          manager: true,
         },
       });
 
@@ -406,6 +419,7 @@ export const gamingCenterRepository = {
           addresses: true,
           ratings: true,
           settings: true,
+          manager: true,
         },
       }),
       prisma.gamingCenter.count({ where }),

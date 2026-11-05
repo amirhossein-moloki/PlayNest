@@ -517,6 +517,10 @@ model GamingCenter {
   hasFoodService Boolean  @default(false)
   games          String[] @default([])
 
+  // Direct 1-to-1 Manager relationship (Each gaming center has at most one manager, each manager manages at most one center)
+  managerId    String? @unique
+  manager      User?   @relation("GamingCenterManager", fields: [managerId], references: [id], onDelete: SetNull)
+
   users        User[]
   stations     GameStation[]
   reservations Reservation[]
@@ -606,6 +610,7 @@ model User {
   bio        String? @db.Text
   avatarUrl  String?
 
+  managedGamingCenter   GamingCenter?             @relation("GamingCenterManager")
   authorProfile         AuthorProfile?
   shifts                StaffShift[]
   reservationsAsStaff   Reservation[]             @relation("ReservationStaff")

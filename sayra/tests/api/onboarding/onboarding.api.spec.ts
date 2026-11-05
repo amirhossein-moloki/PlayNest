@@ -269,6 +269,10 @@ describe('GameCenter Onboarding Flow API', () => {
         slug: 'play-zone-tajrish',
         isActive: true,
       });
+      (prisma as any).gamingCenter.update = jest.fn().mockResolvedValue({
+        id: 'gc_new_100',
+        managerId: 'user_manager_1',
+      });
       (prisma as any).address = { create: jest.fn().mockResolvedValue({ id: 'addr_1' }) };
       (prisma as any).settings = { create: jest.fn().mockResolvedValue({ id: 'sett_1' }) };
       (prisma as any).user.findFirst.mockResolvedValue(null);

@@ -68,6 +68,12 @@ export async function seedUsersAndCustomers(
     });
     managerIdByCenter[center.id] = manager.id;
 
+    // Link 1-to-1 manager to GamingCenter
+    await prisma.gamingCenter.update({
+      where: { id: center.id },
+      data: { managerId: manager.id },
+    });
+
     const staffConfigs = [
       { role: ShiftRole.CASHIER, title: 'صندوق‌دار' },
       { role: ShiftRole.TECH_SUPPORT, title: 'پشتیبان فنی شبکه و سیستم‌ها' },

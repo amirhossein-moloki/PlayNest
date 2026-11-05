@@ -57,6 +57,17 @@ export const gamingCenterStation = {
           }
         }
 
+        // Strict 1-to-1 manager check: ensure this user does not manage any other gaming center
+        const existingManagedCenter = await tx.gamingCenter.findUnique({
+          where: { managerId: userRecord.id },
+        });
+        if (existingManagedCenter && existingManagedCenter.id !== createdCenter.id) {
+          throw new AppError(
+            'This manager is already assigned to another GamingCenter. A manager can only manage one gaming center.',
+            httpStatus.CONFLICT
+          );
+        }
+
         // Do not silently change an ADMIN role to MANAGER
         const targetRole = userRecord.role === UserRole.ADMIN ? UserRole.ADMIN : UserRole.MANAGER;
 
@@ -70,6 +81,12 @@ export const gamingCenterStation = {
           tx
         );
 
+        // Link manager to the newly created gaming center (1-to-1 relation)
+        await tx.gamingCenter.update({
+          where: { id: createdCenter.id },
+          data: { managerId: userRecord.id },
+        });
+
         resolvedOwner = {
           id: userRecord.id,
           fullName: userRecord.fullName,
@@ -82,15 +99,29 @@ export const gamingCenterStation = {
         // Associate or provision a dedicated MANAGER User for the new GamingCenter if not already existing.
         const admin = platformAdminRecord!;
 
-        const existingCenterManager = await tx.user.findFirst({
+        let managerUser = await tx.user.findFirst({
           where: {
             gamingCenterId: createdCenter.id,
             phone: admin.phone,
           },
         });
 
-        if (!existingCenterManager) {
-          await gamingCenterRepository.createUser(
+        if (!managerUser) {
+          // Check if a user with this phone is already managing another center
+          const existingManagerWithPhone = await tx.user.findFirst({
+            where: {
+              phone: admin.phone,
+              managedGamingCenter: { isNot: null },
+            },
+          });
+          if (existingManagerWithPhone) {
+            throw new AppError(
+              'A manager with this phone number is already managing another GamingCenter.',
+              httpStatus.CONFLICT
+            );
+          }
+
+          managerUser = await gamingCenterRepository.createUser(
             {
               gamingCenterId: createdCenter.id,
               fullName: admin.fullName,
@@ -105,6 +136,12 @@ export const gamingCenterStation = {
             tx
           );
         }
+
+        // Link manager to the gaming center
+        await tx.gamingCenter.update({
+          where: { id: createdCenter.id },
+          data: { managerId: managerUser.id },
+        });
 
         resolvedOwner = {
           id: admin.id,

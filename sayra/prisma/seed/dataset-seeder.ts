@@ -346,9 +346,21 @@ export async function seedFromDataset(
               publicName: u.publicName || u.fullName,
             },
           });
+          if (role === UserRole.MANAGER) {
+            await prisma.gamingCenter.update({
+              where: { id: realCenterId },
+              data: { managerId: created.id },
+            });
+          }
           userIdMap.set(u.id, created.id);
           metrics.dependentRecordsCreated++;
         } else {
+          if (existing.role === UserRole.MANAGER) {
+            await prisma.gamingCenter.update({
+              where: { id: realCenterId },
+              data: { managerId: existing.id },
+            });
+          }
           userIdMap.set(u.id, existing.id);
           metrics.duplicateRecordsIdentified++;
         }

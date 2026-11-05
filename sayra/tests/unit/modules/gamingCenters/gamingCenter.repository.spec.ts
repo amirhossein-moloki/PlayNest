@@ -56,6 +56,7 @@ describe('GamingCenterRepository', () => {
           stations: true,
           ratings: true,
           settings: true,
+          manager: true,
         },
       });
 
@@ -103,6 +104,7 @@ describe('GamingCenterRepository', () => {
           stations: true,
           ratings: true,
           settings: true,
+          manager: true,
         },
       });
 

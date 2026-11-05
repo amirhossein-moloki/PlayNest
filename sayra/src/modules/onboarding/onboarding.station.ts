@@ -370,10 +370,18 @@ export const OnboardingStation = {
         },
       });
 
-      // 4. Create or reassign Manager User
+      // 4. Check 1-to-1 manager constraint & create or reassign Manager User
       let managerUser = await tx.user.findFirst({
         where: { phone: draft.managerPhone },
+        include: { managedGamingCenter: true },
       });
+
+      if (managerUser && managerUser.managedGamingCenter && managerUser.managedGamingCenter.id !== createdCenter.id) {
+        throw new AppError(
+          'This phone number is already assigned as a manager to another GamingCenter. A manager can only manage one gaming center.',
+          httpStatus.CONFLICT
+        );
+      }
 
       if (!managerUser) {
         managerUser = await tx.user.create({
@@ -397,6 +405,14 @@ export const OnboardingStation = {
           },
         });
       }
+
+      // Link GamingCenter to Manager (1-to-1 relation)
+      await tx.gamingCenter.update({
+        where: { id: createdCenter.id },
+        data: {
+          managerId: managerUser.id,
+        },
+      });
 
       // 5. Connect Logo Media if provided
       if (draft.logoMediaId) {
