@@ -805,6 +805,10 @@ components:
           type: boolean
         description:
           type: string
+        managerId:
+          type: string
+          nullable: true
+          description: Unique ID of the manager user managing this gaming center (1-to-1 relationship)
         createdAt:
           type: string
           format: date-time

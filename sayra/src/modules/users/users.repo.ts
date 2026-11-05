@@ -92,3 +92,57 @@ export const updateUser = async (
     data,
   });
 };
+
+export const findGamingCenterManager = async (gamingCenterId: string) => {
+  return prisma.gamingCenter.findUnique({
+    where: { id: gamingCenterId },
+    select: { managerId: true },
+  });
+};
+
+export const findActiveManagerInCenter = async (gamingCenterId: string, excludeUserId?: string) => {
+  return prisma.user.findFirst({
+    where: {
+      gamingCenterId,
+      role: 'MANAGER',
+      isActive: true,
+      ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
+    },
+  });
+};
+
+export const findManagerByPhone = async (phone: string) => {
+  return prisma.user.findFirst({
+    where: {
+      phone,
+      role: 'MANAGER',
+      isActive: true,
+    },
+    include: {
+      managedGamingCenter: true,
+    },
+  });
+};
+
+export const findOtherCenterManagedByUser = async (userId: string, gamingCenterId: string) => {
+  return prisma.gamingCenter.findFirst({
+    where: {
+      managerId: userId,
+      id: { not: gamingCenterId },
+    },
+  });
+};
+
+export const setGamingCenterManager = async (gamingCenterId: string, managerId: string | null) => {
+  return prisma.gamingCenter.update({
+    where: { id: gamingCenterId },
+    data: { managerId },
+  });
+};
+
+export const clearGamingCenterManager = async (gamingCenterId: string, managerId: string) => {
+  return prisma.gamingCenter.updateMany({
+    where: { id: gamingCenterId, managerId },
+    data: { managerId: null },
+  });
+};

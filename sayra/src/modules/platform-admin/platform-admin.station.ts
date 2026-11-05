@@ -189,7 +189,37 @@ export const PlatformAdminStation = {
       }
     }
 
-    // 4. Hash password
+    const role = (data.role as any) || 'MANAGER';
+
+    // 4. 1-to-1 manager constraint checks if role is MANAGER
+    if (role === 'MANAGER') {
+      if (gamingCenter.managerId) {
+        throw new AppError('This gaming center already has a manager. Each gaming center can only have one manager.', httpStatus.CONFLICT);
+      }
+      const existingCenterManager = await (prisma as any).user.findFirst({
+        where: {
+          gamingCenterId: data.gamingCenterId,
+          role: 'MANAGER',
+          isActive: true,
+        },
+      });
+      if (existingCenterManager) {
+        throw new AppError('This gaming center already has an active manager. Each gaming center can only have one manager.', httpStatus.CONFLICT);
+      }
+
+      const existingManagerWithPhone = await (prisma as any).user.findFirst({
+        where: {
+          phone: data.phone,
+          role: 'MANAGER',
+          isActive: true,
+        },
+      });
+      if (existingManagerWithPhone) {
+        throw new AppError('This user is already a manager of another gaming center. A manager can only manage one gaming center.', httpStatus.CONFLICT);
+      }
+    }
+
+    // 5. Hash password
     const passwordHash = data.password ? await argon2.hash(data.password) : null;
     const fullName = `${data.firstName.trim()} ${data.lastName.trim()}`.trim();
 
@@ -199,9 +229,16 @@ export const PlatformAdminStation = {
       phone: data.phone,
       email: data.email || null,
       passwordHash,
-      role: (data.role as any) || 'MANAGER',
+      role,
       isActive: data.isActive !== undefined ? data.isActive : true,
     });
+
+    if (role === 'MANAGER') {
+      await (prisma as any).gamingCenter.update({
+        where: { id: data.gamingCenterId },
+        data: { managerId: created.id },
+      });
+    }
 
     await auditService.recordLog({
       gamingCenterId: data.gamingCenterId,
@@ -316,6 +353,14 @@ export const PlatformAdminStation = {
       await PlatformAdminRepo.revokeUserSessions(userId);
       await invalidateActorCache(userId, 'USER');
 
+      // Clear gaming center managerId if deleted user was manager
+      if (user.role === 'MANAGER') {
+        await (prisma as any).gamingCenter.updateMany({
+          where: { id: user.gamingCenterId, managerId: userId },
+          data: { managerId: null },
+        });
+      }
+
       await auditService.recordLog({
         gamingCenterId: user.gamingCenterId,
         platformAdminId: adminActor.id || (adminActor as any).actorId,
@@ -335,6 +380,12 @@ export const PlatformAdminStation = {
     } else {
       // Hard delete if clean
       await PlatformAdminRepo.revokeUserSessions(userId);
+      if (user.role === 'MANAGER') {
+        await (prisma as any).gamingCenter.updateMany({
+          where: { id: user.gamingCenterId, managerId: userId },
+          data: { managerId: null },
+        });
+      }
       await PlatformAdminRepo.deleteUser(userId);
       await invalidateActorCache(userId, 'USER');
 
