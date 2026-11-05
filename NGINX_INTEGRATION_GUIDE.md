@@ -40,6 +40,7 @@ graph TD
 - `/api/v1/` & `/api/reservations/` → `sayra` backend service (`http://sayra:3000`).
 - `/health`, `/api-docs`, `/swagger`, `/redoc`, `/redoc-assets`, `/docs`, `/openapi.yaml`, `/openapi.json` → `sayra` health checks and Sayra documentation endpoints.
 - `${MEDIA_LOCAL_PUBLIC_PATH}` (e.g. `/media`) → Static media storage (`/app/storage`).
+- `/uploads/` → User uploaded media files served via `sayra` Express backend (`http://sayra:3000/uploads/`).
 - `/` → Gateway status placeholder.
 
 ### 2. Blog Platform (`blog.playnest.com`)
