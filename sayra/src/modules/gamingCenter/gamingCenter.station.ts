@@ -2,7 +2,7 @@ import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { gamingCenterRepository } from './gamingCenter.repository';
 import { CreateGamingCenterInput, UpdateGamingCenterInput } from './gamingCenter.types';
-import { ListGamingCentersQuery } from './gamingCenter.validation';
+import { ListGamingCentersQuery, GetGamingCenterDetailsQuery } from './gamingCenter.validation';
 import { SessionActorType, UserRole } from '@prisma/client';
 import { auditService } from '../audit/audit.station';
 import { invalidateActorCache } from '../../common/middleware/auth';
@@ -145,8 +145,8 @@ export const gamingCenterStation = {
     };
   },
 
-  async getGamingCenterById(id: string) {
-    const gamingCenter = await gamingCenterRepository.findById(id);
+  async getGamingCenterById(id: string, options?: GetGamingCenterDetailsQuery) {
+    const gamingCenter = await gamingCenterRepository.findById(id, options);
     if (!gamingCenter) {
       throw new AppError('GamingCenter not found', httpStatus.NOT_FOUND);
     }

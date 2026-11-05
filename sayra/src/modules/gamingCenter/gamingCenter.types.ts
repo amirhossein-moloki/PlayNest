@@ -5,6 +5,14 @@ import { createGamingCenterSchema, updateGamingCenterSchema } from './gamingCent
 export type CreateGamingCenterInput = z.infer<typeof createGamingCenterSchema>;
 export type UpdateGamingCenterInput = z.infer<typeof updateGamingCenterSchema>;
 
+export interface DeviceTypeCounts {
+  PC: number;
+  PLAYSTATION: number;
+  XBOX: number;
+  SWITCH: number;
+  VR: number;
+}
+
 export interface GamingCenterListItem {
   id: string;
   name: string;
@@ -24,6 +32,7 @@ export interface GamingCenterListItem {
   createdAt: Date | string;
   updatedAt: Date | string;
   addresses: Address[];
+  deviceCounts?: DeviceTypeCounts;
   owner?: {
     id: string;
     fullName: string;
