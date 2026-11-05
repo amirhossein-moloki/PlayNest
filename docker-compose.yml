@@ -61,6 +61,7 @@ services:
       - SAYRA_SMTP_REPLY_TO=${SAYRA_SMTP_REPLY_TO:-support@playenest.com}
     volumes:
       - app_storage:/app/storage
+      - app_uploads:/app/uploads
     command: ["./scripts/wait-for-db.sh", "db", "node", "dist/server.js"]
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => { if (r.statusCode === 200) process.exit(0); else process.exit(1); }).on('error', () => process.exit(1))"]
@@ -326,6 +327,7 @@ volumes:
   postgres_data:
   redis_data:
   app_storage:
+  app_uploads:
   blog_redis_data:
   blog_static:
   blog_media:
