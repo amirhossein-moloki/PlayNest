@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const createAddressSchema = z.object({
+export const addressBodySchema = z.object({
   title: z.string().optional(),
   province: z.string().optional(),
   city: z.string().min(1),
@@ -12,4 +12,15 @@ export const createAddressSchema = z.object({
   isPrimary: z.boolean().optional(),
 });
 
-export const updateAddressSchema = createAddressSchema.partial();
+export const updateAddressBodySchema = addressBodySchema.partial();
+
+export const createAddressSchema = z.object({
+  body: addressBodySchema,
+});
+
+export const updateAddressSchema = z.object({
+  body: updateAddressBodySchema,
+});
+
+export type CreateAddressInput = z.infer<typeof createAddressSchema>['body'];
+export type UpdateAddressInput = z.infer<typeof updateAddressSchema>['body'];

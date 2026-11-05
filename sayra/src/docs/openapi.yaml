@@ -11108,13 +11108,26 @@ paths:
             schema:
               type: object
               required:
-              - platform
-              - url
+              - type
+              - value
               properties:
-                platform:
+                type:
                   type: string
-                url:
+                  enum:
+                  - INSTAGRAM
+                  - WHATSAPP
+                  - TELEGRAM
+                  - WEBSITE
+                  - PHONE
+                  - GOOGLE_MAP
+                value:
                   type: string
+                label:
+                  type: string
+                isPrimary:
+                  type: boolean
+                isActive:
+                  type: boolean
       responses:
         '201':
           description: Link created
@@ -11148,6 +11161,24 @@ paths:
           application/json:
             schema:
               type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                  - INSTAGRAM
+                  - WHATSAPP
+                  - TELEGRAM
+                  - WEBSITE
+                  - PHONE
+                  - GOOGLE_MAP
+                value:
+                  type: string
+                label:
+                  type: string
+                isPrimary:
+                  type: boolean
+                isActive:
+                  type: boolean
       responses:
         '200':
           description: Link updated
@@ -11224,14 +11255,27 @@ paths:
             schema:
               type: object
               required:
-              - address
+              - city
+              - addressLine
               properties:
-                address:
+                title:
+                  type: string
+                province:
                   type: string
                 city:
                   type: string
-                phone:
+                district:
                   type: string
+                addressLine:
+                  type: string
+                postalCode:
+                  type: string
+                lat:
+                  type: number
+                lng:
+                  type: number
+                isPrimary:
+                  type: boolean
       responses:
         '201':
           description: Address created
@@ -11265,6 +11309,25 @@ paths:
           application/json:
             schema:
               type: object
+              properties:
+                title:
+                  type: string
+                province:
+                  type: string
+                city:
+                  type: string
+                district:
+                  type: string
+                addressLine:
+                  type: string
+                postalCode:
+                  type: string
+                lat:
+                  type: number
+                lng:
+                  type: number
+                isPrimary:
+                  type: boolean
       responses:
         '200':
           description: Address updated
