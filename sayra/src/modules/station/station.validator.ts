@@ -66,12 +66,84 @@ export const updateStationSchema = z.object({
   }),
 });
 
+export const ALLOWED_STATION_FIELDS = [
+  'id',
+  'gamingCenterId',
+  'name',
+  'stationType',
+  'catalogDeviceId',
+  'coverImageUrl',
+  'isVip',
+  'hourlyPrice',
+  'minRentHours',
+  'maxRentHours',
+  'defaultDurationHours',
+  'incrementMinutes',
+  'isActive',
+  'createdAt',
+  'updatedAt',
+] as const;
+
+export type StationField = (typeof ALLOWED_STATION_FIELDS)[number];
+
 export const listStationsSchema = baseFilterSchema.extend({
   minPrice: z.coerce.number().optional(),
   maxPrice: z.coerce.number().optional(),
-  stationType: z.nativeEnum(GameStationType).optional(),
+  stationType: z.preprocess(
+    (val) => {
+      if (typeof val === 'string') {
+        const upper = val.toUpperCase();
+        if (['PLAYSTATION', 'PC', 'XBOX', 'SWITCH', 'VR'].includes(upper)) {
+          return upper;
+        }
+      }
+      return val;
+    },
+    z.nativeEnum(GameStationType).optional()
+  ),
+  type: z.preprocess(
+    (val) => {
+      if (typeof val === 'string') {
+        const upper = val.toUpperCase();
+        if (['PLAYSTATION', 'PC', 'XBOX', 'SWITCH', 'VR'].includes(upper)) {
+          return upper;
+        }
+      }
+      return val;
+    },
+    z.nativeEnum(GameStationType).optional()
+  ),
   isVip: z.coerce.boolean().optional(),
   staffId: z.string().optional(),
+  ids: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .transform((val) => {
+      if (!val) return undefined;
+      const raw = Array.isArray(val) ? val.join(',') : val;
+      return raw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }),
+  fields: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .transform((val) => {
+      if (!val) return undefined;
+      const raw = Array.isArray(val) ? val.join(',') : val;
+      return raw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean) as StationField[];
+    })
+    .refine(
+      (fields) =>
+        !fields || fields.every((item) => (ALLOWED_STATION_FIELDS as readonly string[]).includes(item)),
+      {
+        message: `Invalid field requested. Allowed station fields are: ${ALLOWED_STATION_FIELDS.join(', ')}`,
+      }
+    ),
 });
 
 export type ListStationsQuery = z.infer<typeof listStationsSchema>;

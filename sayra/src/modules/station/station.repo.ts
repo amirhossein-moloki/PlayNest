@@ -65,17 +65,26 @@ export async function findStationsByGamingCenterId(gamingCenterId: string, query
     minPrice,
     maxPrice,
     stationType,
+    type,
     isVip,
     staffId,
+    ids,
+    fields,
   } = query;
   const { skip, take } = getPaginationParams(page, limit);
+
+  const resolvedStationType = stationType || type;
 
   const where: Prisma.GameStationWhereInput = {
     gamingCenterId,
     isActive: isActive !== undefined ? isActive : true,
-    stationType,
-    isVip,
+    ...(resolvedStationType ? { stationType: resolvedStationType } : {}),
+    ...(isVip !== undefined ? { isVip } : {}),
   };
+
+  if (ids && ids.length > 0) {
+    where.id = { in: ids };
+  }
 
   if (search) {
     where.name = { contains: search, mode: 'insensitive' };
@@ -83,8 +92,8 @@ export async function findStationsByGamingCenterId(gamingCenterId: string, query
 
   if (minPrice !== undefined || maxPrice !== undefined) {
     where.hourlyPrice = {
-      gte: minPrice,
-      lte: maxPrice,
+      ...(minPrice !== undefined ? { gte: minPrice } : {}),
+      ...(maxPrice !== undefined ? { lte: maxPrice } : {}),
     };
   }
 
@@ -96,12 +105,22 @@ export async function findStationsByGamingCenterId(gamingCenterId: string, query
     };
   }
 
+  // Handle selective projection if fields are specified
+  let select: Prisma.GameStationSelect | undefined = undefined;
+  if (fields && fields.length > 0) {
+    select = { id: true };
+    for (const field of fields) {
+      (select as Record<string, boolean>)[field] = true;
+    }
+  }
+
   const [data, total] = await Promise.all([
     prisma.gameStation.findMany({
       where,
       skip,
       take,
       orderBy: sortBy ? { [sortBy]: sortOrder } : { createdAt: 'desc' },
+      ...(select ? { select } : {}),
     }),
     prisma.gameStation.count({ where }),
   ]);

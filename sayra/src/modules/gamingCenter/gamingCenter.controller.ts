@@ -1,6 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { gamingCenterStation } from './gamingCenter.station';
-import { createGamingCenterSchema, updateGamingCenterSchema, listGamingCentersSchema } from './gamingCenter.validation';
+import {
+  createGamingCenterSchema,
+  updateGamingCenterSchema,
+  listGamingCentersSchema,
+  getGamingCenterDetailsSchema,
+} from './gamingCenter.validation';
 
 export const gamingCenterController = {
   async createGamingCenter(req: Request, res: Response, next: NextFunction) {
@@ -20,7 +25,8 @@ export const gamingCenterController = {
   async getGamingCenterById(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const gamingCenter = await gamingCenterStation.getGamingCenterById(id);
+      const validatedQuery = getGamingCenterDetailsSchema.parse(req.query);
+      const gamingCenter = await gamingCenterStation.getGamingCenterById(id, validatedQuery);
       res.ok(gamingCenter);
     } catch (error) {
       next(error);

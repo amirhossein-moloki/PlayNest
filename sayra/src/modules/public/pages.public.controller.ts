@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { PagesPublicStation } from './pages.public.station';
 import { gamingCenterStation } from '../gamingCenter/gamingCenter.station';
+import { getGamingCenterDetailsSchema } from '../gamingCenter/gamingCenter.validation';
 
 type PublicPageRequest = Request<{ gamingCenterSlug: string; pageSlug?: string }> & {
   tenant?: { gamingCenterId: string; gamingCenterSlug?: string };
@@ -29,8 +30,10 @@ export async function getPublicGamingCenterHome(req: PublicPageRequest, res: Res
     }
   }
 
+  const validatedQuery = getGamingCenterDetailsSchema.parse(req.query);
   const gamingCenter = await gamingCenterStation.getGamingCenterById(
-    req.tenant?.gamingCenterId || gamingCenterSlug
+    req.tenant?.gamingCenterId || gamingCenterSlug,
+    validatedQuery
   );
   res.ok(gamingCenter);
 }
