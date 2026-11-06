@@ -58,7 +58,7 @@ server {
 # 2. Main PlayNest Domain Virtual Host (e.g. playnest.com, default fallback)
 # ----------------------------------------------------------------------
 server {
-    listen 80;
+    listen 80 default_server;
     server_name ${PLAYNEST_DOMAIN} www.${PLAYNEST_DOMAIN} _;
 
     client_max_body_size 50M;
@@ -156,6 +156,61 @@ server {
 
     location /openapi.json {
         proxy_pass http://sayra_backend/openapi.json;
+    }
+
+    # ------------------------------------------------------------------
+    # Blog Service Proxy & Asset Paths (Direct IP Access Support)
+    # ------------------------------------------------------------------
+    # Blog OpenAPI Schema & Swagger UI
+    location /blog/api/schema/ {
+        rewrite ^/blog/api/schema/(.*) /api/schema/$1 break;
+        proxy_pass http://blog_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # Blog Django Admin Panel
+    location /admin/ {
+        proxy_pass http://blog_backend/admin/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+        proxy_redirect off;
+
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # Blog Static Files (needed for Admin and Swagger UI when accessed via IP)
+    location /static/ {
+        alias /app/blog_static/;
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+        try_files $uri =404;
+    }
+
+    # Blog Media Files (Direct read from blog media volume)
+    location /blog_media/ {
+        alias /app/blog_media/;
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+        try_files $uri =404;
     }
 
     # Default / Root Route (Placeholder for future frontend)
