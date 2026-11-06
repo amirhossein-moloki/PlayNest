@@ -116,6 +116,8 @@ services:
       - ALLOWED_HOSTS=${BLOG_ALLOWED_HOSTS:-localhost,127.0.0.1,51.20.249.108,blog.sayra-booking.ir,sayra-booking.ir,api.sayra-booking.ir,blog.playnest.com}
       - CSRF_TRUSTED_ORIGINS=${BLOG_CSRF_TRUSTED_ORIGINS:-http://localhost,http://127.0.0.1,http://blog.sayra-booking.ir,https://blog.sayra-booking.ir,http://sayra-booking.ir,https://sayra-booking.ir,http://51.20.249.108}
       - CORS_ALLOWED_ORIGINS=${BLOG_CORS_ALLOWED_ORIGINS:-http://localhost,http://127.0.0.1,http://blog.sayra-booking.ir,https://blog.sayra-booking.ir,http://sayra-booking.ir,https://sayra-booking.ir}
+      - CORS_ALLOW_ALL_ORIGINS=${BLOG_CORS_ALLOW_ALL_ORIGINS:-False}
+      - CORS_ALLOW_CREDENTIALS=${BLOG_CORS_ALLOW_CREDENTIALS:-True}
     volumes:
       - blog_static:/app/staticfiles
       - blog_media:/app/media
