@@ -4,10 +4,17 @@ export const SENSITIVE_PROPERTIES = [
   'codeHash',
   'secret',
   'token',
+  'refreshToken',
+  'idempotencyKey',
+  'deduplicationKey',
+  'storageKey',
+  'apiKey',
+  'otp',
+  'secretKey',
 ];
 
 /**
- * Strips sensitive fields such as passwordHash from all AdminJS views.
+ * Strips sensitive fields such as passwordHash, tokens, secrets, and idempotency keys from all AdminJS views.
  */
 export function buildSensitivePropertiesConfiguration(): Record<string, any> {
   const propertiesConfig: Record<string, any> = {};

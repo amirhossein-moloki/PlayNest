@@ -1,0 +1,146 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { reservationStation } from '../../modules/reservation/reservation.station';
+import { RefundsStation } from '../../modules/payments/payments.refund.station';
+import { VerificationStation } from '../../modules/verification/verification.station';
+import { AdminAuditService } from './admin-audit.service';
+import { UserRole, SessionActorType } from '@prisma/client';
+import logger from '../../config/logger';
+
+export interface AdminActionContext {
+  platformAdminId: string;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+/**
+ * Service Station Bridge:
+ * Connects administrative actions from the Platform Admin Panel directly to domain stations,
+ * guaranteeing all business rules, exclusion constraints (tstzrange), financial ledgers,
+ * and state transitions are strictly executed without direct DB table tampering.
+ */
+export class AdminStationBridge {
+  /**
+   * Safe administrative cancellation of a reservation via reservationStation
+   */
+  static async cancelReservation(
+    gamingCenterId: string,
+    reservationId: string,
+    reason: string,
+    context: AdminActionContext
+  ): Promise<any> {
+    logger.info({ reservationId, gamingCenterId, adminId: context.platformAdminId }, 'AdminStationBridge: cancelling reservation');
+
+    const actor = {
+      id: context.platformAdminId,
+      role: UserRole.ADMIN,
+      actorType: SessionActorType.USER,
+    };
+
+    const result = await reservationStation.cancelReservation(
+      reservationId,
+      gamingCenterId,
+      actor,
+      { reason: `[ADMIN CANCEL] ${reason}` },
+      { ip: context.ipAddress, userAgent: context.userAgent }
+    );
+
+    await AdminAuditService.logAdminEvent({
+      platformAdminId: context.platformAdminId,
+      action: 'ADMIN_RESERVATION_CANCELLED',
+      entity: 'Reservation',
+      entityId: reservationId,
+      newData: { gamingCenterId, reason, status: 'CANCELED' },
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+    });
+
+    return result;
+  }
+
+  /**
+   * Safe administrative refund execution via RefundsStation
+   */
+  static async processRefund(
+    params: {
+      gamingCenterId: string;
+      paymentId: string;
+      amount: number;
+      currency?: string;
+      reason?: string;
+      idempotencyKey?: string;
+    },
+    context: AdminActionContext
+  ): Promise<any> {
+    logger.info({ paymentId: params.paymentId, adminId: context.platformAdminId }, 'AdminStationBridge: processing refund');
+
+    const result = await RefundsStation.requestRefund({
+      gamingCenterId: params.gamingCenterId,
+      paymentId: params.paymentId,
+      amount: params.amount,
+      currency: params.currency || 'IRR',
+      reason: `[ADMIN REFUND] ${params.reason || 'Platform Administrator override'}`,
+      requestedById: context.platformAdminId,
+      idempotencyKey: params.idempotencyKey,
+    });
+
+    await AdminAuditService.logAdminEvent({
+      platformAdminId: context.platformAdminId,
+      action: 'ADMIN_REFUND_PROCESSED',
+      entity: 'Refund',
+      entityId: (result as any)?.id || params.paymentId,
+      newData: { paymentId: params.paymentId, amount: params.amount, reason: params.reason },
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+    });
+
+    return result;
+  }
+
+  /**
+   * Safe verification decision via VerificationStation
+   */
+  static async decideVerification(
+    verificationId: string,
+    approved: boolean,
+    notes: string,
+    context: AdminActionContext
+  ): Promise<any> {
+    logger.info({ verificationId, approved, adminId: context.platformAdminId }, 'AdminStationBridge: deciding verification');
+
+    const actor = {
+      id: context.platformAdminId,
+      role: UserRole.ADMIN,
+      actorType: SessionActorType.USER,
+    };
+
+    let result;
+    if (approved) {
+      result = await VerificationStation.approveVerification(
+        verificationId,
+        context.platformAdminId,
+        actor,
+        { ip: context.ipAddress, userAgent: context.userAgent }
+      );
+    } else {
+      result = await VerificationStation.rejectVerification(
+        verificationId,
+        context.platformAdminId,
+        notes,
+        actor,
+        { ip: context.ipAddress, userAgent: context.userAgent }
+      );
+    }
+
+    await AdminAuditService.logAdminEvent({
+      platformAdminId: context.platformAdminId,
+      action: approved ? 'ADMIN_VERIFICATION_APPROVED' : 'ADMIN_VERIFICATION_REJECTED',
+      entity: 'GamingCenterVerification',
+      entityId: verificationId,
+      newData: { approved, notes },
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+    });
+
+    return result;
+  }
+}

@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { getPrismaModelTarget } from '../utils/model-access';
 import { buildSensitivePropertiesConfiguration } from './resource.defaults';
+import { ADMIN_NAVIGATION_GROUPS } from '../config/admin.navigation';
 
 /**
  * Common configuration for read-only resources:
  * Allows list and show, disables new, edit, delete, and bulkDelete.
  */
-const readOnlyActionsConfig = {
+export const readOnlyActionsConfig = {
   new: { isAccessible: false, isVisible: false },
   edit: { isAccessible: false, isVisible: false },
   delete: { isAccessible: false, isVisible: false },
@@ -22,10 +23,7 @@ export function getReadOnlyResources(): any[] {
     {
       resource: getPrismaModelTarget('Reservation'),
       options: {
-        navigation: {
-          name: 'Operations',
-          icon: 'Calendar',
-        },
+        navigation: ADMIN_NAVIGATION_GROUPS.BOOKINGS_OPERATIONS,
         actions: readOnlyActionsConfig,
         properties: buildSensitivePropertiesConfiguration(),
       },
@@ -33,10 +31,7 @@ export function getReadOnlyResources(): any[] {
     {
       resource: getPrismaModelTarget('GroupBooking'),
       options: {
-        navigation: {
-          name: 'Operations',
-          icon: 'Users',
-        },
+        navigation: ADMIN_NAVIGATION_GROUPS.BOOKINGS_OPERATIONS,
         actions: readOnlyActionsConfig,
         properties: buildSensitivePropertiesConfiguration(),
       },
@@ -44,10 +39,7 @@ export function getReadOnlyResources(): any[] {
     {
       resource: getPrismaModelTarget('Payment'),
       options: {
-        navigation: {
-          name: 'Finance',
-          icon: 'DollarSign',
-        },
+        navigation: ADMIN_NAVIGATION_GROUPS.FINANCE_BILLING,
         actions: readOnlyActionsConfig,
         properties: buildSensitivePropertiesConfiguration(),
       },
@@ -55,10 +47,7 @@ export function getReadOnlyResources(): any[] {
     {
       resource: getPrismaModelTarget('Refund'),
       options: {
-        navigation: {
-          name: 'Finance',
-          icon: 'CornerUpLeft',
-        },
+        navigation: ADMIN_NAVIGATION_GROUPS.FINANCE_BILLING,
         actions: readOnlyActionsConfig,
         properties: buildSensitivePropertiesConfiguration(),
       },
@@ -66,10 +55,7 @@ export function getReadOnlyResources(): any[] {
     {
       resource: getPrismaModelTarget('LedgerEntry'),
       options: {
-        navigation: {
-          name: 'Finance',
-          icon: 'BookOpen',
-        },
+        navigation: ADMIN_NAVIGATION_GROUPS.FINANCE_BILLING,
         actions: readOnlyActionsConfig,
         properties: buildSensitivePropertiesConfiguration(),
       },
@@ -77,10 +63,7 @@ export function getReadOnlyResources(): any[] {
     {
       resource: getPrismaModelTarget('WalletTransaction'),
       options: {
-        navigation: {
-          name: 'Finance',
-          icon: 'CreditCard',
-        },
+        navigation: ADMIN_NAVIGATION_GROUPS.FINANCE_BILLING,
         actions: readOnlyActionsConfig,
         properties: buildSensitivePropertiesConfiguration(),
       },
@@ -88,10 +71,7 @@ export function getReadOnlyResources(): any[] {
     {
       resource: getPrismaModelTarget('AuditLog'),
       options: {
-        navigation: {
-          name: 'Security',
-          icon: 'Shield',
-        },
+        navigation: ADMIN_NAVIGATION_GROUPS.SYSTEM_GOVERNANCE,
         actions: readOnlyActionsConfig,
         properties: buildSensitivePropertiesConfiguration(),
       },

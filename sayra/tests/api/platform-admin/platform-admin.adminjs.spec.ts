@@ -24,6 +24,7 @@ jest.mock('../../../src/config/prisma', () => ({
   prisma: {
     platformAdmin: {
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
       update: jest.fn(),
     },
     gamingCenter: {
@@ -46,6 +47,12 @@ jest.mock('../../../src/config/prisma', () => ({
         _count: { id: 250 },
       }),
       count: jest.fn().mockResolvedValue(8),
+    },
+    refund: {
+      aggregate: jest.fn().mockResolvedValue({
+        _sum: { amount: 2000000 },
+        _count: { id: 2 },
+      }),
     },
     auditLog: {
       findMany: jest.fn().mockResolvedValue([
@@ -240,6 +247,12 @@ describe('PlayNest Platform Admin Panel - Phase 1 Test Suite', () => {
     });
 
     it('should allow access when a valid PlatformAdmin session exists', async () => {
+      (prisma.platformAdmin.findUnique as jest.Mock).mockResolvedValue({
+        id: 'pa_123',
+        isActive: true,
+        isSuperuser: true,
+      });
+
       const res = await request(testApp)
         .get('/platform-admin-panel')
         .set('x-test-session', 'admin');
@@ -293,7 +306,7 @@ describe('PlayNest Platform Admin Panel - Phase 1 Test Suite', () => {
       for (const res of safeCrudResources) {
         const modelName = res.resource.model.name;
         expect(expectedModels).toContain(modelName);
-        expect(res.options.navigation.name).toBe('Content Management');
+        expect(res.options.navigation.name).toBe('Content & Portal');
         // Verify default actions are NOT disabled
         expect(res.options.actions?.new?.isAccessible).toBeUndefined();
       }
@@ -330,9 +343,12 @@ describe('PlayNest Platform Admin Panel - Phase 1 Test Suite', () => {
       expect(metrics.payments.totalVolume).toBe(50000000);
       expect(metrics.payments.successfulCount).toBe(250);
       expect(metrics.payments.failedCount).toBe(8);
+      expect(metrics.financials.pendingRefundsCount).toBe(2);
+      expect(metrics.financials.pendingRefundsAmount).toBe(2000000);
       expect(metrics.recentAuditLogs.length).toBe(1);
       expect(metrics.health.database.status).toBe('UP');
       expect(metrics.health.redis.status).toBe('UP');
+      expect(metrics.health.queues).toBeDefined();
     });
 
     it('should report database and redis health status', async () => {

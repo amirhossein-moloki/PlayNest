@@ -1,15 +1,38 @@
 import React from 'react';
 import { Box, H2, H4, Text, Badge, Table, TableHead, TableRow, TableCell, TableBody } from '@adminjs/design-system';
 
+interface QueueMetrics {
+  name: string;
+  waiting: number;
+  active: number;
+  failed: number;
+  delayed: number;
+  status: 'HEALTHY' | 'DEGRADED';
+}
+
 interface DashboardProps {
   data?: {
     totalGamingCenters: number;
     totalUsers: number;
+    totalManagers: number;
     reservations: {
       total: number;
       confirmed: number;
       completed: number;
       canceled: number;
+      todayTotal: number;
+      todayConfirmed: number;
+      todayActive: number;
+      todayCanceled: number;
+    };
+    financials: {
+      todayRevenue: number;
+      monthRevenue: number;
+      totalVolume: number;
+      successfulCount: number;
+      failedCount: number;
+      pendingRefundsCount: number;
+      pendingRefundsAmount: number;
     };
     payments: {
       totalVolume: number;
@@ -26,6 +49,12 @@ interface DashboardProps {
     health: {
       database: { status: 'UP' | 'DOWN'; latencyMs: number };
       redis: { status: 'UP' | 'DOWN'; latencyMs: number };
+      queues?: {
+        sms: QueueMetrics;
+        analytics: QueueMetrics;
+        cmsMedia: QueueMetrics;
+        reminders: QueueMetrics;
+      };
       timestamp: string;
     };
   };
@@ -69,7 +98,9 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
   const {
     totalGamingCenters,
     totalUsers,
+    totalManagers,
     reservations,
+    financials,
     payments,
     recentAuditLogs,
     health,
@@ -116,8 +147,9 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
 
         <div style={cardStyle}>
           <div>
-            <div style={metricTitleStyle}>Platform Users</div>
+            <div style={metricTitleStyle}>Platform Users & Managers</div>
             <div style={metricValueStyle}>{totalUsers.toLocaleString()}</div>
+            <Text color="grey80" fontSize="sm">{totalManagers.toLocaleString()} Branch Managers</Text>
           </div>
         </div>
       </Box>
@@ -125,32 +157,62 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
       {/* Operational & Financial Overview */}
       <Box mb="xl" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px' }}>
         <div style={cardStyle}>
-          <H4 mb="md" style={{ fontWeight: 700 }}>Reservation Overview</H4>
+          <H4 mb="md" style={{ fontWeight: 700 }}>Reservation Operations</H4>
           <Box mb="sm">
-            <Text color="grey80">Total Reservations: <strong>{reservations.total.toLocaleString()}</strong></Text>
+            <Text color="grey80">Today's Bookings: <strong>{reservations.todayTotal?.toLocaleString() ?? 0}</strong></Text>
           </Box>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
-            <Badge variant="info">Confirmed: {reservations.confirmed}</Badge>
-            <Badge variant="success">Completed: {reservations.completed}</Badge>
-            <Badge variant="danger">Canceled: {reservations.canceled}</Badge>
+            <Badge variant="info">Today Confirmed: {reservations.todayConfirmed ?? 0}</Badge>
+            <Badge variant="success">Today Active: {reservations.todayActive ?? 0}</Badge>
+            <Badge variant="danger">Today Canceled: {reservations.todayCanceled ?? 0}</Badge>
           </div>
+          <Box mt="md" mb="sm">
+            <Text color="grey80">All-time Reservations: <strong>{reservations.total.toLocaleString()}</strong></Text>
+          </Box>
         </div>
 
         <div style={cardStyle}>
-          <H4 mb="md" style={{ fontWeight: 700 }}>Financial Overview</H4>
+          <H4 mb="md" style={{ fontWeight: 700 }}>Financial Performance</H4>
           <Box mb="sm">
-            <Text color="grey80">Paid Transactions: <strong>{payments.successfulCount.toLocaleString()}</strong></Text>
+            <Text color="grey80">Today's Revenue: <strong>{(financials?.todayRevenue ?? 0).toLocaleString()} IRR</strong></Text>
           </Box>
           <Box mb="sm">
-            <Text color="grey80">Failed Transactions: <strong>{payments.failedCount.toLocaleString()}</strong></Text>
+            <Text color="grey80">This Month's Revenue: <strong>{(financials?.monthRevenue ?? 0).toLocaleString()} IRR</strong></Text>
+          </Box>
+          <Box mb="sm">
+            <Text color="grey80">Pending Refunds: <strong>{financials?.pendingRefundsCount ?? 0} ({(financials?.pendingRefundsAmount ?? 0).toLocaleString()} IRR)</strong></Text>
           </Box>
           <div style={{ marginTop: '8px' }}>
             <Text style={{ fontSize: '20px', fontWeight: 700, color: '#059669' }}>
-              {payments.totalVolume.toLocaleString()} <span style={{ fontSize: '13px', fontWeight: 500, color: '#6b7280' }}>Total Volume</span>
+              {(financials?.totalVolume ?? payments.totalVolume).toLocaleString()} <span style={{ fontSize: '13px', fontWeight: 500, color: '#6b7280' }}>Lifetime Volume</span>
             </Text>
           </div>
         </div>
       </Box>
+
+      {/* BullMQ Background Queues Health */}
+      {health.queues && (
+        <Box mb="xl">
+          <H4 mb="md" style={{ fontWeight: 700 }}>Background Workers & Queues</H4>
+          <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+            {Object.entries(health.queues).map(([key, q]) => (
+              <div key={key} style={cardStyle}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={metricTitleStyle}>{q.name}</span>
+                    <Badge variant={q.status === 'HEALTHY' ? 'success' : 'danger'}>{q.status}</Badge>
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '8px', fontSize: '13px' }}>
+                    <span>Wait: <strong>{q.waiting}</strong></span>
+                    <span>Act: <strong>{q.active}</strong></span>
+                    <span>Fail: <strong style={{ color: q.failed > 0 ? '#dc2626' : undefined }}>{q.failed}</strong></span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </Box>
+        </Box>
+      )}
 
       {/* Recent Administrative Activity */}
       <div style={cardStyle}>
