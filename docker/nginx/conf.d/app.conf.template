@@ -10,7 +10,7 @@ upstream blog_backend {
 limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
 
 # ----------------------------------------------------------------------
-# 1. Blog Subdomain Virtual Host (e.g. blog.playnest.com)
+# 1. Blog Subdomain Virtual Host (e.g. blog.sayra-booking.ir)
 # ----------------------------------------------------------------------
 server {
     listen 80;
@@ -55,7 +55,118 @@ server {
 }
 
 # ----------------------------------------------------------------------
-# 2. Main PlayNest Domain Virtual Host (e.g. playnest.com, default fallback)
+# 2. Sayra API Subdomain Virtual Host (e.g. api.sayra-booking.ir)
+# ----------------------------------------------------------------------
+server {
+    listen 80;
+    server_name ${API_DOMAIN};
+
+    client_max_body_size 50M;
+
+    # Static Media Files - Sayra
+    location ${MEDIA_LOCAL_PUBLIC_PATH} {
+        alias /app/storage;
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+        try_files $uri =404;
+    }
+
+    # User uploads directory served via Sayra Express app
+    location /uploads/ {
+        proxy_pass http://sayra_backend/uploads/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # Sayra API routes (/api/v1 and /api/reservations)
+    location /api/v1/ {
+        limit_req zone=api_limit burst=20 nodelay;
+
+        proxy_pass http://sayra_backend/api/v1/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    location /api/reservations/ {
+        limit_req zone=api_limit burst=20 nodelay;
+
+        proxy_pass http://sayra_backend/api/v1/reservations/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # Health Checks & Documentation (Sayra)
+    location /health {
+        proxy_pass http://sayra_backend/health;
+        access_log off;
+    }
+
+    location /api-docs {
+        proxy_pass http://sayra_backend/api-docs;
+    }
+
+    location /swagger {
+        proxy_pass http://sayra_backend/swagger;
+    }
+
+    location /redoc {
+        proxy_pass http://sayra_backend/redoc;
+    }
+
+    location /redoc-assets {
+        proxy_pass http://sayra_backend/redoc-assets;
+    }
+
+    location /docs {
+        proxy_pass http://sayra_backend/docs;
+    }
+
+    location /openapi.yaml {
+        proxy_pass http://sayra_backend/openapi.yaml;
+    }
+
+    location /openapi.json {
+        proxy_pass http://sayra_backend/openapi.json;
+    }
+
+    # Root route for API domain
+    location = / {
+        default_type application/json;
+        return 200 '{"status":"ok","service":"Sayra Backend API","version":"1.0.0","docs":"/swagger/"}';
+    }
+}
+
+# ----------------------------------------------------------------------
+# 3. Main PlayNest Domain Virtual Host (sayra-booking.ir / fallback IP _)
 # ----------------------------------------------------------------------
 server {
     listen 80 default_server;
@@ -87,7 +198,7 @@ server {
         proxy_read_timeout 60s;
     }
 
-    # Sayra API routes (/api/v1 and /api/reservations)
+    # Sayra API routes (/api/v1 and /api/reservations) for direct IP fallback
     location /api/v1/ {
         limit_req zone=api_limit burst=20 nodelay;
 
@@ -216,6 +327,6 @@ server {
     # Default / Root Route (Placeholder for future frontend)
     location = / {
         default_type application/json;
-        return 200 '{"status":"ok","service":"PlayNest Infrastructure API Gateway","sayra":"/api/v1","docs":"/api-docs"}';
+        return 200 '{"status":"ok","service":"PlayNest Infrastructure Gateway","sayra":"http://api.sayra-booking.ir/api/v1","blog":"http://blog.sayra-booking.ir/"}';
     }
 }
