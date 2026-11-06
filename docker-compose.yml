@@ -269,16 +269,21 @@ services:
     restart: always
     ports:
       - '80:80'
+      - "443:443"
     environment:
       - MEDIA_LOCAL_PUBLIC_PATH=/media
       - PLAYNEST_DOMAIN=${PLAYNEST_DOMAIN:-sayra-booking.ir}
       - BLOG_DOMAIN=${BLOG_DOMAIN:-blog.sayra-booking.ir}
       - API_DOMAIN=${API_DOMAIN:-api.sayra-booking.ir}
-      - NGINX_ENVSUBST_FILTER=MEDIA_LOCAL_PUBLIC_PATH PLAYNEST_DOMAIN BLOG_DOMAIN API_DOMAIN
+      - NGINX_ENVSUBST_FILTER=^(MEDIA_LOCAL_PUBLIC_PATH|PLAYNEST_DOMAIN|BLOG_DOMAIN|API_DOMAIN)$
     volumes:
       - app_storage:/app/storage:ro
       - blog_static:/app/blog_static:ro
       - blog_media:/app/blog_media:ro
+      - app_storage:/app/storage:ro
+      - blog_static:/app/blog_static:ro
+      - blog_media:/app/blog_media:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
       sayra:
         condition: service_healthy
