@@ -32,6 +32,8 @@ services:
       - REDIS_URL=redis://blog_redis:6379
       - USE_REDIS=True
       - SECRET_KEY=dev-secret-key-blog-playnest
+      - CORS_ALLOW_ALL_ORIGINS=True
+      - CORS_ALLOW_CREDENTIALS=True
     volumes:
       - ./Blog:/app
       - blog_static:/app/staticfiles
