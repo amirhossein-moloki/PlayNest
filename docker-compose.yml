@@ -112,9 +112,10 @@ services:
       - USE_REDIS=True
       - SECRET_KEY=${BLOG_SECRET_KEY:-replace-this-with-a-very-secret-key-for-blog}
       - DEBUG=${BLOG_DEBUG:-False}
-      - DOMAIN=${BLOG_DOMAIN:-blog.playnest.com}
-      - ALLOWED_HOSTS=${BLOG_ALLOWED_HOSTS:-localhost,127.0.0.1,blog.playnest.com}
-      - CSRF_TRUSTED_ORIGINS=${BLOG_CSRF_TRUSTED_ORIGINS:-http://localhost,http://127.0.0.1,http://blog.playnest.com,https://blog.playnest.com}
+      - DOMAIN=${BLOG_DOMAIN:-blog.sayra-booking.ir}
+      - ALLOWED_HOSTS=${BLOG_ALLOWED_HOSTS:-localhost,127.0.0.1,51.20.249.108,blog.sayra-booking.ir,sayra-booking.ir,api.sayra-booking.ir,blog.playnest.com}
+      - CSRF_TRUSTED_ORIGINS=${BLOG_CSRF_TRUSTED_ORIGINS:-http://localhost,http://127.0.0.1,http://blog.sayra-booking.ir,https://blog.sayra-booking.ir,http://sayra-booking.ir,https://sayra-booking.ir,http://51.20.249.108}
+      - CORS_ALLOWED_ORIGINS=${BLOG_CORS_ALLOWED_ORIGINS:-http://localhost,http://127.0.0.1,http://blog.sayra-booking.ir,https://blog.sayra-booking.ir,http://sayra-booking.ir,https://sayra-booking.ir}
     volumes:
       - blog_static:/app/staticfiles
       - blog_media:/app/media
@@ -268,9 +269,10 @@ services:
       - '80:80'
     environment:
       - MEDIA_LOCAL_PUBLIC_PATH=/media
-      - PLAYNEST_DOMAIN=${PLAYNEST_DOMAIN:-playnest.com}
-      - BLOG_DOMAIN=${BLOG_DOMAIN:-blog.playnest.com}
-      - NGINX_ENVSUBST_FILTER=MEDIA_LOCAL_PUBLIC_PATH PLAYNEST_DOMAIN BLOG_DOMAIN
+      - PLAYNEST_DOMAIN=${PLAYNEST_DOMAIN:-sayra-booking.ir}
+      - BLOG_DOMAIN=${BLOG_DOMAIN:-blog.sayra-booking.ir}
+      - API_DOMAIN=${API_DOMAIN:-api.sayra-booking.ir}
+      - NGINX_ENVSUBST_FILTER=MEDIA_LOCAL_PUBLIC_PATH PLAYNEST_DOMAIN BLOG_DOMAIN API_DOMAIN
     volumes:
       - app_storage:/app/storage:ro
       - blog_static:/app/blog_static:ro
