@@ -7,6 +7,7 @@ import { PlatformSettingsController } from './settings.controller';
 import { PlatformAnalyticsController } from './analytics.controller';
 import { VerificationController } from '../verification/verification.controller';
 import { platformAdminDashboardTemplate } from './platform-admin-ui.templates';
+import { platformAnalyticsDashboardTemplate } from './platform-analytics-ui.templates';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
 import { PlatformAdRequestsController } from './ad-requests.controller';
 import { PlatformMediaController } from './media.controller';
@@ -31,6 +32,11 @@ const mediaUpload = multer({
 // UI Dashboard route
 router.get('/dashboard', (_req, res) => {
   res.type('html').send(platformAdminDashboardTemplate());
+});
+
+// UI Standalone Platform Analytics Dashboard route
+router.get('/analytics/dashboard', (_req, res) => {
+  res.type('html').send(platformAnalyticsDashboardTemplate());
 });
 
 // Secure all platform admin routes
