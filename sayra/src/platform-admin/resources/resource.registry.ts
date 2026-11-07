@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { getSafeCrudResources } from './safe-crud.resources';
-import { getReadOnlyResources, readOnlyActionsConfig } from './read-only.resources';
+import { getReadOnlyResources } from './read-only.resources';
 import { getPrismaModelTarget } from '../utils/model-access';
 import { buildSensitivePropertiesConfiguration } from './resource.defaults';
 import { ADMIN_NAVIGATION_GROUPS } from '../config/admin.navigation';
@@ -73,24 +73,6 @@ export function buildResourceRegistry(): any[] {
           createdAt: { isVisible: { list: true, show: true, edit: false, filter: true } },
           updatedAt: { isVisible: { list: false, show: true, edit: false, filter: false } },
         },
-      },
-    },
-    // 🎧 Support & Feedback
-    {
-      resource: getPrismaModelTarget('Ticket'),
-      options: {
-        navigation: ADMIN_NAVIGATION_GROUPS.SUPPORT_FEEDBACK,
-        actions: readOnlyActionsConfig,
-        properties: buildSensitivePropertiesConfiguration(),
-      },
-    },
-    // 🔔 Communications
-    {
-      resource: getPrismaModelTarget('NotificationLog'),
-      options: {
-        navigation: ADMIN_NAVIGATION_GROUPS.COMMUNICATIONS,
-        actions: readOnlyActionsConfig,
-        properties: buildSensitivePropertiesConfiguration(),
       },
     },
     // ⚙️ System & Governance
