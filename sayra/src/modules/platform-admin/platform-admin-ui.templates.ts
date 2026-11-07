@@ -185,6 +185,7 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
     </div>
     <div class="nav-links">
       <a href="/api/v1/platform-admin/dashboard" class="active"><i class="fa-solid fa-gauge"></i> Global Overview</a>
+      <a href="/api/v1/platform-admin/analytics/dashboard"><i class="fa-solid fa-chart-line"></i> Platform Analytics</a>
       <a href="/platform-admin-panel" target="_blank"><i class="fa-solid fa-layer-group"></i> Database Console (AdminJS)</a>
       <a href="/docs" target="_blank"><i class="fa-solid fa-book-open"></i> Swagger</a>
       <a href="/redoc" target="_blank"><i class="fa-solid fa-file-code"></i> ReDoc</a>
