@@ -2052,6 +2052,26 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateDeviceCatalogInput'
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - name
+              properties:
+                name:
+                  type: string
+                deviceType:
+                  type: string
+                  enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+                coverImageUrl:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+                description:
+                  type: string
+                isActive:
+                  type: boolean
       responses:
         '201':
           description: Device created in catalog
@@ -2250,6 +2270,30 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateGameCatalogInput'
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - title
+              properties:
+                title:
+                  type: string
+                coverImageUrl:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+                supportedPlatforms:
+                  type: array
+                  items:
+                    type: string
+                    enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+                genre:
+                  type: string
+                description:
+                  type: string
+                isActive:
+                  type: boolean
       responses:
         '201':
           description: Game created in catalog

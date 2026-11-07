@@ -13,13 +13,30 @@ import {
 // Device Catalog Controllers
 // ==========================================
 
+import * as uploadStation from '../../common/stations/upload.station';
+import AppError from '../../common/errors/AppError';
+import httpStatus from 'http-status';
+
 export async function createDevice(
   req: Request<unknown, unknown, CreateDeviceCatalogInput>,
   res: Response,
   next: NextFunction
 ) {
   try {
-    const device = await CatalogStation.createDevice(req.body);
+    let coverImageUrl = req.body.coverImageUrl;
+    if (req.file) {
+      const stored = await uploadStation.processAndStoreImage(req.file);
+      coverImageUrl = stored.url;
+    }
+
+    if (!coverImageUrl) {
+      throw new AppError('Cover image is required either as file or coverImageUrl', httpStatus.BAD_REQUEST);
+    }
+
+    const device = await CatalogStation.createDevice({
+      ...req.body,
+      coverImageUrl,
+    });
     res.created(device);
   } catch (error) {
     next(error);
@@ -55,7 +72,16 @@ export async function updateDevice(
   next: NextFunction
 ) {
   try {
-    const updated = await CatalogStation.updateDevice(req.params.id, req.body);
+    let coverImageUrl = req.body.coverImageUrl;
+    if (req.file) {
+      const stored = await uploadStation.processAndStoreImage(req.file);
+      coverImageUrl = stored.url;
+    }
+
+    const updated = await CatalogStation.updateDevice(req.params.id, {
+      ...req.body,
+      ...(coverImageUrl ? { coverImageUrl } : {}),
+    });
     res.ok(updated);
   } catch (error) {
     next(error);
@@ -85,7 +111,20 @@ export async function createGame(
   next: NextFunction
 ) {
   try {
-    const game = await CatalogStation.createGame(req.body);
+    let coverImageUrl = req.body.coverImageUrl;
+    if (req.file) {
+      const stored = await uploadStation.processAndStoreImage(req.file);
+      coverImageUrl = stored.url;
+    }
+
+    if (!coverImageUrl) {
+      throw new AppError('Cover image is required either as file or coverImageUrl', httpStatus.BAD_REQUEST);
+    }
+
+    const game = await CatalogStation.createGame({
+      ...req.body,
+      coverImageUrl,
+    });
     res.created(game);
   } catch (error) {
     next(error);
@@ -121,7 +160,16 @@ export async function updateGame(
   next: NextFunction
 ) {
   try {
-    const updated = await CatalogStation.updateGame(req.params.id, req.body);
+    let coverImageUrl = req.body.coverImageUrl;
+    if (req.file) {
+      const stored = await uploadStation.processAndStoreImage(req.file);
+      coverImageUrl = stored.url;
+    }
+
+    const updated = await CatalogStation.updateGame(req.params.id, {
+      ...req.body,
+      ...(coverImageUrl ? { coverImageUrl } : {}),
+    });
     res.ok(updated);
   } catch (error) {
     next(error);

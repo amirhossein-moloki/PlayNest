@@ -7,9 +7,15 @@ export const createDeviceCatalogSchema = z.object({
   body: z.object({
     name: z.string().min(1, 'Name is required'),
     deviceType: z.nativeEnum(GameStationType).default(GameStationType.PC),
-    coverImageUrl: z.string().url('Cover image URL must be a valid URL'),
+    coverImageUrl: z.string().url('Cover image URL must be a valid URL').optional(),
     description: z.string().optional(),
-    isActive: z.boolean().optional().default(true),
+    isActive: z.preprocess((val) => {
+      if (typeof val === 'string') {
+        if (val.toLowerCase() === 'true') return true;
+        if (val.toLowerCase() === 'false') return false;
+      }
+      return val;
+    }, z.boolean().optional().default(true)),
   }),
 });
 
@@ -41,14 +47,29 @@ export const listDeviceCatalogSchema = baseFilterSchema.extend({
 export const createGameCatalogSchema = z.object({
   body: z.object({
     title: z.string().min(1, 'Title is required'),
-    coverImageUrl: z.string().url('Cover image URL must be a valid URL'),
-    supportedPlatforms: z
+    coverImageUrl: z.string().url('Cover image URL must be a valid URL').optional(),
+    supportedPlatforms: z.preprocess((val) => {
+      if (typeof val === 'string') {
+        try {
+          return JSON.parse(val);
+        } catch {
+          return [val];
+        }
+      }
+      return val;
+    }, z
       .array(z.nativeEnum(GameStationType))
       .min(1, 'At least one supported platform is required')
-      .default([GameStationType.PC]),
+      .default([GameStationType.PC])),
     genre: z.string().optional(),
     description: z.string().optional(),
-    isActive: z.boolean().optional().default(true),
+    isActive: z.preprocess((val) => {
+      if (typeof val === 'string') {
+        if (val.toLowerCase() === 'true') return true;
+        if (val.toLowerCase() === 'false') return false;
+      }
+      return val;
+    }, z.boolean().optional().default(true)),
   }),
 });
 

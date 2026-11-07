@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react';
 import {
   Box,
@@ -71,9 +72,17 @@ export const CoverImageComponent: React.FC<BasePropertyProps> = (props) => {
       const formData = new FormData();
       formData.append('file', file);
 
+      const headers: Record<string, string> = {};
+      const platformToken = typeof window !== 'undefined' ? localStorage.getItem('platform_token') : null;
+      if (platformToken) {
+        headers['Authorization'] = `Bearer ${platformToken}`;
+      }
+
       // Perform upload directly to the platform admin media upload endpoint
       const response = await fetch('/api/v1/platform-admin/media/upload', {
         method: 'POST',
+        headers,
+        credentials: 'same-origin',
         body: formData,
       });
 
@@ -91,8 +100,9 @@ export const CoverImageComponent: React.FC<BasePropertyProps> = (props) => {
       if (onChange) {
         onChange(property.name, uploadedUrl);
       }
-    } catch (err: any) {
-      setUploadError(err.message || 'Failed to upload image');
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Failed to upload image';
+      setUploadError(errMsg);
     } finally {
       setIsUploading(false);
     }
@@ -171,7 +181,7 @@ export const CoverImageComponent: React.FC<BasePropertyProps> = (props) => {
           id={property.name}
           name={property.name}
           value={currentVal}
-          onChange={(e: any) => onChange && onChange(property.name, e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange && onChange(property.name, e.target.value)}
           placeholder="https://... or /uploads/..."
         />
       </Box>

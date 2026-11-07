@@ -6,6 +6,16 @@ import { env } from '../../../src/config/env';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+jest.mock('../../../src/common/stations/upload.station', () => ({
+  processAndStoreImage: jest.fn().mockResolvedValue({
+    url: '/uploads/mocked-catalog-image.jpg',
+    thumbUrl: '/uploads/thumbnails/mocked-catalog-image.jpg',
+    fileName: 'mocked-catalog-image.jpg',
+  }),
+  deleteStoredImage: jest.fn().mockResolvedValue(undefined),
+  ensureUploadDirs: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock('../../../src/config/prisma', () => ({
   prisma: {
     deviceCatalog: {
@@ -131,6 +141,35 @@ describe('Catalog API & Station From Catalog Flow', () => {
       expect(res.body.data.coverImageUrl).toBe('https://cdn.example.com/ps5-pro.jpg');
     });
 
+    it('POST /api/v1/platform-admin/catalog/devices - creates device via direct file upload without coverImageUrl in body', async () => {
+      const mockDevice = {
+        id: 'cldevice1234567890123499',
+        name: 'Xbox Series X',
+        deviceType: 'XBOX',
+        coverImageUrl: '/uploads/xbox-mock.jpg',
+        description: 'Flagship console',
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      (prisma.deviceCatalog.create as jest.Mock).mockResolvedValue(mockDevice);
+
+      const fakeImage = Buffer.from('fake-image-bytes');
+
+      const res = await request(app)
+        .post('/api/v1/platform-admin/catalog/devices')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .field('name', 'Xbox Series X')
+        .field('deviceType', 'XBOX')
+        .field('description', 'Flagship console')
+        .attach('file', fakeImage, 'xbox.jpg');
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.name).toBe('Xbox Series X');
+      expect(res.body.data.coverImageUrl).toBeDefined();
+    });
+
     it('GET /api/v1/catalog/devices - allows gaming center manager to browse devices', async () => {
       const mockDevices = [
         {
@@ -185,6 +224,34 @@ describe('Catalog API & Station From Catalog Flow', () => {
       expect(res.body.success).toBe(true);
       expect(res.body.data.title).toBe('EA Sports FC 24');
       expect(res.body.data.coverImageUrl).toBe('https://cdn.example.com/fc24.jpg');
+    });
+
+    it('POST /api/v1/platform-admin/catalog/games - creates game via direct file upload without coverImageUrl in body', async () => {
+      const mockGame = {
+        id: 'clgame123456789012349999',
+        title: 'Cyberpunk 2077',
+        coverImageUrl: '/uploads/cyberpunk-mock.jpg',
+        supportedPlatforms: ['PC'],
+        genre: 'RPG',
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      (prisma.gameCatalog.create as jest.Mock).mockResolvedValue(mockGame);
+
+      const fakeImage = Buffer.from('fake-game-bytes');
+
+      const res = await request(app)
+        .post('/api/v1/platform-admin/catalog/games')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .field('title', 'Cyberpunk 2077')
+        .field('genre', 'RPG')
+        .attach('file', fakeImage, 'cyberpunk.png');
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.title).toBe('Cyberpunk 2077');
+      expect(res.body.data.coverImageUrl).toBeDefined();
     });
 
     it('GET /api/v1/catalog/games - allows browsing active games', async () => {

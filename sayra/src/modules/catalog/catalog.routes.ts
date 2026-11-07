@@ -12,6 +12,21 @@ import { authMiddleware } from '../../common/middleware/auth';
 import { requirePlatformAdmin } from '../../common/middleware/requirePlatformAdmin';
 import { privateApiRateLimiter, publicApiRateLimiter } from '../../common/middleware/rateLimit';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
+import multer from 'multer';
+
+const catalogUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only images are allowed') as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    }
+  },
+});
 
 // ==========================================
 // Platform Admin Catalog Router
@@ -24,6 +39,7 @@ platformAdminCatalogRouter.use(authMiddleware, requirePlatformAdmin, privateApiR
 // Devices
 platformAdminCatalogRouter.post(
   '/devices',
+  catalogUpload.single('file'),
   validate(createDeviceCatalogSchema),
   asyncHandler(CatalogController.createDevice)
 );
@@ -38,6 +54,7 @@ platformAdminCatalogRouter.get(
 );
 platformAdminCatalogRouter.patch(
   '/devices/:id',
+  catalogUpload.single('file'),
   validate(updateDeviceCatalogSchema),
   asyncHandler(CatalogController.updateDevice)
 );
@@ -50,6 +67,7 @@ platformAdminCatalogRouter.delete(
 // Games
 platformAdminCatalogRouter.post(
   '/games',
+  catalogUpload.single('file'),
   validate(createGameCatalogSchema),
   asyncHandler(CatalogController.createGame)
 );
@@ -64,6 +82,7 @@ platformAdminCatalogRouter.get(
 );
 platformAdminCatalogRouter.patch(
   '/games/:id',
+  catalogUpload.single('file'),
   validate(updateGameCatalogSchema),
   asyncHandler(CatalogController.updateGame)
 );

@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import request from 'supertest';
-import express from 'express';
 import app from '../../../src/app';
 import { prisma } from '../../../src/config/prisma';
 import { generateAccessToken } from '../../../src/modules/auth/auth.tokens';

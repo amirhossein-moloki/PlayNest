@@ -50,11 +50,15 @@ function createCatalogActions(entityName: 'DeviceCatalog' | 'GameCatalog'): Reco
             await PlatformMediaStation.deleteMediaByUrl(coverUrl);
           }
 
+          const entityId =
+            (typeof context.record.id === 'function' ? context.record.id() : context.record.id) ||
+            context.record.params?.id;
+
           await AdminAuditService.logAdminEvent({
             platformAdminId: context.currentAdmin?.id,
             action: `${entityName.toUpperCase()}_DELETE`,
             entity: entityName,
-            entityId: context.record.id,
+            entityId: String(entityId),
             oldData: context.record.params,
           });
         }
