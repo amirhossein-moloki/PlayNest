@@ -5172,6 +5172,48 @@ paths:
                 $ref: '#/components/schemas/Success'
       operationId: post_gamingCenters_gamingCenterId_staff
       description: Add new staff member
+  /gamingCenters/{gamingCenterId}/device-categories:
+    get:
+      summary: Get device categories for a gaming center
+      description: Returns active device categories with real station counts for a gaming center.
+      tags:
+      - Stations
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: List of device categories
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        catalogId:
+                          type: string
+                          nullable: true
+                        name:
+                          type: string
+                        deviceType:
+                          type: string
+                        coverImageUrl:
+                          type: string
+                          nullable: true
+                        deviceCount:
+                          type: integer
+      operationId: get_gamingCenters_gamingCenterId_device_categories
+
   /gamingCenters/{gamingCenterId}/stations:
     get:
       summary: List stations for a gamingCenter
@@ -5181,6 +5223,12 @@ paths:
       - name: gamingCenterId
         in: path
         required: true
+        schema:
+          type: string
+      - name: catalogDeviceId
+        in: query
+        required: false
+        description: Filter stations by catalog device ID
         schema:
           type: string
       responses:

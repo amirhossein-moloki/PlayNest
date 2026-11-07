@@ -21,6 +21,16 @@ import shiftsRouter from '../modules/staffShifts/staffShifts.routes';
 import availabilityRouter from '../modules/availability/availability.routes';
 import reservationRoutes from '../modules/reservation/reservation.routes';
 import publicReservationRoutes from '../modules/reservation/reservation.public.routes';
+import {
+  privateGroupBookingRouter,
+  publicGroupBookingRouter,
+} from '../modules/group-booking/group-booking.routes';
+import * as StationController from '../modules/station/station.controller';
+import { publicApiRateLimiter } from '../common/middleware/rateLimit';
+import { asyncHandler } from '../common/middleware/asyncHandler';
+import { prisma } from '../config/prisma';
+import AppError from '../common/errors/AppError';
+import httpStatus from 'http-status';
 import { cmsRouter } from '../modules/cms/cms.routes';
 import { cmsAdminUiRouter } from '../modules/cms/admin-ui.routes';
 import { dashboardAdminUiRouter } from '../modules/analytics/dashboard-ui.routes';
@@ -76,6 +86,45 @@ router.use('/catalog', publicCatalogRouter);
 router.use('/gamingCenters', gamingCenterRouter);
 
 // --- GameStation Module Routes ---
+// Helper middleware to resolve gamingCenter by id or slug
+const resolveGamingCenterParam = asyncHandler(async (req: any, res: any, next: any) => {
+  const centerIdentifier = req.params.gamingCenterId;
+  if (!centerIdentifier) {
+    return next(new AppError('GamingCenter ID is missing from request params.', httpStatus.BAD_REQUEST));
+  }
+  let gamingCenter = await prisma.gamingCenter.findUnique({
+    where: { id: centerIdentifier },
+  });
+  if (!gamingCenter) {
+    gamingCenter = await prisma.gamingCenter.findFirst({
+      where: {
+        OR: [{ id: centerIdentifier }, { slug: centerIdentifier }],
+        isActive: true,
+      },
+    });
+  }
+  if (!gamingCenter) {
+    return next(new AppError('GamingCenter not found', httpStatus.NOT_FOUND));
+  }
+  req.tenant = { gamingCenterId: gamingCenter.id, gamingCenterSlug: gamingCenter.slug };
+  req.gamingCenterId = gamingCenter.id;
+  next();
+});
+
+// Device categories direct endpoints
+router.get(
+  '/gamingCenters/:gamingCenterId/device-categories',
+  publicApiRateLimiter,
+  resolveGamingCenterParam,
+  asyncHandler(StationController.getDeviceCategories)
+);
+router.get(
+  '/public/gamingCenters/:gamingCenterSlug/device-categories',
+  publicApiRateLimiter,
+  resolveGamingCenterBySlug,
+  asyncHandler(StationController.getDeviceCategories)
+);
+
 // Mount the private router under the gamingCenter-specific path
 router.use('/gamingCenters/:gamingCenterId/stations', privateStationRouter);
 
@@ -99,6 +148,10 @@ router.use(
 // --- Reservation Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/reservation', reservationRoutes);
 router.use('/public/gamingCenters/:gamingCenterSlug/reservation', publicReservationRoutes);
+
+// --- Group Booking / Group Reservation Routes ---
+router.use('/gamingCenters/:gamingCenterId/group-reservations', privateGroupBookingRouter);
+router.use('/public/gamingCenters/:gamingCenterSlug/group-reservations', publicGroupBookingRouter);
 
 // --- Customers Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/customers', customersRouter);

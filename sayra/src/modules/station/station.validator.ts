@@ -89,6 +89,7 @@ export type StationField = (typeof ALLOWED_STATION_FIELDS)[number];
 export const listStationsSchema = baseFilterSchema.extend({
   minPrice: z.coerce.number().optional(),
   maxPrice: z.coerce.number().optional(),
+  catalogDeviceId: z.string().cuid('Invalid catalog device ID format').optional(),
   stationType: z.preprocess(
     (val) => {
       if (typeof val === 'string') {

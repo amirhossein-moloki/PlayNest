@@ -113,6 +113,36 @@ export async function getStations(
 /**
  * Handle request to get a single station by its ID.
  */
+/**
+ * Handle request to get device categories for a gamingCenter.
+ */
+export async function getDeviceCategories(
+  req: RequestWithGamingCenter,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { gamingCenterId } = req.params;
+
+    const targetGamingCenterId =
+      req.tenant?.gamingCenterId ||
+      gamingCenterId ||
+      req.gamingCenter?.id ||
+      req.gamingCenterId;
+
+    if (!targetGamingCenterId) {
+      return next(new AppError('GamingCenter ID or slug is required.', httpStatus.BAD_REQUEST));
+    }
+
+    const categories = await stationLogic.getDeviceCategoriesForGamingCenter(
+      targetGamingCenterId
+    );
+    res.ok(categories);
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getStationById(
   req: Request<{ gamingCenterId: string; stationId: string }>,
   res: Response,

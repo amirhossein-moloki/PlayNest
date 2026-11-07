@@ -179,6 +179,69 @@ export async function getStationsForGamingCenter(gamingCenterId: string, query: 
 }
 
 /**
+ * Returns active device categories/catalogs for a given gaming center,
+ * including station counts per category.
+ */
+export async function getDeviceCategoriesForGamingCenter(gamingCenterId: string) {
+  // Query all active stations for this gaming center including their catalogDevice relation
+  const stations = await prisma.gameStation.findMany({
+    where: {
+      gamingCenterId,
+      isActive: true,
+    },
+    include: {
+      catalogDevice: true,
+    },
+  });
+
+  // Map to group categories by catalogId or fallback stationType
+  type CategoryGroup = {
+    catalogId: string | null;
+    name: string;
+    deviceType: string;
+    coverImageUrl: string | null;
+    deviceCount: number;
+  };
+
+  const categoriesMap = new Map<string, CategoryGroup>();
+
+  for (const station of stations) {
+    if (station.catalogDevice) {
+      const key = `catalog_${station.catalogDevice.id}`;
+      const existing = categoriesMap.get(key);
+      if (existing) {
+        existing.deviceCount += 1;
+      } else {
+        categoriesMap.set(key, {
+          catalogId: station.catalogDevice.id,
+          name: station.catalogDevice.name,
+          deviceType: station.catalogDevice.deviceType,
+          coverImageUrl: station.catalogDevice.coverImageUrl,
+          deviceCount: 1,
+        });
+      }
+    } else {
+      // Fallback categorization for stations without a catalogDevice
+      const key = `type_${station.stationType}`;
+      const existing = categoriesMap.get(key);
+      if (existing) {
+        existing.deviceCount += 1;
+      } else {
+        categoriesMap.set(key, {
+          catalogId: null,
+          name: station.stationType,
+          deviceType: station.stationType,
+          coverImageUrl: station.coverImageUrl ?? null,
+          deviceCount: 1,
+        });
+      }
+    }
+  }
+
+  return Array.from(categoriesMap.values());
+}
+
+/**
  * Business logic to update a station for a specific gamingCenter.
  * @param stationId - The ID of the station to update.
  * @param gamingCenterId - The ID of the gamingCenter.
