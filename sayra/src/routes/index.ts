@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import healthRouter from './health.routes';
 import authRouter from '../modules/auth/auth.routes';
 import gamingCenterRouter from '../modules/gamingCenter/gamingCenter.routes';
@@ -87,7 +87,7 @@ router.use('/gamingCenters', gamingCenterRouter);
 
 // --- GameStation Module Routes ---
 // Helper middleware to resolve gamingCenter by id or slug
-const resolveGamingCenterParam = asyncHandler(async (req: any, res: any, next: any) => {
+const resolveGamingCenterParam = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   const centerIdentifier = req.params.gamingCenterId;
   if (!centerIdentifier) {
     return next(new AppError('GamingCenter ID is missing from request params.', httpStatus.BAD_REQUEST));
