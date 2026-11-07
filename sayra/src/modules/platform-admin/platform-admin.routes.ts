@@ -9,8 +9,24 @@ import { VerificationController } from '../verification/verification.controller'
 import { platformAdminDashboardTemplate } from './platform-admin-ui.templates';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
 import { PlatformAdRequestsController } from './ad-requests.controller';
+import { PlatformMediaController } from './media.controller';
+import multer from 'multer';
 
 const router = Router();
+
+const mediaUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only images are allowed') as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    }
+  },
+});
 
 // UI Dashboard route
 router.get('/dashboard', (_req, res) => {
@@ -41,6 +57,9 @@ router.patch('/gaming-centers/:id/status', asyncHandler(PlatformAdminController.
 router.get('/ad-requests', asyncHandler(PlatformAdRequestsController.listAdRequests));
 router.get('/ad-requests/:id', asyncHandler(PlatformAdRequestsController.getAdRequestById));
 router.patch('/ad-requests/:id/status', asyncHandler(PlatformAdRequestsController.updateAdRequestStatus));
+
+// Media Upload for Platform Super Admin
+router.post('/media/upload', mediaUpload.single('file'), asyncHandler(PlatformMediaController.uploadMedia));
 
 // KYC Verification Management
 router.get('/verifications', asyncHandler(VerificationController.listVerifications));

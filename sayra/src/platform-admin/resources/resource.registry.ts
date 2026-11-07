@@ -9,7 +9,7 @@ import { ADMIN_NAVIGATION_GROUPS } from '../config/admin.navigation';
  * Builds the complete explicit resource registry for Phase 1 according to the 12 IA Groups.
  * Only models intentionally configured are exposed.
  */
-export function buildResourceRegistry(): any[] {
+export function buildResourceRegistry(components?: { coverImageComponentId?: string }): any[] {
   // Core Domain Management models
   const coreResources = [
     // 🏢 Gaming Centers
@@ -93,6 +93,6 @@ export function buildResourceRegistry(): any[] {
   return [
     ...coreResources,
     ...getReadOnlyResources(),
-    ...getSafeCrudResources(),
+    ...getSafeCrudResources(components),
   ];
 }

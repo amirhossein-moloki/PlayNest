@@ -6,6 +6,7 @@ import { DashboardService } from '../dashboard/dashboard.service';
 export interface AdminConfigOptions {
   componentLoader: any;
   dashboardComponentId: string;
+  coverImageComponentId?: string;
 }
 
 export function buildAdminOptions(options: AdminConfigOptions): any {
@@ -37,6 +38,8 @@ export function buildAdminOptions(options: AdminConfigOptions): any {
         return metrics;
       },
     },
-    resources: buildResourceRegistry(),
+    resources: buildResourceRegistry({
+      coverImageComponentId: options.coverImageComponentId,
+    }),
   };
 }
