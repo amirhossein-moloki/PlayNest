@@ -577,6 +577,7 @@ model GamingCenter {
   verifications GamingCenterVerification[]
   onboarding    GameCenterOnboarding?
   advertisements AdvertisementRequest[]
+  tickets       Ticket[]
 
   @@index([slug])
   @@index([verificationStatus])
@@ -634,7 +635,8 @@ model User {
 
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
-  Ticket        Ticket[]
+  Ticket        Ticket[]       @relation("TicketAssignee")
+  ticketsCreated Ticket[]      @relation("TicketCreator")
   notifications Notification[]
   advertisementRequests AdvertisementRequest[] @relation("AdRequestOwner")
 
@@ -2132,11 +2134,17 @@ model StationAnalytics {
 model Ticket {
   id String @id @default(cuid())
 
-  customerAccountId String
-  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id])
+  customerAccountId String?
+  customerAccount   CustomerAccount? @relation(fields: [customerAccountId], references: [id])
+
+  userId String?
+  user   User?   @relation("TicketCreator", fields: [userId], references: [id])
+
+  gamingCenterId String?
+  gamingCenter   GamingCenter? @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
 
   assignedToUserId String?
-  assignedTo       User?   @relation(fields: [assignedToUserId], references: [id])
+  assignedTo       User?   @relation("TicketAssignee", fields: [assignedToUserId], references: [id])
 
   subject  String
   status   TicketStatus   @default(OPEN)
@@ -2150,6 +2158,8 @@ model Ticket {
   updatedAt DateTime  @updatedAt
 
   @@index([customerAccountId])
+  @@index([userId])
+  @@index([gamingCenterId])
   @@index([assignedToUserId])
   @@index([status])
   @@index([priority])

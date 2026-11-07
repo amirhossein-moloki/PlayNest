@@ -29,7 +29,7 @@ supportRouter.get('/', asyncHandler(ticketController.getAllTickets));
 supportRouter.get('/:ticketId', asyncHandler(ticketController.getTicketById));
 supportRouter.patch('/:ticketId/assign', validate(assignTicketSchema), asyncHandler(ticketController.assignTicket));
 supportRouter.patch('/:ticketId/status', validate(updateStatusSchema), asyncHandler(ticketController.updateStatus));
-supportRouter.post('/:ticketId/messages', validate(addMessageSchema), asyncHandler(ticketController.replyToTicket));
+supportRouter.post('/:ticketId/messages', validate(addMessageSchema), asyncHandler(ticketController.replyAsSupport));
 
 // --- Admin Routes ---
 const adminRouter = Router();

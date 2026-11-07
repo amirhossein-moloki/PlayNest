@@ -5,7 +5,9 @@ import httpStatus from 'http-status';
 import { auditService } from '../audit/audit.station';
 
 export const createTicket = async (data: {
-  customerAccountId: string;
+  customerAccountId?: string;
+  userId?: string;
+  gamingCenterId?: string;
   subject: string;
   priority: TicketPriority;
   category: TicketCategory;
@@ -14,8 +16,10 @@ export const createTicket = async (data: {
   const ticket = await ticketRepo.createTicket(data);
 
   await auditService.recordLog({
+    gamingCenterId: data.gamingCenterId,
+    userId: data.userId,
     customerId: data.customerAccountId,
-    actorType: SessionActorType.CUSTOMER,
+    actorType: data.userId ? SessionActorType.USER : SessionActorType.CUSTOMER,
     action: 'TICKET_CREATE',
     entity: 'Ticket',
     entityId: ticket.id,
@@ -45,9 +49,14 @@ export const addMessage = async (
     throw new AppError('Cannot add message to a closed ticket', httpStatus.BAD_REQUEST);
   }
 
-  // Permission check: if sender is USER (customer), they must own the ticket
-  if (senderType === TicketSenderType.USER && ticket.customerAccountId !== senderId) {
-    throw new AppError('Unauthorized to reply to this ticket', httpStatus.FORBIDDEN);
+  // Permission check: if sender is customer or manager creator, they must own the ticket
+  if (senderType === TicketSenderType.USER) {
+    const isOwner =
+      (ticket.customerAccountId && ticket.customerAccountId === senderId) ||
+      (ticket.userId && ticket.userId === senderId);
+    if (!isOwner) {
+      throw new AppError('Unauthorized to reply to this ticket', httpStatus.FORBIDDEN);
+    }
   }
 
 
@@ -72,9 +81,10 @@ export const addMessage = async (
   }
 
   await auditService.recordLog({
-    userId: senderType === TicketSenderType.SUPPORT ? senderId : undefined,
-    customerId: senderType === TicketSenderType.USER ? senderId : undefined,
-    actorType: senderType === TicketSenderType.SUPPORT ? SessionActorType.USER : SessionActorType.CUSTOMER,
+    gamingCenterId: ticket.gamingCenterId ?? undefined,
+    userId: senderType === TicketSenderType.SUPPORT || (actor?.actorType === 'USER' && ticket.userId === senderId) ? senderId : undefined,
+    customerId: actor?.actorType === 'CUSTOMER' ? senderId : (ticket.customerAccountId ?? undefined),
+    actorType: actor?.actorType === 'CUSTOMER' ? SessionActorType.CUSTOMER : SessionActorType.USER,
     action: 'TICKET_MESSAGE_ADD',
     entity: 'Ticket',
     entityId: ticketId,
@@ -164,6 +174,12 @@ export const getTicketDetails = async (ticketId: string, actor: { id: string; ro
   // Authorization check
   if (actor.actorType === 'CUSTOMER') {
     if (ticket.customerAccountId !== actor.id) {
+      throw new AppError('Access denied', httpStatus.FORBIDDEN);
+    }
+  } else if (actor.actorType === 'USER' && actor.role !== UserRole.ADMIN) {
+    // Gaming Center manager or staff can only view tickets they created or their center's tickets
+    const isOwner = ticket.userId === actor.id;
+    if (!isOwner) {
       throw new AppError('Access denied', httpStatus.FORBIDDEN);
     }
   }
