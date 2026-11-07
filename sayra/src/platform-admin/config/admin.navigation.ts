@@ -1,26 +1,67 @@
 export const ADMIN_NAVIGATION_GROUPS = {
-  PLATFORM_MANAGEMENT: {
-    name: 'Platform Management',
-    icon: 'Grid',
+  GAMING_CENTERS: {
+    name: 'Gaming Centers',
+    icon: 'Home',
   },
-  OPERATIONS: {
-    name: 'Operations',
-    icon: 'Activity',
+  STATIONS_CATALOG: {
+    name: 'Stations & Catalog',
+    icon: 'Tv',
   },
-  FINANCE: {
-    name: 'Finance',
+  BOOKINGS_OPERATIONS: {
+    name: 'Bookings & Operations',
+    icon: 'Calendar',
+  },
+  FINANCE_BILLING: {
+    name: 'Finance & Billing',
     icon: 'DollarSign',
   },
-  CONTENT_MANAGEMENT: {
-    name: 'Content Management',
+  USER_MANAGEMENT: {
+    name: 'User Management',
+    icon: 'Users',
+  },
+  MARKETING_GROWTH: {
+    name: 'Marketing & Growth',
+    icon: 'Award',
+  },
+  CONTENT_PORTAL: {
+    name: 'Content & Portal',
     icon: 'Folder',
   },
+  SUPPORT_FEEDBACK: {
+    name: 'Support & Feedback',
+    icon: 'MessageSquare',
+  },
+  COMMUNICATIONS: {
+    name: 'Communications',
+    icon: 'Send',
+  },
+  SYSTEM_GOVERNANCE: {
+    name: 'System & Governance',
+    icon: 'Settings',
+  },
+  // Backward compatibility alias
+  OPERATIONS: {
+    name: 'Bookings & Operations',
+    icon: 'Calendar',
+  },
+  FINANCE: {
+    name: 'Finance & Billing',
+    icon: 'DollarSign',
+  },
   SECURITY: {
-    name: 'Security',
+    name: 'System & Governance',
     icon: 'Shield',
   },
   SYSTEM: {
-    name: 'System',
+    name: 'System & Governance',
     icon: 'Cpu',
+  },
+  PLATFORM_MANAGEMENT: {
+    name: 'User Management',
+    icon: 'Users',
+  },
+  CONTENT_MANAGEMENT: {
+    name: 'Content & Portal',
+    icon: 'Folder',
   },
 };

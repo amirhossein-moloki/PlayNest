@@ -23,3 +23,4 @@ export * from './resources';
 export * from './services/admin-health.service';
 export * from './services/admin-audit.service';
 export * from './dashboard/dashboard.service';
+export * from './services/admin-station-bridge';

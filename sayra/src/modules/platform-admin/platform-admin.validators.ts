@@ -114,3 +114,7 @@ export const listPlatformReservationsQuerySchema = z.object({
   sortBy: z.enum(['startTime', 'endTime', 'createdAt', 'totalPrice', 'finalPrice', 'status']).optional().default('startTime'),
   sortOrder: z.enum(['asc', 'desc', 'ASC', 'DESC']).optional().default('desc'),
 });
+
+export const cancelPlatformReservationSchema = z.object({
+  reason: z.string().min(3).max(500),
+});

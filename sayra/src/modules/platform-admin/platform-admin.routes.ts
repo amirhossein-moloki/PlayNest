@@ -32,6 +32,7 @@ router.put('/settings', asyncHandler(PlatformSettingsController.updateSettings))
 
 // Gaming Centers Management
 router.get('/gaming-centers', asyncHandler(PlatformAdminController.getAllGamingCenters));
+router.post('/gaming-centers', asyncHandler(PlatformAdminController.createGamingCenter));
 router.get('/gaming-centers/:id', asyncHandler(PlatformAdminController.getGamingCenterById));
 router.patch('/gaming-centers/:id', asyncHandler(PlatformAdminController.updateGamingCenter));
 router.patch('/gaming-centers/:id/status', asyncHandler(PlatformAdminController.updateGamingCenterStatus));
@@ -61,6 +62,11 @@ router.get('/customers', asyncHandler(PlatformAdminController.listCustomers));
 
 // Reservations Management across all centers
 router.get('/reservations', asyncHandler(PlatformAdminController.listReservations));
+router.post('/reservations/:id/cancel', asyncHandler(PlatformAdminController.cancelReservation));
+router.post('/reservations/:id/confirm', asyncHandler(PlatformAdminController.confirmReservation));
+router.post('/reservations/:id/start', asyncHandler(PlatformAdminController.startReservation));
+router.post('/reservations/:id/complete', asyncHandler(PlatformAdminController.completeReservation));
+router.post('/reservations/:id/no-show', asyncHandler(PlatformAdminController.markNoShowReservation));
 
 // Aggregated Platform Analytics & Reports
 router.get('/analytics/reports', asyncHandler(PlatformAnalyticsController.getReports));
@@ -70,6 +76,11 @@ router.get('/operations/overview', asyncHandler(PlatformAdminController.getOpera
 
 // Financials Overview across all centers
 router.get('/financials/overview', asyncHandler(PlatformAdminController.getFinancialsOverview));
+router.get('/financials/payments', asyncHandler(PlatformAdminController.listPayments));
+router.get('/financials/refunds', asyncHandler(PlatformAdminController.listRefunds));
+router.post('/financials/refunds/:id/retry', asyncHandler(PlatformAdminController.retryRefund));
+router.post('/financials/payments/:id/reconcile', asyncHandler(PlatformAdminController.reconcilePayment));
+router.get('/financials/export', asyncHandler(PlatformAdminController.exportFinancialCsv));
 
 // System-wide Audit Logs
 router.get('/audit-logs', asyncHandler(PlatformAdminController.listAuditLogs));
