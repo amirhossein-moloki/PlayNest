@@ -1392,6 +1392,7 @@ model GameStation {
 
   @@index([gamingCenterId, isActive])
   @@index([gamingCenterId, name])
+  @@index([gamingCenterId, catalogDeviceId])
 }
 
 model StaffStationSkill {
