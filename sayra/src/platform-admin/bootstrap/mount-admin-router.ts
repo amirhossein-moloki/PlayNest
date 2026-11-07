@@ -17,13 +17,14 @@ export async function mountAdminRouter(app: Express, packages: AdminJSPackages):
   // 1. Register Prisma Adapter once
   registerPrismaAdapter(packages);
 
-  // 2. Initialize ComponentLoader and custom Dashboard
-  const { componentLoader, dashboardComponentId } = await getComponentLoader(ComponentLoader);
+  // 2. Initialize ComponentLoader and custom Dashboard & Property Components
+  const { componentLoader, dashboardComponentId, coverImageComponentId } = await getComponentLoader(ComponentLoader);
 
   // 3. Build AdminJS configuration
   const adminOptions = buildAdminOptions({
     componentLoader,
     dashboardComponentId,
+    coverImageComponentId,
   });
 
   adminJSInstance = new AdminJS(adminOptions);
