@@ -32,6 +32,7 @@ router.put('/settings', asyncHandler(PlatformSettingsController.updateSettings))
 
 // Gaming Centers Management
 router.get('/gaming-centers', asyncHandler(PlatformAdminController.getAllGamingCenters));
+router.post('/gaming-centers', asyncHandler(PlatformAdminController.createGamingCenter));
 router.get('/gaming-centers/:id', asyncHandler(PlatformAdminController.getGamingCenterById));
 router.patch('/gaming-centers/:id', asyncHandler(PlatformAdminController.updateGamingCenter));
 router.patch('/gaming-centers/:id/status', asyncHandler(PlatformAdminController.updateGamingCenterStatus));
@@ -61,6 +62,11 @@ router.get('/customers', asyncHandler(PlatformAdminController.listCustomers));
 
 // Reservations Management across all centers
 router.get('/reservations', asyncHandler(PlatformAdminController.listReservations));
+router.post('/reservations/:id/cancel', asyncHandler(PlatformAdminController.cancelReservation));
+router.post('/reservations/:id/confirm', asyncHandler(PlatformAdminController.confirmReservation));
+router.post('/reservations/:id/start', asyncHandler(PlatformAdminController.startReservation));
+router.post('/reservations/:id/complete', asyncHandler(PlatformAdminController.completeReservation));
+router.post('/reservations/:id/no-show', asyncHandler(PlatformAdminController.markNoShowReservation));
 
 // Aggregated Platform Analytics & Reports
 router.get('/analytics/reports', asyncHandler(PlatformAnalyticsController.getReports));

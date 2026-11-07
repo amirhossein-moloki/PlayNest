@@ -10,7 +10,11 @@ import {
   listPlatformAuditLogsQuerySchema,
   listPlatformCustomersQuerySchema,
   listPlatformReservationsQuerySchema,
+  cancelPlatformReservationSchema,
 } from './platform-admin.validators';
+import { AdminStationBridge } from '../../platform-admin/services/admin-station-bridge';
+import { gamingCenterStation } from '../gamingCenter/gamingCenter.station';
+import { createGamingCenterSchema } from '../gamingCenter/gamingCenter.validation';
 
 export const PlatformAdminController = {
   async getAllGamingCenters(req: AppRequest, res: Response, next: NextFunction) {
@@ -113,6 +117,157 @@ export const PlatformAdminController = {
       const { id } = req.params;
       const center = await PlatformAdminStation.getGamingCenterById(id);
       res.ok(center);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async createGamingCenter(req: AppRequest, res: Response, next: NextFunction) {
+    try {
+      const validated = createGamingCenterSchema.parse(req.body);
+      const actor = {
+        id: req.actor.id,
+        actorType: req.actor.actorType,
+        isSuperuser: true,
+      };
+      const center = await gamingCenterStation.createGamingCenter(
+        validated,
+        actor,
+        { ip: req.ip, userAgent: req.headers['user-agent'] as string }
+      );
+      res.status(201).json({ success: true, data: center });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async cancelReservation(req: AppRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const validated = cancelPlatformReservationSchema.parse(req.body);
+      const reservation = await (await import('../../config/prisma')).prisma.reservation.findUnique({
+        where: { id },
+        select: { id: true, gamingCenterId: true },
+      });
+      if (!reservation) {
+        return res.status(404).json({ error: 'Reservation not found' });
+      }
+
+      const result = await AdminStationBridge.cancelReservation(
+        reservation.gamingCenterId,
+        id,
+        validated.reason,
+        {
+          platformAdminId: req.actor.id,
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'] as string,
+        }
+      );
+      res.ok(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async confirmReservation(req: AppRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const reservation = await (await import('../../config/prisma')).prisma.reservation.findUnique({
+        where: { id },
+        select: { id: true, gamingCenterId: true },
+      });
+      if (!reservation) {
+        return res.status(404).json({ error: 'Reservation not found' });
+      }
+
+      const result = await AdminStationBridge.confirmReservation(
+        reservation.gamingCenterId,
+        id,
+        {
+          platformAdminId: req.actor.id,
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'] as string,
+        }
+      );
+      res.ok(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async startReservation(req: AppRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const reservation = await (await import('../../config/prisma')).prisma.reservation.findUnique({
+        where: { id },
+        select: { id: true, gamingCenterId: true },
+      });
+      if (!reservation) {
+        return res.status(404).json({ error: 'Reservation not found' });
+      }
+
+      const result = await AdminStationBridge.startReservation(
+        reservation.gamingCenterId,
+        id,
+        {
+          platformAdminId: req.actor.id,
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'] as string,
+        }
+      );
+      res.ok(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async completeReservation(req: AppRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const reservation = await (await import('../../config/prisma')).prisma.reservation.findUnique({
+        where: { id },
+        select: { id: true, gamingCenterId: true },
+      });
+      if (!reservation) {
+        return res.status(404).json({ error: 'Reservation not found' });
+      }
+
+      const result = await AdminStationBridge.completeReservation(
+        reservation.gamingCenterId,
+        id,
+        {
+          platformAdminId: req.actor.id,
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'] as string,
+        }
+      );
+      res.ok(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async markNoShowReservation(req: AppRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const reservation = await (await import('../../config/prisma')).prisma.reservation.findUnique({
+        where: { id },
+        select: { id: true, gamingCenterId: true },
+      });
+      if (!reservation) {
+        return res.status(404).json({ error: 'Reservation not found' });
+      }
+
+      const result = await AdminStationBridge.markNoShow(
+        reservation.gamingCenterId,
+        id,
+        {
+          platformAdminId: req.actor.id,
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'] as string,
+        }
+      );
+      res.ok(result);
     } catch (err) {
       next(err);
     }

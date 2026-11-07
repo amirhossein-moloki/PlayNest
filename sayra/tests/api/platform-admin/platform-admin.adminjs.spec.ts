@@ -267,6 +267,8 @@ describe('PlayNest Platform Admin Panel - Phase 1 Test Suite', () => {
       const readOnlyResources = getReadOnlyResources();
       const readOnlyModelNames = [
         'Reservation',
+        'ReservationHistory',
+        'StationMaintenance',
         'GroupBooking',
         'Payment',
         'Refund',
@@ -299,14 +301,14 @@ describe('PlayNest Platform Admin Panel - Phase 1 Test Suite', () => {
 
     it('should configure Safe CRUD models with operations enabled', () => {
       const safeCrudResources = getSafeCrudResources();
-      const expectedModels = ['Category', 'Tag', 'SiteSettings'];
+      const expectedModels = ['Category', 'Tag', 'SiteSettings', 'DeviceCatalog', 'GameCatalog'];
 
       expect(safeCrudResources.length).toBe(expectedModels.length);
 
       for (const res of safeCrudResources) {
         const modelName = res.resource.model.name;
         expect(expectedModels).toContain(modelName);
-        expect(res.options.navigation.name).toBe('Content & Portal');
+        expect(['Content & Portal', 'Stations & Catalog']).toContain(res.options.navigation.name);
         // Verify default actions are NOT disabled
         expect(res.options.actions?.new?.isAccessible).toBeUndefined();
       }

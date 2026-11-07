@@ -46,5 +46,25 @@ export function getSafeCrudResources(): any[] {
         },
       },
     },
+    {
+      resource: getPrismaModelTarget('DeviceCatalog'),
+      options: {
+        navigation: ADMIN_NAVIGATION_GROUPS.STATIONS_CATALOG,
+        properties: {
+          ...buildSensitivePropertiesConfiguration(),
+          id: { isVisible: { list: true, show: true, edit: false, filter: true } },
+        },
+      },
+    },
+    {
+      resource: getPrismaModelTarget('GameCatalog'),
+      options: {
+        navigation: ADMIN_NAVIGATION_GROUPS.STATIONS_CATALOG,
+        properties: {
+          ...buildSensitivePropertiesConfiguration(),
+          id: { isVisible: { list: true, show: true, edit: false, filter: true } },
+        },
+      },
+    },
   ];
 }

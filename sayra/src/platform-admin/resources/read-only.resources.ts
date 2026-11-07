@@ -2,6 +2,7 @@
 import { getPrismaModelTarget } from '../utils/model-access';
 import { buildSensitivePropertiesConfiguration } from './resource.defaults';
 import { ADMIN_NAVIGATION_GROUPS } from '../config/admin.navigation';
+import { buildReservationActions } from './reservation.actions';
 
 /**
  * Common configuration for read-only resources:
@@ -24,6 +25,22 @@ export function getReadOnlyResources(): any[] {
       resource: getPrismaModelTarget('Reservation'),
       options: {
         navigation: ADMIN_NAVIGATION_GROUPS.BOOKINGS_OPERATIONS,
+        actions: buildReservationActions(),
+        properties: buildSensitivePropertiesConfiguration(),
+      },
+    },
+    {
+      resource: getPrismaModelTarget('ReservationHistory'),
+      options: {
+        navigation: ADMIN_NAVIGATION_GROUPS.BOOKINGS_OPERATIONS,
+        actions: readOnlyActionsConfig,
+        properties: buildSensitivePropertiesConfiguration(),
+      },
+    },
+    {
+      resource: getPrismaModelTarget('StationMaintenance'),
+      options: {
+        navigation: ADMIN_NAVIGATION_GROUPS.STATIONS_CATALOG,
         actions: readOnlyActionsConfig,
         properties: buildSensitivePropertiesConfiguration(),
       },

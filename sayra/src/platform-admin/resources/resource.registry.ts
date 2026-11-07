@@ -18,11 +18,15 @@ export function buildResourceRegistry(): any[] {
       options: {
         navigation: ADMIN_NAVIGATION_GROUPS.GAMING_CENTERS,
         actions: {
-          new: { isAccessible: false, isVisible: false },
           delete: { isAccessible: false, isVisible: false },
           bulkDelete: { isAccessible: false, isVisible: false },
         },
-        properties: buildSensitivePropertiesConfiguration(),
+        properties: {
+          ...buildSensitivePropertiesConfiguration(),
+          id: { isVisible: { list: true, show: true, edit: false, filter: true } },
+          createdAt: { isVisible: { list: true, show: true, edit: false, filter: true } },
+          updatedAt: { isVisible: { list: false, show: true, edit: false, filter: false } },
+        },
       },
     },
     // 👥 User Management
@@ -31,11 +35,15 @@ export function buildResourceRegistry(): any[] {
       options: {
         navigation: ADMIN_NAVIGATION_GROUPS.USER_MANAGEMENT,
         actions: {
-          new: { isAccessible: false, isVisible: false },
           delete: { isAccessible: false, isVisible: false },
           bulkDelete: { isAccessible: false, isVisible: false },
         },
-        properties: buildSensitivePropertiesConfiguration(),
+        properties: {
+          ...buildSensitivePropertiesConfiguration(),
+          id: { isVisible: { list: true, show: true, edit: false, filter: true } },
+          createdAt: { isVisible: { list: true, show: true, edit: false, filter: true } },
+          updatedAt: { isVisible: { list: false, show: true, edit: false, filter: false } },
+        },
       },
     },
     {
@@ -55,8 +63,16 @@ export function buildResourceRegistry(): any[] {
       resource: getPrismaModelTarget('GameStation'),
       options: {
         navigation: ADMIN_NAVIGATION_GROUPS.STATIONS_CATALOG,
-        actions: readOnlyActionsConfig,
-        properties: buildSensitivePropertiesConfiguration(),
+        actions: {
+          delete: { isAccessible: false, isVisible: false },
+          bulkDelete: { isAccessible: false, isVisible: false },
+        },
+        properties: {
+          ...buildSensitivePropertiesConfiguration(),
+          id: { isVisible: { list: true, show: true, edit: false, filter: true } },
+          createdAt: { isVisible: { list: true, show: true, edit: false, filter: true } },
+          updatedAt: { isVisible: { list: false, show: true, edit: false, filter: false } },
+        },
       },
     },
     // 🎧 Support & Feedback

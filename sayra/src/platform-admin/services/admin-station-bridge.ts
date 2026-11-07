@@ -58,6 +58,139 @@ export class AdminStationBridge {
   }
 
   /**
+   * Safe administrative confirmation of a reservation via reservationStation
+   */
+  static async confirmReservation(
+    gamingCenterId: string,
+    reservationId: string,
+    context: AdminActionContext
+  ): Promise<any> {
+    logger.info({ reservationId, gamingCenterId, adminId: context.platformAdminId }, 'AdminStationBridge: confirming reservation');
+
+    const result = await reservationStation.confirmReservation(reservationId, gamingCenterId);
+
+    await AdminAuditService.logAdminEvent({
+      platformAdminId: context.platformAdminId,
+      action: 'ADMIN_RESERVATION_CONFIRMED',
+      entity: 'Reservation',
+      entityId: reservationId,
+      newData: { gamingCenterId, status: 'CONFIRMED' },
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+    });
+
+    return result;
+  }
+
+  /**
+   * Safe administrative start of a reservation via reservationStation
+   */
+  static async startReservation(
+    gamingCenterId: string,
+    reservationId: string,
+    context: AdminActionContext
+  ): Promise<any> {
+    logger.info({ reservationId, gamingCenterId, adminId: context.platformAdminId }, 'AdminStationBridge: starting reservation');
+
+    const actor = {
+      id: context.platformAdminId,
+      role: UserRole.ADMIN,
+      actorType: SessionActorType.USER,
+    };
+
+    const result = await reservationStation.startReservation(
+      reservationId,
+      gamingCenterId,
+      actor,
+      { ip: context.ipAddress, userAgent: context.userAgent }
+    );
+
+    await AdminAuditService.logAdminEvent({
+      platformAdminId: context.platformAdminId,
+      action: 'ADMIN_RESERVATION_STARTED',
+      entity: 'Reservation',
+      entityId: reservationId,
+      newData: { gamingCenterId, status: 'IN_PROGRESS' },
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+    });
+
+    return result;
+  }
+
+  /**
+   * Safe administrative completion of a reservation via reservationStation
+   */
+  static async completeReservation(
+    gamingCenterId: string,
+    reservationId: string,
+    context: AdminActionContext
+  ): Promise<any> {
+    logger.info({ reservationId, gamingCenterId, adminId: context.platformAdminId }, 'AdminStationBridge: completing reservation');
+
+    const actor = {
+      id: context.platformAdminId,
+      role: UserRole.ADMIN,
+      actorType: SessionActorType.USER,
+    };
+
+    const result = await reservationStation.completeReservation(
+      reservationId,
+      gamingCenterId,
+      actor,
+      { ip: context.ipAddress, userAgent: context.userAgent }
+    );
+
+    await AdminAuditService.logAdminEvent({
+      platformAdminId: context.platformAdminId,
+      action: 'ADMIN_RESERVATION_COMPLETED',
+      entity: 'Reservation',
+      entityId: reservationId,
+      newData: { gamingCenterId, status: 'COMPLETED' },
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+    });
+
+    return result;
+  }
+
+  /**
+   * Safe administrative no-show mark via reservationStation
+   */
+  static async markNoShow(
+    gamingCenterId: string,
+    reservationId: string,
+    context: AdminActionContext
+  ): Promise<any> {
+    logger.info({ reservationId, gamingCenterId, adminId: context.platformAdminId }, 'AdminStationBridge: marking no-show');
+
+    const actor = {
+      id: context.platformAdminId,
+      role: UserRole.ADMIN,
+      actorType: SessionActorType.USER,
+    };
+
+    const result = await reservationStation.markAsNoShow(
+      reservationId,
+      gamingCenterId,
+      actor,
+      { ip: context.ipAddress, userAgent: context.userAgent }
+    );
+
+    await AdminAuditService.logAdminEvent({
+      platformAdminId: context.platformAdminId,
+      action: 'ADMIN_RESERVATION_NOSHOW',
+      entity: 'Reservation',
+      entityId: reservationId,
+      newData: { gamingCenterId, status: 'NO_SHOW' },
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+    });
+
+    return result;
+  }
+
+  /**
    * Safe administrative refund execution via RefundsStation
    */
   static async processRefund(
