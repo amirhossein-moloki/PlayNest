@@ -3,6 +3,7 @@ import { getPrismaModelTarget } from '../utils/model-access';
 import { buildSensitivePropertiesConfiguration } from './resource.defaults';
 import { ADMIN_NAVIGATION_GROUPS } from '../config/admin.navigation';
 import { buildReservationActions } from './reservation.actions';
+import { buildPaymentActions, buildRefundActions } from './financial.actions';
 
 /**
  * Common configuration for read-only resources:
@@ -57,12 +58,36 @@ export function getReadOnlyResources(): any[] {
       resource: getPrismaModelTarget('Payment'),
       options: {
         navigation: ADMIN_NAVIGATION_GROUPS.FINANCE_BILLING,
-        actions: readOnlyActionsConfig,
+        actions: buildPaymentActions(),
         properties: buildSensitivePropertiesConfiguration(),
       },
     },
     {
       resource: getPrismaModelTarget('Refund'),
+      options: {
+        navigation: ADMIN_NAVIGATION_GROUPS.FINANCE_BILLING,
+        actions: buildRefundActions(),
+        properties: buildSensitivePropertiesConfiguration(),
+      },
+    },
+    {
+      resource: getPrismaModelTarget('CommissionPolicy'),
+      options: {
+        navigation: ADMIN_NAVIGATION_GROUPS.FINANCE_BILLING,
+        actions: readOnlyActionsConfig,
+        properties: buildSensitivePropertiesConfiguration(),
+      },
+    },
+    {
+      resource: getPrismaModelTarget('Earning'),
+      options: {
+        navigation: ADMIN_NAVIGATION_GROUPS.FINANCE_BILLING,
+        actions: readOnlyActionsConfig,
+        properties: buildSensitivePropertiesConfiguration(),
+      },
+    },
+    {
+      resource: getPrismaModelTarget('ReconciliationRecord'),
       options: {
         navigation: ADMIN_NAVIGATION_GROUPS.FINANCE_BILLING,
         actions: readOnlyActionsConfig,

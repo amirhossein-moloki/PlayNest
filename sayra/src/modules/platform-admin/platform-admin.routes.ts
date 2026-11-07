@@ -76,6 +76,11 @@ router.get('/operations/overview', asyncHandler(PlatformAdminController.getOpera
 
 // Financials Overview across all centers
 router.get('/financials/overview', asyncHandler(PlatformAdminController.getFinancialsOverview));
+router.get('/financials/payments', asyncHandler(PlatformAdminController.listPayments));
+router.get('/financials/refunds', asyncHandler(PlatformAdminController.listRefunds));
+router.post('/financials/refunds/:id/retry', asyncHandler(PlatformAdminController.retryRefund));
+router.post('/financials/payments/:id/reconcile', asyncHandler(PlatformAdminController.reconcilePayment));
+router.get('/financials/export', asyncHandler(PlatformAdminController.exportFinancialCsv));
 
 // System-wide Audit Logs
 router.get('/audit-logs', asyncHandler(PlatformAdminController.listAuditLogs));

@@ -2,9 +2,13 @@
 import { reservationStation } from '../../modules/reservation/reservation.station';
 import { RefundsStation } from '../../modules/payments/payments.refund.station';
 import { VerificationStation } from '../../modules/verification/verification.station';
+import { ReconciliationStation } from '../../modules/payments/reconciliation.station';
 import { AdminAuditService } from './admin-audit.service';
 import { UserRole, SessionActorType } from '@prisma/client';
 import logger from '../../config/logger';
+import { prisma } from '../../config/prisma';
+import AppError from '../../common/errors/AppError';
+import httpStatus from 'http-status';
 
 export interface AdminActionContext {
   platformAdminId: string;
@@ -232,6 +236,80 @@ export class AdminStationBridge {
   /**
    * Safe verification decision via VerificationStation
    */
+  /**
+   * Safe administrative retry of a failed refund with Idempotency preservation
+   */
+  static async retryRefund(
+    refundId: string,
+    context: AdminActionContext
+  ): Promise<any> {
+    logger.info({ refundId, adminId: context.platformAdminId }, 'AdminStationBridge: retrying refund');
+
+    const refund = await prisma.refund.findUnique({
+      where: { id: refundId },
+      include: { payment: true },
+    });
+
+    if (!refund) {
+      throw new AppError('Refund record not found.', httpStatus.NOT_FOUND);
+    }
+
+    if (refund.status === 'SUCCESSFUL') {
+      throw new AppError('Refund has already been completed successfully.', httpStatus.CONFLICT);
+    }
+
+    const retryIdempotencyKey = `retry_${refund.id}_${Date.now()}`;
+    const result = await RefundsStation.requestRefund({
+      gamingCenterId: refund.gamingCenterId,
+      paymentId: refund.paymentId,
+      amount: refund.amount,
+      currency: refund.currency,
+      reason: `[ADMIN RETRY] Previous refund attempt ${refund.id} retry`,
+      requestedById: context.platformAdminId,
+      idempotencyKey: retryIdempotencyKey,
+    });
+
+    await AdminAuditService.logAdminEvent({
+      platformAdminId: context.platformAdminId,
+      action: 'ADMIN_REFUND_RETRIED',
+      entity: 'Refund',
+      entityId: refundId,
+      newData: { newRefundId: (result as any)?.id, previousRefundId: refundId },
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+    });
+
+    return result;
+  }
+
+  /**
+   * Safe administrative gateway inquiry & reconciliation via ReconciliationStation
+   */
+  static async reconcilePayment(
+    gamingCenterId: string,
+    paymentId: string,
+    context: AdminActionContext
+  ): Promise<any> {
+    logger.info({ paymentId, gamingCenterId, adminId: context.platformAdminId }, 'AdminStationBridge: reconciling payment');
+
+    const result = await ReconciliationStation.reconcilePayment({
+      gamingCenterId,
+      paymentId,
+    });
+
+    await AdminAuditService.logAdminEvent({
+      platformAdminId: context.platformAdminId,
+      action: 'ADMIN_PAYMENT_RECONCILED',
+      entity: 'Payment',
+      entityId: paymentId,
+      newData: { status: result.status, discrepancies: result.discrepancies },
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+    });
+
+    return result;
+  }
+
   static async decideVerification(
     verificationId: string,
     approved: boolean,
