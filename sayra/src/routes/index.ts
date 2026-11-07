@@ -62,8 +62,6 @@ import {
   supportRouter as ticketSupportRouter,
   adminRouter as ticketAdminRouter,
 } from '../modules/tickets/tickets.routes';
-import { blogRouter } from '../modules/blog/blog.routes';
-import { publicBlogRouter } from '../modules/blog/public-blog.routes';
 import notificationsRouter from '../modules/notifications/notifications.routes';
 import { discountsRoutes } from '../modules/discounts/discounts.routes';
 import {
@@ -210,9 +208,6 @@ router.use('/gamingCenters/:gamingCenterId', cmsRouter);
 // --- CMS Admin UI ---
 router.use('/admin', cmsAdminUiRouter);
 
-// --- Blog Module Routes ---
-router.use('/gamingCenters/:gamingCenterId/blog', blogRouter);
-
 // --- Public CMS Routes ---
 router.use('/public/gamingCenters/:gamingCenterSlug/pages', publicPagesRouter);
 router.use('/public/gamingCenters/:gamingCenterSlug/media', publicMediaRouter);
@@ -222,9 +217,6 @@ router.use('/public/gamingCenters/:gamingCenterSlug/addresses', publicAddressesR
 // --- Public Analytics Event Collector ---
 router.post('/public/analytics/events', AnalyticsController.collectEvent);
 router.post('/public/gamingCenters/:gamingCenterSlug/analytics/events', AnalyticsController.collectEvent);
-
-// --- Public Blog Routes ---
-router.use('/public/gamingCenters/:gamingCenterSlug/blog', publicBlogRouter);
 
 // --- Webhooks Module ---
 router.use(webhooksRoutes);
