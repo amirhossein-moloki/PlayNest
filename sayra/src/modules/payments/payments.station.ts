@@ -8,6 +8,7 @@ import { PaymentProviderFactory } from './providers';
 const mapProviderEnum = (providerName: string): PaymentProvider => {
   const upper = providerName.toUpperCase();
   if (upper === 'ZARINPAL') return PaymentProvider.ZARINPAL;
+  if (upper === 'ZIBAL') return PaymentProvider.ZIBAL;
   if (upper === 'STRIPE') return PaymentProvider.STRIPE;
   return PaymentProvider.MANUAL;
 };
@@ -68,7 +69,7 @@ const initiatePayment = async ({
 
   // 6. Initiate with external provider adapter
   try {
-    const callbackUrl = env.ZARINPAL_CALLBACK_URL;
+    const callbackUrl = provider.name === 'ZIBAL' ? env.ZIBAL_CALLBACK_URL : env.ZARINPAL_CALLBACK_URL;
     const initiateResult = await provider.initiatePayment({
       amount: calculatedAmount,
       currency,
@@ -170,6 +171,10 @@ const verifyPayment = async ({
   const verifyResult = await provider.verifyPayment({
     authority: providerAuthority,
     amount: payment.amount,
+    metadata: {
+      orderId: payment.reservationId || payment.id,
+      reservationId: payment.reservationId,
+    },
   });
 
   // 5. Atomic database status update based on provider result

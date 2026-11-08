@@ -4,6 +4,7 @@ import httpStatus from 'http-status';
 import { IPaymentProvider } from './payment-provider.interface';
 import { ZarinPalProvider } from './zarinpal.provider';
 import { FakePaymentProvider } from './fake.provider';
+import { ZibalProvider } from './zibal.provider';
 
 export class PaymentProviderFactory {
   static getProvider(requestedProvider?: string): IPaymentProvider {
@@ -11,6 +12,10 @@ export class PaymentProviderFactory {
 
     if (providerName === 'ZARINPAL') {
       return new ZarinPalProvider();
+    }
+
+    if (providerName === 'ZIBAL') {
+      return new ZibalProvider();
     }
 
     if (providerName === 'FAKE') {
