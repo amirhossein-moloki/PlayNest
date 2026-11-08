@@ -176,7 +176,7 @@ export const reservationStation = {
         throw new AppError('GameStation not found or is not active.', httpStatus.NOT_FOUND);
       }
 
-      const durationHours = station.defaultDurationHours;
+      const durationHours = input.durationHours ?? station.defaultDurationHours;
       const endTime = addMinutes(startTime, durationHours * 60);
 
       // Check station maintenance
@@ -358,7 +358,7 @@ export const reservationStation = {
           );
         }
 
-        const durationHours = station.defaultDurationHours;
+        const durationHours = input.durationHours ?? station.defaultDurationHours;
         const endTime = addMinutes(startTime, durationHours * 60);
 
         // Check station maintenance

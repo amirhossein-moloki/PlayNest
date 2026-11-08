@@ -13,6 +13,7 @@ export const createReservationSchema = z.object({
     stationId: z.string().cuid(CUID_MESSAGE),
     staffId: z.string().cuid(CUID_MESSAGE),
     startTime: z.string().datetime(),
+    durationHours: z.number().int().positive().max(24).optional(),
     customer: z.object({
       fullName: z.string().min(2),
       phone: z.string().min(10), // E.164 normalization will be handled in the station
@@ -117,6 +118,7 @@ export const createPublicReservationSchema = z.object({
     stationId: z.string().cuid(CUID_MESSAGE),
     staffId: z.string().cuid(CUID_MESSAGE),
     startTime: z.string().datetime(),
+    durationHours: z.number().int().positive().max(24).optional(),
     customer: z.object({
       fullName: z.string().min(2),
       phone: z.string().min(10), // E.164 normalization will be handled in the station
