@@ -42,6 +42,7 @@ import {
   publicGamingCenterRouter,
 } from '../modules/public/public.routes';
 import { paymentsRoutes, paymentsManagementRouter } from '../modules/payments/payments.routes';
+import { paymentsCallbackRouter } from '../modules/payments/payments.callback.routes';
 import { webhooksRoutes } from '../modules/webhooks/webhooks.routes';
 import { customersRouter } from '../modules/customers/customers.routes';
 import {
@@ -199,6 +200,7 @@ router.use('/admin', dashboardAdminUiRouter);
 router.use('/gamingCenters/:gamingCenterId/reservation/:reservationId/sessions', gamingSessionsRoutes);
 
 // --- Payments Module Routes ---
+router.use('/payments', paymentsCallbackRouter);
 router.use('/gamingCenters/:gamingCenterId/reservation', paymentsRoutes); // This will be scoped within the reservation
 router.use('/gamingCenters/:gamingCenterId/payments', paymentsManagementRouter);
 

@@ -148,6 +148,11 @@ describe('Payment Provider Adapters', () => {
       expect(provider.name).toBe('FAKE');
     });
 
+    it('should return ZibalProvider when requested', () => {
+      const provider = PaymentProviderFactory.getProvider('ZIBAL');
+      expect(provider.name).toBe('ZIBAL');
+    });
+
     it('should throw error for unsupported provider', () => {
       expect(() => PaymentProviderFactory.getProvider('INVALID')).toThrow(AppError);
     });

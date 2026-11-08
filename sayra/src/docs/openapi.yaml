@@ -731,6 +731,13 @@ components:
           type: string
         customerAccountId:
           type: string
+          nullable: true
+        userId:
+          type: string
+          nullable: true
+        gamingCenterId:
+          type: string
+          nullable: true
         assignedToUserId:
           type: string
           nullable: true
@@ -5200,7 +5207,7 @@ paths:
       description: Verify OTP (Customer)
   /tickets:
     get:
-      summary: List own tickets (Customer)
+      summary: List own tickets (Customer or Manager)
       tags:
       - Tickets
       security:
@@ -5223,9 +5230,9 @@ paths:
                   meta:
                     $ref: '#/components/schemas/Meta'
       operationId: get_tickets
-      description: List own tickets (Customer)
+      description: List own tickets (Customer or Manager)
     post:
-      summary: Create a new ticket (Customer)
+      summary: Create a new ticket (Customer or Manager)
       tags:
       - Tickets
       security:
@@ -5269,7 +5276,7 @@ paths:
       description: Create a new ticket (Customer)
   /tickets/{ticketId}:
     get:
-      summary: Get ticket details (Customer)
+      summary: Get ticket details (Customer or Manager)
       tags:
       - Tickets
       security:
@@ -5307,7 +5314,7 @@ paths:
       description: Get ticket details (Customer)
   /tickets/{ticketId}/messages:
     post:
-      summary: Add message to ticket (Customer)
+      summary: Add message to ticket (Customer or Manager)
       tags:
       - Tickets
       security:
@@ -8688,6 +8695,97 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+  /payments/zibal/callback:
+    get:
+      summary: Zibal payment gateway browser return callback
+      description: Handles browser redirection from Zibal payment gateway, verifies transaction server-to-server, updates payment status, and renders success/failure page.
+      tags:
+      - Payments
+      operationId: get_payments_zibal_callback
+      parameters:
+      - name: trackId
+        in: query
+        required: true
+        schema:
+          type: string
+        description: Zibal transaction tracking ID
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Gateway transaction return status code
+      - name: success
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Gateway transaction success flag (1 or 0)
+      - name: orderId
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Internal reservation/order identifier
+      responses:
+        '200':
+          description: Payment successful, renders success HTML page
+          content:
+            text/html:
+              schema:
+                type: string
+        '400':
+          description: Payment verification failed or rejected, renders failure HTML page
+          content:
+            text/html:
+              schema:
+                type: string
+        '404':
+          description: Payment transaction not found
+          content:
+            text/html:
+              schema:
+                type: string
+    post:
+      summary: Zibal payment gateway server return callback
+      description: Handles POST redirection from Zibal payment gateway.
+      tags:
+      - Payments
+      operationId: post_payments_zibal_callback
+      parameters:
+      - name: trackId
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: success
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: orderId
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Payment successful HTML page
+          content:
+            text/html:
+              schema:
+                type: string
+        '400':
+          description: Payment failure HTML page
+          content:
+            text/html:
+              schema:
+                type: string
   /webhooks/payments/{provider}:
     post:
       summary: Payment provider asynchronous webhook endpoint

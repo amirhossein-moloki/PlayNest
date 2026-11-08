@@ -27,9 +27,9 @@ const generateNumericOtp = (length: number): string => {
 };
 
 const getOtpTemplateId = (): number => {
-  const templateId = env.SMSIR_OTP_TEMPLATE_ID;
+  const templateId = env.MELIPAYAMAK_OTP_BODY_ID || env.SMSIR_OTP_TEMPLATE_ID;
   if (!templateId) {
-    throw new Error('SMSIR_OTP_TEMPLATE_ID must be set in the environment variables.');
+    throw new Error('MELIPAYAMAK_OTP_BODY_ID or SMSIR_OTP_TEMPLATE_ID must be set in the environment variables.');
   }
   return templateId;
 };

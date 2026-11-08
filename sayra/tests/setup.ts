@@ -17,6 +17,12 @@ jest.mock('../src/config/env', () => ({
     JWT_ACCESS_EXPIRES_IN: '15m',
     SMSIR_OTP_TEMPLATE_ID: 123456,
     LOG_LEVEL: 'silent',
+    DEFAULT_PAYMENT_PROVIDER: 'ZARINPAL',
+    ZARINPAL_MERCHANT_ID: '00000000-0000-0000-0000-000000000000',
+    ZARINPAL_CALLBACK_URL: 'http://localhost:3000/api/v1/payments/callback',
+    ZARINPAL_SANDBOX: true,
+    ZIBAL_MERCHANT: 'zibal',
+    ZIBAL_CALLBACK_URL: 'http://localhost:3000/api/v1/payments/zibal/callback',
   },
 }));
 
