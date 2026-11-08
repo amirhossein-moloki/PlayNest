@@ -7,6 +7,9 @@ import * as uploadStation from '../../../src/common/stations/upload.station';
 import { auditService } from '../../../src/modules/audit/audit.station';
 import { getSafeCrudResources } from '../../../src/platform-admin/resources/safe-crud.resources';
 import { buildResourceRegistry } from '../../../src/platform-admin/resources/resource.registry';
+import redis from '../../../src/config/redis';
+import { ADMIN_CONSTANTS } from '../../../src/platform-admin/config/admin.constants';
+import cookieSignature from 'cookie-signature';
 
 jest.mock('../../../src/config/redis', () => ({
   ping: jest.fn().mockResolvedValue('PONG'),
@@ -124,10 +127,69 @@ describe('Platform Admin Media & Direct Image Upload Test Suite', () => {
       expect(uploadStation.processAndStoreImage).not.toHaveBeenCalled();
     });
 
+    it('should successfully upload an image file authenticated via AdminJS session cookie', async () => {
+      const adminSessionId = 'sess_cookie_adm_1';
+      const redisKey = `${ADMIN_CONSTANTS.SESSION_PREFIX}${adminSessionId}`;
+
+      // In express-session with connect-redis, session objects store cookies and user data
+      (redis.get as jest.Mock).mockImplementation((key: string) => {
+        if (key === redisKey) {
+          return Promise.resolve(
+            JSON.stringify({
+              cookie: { originalMaxAge: 28800000, expires: new Date(Date.now() + 100000).toISOString() },
+              adminUser: {
+                id: 'pa_super_1',
+                email: 'super@example.com',
+                phone: '09121112233',
+                fullName: 'Super Administrator',
+                isSuperuser: true,
+              },
+            })
+          );
+        }
+        return Promise.resolve(null);
+      });
+
+      const signedSid = 's:' + cookieSignature.sign(adminSessionId, ADMIN_CONSTANTS.COOKIE_SECRET);
+
+      const imageBuffer = Buffer.from('fake-image-content-bytes');
+
+      const res = await request(app)
+        .post('/api/v1/platform-admin/media/upload')
+        .set('Cookie', [`${ADMIN_CONSTANTS.SESSION_COOKIE_NAME}=${encodeURIComponent(signedSid)}`])
+        .attach('file', imageBuffer, 'console-cover-cookie.jpg');
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.url).toBe('/uploads/mocked-image-123.jpg');
+
+      expect(uploadStation.processAndStoreImage).toHaveBeenCalled();
+      expect(auditService.recordLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          platformAdminId: 'pa_super_1',
+          action: 'PLATFORM_MEDIA_UPLOAD',
+          entity: 'Media',
+        })
+      );
+    });
+
     it('should reject unauthenticated requests with 401', async () => {
       const imageBuffer = Buffer.from('fake-image-content-bytes');
       const res = await request(app)
         .post('/api/v1/platform-admin/media/upload')
+        .attach('file', imageBuffer, 'test.png');
+
+      expect(res.status).toBe(401);
+      expect(uploadStation.processAndStoreImage).not.toHaveBeenCalled();
+    });
+
+    it('should reject requests with invalid or nonexistent session cookie with 401', async () => {
+      (redis.get as jest.Mock).mockResolvedValue(null);
+
+      const imageBuffer = Buffer.from('fake-image-content-bytes');
+      const res = await request(app)
+        .post('/api/v1/platform-admin/media/upload')
+        .set('Cookie', [`${ADMIN_CONSTANTS.SESSION_COOKIE_NAME}=s%3Anonexistent_session.invalid`])
         .attach('file', imageBuffer, 'test.png');
 
       expect(res.status).toBe(401);

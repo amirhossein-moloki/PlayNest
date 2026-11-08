@@ -11,7 +11,16 @@ export async function getSettings(gamingCenterId: string) {
       gamingCenterId,
       preventOverlaps: true,
       allowOnlineBooking: false,
-      onlineBookingAutoConfirm: false
+      onlineBookingAutoConfirm: false,
+      requireOtpForPublicBooking: false,
+      timeZone: 'Asia/Tehran',
+      workStartTime: '09:00',
+      workEndTime: '23:00',
+      maxAdvanceBookingDays: 7,
+      minAdvanceBookingMinutes: 30,
+      cancellationHours: 2,
+      noShowPenaltyAmount: 0,
+      autoReleaseUnpaidMinutes: 15,
     };
   }
   return settings;

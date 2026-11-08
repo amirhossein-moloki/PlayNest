@@ -3,10 +3,12 @@ import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import path from 'path';
 import swaggerUi from 'swagger-ui-express';
 import YAML from 'yamljs';
 import routes from './routes';
+import { ADMIN_CONSTANTS } from './platform-admin/config/admin.constants';
 import healthRouter from './routes/health.routes';
 import { errorHandler } from './common/errors/errorHandler';
 import { responseMiddleware } from './common/middleware/response';
@@ -33,6 +35,7 @@ const app = express();
 app.set('trust proxy', env.TRUST_PROXY);
 
 app.use(express.json());
+app.use(cookieParser(ADMIN_CONSTANTS.COOKIE_SECRET));
 app.use(cors({
   origin: env.CORS_ORIGIN,
   credentials: env.CORS_CREDENTIALS,
