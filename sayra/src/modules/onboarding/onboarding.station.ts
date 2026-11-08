@@ -28,7 +28,7 @@ const generateNumericOtp = (length: number): string => {
 };
 
 const getOtpTemplateId = (): number => {
-  return env.SMSIR_OTP_TEMPLATE_ID || 123456;
+  return env.MELIPAYAMAK_OTP_BODY_ID || env.SMSIR_OTP_TEMPLATE_ID || 123456;
 };
 
 export const OnboardingStation = {

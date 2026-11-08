@@ -77,8 +77,17 @@ export const PlatformSettingsStation = {
   async getInfrastructureStatus() {
     // 1. SMS Gateway Status & Provider
     let smsGatewayStatus = 'UNKNOWN';
-    const smsProvider = env.SMSIR_API_KEY ? 'SmsIr' : 'NONE';
-    if (env.SMSIR_API_KEY && env.SMSIR_LINE_NUMBER) {
+    const smsProvider = (env.MELIPAYAMAK_USERNAME && env.MELIPAYAMAK_PASSWORD)
+      ? 'Melipayamak'
+      : env.SMSIR_API_KEY
+        ? 'SmsIr'
+        : 'NONE';
+
+    if (env.MELIPAYAMAK_USERNAME && env.MELIPAYAMAK_PASSWORD && env.MELIPAYAMAK_FROM) {
+      smsGatewayStatus = 'HEALTHY';
+    } else if (env.MELIPAYAMAK_USERNAME && env.MELIPAYAMAK_PASSWORD) {
+      smsGatewayStatus = 'DEGRADED';
+    } else if (env.SMSIR_API_KEY && env.SMSIR_LINE_NUMBER) {
       smsGatewayStatus = 'HEALTHY';
     } else if (env.SMSIR_API_KEY) {
       smsGatewayStatus = 'DEGRADED';

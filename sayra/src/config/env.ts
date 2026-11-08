@@ -109,6 +109,13 @@ const EnvSchema = z.object({
   SMSIR_PAYMENT_SUCCESS_TEMPLATE_ID: z.coerce.number().optional(),
   SMSIR_PAYMENT_FAILED_TEMPLATE_ID: z.coerce.number().optional(),
 
+  // Melipayamak
+  MELIPAYAMAK_USERNAME: z.string().optional(),
+  MELIPAYAMAK_PASSWORD: z.string().optional(),
+  MELIPAYAMAK_FROM: z.string().optional(),
+  MELIPAYAMAK_OTP_BODY_ID: z.coerce.number().optional(),
+  MELIPAYAMAK_RESERVATION_BODY_ID: z.coerce.number().optional(),
+
   // Sayra SMTP / Email (Optional)
   SAYRA_SMTP_HOST: z.string().optional(),
   SAYRA_SMTP_PORT: z.coerce.number().int().positive().optional(),

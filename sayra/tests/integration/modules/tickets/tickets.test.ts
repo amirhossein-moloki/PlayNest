@@ -2,10 +2,12 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import * as ticketStation from '../../../../src/modules/tickets/tickets.station';
 import * as ticketRepo from '../../../../src/modules/tickets/tickets.repo';
 import { auditService } from '../../../../src/modules/audit/audit.station';
+import { MelipayamakStation } from '../../../../src/modules/notifications/melipayamak.station';
 import { TicketStatus, TicketPriority, TicketCategory, UserRole, SessionActorType, TicketSenderType } from '@prisma/client';
 
 jest.mock('../../../../src/modules/tickets/tickets.repo');
 jest.mock('../../../../src/modules/audit/audit.station');
+jest.mock('../../../../src/modules/notifications/melipayamak.station');
 
 const MockedTicketRepo = ticketRepo as jest.Mocked<typeof ticketRepo>;
 const MockedAuditStation = auditService as jest.Mocked<typeof auditService>;
@@ -46,16 +48,27 @@ describe('Ticket System Station Unit Tests (Mocked Repo)', () => {
 
   it('should successfully add a message and update status to ANSWERED when support replies', async () => {
     const ticketId = 'ticket-123';
-    const ticket = { id: ticketId, customerAccountId, status: TicketStatus.OPEN, assignedToUserId: supportUserId };
+    const ticket = {
+      id: ticketId,
+      customerAccountId,
+      status: TicketStatus.OPEN,
+      assignedToUserId: supportUserId,
+      customerAccount: { phone: '09121111111' },
+    };
     const message = { id: 'msg-1', ticketId, text: 'Reply', senderId: supportUserId, senderType: TicketSenderType.SUPPORT };
 
     MockedTicketRepo.findTicketById.mockResolvedValue(ticket /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
     MockedTicketRepo.createMessage.mockResolvedValue(message /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+    (MelipayamakStation.sendTicketReplySms as jest.MockedFunction<typeof MelipayamakStation.sendTicketReplySms>).mockResolvedValue({
+      success: true,
+      recId: 'sms-reply-123',
+    });
 
     await ticketStation.addMessage(ticketId, supportUserId, TicketSenderType.SUPPORT, 'Reply', undefined, { id: supportUserId, role: UserRole.ADMIN, actorType: 'USER' }, context);
 
     expect(MockedTicketRepo.createMessage).toHaveBeenCalled();
     expect(MockedTicketRepo.updateTicket).toHaveBeenCalledWith(ticketId, { status: TicketStatus.ANSWERED });
+    expect(MelipayamakStation.sendTicketReplySms).toHaveBeenCalledWith('09121111111', ticketId);
   });
 
   it('should successfully assign a ticket', async () => {

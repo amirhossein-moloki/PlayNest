@@ -67,11 +67,11 @@ const sendReservationStatusSms = async (
   let templateId: number | undefined;
 
   if (reservation.status === ReservationStatus.CONFIRMED) {
-    templateId = env.SMSIR_RESERVATION_CONFIRMED_TEMPLATE_ID;
+    templateId = env.MELIPAYAMAK_RESERVATION_BODY_ID || env.SMSIR_RESERVATION_CONFIRMED_TEMPLATE_ID;
   } else if (reservation.status === ReservationStatus.PENDING) {
-    templateId = env.SMSIR_RESERVATION_PENDING_TEMPLATE_ID;
+    templateId = env.MELIPAYAMAK_RESERVATION_BODY_ID || env.SMSIR_RESERVATION_PENDING_TEMPLATE_ID;
   } else if (reservation.status === ReservationStatus.CANCELED) {
-    templateId = env.SMSIR_RESERVATION_CANCELED_TEMPLATE_ID;
+    templateId = env.MELIPAYAMAK_RESERVATION_BODY_ID || env.SMSIR_RESERVATION_CANCELED_TEMPLATE_ID;
   }
 
   if (!templateId) return;
