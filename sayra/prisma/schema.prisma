@@ -2755,3 +2755,39 @@ model AdvertisementRequest {
   @@index([startDate, endDate])
   @@index([createdAt])
 }
+
+model CalendarYear {
+  id                         String          @id @default(cuid())
+  year                       Int             @unique
+  isOfficialCalendarPublished Boolean         @default(false)
+  source                     String?         @default("official_calendar")
+  lastSyncedAt               DateTime?       @db.Timestamptz(6)
+
+  createdAt                  DateTime        @default(now())
+  updatedAt                  DateTime        @updatedAt
+
+  events                     CalendarEvent[]
+
+  @@index([year])
+}
+
+model CalendarEvent {
+  id         String        @id @default(cuid())
+  yearId     String?
+  year       CalendarYear? @relation(fields: [yearId], references: [id], onDelete: Cascade)
+
+  date       String
+  title      String
+  type       String        // national, religious, historical, cultural, international
+  isHoliday  Boolean       @default(false)
+  source     String        @default("official_calendar")
+  verified   Boolean       @default(true)
+
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@unique([date, title])
+  @@index([date])
+  @@index([date, isHoliday])
+  @@index([yearId])
+}

@@ -49,6 +49,137 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   schemas:
+    IranCalendarDaysResponse:
+      type: object
+      required:
+      - calendar
+      - from
+      - to
+      - totalDays
+      - days
+      properties:
+        calendar:
+          type: string
+          example: iranian
+        from:
+          type: string
+          example: '1405-01-01'
+        to:
+          type: string
+          example: '1405-01-31'
+        totalDays:
+          type: integer
+          example: 31
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/IranCalendarDayItem'
+    IranCalendarDayItem:
+      type: object
+      required:
+      - date
+      - year
+      - month
+      - monthName
+      - day
+      - dayOfWeek
+      - dayOfWeekName
+      - dayOfYear
+      - isWeekend
+      - isHoliday
+      - holidayType
+      - isToday
+      properties:
+        date:
+          type: string
+          example: '1405-01-01'
+        year:
+          type: integer
+          example: 1405
+        month:
+          type: integer
+          example: 1
+        monthName:
+          type: string
+          example: فروردین
+        day:
+          type: integer
+          example: 1
+        dayOfWeek:
+          type: integer
+          example: 0
+        dayOfWeekName:
+          type: string
+          example: شنبه
+        dayOfYear:
+          type: integer
+          example: 1
+        isWeekend:
+          type: boolean
+          example: false
+        isHoliday:
+          type: boolean
+          example: true
+        holidayType:
+          type: string
+          enum: [official, weekend, none]
+          example: official
+        isToday:
+          type: boolean
+          example: false
+        relativeDay:
+          type: string
+          nullable: true
+          example: today
+        relativeDayName:
+          type: string
+          nullable: true
+          example: امروز
+        isOfficialCalendarPublished:
+          type: boolean
+          example: true
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/IranCalendarEventItem'
+    IranCalendarEventItem:
+      type: object
+      required:
+      - title
+      - type
+      properties:
+        title:
+          type: string
+          example: عید نوروز
+        type:
+          type: string
+          example: national
+        isHoliday:
+          type: boolean
+          example: true
+        source:
+          type: string
+          example: official_calendar
+        verified:
+          type: boolean
+          example: true
+    IranCalendarErrorResponse:
+      type: object
+      required:
+      - success
+      - message
+      - errors
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Invalid Jalali date
+        errors:
+          type: object
+          additionalProperties:
+            type: string
     DeviceCatalog:
       type: object
       properties:
@@ -1474,6 +1605,56 @@ components:
           type: string
           format: date-time
 paths:
+  /iran-calendar/days:
+    get:
+      operationId: getIranCalendarDays
+      summary: Get Iranian official calendar days for a date range
+      description: Returns all calendar days for a Jalali date range including holiday status, official/national/religious events, and relative date indicators calculated according to Asia/Tehran timezone.
+      tags:
+      - Calendar
+      security: []
+      parameters:
+      - name: from
+        in: query
+        required: true
+        description: Start of the date range in Jalali calendar (YYYY-MM-DD)
+        schema:
+          type: string
+          example: '1405-01-01'
+      - name: to
+        in: query
+        required: true
+        description: End of the date range in Jalali calendar (YYYY-MM-DD)
+        schema:
+          type: string
+          example: '1405-01-31'
+      - name: includeEvents
+        in: query
+        required: false
+        description: Whether to include calendar events
+        schema:
+          type: boolean
+          default: true
+      - name: includeHolidays
+        in: query
+        required: false
+        description: Whether to include holiday calculations
+        schema:
+          type: boolean
+          default: true
+      responses:
+        '200':
+          description: List of Iranian calendar days for the requested interval
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IranCalendarDaysResponse'
+        '400':
+          description: Invalid Jalali date or date range
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IranCalendarErrorResponse'
   /gamingCenters/{gamingCenterId}/stations/from-catalog:
     post:
       summary: Create stations in bulk from a catalog device
@@ -9850,6 +10031,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
 tags:
+- name: Calendar
+  description: Iranian official and Jalali calendar operations
 - name: Catalog
   description: Central hardware device and video game catalogs for platform and gaming center management
 - name: Admin
