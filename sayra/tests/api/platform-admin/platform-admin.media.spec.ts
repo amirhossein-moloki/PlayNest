@@ -9,6 +9,7 @@ import { getSafeCrudResources } from '../../../src/platform-admin/resources/safe
 import { buildResourceRegistry } from '../../../src/platform-admin/resources/resource.registry';
 import redis from '../../../src/config/redis';
 import { ADMIN_CONSTANTS } from '../../../src/platform-admin/config/admin.constants';
+import cookieSignature from 'cookie-signature';
 
 jest.mock('../../../src/config/redis', () => ({
   ping: jest.fn().mockResolvedValue('PONG'),

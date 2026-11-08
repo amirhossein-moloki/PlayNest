@@ -70,6 +70,7 @@ import {
   customerWaitlistRouter,
   publicWaitlistRouter,
 } from '../modules/waitlist/waitlist.routes';
+import { iranCalendarRouter } from '../modules/iran-calendar/iran-calendar.routes';
 
 const router = Router();
 
@@ -222,6 +223,9 @@ router.post('/public/gamingCenters/:gamingCenterSlug/analytics/events', Analytic
 
 // --- Webhooks Module ---
 router.use(webhooksRoutes);
+
+// --- Iranian Official Calendar Module ---
+router.use('/iran-calendar', iranCalendarRouter);
 
 
 export default router;
