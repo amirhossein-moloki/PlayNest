@@ -7,6 +7,7 @@ import { prisma } from '../../config/prisma';
 import redis from '../../config/redis';
 import logger from '../../config/logger';
 import { SessionActorType, UserRole } from '@prisma/client';
+import { ADMIN_CONSTANTS } from '../../platform-admin/config/admin.constants';
 
 const AUTH_CACHE_TTL_SECONDS = 60;
 
@@ -35,17 +36,54 @@ interface CachedActor {
 
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return next(new AppError('Authorization header is missing or invalid', httpStatus.UNAUTHORIZED));
+  let actorId: string | undefined;
+  let actorType: SessionActorType | undefined;
+  let sessionId: string | undefined;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    const payload = verifyToken(token, env.JWT_ACCESS_SECRET);
+    if (!payload || !payload.actorId) {
+      return next(new AppError('Invalid or expired token', httpStatus.UNAUTHORIZED));
+    }
+    actorId = payload.actorId;
+    actorType = payload.actorType;
+    sessionId = payload.sessionId;
+  } else {
+    // Check if an AdminJS session cookie is present for fallback authentication
+    const rawCookie =
+      req.signedCookies?.[ADMIN_CONSTANTS.SESSION_COOKIE_NAME] ||
+      req.cookies?.[ADMIN_CONSTANTS.SESSION_COOKIE_NAME];
+
+    if (rawCookie) {
+      try {
+        let adminSessionId = typeof rawCookie === 'string' ? rawCookie : String(rawCookie);
+        // If cookie value is an unsigned cookie string with connect.sid format: s:sessId.signature
+        if (adminSessionId.startsWith('s:')) {
+          adminSessionId = adminSessionId.slice(2).split('.')[0];
+        }
+
+        const redisSessionKey = `${ADMIN_CONSTANTS.SESSION_PREFIX}${adminSessionId}`;
+        const sessionDataRaw = await redis.get(redisSessionKey);
+        if (sessionDataRaw) {
+          const sessionObj = JSON.parse(sessionDataRaw);
+          const adminUser = sessionObj?.adminUser;
+          if (adminUser && adminUser.id) {
+            actorId = adminUser.id;
+            actorType = SessionActorType.PLATFORM_ADMIN;
+            sessionId = adminSessionId;
+          }
+        }
+      } catch (sessionErr) {
+        logger.warn({ sessionErr }, 'Failed to parse AdminJS session for fallback auth');
+      }
+    }
+
+    if (!actorId || !actorType) {
+      return next(new AppError('Authorization header is missing or invalid', httpStatus.UNAUTHORIZED));
+    }
   }
 
-  const token = authHeader.split(' ')[1];
-  const payload = verifyToken(token, env.JWT_ACCESS_SECRET);
-  if (!payload || !payload.actorId) {
-    return next(new AppError('Invalid or expired token', httpStatus.UNAUTHORIZED));
-  }
-
-  const { actorId, actorType, sessionId } = payload;
   const cacheKey = getActorCacheKey(actorId, actorType);
 
   let cachedActor: CachedActor | null = null;

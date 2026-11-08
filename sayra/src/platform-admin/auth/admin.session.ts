@@ -68,7 +68,7 @@ export function createAdminSessionOptions(): session.SessionOptions {
       secure: isProd,
       sameSite: 'lax',
       maxAge: ADMIN_CONSTANTS.SESSION_MAX_AGE_MS,
-      path: ADMIN_CONSTANTS.ROOT_PATH,
+      path: "/",
     },
   };
 }
