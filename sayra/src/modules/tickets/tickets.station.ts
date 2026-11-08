@@ -3,6 +3,8 @@ import * as ticketRepo from './tickets.repo';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { auditService } from '../audit/audit.station';
+import { MelipayamakStation } from '../notifications/melipayamak.station';
+import logger from '../../config/logger';
 
 export const createTicket = async (data: {
   customerAccountId?: string;
@@ -92,6 +94,20 @@ export const addMessage = async (
     ipAddress: context?.ip,
     userAgent: context?.userAgent,
   });
+
+  // When support replies to a ticket, dispatch SMS notification to ticket creator asynchronously
+  if (senderType === TicketSenderType.SUPPORT) {
+    const recipientPhone = ticket.customerAccount?.phone || ticket.user?.phone;
+    if (recipientPhone) {
+      MelipayamakStation.sendTicketReplySms(recipientPhone, ticket.id).catch((err) => {
+        logger.error({
+          msg: 'Non-blocking SMS dispatch failed on support reply to ticket',
+          ticketId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+    }
+  }
 
   return message;
 };
