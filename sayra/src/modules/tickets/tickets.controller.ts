@@ -9,10 +9,13 @@ import { TicketSenderType } from '@prisma/client';
 export const getMyTickets = async (req: AppRequest, res: Response, next: NextFunction) => {
   try {
     const validatedQuery = listTicketsQuerySchema.parse(req.query);
+    const isUser = req.actor.actorType === 'USER';
     const result = await ticketStation.getTicketsList(
       {
         ...validatedQuery,
-        customerAccountId: req.actor.id,
+        customerAccountId: !isUser ? req.actor.id : undefined,
+        userId: isUser ? req.actor.id : undefined,
+        gamingCenterId: isUser && req.actor.gamingCenterId ? req.actor.gamingCenterId : undefined,
         startDate: validatedQuery.startDate ? new Date(validatedQuery.startDate) : undefined,
         endDate: validatedQuery.endDate ? new Date(validatedQuery.endDate) : undefined,
       },
@@ -40,9 +43,12 @@ export const getMyTicketById = async (req: AppRequest, res: Response, next: Next
 
 export const createTicket = async (req: AppRequest, res: Response, next: NextFunction) => {
   try {
+    const isUser = req.actor.actorType === 'USER';
     const ticket = await ticketStation.createTicket(
       {
-        customerAccountId: req.actor.id,
+        customerAccountId: !isUser ? req.actor.id : undefined,
+        userId: isUser ? req.actor.id : undefined,
+        gamingCenterId: isUser ? req.actor.gamingCenterId : undefined,
         ...req.body,
       },
       { ip: req.ip, userAgent: req.headers['user-agent'] as string }
@@ -58,7 +64,24 @@ export const replyToTicket = async (req: AppRequest, res: Response, next: NextFu
     const message = await ticketStation.addMessage(
       req.params.ticketId,
       req.actor.id,
-      req.actor.actorType === 'USER' ? TicketSenderType.SUPPORT : TicketSenderType.USER,
+      TicketSenderType.USER,
+      req.body.text,
+      req.body.attachment,
+      req.actor,
+      { ip: req.ip, userAgent: req.headers['user-agent'] as string }
+    );
+    res.created(message);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const replyAsSupport = async (req: AppRequest, res: Response, next: NextFunction) => {
+  try {
+    const message = await ticketStation.addMessage(
+      req.params.ticketId,
+      req.actor.id,
+      TicketSenderType.SUPPORT,
       req.body.text,
       req.body.attachment,
       req.actor,

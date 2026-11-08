@@ -45,6 +45,8 @@ export const listTicketsQuerySchema = baseFilterSchema.extend({
   category: z.nativeEnum(TicketCategory).optional(),
   assignedToUserId: z.string().optional(),
   customerAccountId: z.string().optional(),
+  userId: z.string().optional(),
+  gamingCenterId: z.string().optional(),
   startDate: z.string().datetime().optional(),
   endDate: z.string().datetime().optional(),
 });

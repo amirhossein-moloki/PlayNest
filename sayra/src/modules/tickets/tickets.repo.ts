@@ -7,6 +7,8 @@ export interface ListTicketsFilters {
   category?: TicketCategory;
   assignedToUserId?: string;
   customerAccountId?: string;
+  userId?: string;
+  gamingCenterId?: string;
   startDate?: Date;
   endDate?: Date;
   OR?: Prisma.TicketWhereInput[];
@@ -20,21 +22,30 @@ export interface ListTicketsOptions {
 }
 
 export const createTicket = async (data: {
-  customerAccountId: string;
+  customerAccountId?: string;
+  userId?: string;
+  gamingCenterId?: string;
   subject: string;
   priority: TicketPriority;
   category: TicketCategory;
   message: string;
 }) => {
+  const senderId = data.customerAccountId || data.userId;
+  if (!senderId) {
+    throw new Error('Either customerAccountId or userId must be provided');
+  }
+
   return prisma.ticket.create({
     data: {
       customerAccountId: data.customerAccountId,
+      userId: data.userId,
+      gamingCenterId: data.gamingCenterId,
       subject: data.subject,
       priority: data.priority,
       category: data.category,
       messages: {
         create: {
-          senderId: data.customerAccountId,
+          senderId,
           senderType: TicketSenderType.USER,
           text: data.message,
         },
@@ -42,6 +53,27 @@ export const createTicket = async (data: {
     },
     include: {
       messages: true,
+      customerAccount: {
+        select: {
+          id: true,
+          fullName: true,
+          phone: true,
+        },
+      },
+      user: {
+        select: {
+          id: true,
+          fullName: true,
+          phone: true,
+          role: true,
+        },
+      },
+      gamingCenter: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
     },
   });
 };
@@ -72,6 +104,20 @@ export const findTicketById = async (id: string) => {
           phone: true,
         },
       },
+      user: {
+        select: {
+          id: true,
+          fullName: true,
+          phone: true,
+          role: true,
+        },
+      },
+      gamingCenter: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
       assignedTo: {
         select: {
           id: true,
@@ -94,6 +140,8 @@ export const listTickets = async (filters: ListTicketsFilters, options: ListTick
   if (filters.category) where.category = filters.category;
   if (filters.assignedToUserId) where.assignedToUserId = filters.assignedToUserId;
   if (filters.customerAccountId) where.customerAccountId = filters.customerAccountId;
+  if (filters.userId) where.userId = filters.userId;
+  if (filters.gamingCenterId) where.gamingCenterId = filters.gamingCenterId;
 
   if (filters.startDate || filters.endDate) {
     where.createdAt = {};
@@ -112,6 +160,19 @@ export const listTickets = async (filters: ListTicketsFilters, options: ListTick
           select: {
             id: true,
             fullName: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            role: true,
+          },
+        },
+        gamingCenter: {
+          select: {
+            id: true,
+            name: true,
           },
         },
         assignedTo: {

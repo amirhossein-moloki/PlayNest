@@ -731,6 +731,13 @@ components:
           type: string
         customerAccountId:
           type: string
+          nullable: true
+        userId:
+          type: string
+          nullable: true
+        gamingCenterId:
+          type: string
+          nullable: true
         assignedToUserId:
           type: string
           nullable: true
@@ -5200,7 +5207,7 @@ paths:
       description: Verify OTP (Customer)
   /tickets:
     get:
-      summary: List own tickets (Customer)
+      summary: List own tickets (Customer or Manager)
       tags:
       - Tickets
       security:
@@ -5223,9 +5230,9 @@ paths:
                   meta:
                     $ref: '#/components/schemas/Meta'
       operationId: get_tickets
-      description: List own tickets (Customer)
+      description: List own tickets (Customer or Manager)
     post:
-      summary: Create a new ticket (Customer)
+      summary: Create a new ticket (Customer or Manager)
       tags:
       - Tickets
       security:
@@ -5269,7 +5276,7 @@ paths:
       description: Create a new ticket (Customer)
   /tickets/{ticketId}:
     get:
-      summary: Get ticket details (Customer)
+      summary: Get ticket details (Customer or Manager)
       tags:
       - Tickets
       security:
@@ -5307,7 +5314,7 @@ paths:
       description: Get ticket details (Customer)
   /tickets/{ticketId}/messages:
     post:
-      summary: Add message to ticket (Customer)
+      summary: Add message to ticket (Customer or Manager)
       tags:
       - Tickets
       security:
