@@ -96,6 +96,46 @@ describe('reservationstationStation', () => {
       const result = await reservationStation.createPublicReservation(gamingCenterSlug, input);
 
       expect(result).toEqual(reservation);
+      expect(MockedReservationRepo.createReservation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          totalHours: 1,
+        }),
+        expect.anything()
+      );
+    });
+
+    it('should support multiple hours when durationHours is provided', async () => {
+      const gamingCenter = { id: gamingCenterId, settings: { allowOnlineBooking: true, timeZone: 'UTC' } };
+      const station = { id: stationId, name: 'PS5', defaultDurationHours: 1, hourlyPrice: 50, stationType: 'CONSOLE' };
+      const staff = { id: staffId };
+      const staffShift = { id: 'shift-1', startTime: '08:00', endTime: '22:00' };
+      const customerAccount = { id: customerId, phone: '09123456789' };
+      const customerProfile = { id: profileId };
+      const reservation = { id: 'res-multi', status: ReservationStatus.PENDING };
+
+      MockedReservationRepo.findGamingCenterBySlugWithSettings.mockResolvedValue(gamingCenter as any);
+      MockedReservationRepo.findStation.mockResolvedValue(station as any);
+      MockedReservationRepo.findStaff.mockResolvedValue(staff as any);
+      MockedReservationRepo.findStaffShift.mockResolvedValue(staffShift as any);
+      MockedReservationRepo.findOverlappingReservation.mockResolvedValue(null);
+      MockedReservationRepo.findCustomerAccountByPhone.mockResolvedValue(customerAccount as any);
+      MockedReservationRepo.findCustomerProfile.mockResolvedValue(customerProfile as any);
+      MockedReservationRepo.createReservation.mockResolvedValue(reservation as any);
+
+      const result = await reservationStation.createPublicReservation(gamingCenterSlug, {
+        ...input,
+        durationHours: 3,
+      });
+
+      expect(result).toEqual(reservation);
+      expect(MockedReservationRepo.createReservation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          totalHours: 3,
+          endTime: new Date('2027-06-06T13:00:00Z'),
+          customerPayableAmount: 150,
+        }),
+        expect.anything()
+      );
     });
   });
 
