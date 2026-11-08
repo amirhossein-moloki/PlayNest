@@ -1,8 +1,8 @@
-import session from "express-session";
-import { RedisStore } from "connect-redis";
-import redis from "../../config/redis";
-import { env } from "../../config/env";
-import { ADMIN_CONSTANTS } from "../config/admin.constants";
+import session from 'express-session';
+import { RedisStore } from 'connect-redis';
+import redis from '../../config/redis';
+import { env } from '../../config/env';
+import { ADMIN_CONSTANTS } from '../config/admin.constants';
 
 const redisStoreClient = {
   get: (key: string) => redis.get(key),
@@ -12,8 +12,8 @@ const redisStoreClient = {
     value: string,
     options?: { expiration?: { type: string; value: number } }
   ) => {
-    if (options?.expiration?.type === "EX") {
-      return redis.set(key, value, "EX", options.expiration.value);
+    if (options?.expiration?.type === 'EX') {
+      return redis.set(key, value, 'EX', options.expiration.value);
     }
     return redis.set(key, value);
   },
@@ -28,14 +28,14 @@ const redisStoreClient = {
     redis.mget(...keys),
 
   async *scanIterator(options: { MATCH: string; COUNT: number }) {
-    let cursor = "0";
+    let cursor = '0';
 
     do {
       const [nextCursor, keys] = await redis.scan(
         cursor,
-        "MATCH",
+        'MATCH',
         options.MATCH,
-        "COUNT",
+        'COUNT',
         options.COUNT
       );
 
@@ -44,12 +44,12 @@ const redisStoreClient = {
       if (keys.length > 0) {
         yield keys;
       }
-    } while (cursor !== "0");
+    } while (cursor !== '0');
   },
 };
 
 export function createAdminSessionOptions(): session.SessionOptions {
-  const isProd = env.NODE_ENV === "production";
+  const isProd = env.NODE_ENV === 'production';
 
   const redisStore = new RedisStore({
     client: redisStoreClient,
@@ -66,7 +66,7 @@ export function createAdminSessionOptions(): session.SessionOptions {
     cookie: {
       httpOnly: true,
       secure: isProd,
-      sameSite: "lax",
+      sameSite: 'lax',
       maxAge: ADMIN_CONSTANTS.SESSION_MAX_AGE_MS,
       path: ADMIN_CONSTANTS.ROOT_PATH,
     },

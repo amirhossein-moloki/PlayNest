@@ -1012,16 +1012,46 @@ components:
           type: string
         timeZone:
           type: string
+          example: Asia/Tehran
         workStartTime:
           type: string
+          example: "09:00"
         workEndTime:
           type: string
+          example: "23:00"
         allowOnlineBooking:
           type: boolean
+          example: true
         onlineBookingAutoConfirm:
           type: boolean
+          example: false
+        requireOtpForPublicBooking:
+          type: boolean
+          example: false
         preventOverlaps:
           type: boolean
+          example: true
+        maxAdvanceBookingDays:
+          type: integer
+          example: 7
+        minAdvanceBookingMinutes:
+          type: integer
+          example: 30
+        cancellationHours:
+          type: integer
+          example: 2
+        noShowPenaltyAmount:
+          type: number
+          example: 0
+        autoReleaseUnpaidMinutes:
+          type: integer
+          example: 15
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     SiteSettings:
       type: object
       properties:
@@ -3431,6 +3461,7 @@ paths:
       description: Get gamingCenter settings
     put:
       summary: Update gamingCenter settings
+      description: Update gamingCenter settings including allowOnlineBooking, onlineBookingAutoConfirm, preventOverlaps, working hours, and timeZone
       tags:
       - Settings
       security:
@@ -3442,6 +3473,7 @@ paths:
         schema:
           type: string
       requestBody:
+        required: true
         content:
           application/json:
             schema:
@@ -3449,25 +3481,68 @@ paths:
               properties:
                 timeZone:
                   type: string
+                  example: Asia/Tehran
                 workStartTime:
                   type: string
+                  example: "09:00"
                 workEndTime:
                   type: string
+                  example: "23:00"
+                openingTime:
+                  type: string
+                  example: "09:00"
+                closingTime:
+                  type: string
+                  example: "23:00"
                 allowOnlineBooking:
                   type: boolean
+                  example: true
                 onlineBookingAutoConfirm:
                   type: boolean
+                  example: false
                 preventOverlaps:
                   type: boolean
+                  example: true
+                requireOtpForPublicBooking:
+                  type: boolean
+                  example: false
+                maxAdvanceBookingDays:
+                  type: integer
+                  example: 7
+                minAdvanceBookingMinutes:
+                  type: integer
+                  example: 30
+                cancellationHours:
+                  type: integer
+                  example: 2
+                noShowPenaltyAmount:
+                  type: number
+                  example: 0
+                autoReleaseUnpaidMinutes:
+                  type: integer
+                  example: 15
       responses:
         '200':
           description: Settings updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Settings'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
       operationId: put_gamingCenters_gamingCenterId_settings
-      description: Update gamingCenter settings
     patch:
       summary: Update gaming center settings
       description: Update gaming center settings
@@ -3492,6 +3567,30 @@ paths:
                 timeZone:
                   type: string
                   example: Asia/Tehran
+                workStartTime:
+                  type: string
+                  example: "09:00"
+                workEndTime:
+                  type: string
+                  example: "23:00"
+                openingTime:
+                  type: string
+                  example: "09:00"
+                closingTime:
+                  type: string
+                  example: "23:00"
+                allowOnlineBooking:
+                  type: boolean
+                  example: true
+                onlineBookingAutoConfirm:
+                  type: boolean
+                  example: false
+                preventOverlaps:
+                  type: boolean
+                  example: true
+                requireOtpForPublicBooking:
+                  type: boolean
+                  example: false
                 cancellationWindowMinutes:
                   type: integer
                   example: 60
@@ -3504,9 +3603,21 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Settings'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Settings'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
   /gamingCenters/{gamingCenterId}/commissions:
     get:
       summary: List reservation earnings (commissions)
