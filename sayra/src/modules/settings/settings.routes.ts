@@ -23,9 +23,16 @@ router.get(
   asyncHandler(SettingsController.getSettings)
 );
 
+router.put(
+  '/',
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
+  validate(updateSettingsSchema),
+  asyncHandler(SettingsController.updateSettings)
+);
+
 router.patch(
   '/',
-  requireRole([UserRole.MANAGER]),
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
   validate(updateSettingsSchema),
   asyncHandler(SettingsController.updateSettings)
 );

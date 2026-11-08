@@ -3,7 +3,11 @@ import * as settingsStation from './settings.station';
 
 export async function getSettings(req: Request, res: Response, next: NextFunction) {
   try {
-    const { gamingCenterId } = req.params;
+    const gamingCenterId =
+      req.params.gamingCenterId ||
+      (req as any).gamingCenterId || // eslint-disable-line @typescript-eslint/no-explicit-any
+      (req as any).tenant?.gamingCenterId; // eslint-disable-line @typescript-eslint/no-explicit-any
+
     const settings = await settingsStation.getSettings(gamingCenterId);
     res.ok(settings);
   } catch (error) {
@@ -13,7 +17,11 @@ export async function getSettings(req: Request, res: Response, next: NextFunctio
 
 export async function updateSettings(req: Request, res: Response, next: NextFunction) {
   try {
-    const { gamingCenterId } = req.params;
+    const gamingCenterId =
+      req.params.gamingCenterId ||
+      (req as any).gamingCenterId || // eslint-disable-line @typescript-eslint/no-explicit-any
+      (req as any).tenant?.gamingCenterId; // eslint-disable-line @typescript-eslint/no-explicit-any
+
     const settings = await settingsStation.updateSettings(
       gamingCenterId,
       req.body,
