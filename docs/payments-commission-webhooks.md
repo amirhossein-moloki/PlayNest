@@ -7,7 +7,7 @@
 - `Payment` belongs to `Booking` and `GamingCenter`.
 - Key fields: `provider`, `status`, `amount`, `currency`, `providerPaymentId`, `providerCheckoutId`, `idempotencyKey`.
 - `PaymentStatus` enum: `INITIATED`, `PENDING`, `PAID`, `FAILED`, `REFUNDED`, `VOID`, `CANCELED`.
-- `PaymentProvider` enum: `MANUAL`, `STRIPE`, `ZARINPAL`.
+- `PaymentProvider` enum: `MANUAL`, `STRIPE`, `ZARINPAL`, `ZIBAL`.
 
 ### Payment Initiation Flow
 
@@ -36,7 +36,11 @@ The state machine logic is centralized in `src/modules/payments/payments.state.t
 
 ### Decision (MVP Scope)
 
-**Keep initiation mocked.** The current code creates a `Payment` with provider `ZARINPAL` and returns a sandbox checkout URL, while webhook handling is implemented to finalize `Payment.status` and `Booking.paymentState`. In a real-world scenario, the `initiatePayment` service would call the ZarinPal API to get a real `Authority` and redirect URL.
+**Keep initiation mocked.** The current code creates a `Payment` with provider `ZARINPAL` or `ZIBAL` and returns a sandbox checkout URL, while webhook handling is implemented to finalize `Payment.status` and `Booking.paymentState`. In a real-world scenario, the `initiatePayment` service would call the ZarinPal or Zibal API to get a real `Authority` / `trackId` and redirect URL.
+
+### Zibal Gateway Integration
+- **Client**: Built with `zibal@2.0.0` requiring `ZIBAL_MERCHANT` and `ZIBAL_CALLBACK_URL`.
+- **Public Callback**: `GET /api/v1/payments/zibal/callback` and `POST /api/v1/payments/zibal/callback` (idempotent, server-side verified, renders styled responsive success/failure HTML pages).
 
 ## Wallet & Refunds
 

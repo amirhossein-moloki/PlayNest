@@ -1801,6 +1801,7 @@ enum PaymentProvider {
   MANUAL
   STRIPE
   ZARINPAL
+  ZIBAL
 }
 
 model Payment {

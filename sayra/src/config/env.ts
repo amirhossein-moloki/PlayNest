@@ -76,12 +76,16 @@ const EnvSchema = z.object({
   PAYMENT_PROVIDER_WEBHOOK_SECRET: z.string().min(1),
 
   // Payments
-  DEFAULT_PAYMENT_PROVIDER: z.enum(['ZARINPAL', 'FAKE', 'STRIPE']).default('ZARINPAL'),
+  DEFAULT_PAYMENT_PROVIDER: z.enum(['ZARINPAL', 'FAKE', 'STRIPE', 'ZIBAL']).default('ZARINPAL'),
 
   // ZarinPal
   ZARINPAL_MERCHANT_ID: z.string().min(1).default('00000000-0000-0000-0000-000000000000'),
   ZARINPAL_CALLBACK_URL: z.string().min(1).default('http://localhost:3000/api/v1/payments/callback'),
   ZARINPAL_SANDBOX: z.preprocess(toBool, z.boolean()).default(true),
+
+  // Zibal
+  ZIBAL_MERCHANT: z.string().min(1).default('zibal'),
+  ZIBAL_CALLBACK_URL: z.string().min(1).default('http://localhost:3000/api/v1/payments/zibal/callback'),
 
   // Media storage
   MEDIA_STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),

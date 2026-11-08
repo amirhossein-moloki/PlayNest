@@ -60,6 +60,7 @@
     "uuid": "^8.3.2",
     "xss": "^1.0.15",
     "yamljs": "^0.3.0",
+    "zibal": "^2.0.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

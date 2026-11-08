@@ -37,7 +37,17 @@ export interface IPaymentProvider {
    - Local development and automated test adapter.
    - Simulates authority creation and deterministic verification (authority strings containing `FAIL` test negative outcomes).
 
-3. **`PaymentProviderFactory`**:
+3. **`ZibalProvider`**:
+   - Production provider using official `zibal@2.0.0` SDK with Node 18 native `fetch`.
+   - Environment variables: `ZIBAL_MERCHANT` (merchant code or `zibal` for sandbox) and `ZIBAL_CALLBACK_URL`.
+   - Central client module: `sayra/src/modules/payments/providers/zibal.client.ts` with explicit merchant presence check.
+   - Endpoint flow:
+     - `initiatePayment`: Calls `zibal.request({ amount, orderId, callbackUrl, description })` returning `trackId` and `paymentUrl`.
+     - `verifyPayment`: Calls `zibal.verify({ trackId, expectedAmount, expectedOrderId })` ensuring strict integrity validation.
+   - Gateway callback: Public endpoint `/api/v1/payments/zibal/callback` verifies authoritative result server-side, updates state atomically in a database transaction, and renders user-facing success/failure HTML views.
+   - Error mapping: Re-maps specific SDK errors (`ZibalValidationError`, `ZibalApiError`, `ZibalIntegrityError`, `ZibalTimeoutError`, `ZibalNetworkError`) into standard `AppError` and `VerifyPaymentResult` structures.
+
+4. **`PaymentProviderFactory`**:
    - Resolves provider based on environment configuration (`DEFAULT_PAYMENT_PROVIDER`).
    - Production Safety Guard: Blocks instantiation of `FakePaymentProvider` when `NODE_ENV === 'production'`.
 
