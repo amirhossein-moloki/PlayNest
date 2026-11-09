@@ -7,6 +7,7 @@ export const createDeviceCatalogSchema = z.object({
   body: z.object({
     name: z.string().min(1, 'Name is required'),
     deviceType: z.nativeEnum(GameStationType).default(GameStationType.PC),
+    deviceTypeId: z.string().cuid('Invalid deviceTypeId format').optional().nullable(),
     coverImageUrl: z.string().url('Cover image URL must be a valid URL').optional(),
     description: z.string().optional(),
     isActive: z.preprocess((val) => {
@@ -26,6 +27,7 @@ export const updateDeviceCatalogSchema = z.object({
   body: z.object({
     name: z.string().min(1, 'Name cannot be empty').optional(),
     deviceType: z.nativeEnum(GameStationType).optional(),
+    deviceTypeId: z.string().cuid('Invalid deviceTypeId format').optional().nullable(),
     coverImageUrl: z.string().url('Cover image URL must be a valid URL').optional(),
     description: z.string().optional().nullable(),
     isActive: z.boolean().optional(),
@@ -99,11 +101,58 @@ export const listGameCatalogSchema = baseFilterSchema.extend({
   }, z.boolean().optional()),
 });
 
+// Device Type Schemas (Dynamic Device Types)
+export const createDeviceTypeSchema = z.object({
+  body: z.object({
+    name: z.string().min(1, 'Name is required'),
+    slug: z.string().min(1, 'Slug is required').regex(/^[a-z0-9-]+$/, 'Slug must be alphanumeric with hyphens').optional(),
+    description: z.string().optional().nullable(),
+    icon: z.string().optional().nullable(),
+    category: z.nativeEnum(GameStationType).default(GameStationType.PC),
+    isActive: z.preprocess((val) => {
+      if (typeof val === 'string') {
+        if (val.toLowerCase() === 'true') return true;
+        if (val.toLowerCase() === 'false') return false;
+      }
+      return val;
+    }, z.boolean().optional().default(true)),
+  }),
+});
+
+export const updateDeviceTypeSchema = z.object({
+  params: z.object({
+    id: z.string().cuid('Invalid device type ID format'),
+  }),
+  body: z.object({
+    name: z.string().min(1, 'Name cannot be empty').optional(),
+    slug: z.string().min(1, 'Slug cannot be empty').regex(/^[a-z0-9-]+$/, 'Slug must be alphanumeric with hyphens').optional(),
+    description: z.string().optional().nullable(),
+    icon: z.string().optional().nullable(),
+    category: z.nativeEnum(GameStationType).optional(),
+    isActive: z.boolean().optional(),
+  }),
+});
+
+export const listDeviceTypeSchema = baseFilterSchema.extend({
+  category: z.nativeEnum(GameStationType).optional(),
+  isActive: z.preprocess((val) => {
+    if (typeof val === 'string') {
+      if (val.toLowerCase() === 'true') return true;
+      if (val.toLowerCase() === 'false') return false;
+    }
+    return val;
+  }, z.boolean().optional()),
+});
+
 export const catalogIdParamSchema = z.object({
   params: z.object({
     id: z.string().cuid('Invalid ID format'),
   }),
 });
+
+export type CreateDeviceTypeInput = z.infer<typeof createDeviceTypeSchema>['body'];
+export type UpdateDeviceTypeInput = z.infer<typeof updateDeviceTypeSchema>['body'];
+export type ListDeviceTypeQuery = z.infer<typeof listDeviceTypeSchema>;
 
 export type CreateDeviceCatalogInput = z.infer<typeof createDeviceCatalogSchema>['body'];
 export type UpdateDeviceCatalogInput = z.infer<typeof updateDeviceCatalogSchema>['body'];
