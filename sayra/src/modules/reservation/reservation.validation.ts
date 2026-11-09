@@ -1,5 +1,5 @@
 import { addMinutes, addDays, isBefore } from 'date-fns';
-import { format as formatTz, fromZonedTime } from 'date-fns-tz';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { getZonedStartAndEnd } from '../../common/utils/date';
@@ -51,7 +51,7 @@ export const validateOperatingHours = (
   }
 
   const timeZone = resolveValidTimeZone(rawTimeZone);
-  const startDayStr = formatTz(startTime, 'yyyy-MM-dd', { timeZone });
+  const startDayStr = formatInTimeZone(startTime, timeZone, 'yyyy-MM-dd');
 
   const parseMins = (str: string) => {
     const [h, m] = str.split(':').map(Number);

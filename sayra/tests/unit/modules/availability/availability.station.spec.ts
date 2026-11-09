@@ -141,6 +141,45 @@ describe('AvailabilityStation 60-Minute Slots', () => {
       expect(dayResult.slots[3].endTime).toBe('2026-11-10T14:00:00.000Z');
     });
 
+    it('should generate slots correctly for non-UTC timezone like Asia/Tehran', async () => {
+      const tehranStation = {
+        ...baseStation,
+        gamingCenter: {
+          ...baseStation.gamingCenter,
+          timezone: 'Asia/Tehran',
+          openingTime: '10:00',
+          closingTime: '23:00',
+          settings: {
+            timeZone: 'Asia/Tehran',
+            workStartTime: '10:00',
+            workEndTime: '23:00',
+          },
+        },
+      };
+
+      MockedAvailabilityRepo.findStationWithGamingCenter.mockResolvedValue(tehranStation as any);
+      MockedAvailabilityRepo.findStaffList.mockResolvedValue([]);
+      MockedAvailabilityRepo.findShifts.mockResolvedValue([]);
+      MockedAvailabilityRepo.findReservation.mockResolvedValue([]);
+      MockedAvailabilityRepo.findMaintenances.mockResolvedValue([]);
+
+      const results = await getAvailableSlots({
+        gamingCenterSlug,
+        stationId,
+        date: '2026-11-09',
+      });
+
+      expect(results).toHaveLength(1);
+      const dayResult = results[0];
+      expect(dayResult.date).toBe('2026-11-09');
+      // 10:00 to 23:00 = 13 slots
+      expect(dayResult.slots).toHaveLength(13);
+      expect(dayResult.slots[0].startTime).toBe('2026-11-09T06:30:00.000Z');
+      expect(dayResult.slots[0].endTime).toBe('2026-11-09T07:30:00.000Z');
+      expect(dayResult.slots[12].startTime).toBe('2026-11-09T18:30:00.000Z');
+      expect(dayResult.slots[12].endTime).toBe('2026-11-09T19:30:00.000Z');
+    });
+
     it('should mark closed day as closed with empty slots', async () => {
       MockedAvailabilityRepo.findStationWithGamingCenter.mockResolvedValue(baseStation as any);
       MockedAvailabilityRepo.findStaffList.mockResolvedValue([]);
