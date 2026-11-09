@@ -5,7 +5,7 @@ import AppError from '../../../../src/common/errors/AppError';
 import httpStatus from 'http-status';
 import { UserFactory, SessionFactory } from '../../../../tests/factories/user.factory';
 import { queueSms } from '../../../../src/jobs/producers/sms.producer';
-import { User, Session, PhoneOtp, CustomerAccount, GamingCenter, UserRole } from '@prisma/client';
+import { User, Session, PhoneOtp, CustomerAccount, GamingCenter } from '@prisma/client';
 
 jest.mock('../../../../src/modules/auth/auth.repository');
 jest.mock('../../../../src/jobs/producers/sms.producer', () => ({
@@ -123,37 +123,19 @@ describe('authService', () => {
       expect(MockedAuthRepository.consumeOtp).toHaveBeenCalledWith(otp.id);
     });
 
-    it('should auto-register new user with STAFF role if no user exists', async () => {
+    it('should return empty gaming centers if no user exists (no gaming center auto-creation)', async () => {
       const code = '123456';
       const codeHash = 'h_123456';
       const otp = { id: 'o-1', codeHash } as PhoneOtp;
-      const newUser = {
-        id: 'u-new',
-        fullName: 'کاربر جدید',
-        phone: NORMALIZED_T_P,
-        role: UserRole.STAFF,
-        gamingCenter: { id: 'gc-active', name: 'Active Center' },
-      };
 
       MockedAuthRepository.findRecentOtp.mockResolvedValue(otp);
       MockedAuthRepository.consumeOtp.mockResolvedValue({} as PhoneOtp);
       MockedAuthRepository.markUserPhoneVerified.mockResolvedValue({ count: 0 });
-      MockedAuthRepository.findUsersWithGamingCenters
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([newUser as any]); // eslint-disable-line @typescript-eslint/no-explicit-any
-      MockedAuthRepository.findFirstActiveGamingCenter.mockResolvedValue({ id: 'gc-active', name: 'Active Center' } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
-      MockedAuthRepository.createUserForOtp.mockResolvedValue(newUser as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue([]);
 
       const result = await authService.verifyUserOtp(T_P, code);
 
-      expect(result.gamingCenters).toEqual([{ id: 'gc-active', name: 'Active Center' }]);
-      expect(MockedAuthRepository.createUserForOtp).toHaveBeenCalledWith(
-        expect.objectContaining({
-          gamingCenterId: 'gc-active',
-          phone: NORMALIZED_T_P,
-          role: UserRole.STAFF,
-        })
-      );
+      expect(result.gamingCenters).toEqual([]);
     });
 
     it('should throw UNAUTHORIZED if OTP not found', async () => {

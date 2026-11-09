@@ -94,43 +94,6 @@ export const AuthRepository = {
     });
   },
 
-  async createUserForOtp(data: {
-    gamingCenterId: string;
-    fullName: string;
-    phone: string;
-    role?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-    isActive?: boolean;
-    phoneVerifiedAt?: Date;
-  }) {
-    return prisma.user.create({
-      data: {
-        gamingCenterId: data.gamingCenterId,
-        fullName: data.fullName,
-        phone: data.phone,
-        role: data.role || 'STAFF',
-        isActive: data.isActive !== undefined ? data.isActive : true,
-        phoneVerifiedAt: data.phoneVerifiedAt || new Date(),
-      },
-      include: { gamingCenter: true },
-    });
-  },
-
-  async findFirstActiveGamingCenter() {
-    return prisma.gamingCenter.findFirst({
-      where: { isActive: true },
-      orderBy: { createdAt: 'asc' },
-    });
-  },
-
-  async createDefaultGamingCenter() {
-    return prisma.gamingCenter.create({
-      data: {
-        name: 'PlayNest Center',
-        slug: 'playnest-center',
-        isActive: true,
-      },
-    });
-  },
 
   async createSession(actorId: string, actorType: SessionActorType, tokenHash: string, expiresAt: Date) {
     return prisma.session.create({

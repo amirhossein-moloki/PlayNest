@@ -64,26 +64,14 @@ describe('Authentication API', () => {
       expect(res.body.data.gamingCenters).toBeDefined();
     });
 
-    it('Scenario 4: Auto-register new user with STAFF role if no user exists', async () => {
-      const newUser = {
-        id: 'user-new',
-        fullName: 'کاربر جدید',
-        phone: '+989123456789',
-        role: 'STAFF',
-        gamingCenter: { id: gamingCenterId, name: 'Center' },
-      };
+    it('Scenario 4: Returns empty gaming centers list if no staff user exists (no gaming center auto-creation)', async () => {
       MockedAuthRepository.findRecentOtp.mockResolvedValue({ id: 'o1', codeHash: 'hashed' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       MockedArgon2.verify.mockResolvedValue(true /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedAuthRepository.findUsersWithGamingCenters
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([newUser as any]); /* eslint-disable-line @typescript-eslint/no-explicit-any */
-      MockedAuthRepository.findFirstActiveGamingCenter.mockResolvedValue({ id: gamingCenterId, name: 'Center' } as any); /* eslint-disable-line @typescript-eslint/no-explicit-any */
-      MockedAuthRepository.createUserForOtp.mockResolvedValue(newUser as any); /* eslint-disable-line @typescript-eslint/no-explicit-any */
+      MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue([]);
 
       const res = await request(app).post('/api/v1/auth/user/otp/verify').send({ phone, code: '123456' });
       expect(res.status).toBe(httpStatus.OK);
-      expect(res.body.data.gamingCenters).toBeDefined();
-      expect(MockedAuthRepository.createUserForOtp).toHaveBeenCalled();
+      expect(res.body.data.gamingCenters).toEqual([]);
     });
 
     it('Scenario 5: User + SKIP_OTP=true with 000000', async () => {
