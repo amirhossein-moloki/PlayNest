@@ -151,7 +151,8 @@ export const authService = {
   },
 
   async requestCustomerOtp(phone: string) {
-    const code = generateNumericOtp(OTP_LENGTH);
+    // If SKIP_OTP is enabled, use static code '000000' and skip sending real SMS
+    const code = env.SKIP_OTP ? '000000' : generateNumericOtp(OTP_LENGTH);
     const codeHash = await argon2.hash(code);
     const expiresAt = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
 
@@ -162,12 +163,19 @@ export const authService = {
       expiresAt,
     });
 
-    await queueSms({ mobile: phone, templateId: getOtpTemplateId(), parameters: [{ name: 'CODE', value: code }] });
+    if (!env.SKIP_OTP) {
+      await queueSms({ mobile: phone, templateId: getOtpTemplateId(), parameters: [{ name: 'CODE', value: code }] });
+    }
 
     return { message: `OTP sent to ${phone}. It will expire in ${OTP_EXPIRATION_MINUTES} minutes.` };
   },
 
   async verifyCustomerOtp(phone: string, code: string) {
+    // If SKIP_OTP is enabled, strictly require '000000'
+    if (env.SKIP_OTP && code !== '000000') {
+      throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
+    }
+
     const otp = await AuthRepository.findRecentOtp(phone, OtpPurpose.LOGIN);
 
     if (!otp) {
@@ -216,7 +224,15 @@ export const authService = {
     let customer = await AuthRepository.findCustomerByPhone(phone);
 
     if (!customer) {
-      customer = await AuthRepository.createCustomer(phone, new Date());
+      // Use upsertCustomerAccount if available, otherwise fallback to createCustomer
+      customer = await (AuthRepository.upsertCustomerAccount
+        ? AuthRepository.upsertCustomerAccount(phone, new Date())
+        : AuthRepository.createCustomer(phone, new Date()));
+
+      if (!customer) {
+        /* istanbul ignore next */
+        customer = await AuthRepository.createCustomer(phone, new Date());
+      }
     } else if (!customer.phoneVerifiedAt) {
       customer = await AuthRepository.markCustomerPhoneVerified(customer.id);
     }

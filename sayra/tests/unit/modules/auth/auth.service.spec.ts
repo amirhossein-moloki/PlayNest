@@ -114,18 +114,43 @@ describe('authService', () => {
   });
 
   describe('requestCustomerOtp', () => {
-    it('should request OTP successfully for customer', async () => {
+    it('should request OTP successfully for customer in normal mode', async () => {
       MockedAuthRepository.createOtp.mockResolvedValue({} as PhoneOtp);
 
       const result = await authService.requestCustomerOtp(T_P);
 
       expect(result.message).toContain(`OTP sent to ${T_P}`);
       expect(MockedAuthRepository.createOtp).toHaveBeenCalled();
+      expect(MockedQueueSms).toHaveBeenCalled();
+    });
+
+    it('should bypass SMS queue and use 000000 when SKIP_OTP is enabled', async () => {
+      MockedQueueSms.mockClear();
+      const { env } = await import('../../../../src/config/env');
+      const originalSkipOtp = env.SKIP_OTP;
+      (env as any).SKIP_OTP = true; /* eslint-disable-line @typescript-eslint/no-explicit-any */
+
+      try {
+        MockedAuthRepository.createOtp.mockResolvedValue({} as PhoneOtp);
+
+        const result = await authService.requestCustomerOtp(T_P);
+
+        expect(result.message).toContain(`OTP sent to ${T_P}`);
+        expect(MockedAuthRepository.createOtp).toHaveBeenCalledWith(
+          expect.objectContaining({
+            phone: T_P,
+            codeHash: 'h_000000',
+          })
+        );
+        expect(MockedQueueSms).not.toHaveBeenCalled();
+      } finally {
+        (env as any).SKIP_OTP = originalSkipOtp; /* eslint-disable-line @typescript-eslint/no-explicit-any */
+      }
     });
   });
 
   describe('verifyCustomerOtp', () => {
-    it('should verify OTP for customer successfully', async () => {
+    it('should verify OTP for customer successfully in normal mode', async () => {
       const code = '123456';
       const codeHash = 'h_123456';
       const otp = { id: 'o-1', codeHash } as PhoneOtp;
@@ -140,6 +165,50 @@ describe('authService', () => {
 
       expect(result.message).toBe('OTP verified successfully.');
       expect(MockedAuthRepository.markCustomerPhoneVerified).toHaveBeenCalledWith(customer.id);
+    });
+
+    it('should throw UNAUTHORIZED if code is incorrect in normal mode', async () => {
+      const otp = { id: 'o-1', codeHash: 'h_123456' } as PhoneOtp;
+      MockedAuthRepository.findRecentOtp.mockResolvedValue(otp);
+
+      await expect(authService.verifyCustomerOtp(T_P, '654321'))
+        .rejects.toThrow(new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED));
+    });
+
+    it('should verify successfully with 000000 when SKIP_OTP is enabled', async () => {
+      const { env } = await import('../../../../src/config/env');
+      const originalSkipOtp = env.SKIP_OTP;
+      (env as any).SKIP_OTP = true; /* eslint-disable-line @typescript-eslint/no-explicit-any */
+
+      try {
+        const otp = { id: 'o-1', codeHash: 'h_000000' } as PhoneOtp;
+        const customer = { id: 'c-1', phoneVerifiedAt: null } as CustomerAccount;
+
+        MockedAuthRepository.findRecentOtp.mockResolvedValue(otp);
+        MockedAuthRepository.consumeOtp.mockResolvedValue({} as PhoneOtp);
+        MockedAuthRepository.findCustomerByPhone.mockResolvedValue(customer);
+        MockedAuthRepository.markCustomerPhoneVerified.mockResolvedValue({} as CustomerAccount);
+
+        const result = await authService.verifyCustomerOtp(T_P, '000000');
+
+        expect(result.message).toBe('OTP verified successfully.');
+        expect(MockedAuthRepository.consumeOtp).toHaveBeenCalledWith('o-1');
+      } finally {
+        (env as any).SKIP_OTP = originalSkipOtp; /* eslint-disable-line @typescript-eslint/no-explicit-any */
+      }
+    });
+
+    it('should reject code other than 000000 when SKIP_OTP is enabled', async () => {
+      const { env } = await import('../../../../src/config/env');
+      const originalSkipOtp = env.SKIP_OTP;
+      (env as any).SKIP_OTP = true; /* eslint-disable-line @typescript-eslint/no-explicit-any */
+
+      try {
+        await expect(authService.verifyCustomerOtp(T_P, '123456'))
+          .rejects.toThrow(new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED));
+      } finally {
+        (env as any).SKIP_OTP = originalSkipOtp; /* eslint-disable-line @typescript-eslint/no-explicit-any */
+      }
     });
   });
 

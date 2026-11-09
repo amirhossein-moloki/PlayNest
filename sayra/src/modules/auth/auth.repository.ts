@@ -29,6 +29,14 @@ export const AuthRepository = {
     return prisma.customerAccount.create({ data: { phone, phoneVerifiedAt } });
   },
 
+  async upsertCustomerAccount(phone: string, phoneVerifiedAt: Date = new Date()) {
+    return prisma.customerAccount.upsert({
+      where: { phone },
+      update: { phoneVerifiedAt },
+      create: { phone, phoneVerifiedAt },
+    });
+  },
+
   async markCustomerPhoneVerified(id: string) {
     return prisma.customerAccount.update({
       where: { id },

@@ -61,6 +61,7 @@ services:
       - SAYRA_SMTP_REPLY_TO=${SAYRA_SMTP_REPLY_TO:-support@playenest.com}
       - ZIBAL_MERCHANT=${ZIBAL_MERCHANT:-zibal}
       - ZIBAL_CALLBACK_URL=${ZIBAL_CALLBACK_URL:-https://playnest.com/api/v1/payments/zibal/callback}
+      - SKIP_OTP=${SKIP_OTP:-false}
     volumes:
       - app_storage:/app/storage
       - app_uploads:/app/uploads

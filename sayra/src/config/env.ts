@@ -46,6 +46,9 @@ const EnvSchema = z.object({
   // Redis
   REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
 
+  // OTP / Auth Features
+  SKIP_OTP: z.preprocess(toBool, z.boolean()).default(false),
+
   // Rate Limiting
   RATE_LIMIT_ENABLED: z.preprocess(toBool, z.boolean()).default(true),
   RATE_LIMIT_POINTS: z.coerce.number().int().positive().default(10),
@@ -151,6 +154,9 @@ if (parsed.success) {
   }
 
   if (parsed.data.NODE_ENV === 'production') {
+    if (parsed.data.SKIP_OTP === true) {
+      throw new Error('SKIP_OTP must not be enabled in production environment.');
+    }
     if (parsed.data.JWT_ACCESS_SECRET === 'generate_at_least_32_chars_long_random_string') {
       throw new Error(
         'JWT_ACCESS_SECRET must be changed from the default placeholder value in production.'

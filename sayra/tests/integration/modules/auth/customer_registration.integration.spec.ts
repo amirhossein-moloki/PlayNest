@@ -61,4 +61,31 @@ describe('Customer Registration/Login Integration (Mocked Repo)', () => {
     expect(MockedAuthRepository.markCustomerPhoneVerified).toHaveBeenCalledWith(existingUnverifiedCustomer.id);
     expect(MockedAuthRepository.createSession).toHaveBeenCalled();
   });
+
+  it('concurrency test: concurrent login/registration calls resolve safely with same customer account', async () => {
+    const customer = {
+      id: 'cust-concurrency-1',
+      phone,
+      phoneVerifiedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      fullName: null,
+      walletBalance: 0
+    } as CustomerAccount;
+
+    const session = SessionFactory.create({ actorId: customer.id, actorType: 'CUSTOMER' });
+
+    MockedAuthRepository.findCustomerByPhone.mockResolvedValue(null);
+    MockedAuthRepository.upsertCustomerAccount.mockResolvedValue(customer);
+    MockedAuthRepository.createSession.mockResolvedValue(session /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+
+    const [res1, res2] = await Promise.all([
+      authService.loginCustomer(phone),
+      authService.loginCustomer(phone),
+    ]);
+
+    expect(res1.customer.id).toBe(customer.id);
+    expect(res2.customer.id).toBe(customer.id);
+    expect(MockedAuthRepository.upsertCustomerAccount).toHaveBeenCalledTimes(2);
+  });
 });
