@@ -1326,10 +1326,31 @@ model Settings {
   updatedAt DateTime @updatedAt
 }
 
+model DeviceType {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  slug        String           @unique
+  description String?
+  icon        String?
+  category    GameStationType  @default(PC)
+  isActive    Boolean          @default(true)
+
+  deviceCatalogs DeviceCatalog[]
+  stations       GameStation[]
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([isActive])
+  @@index([category])
+}
+
 model DeviceCatalog {
   id            String          @id @default(cuid())
   name          String
   deviceType    GameStationType @default(PC)
+  deviceTypeId  String?
+  deviceTypeRef DeviceType?     @relation(fields: [deviceTypeId], references: [id], onDelete: SetNull)
   coverImageUrl String
   description   String?
   isActive      Boolean         @default(true)
@@ -1340,6 +1361,7 @@ model DeviceCatalog {
   updatedAt     DateTime        @updatedAt
 
   @@index([deviceType, isActive])
+  @@index([deviceTypeId])
   @@index([isActive])
 }
 
@@ -1366,6 +1388,8 @@ model GameStation {
 
   name                 String
   stationType          GameStationType @default(PC)
+  deviceTypeId         String?
+  deviceTypeRef        DeviceType?     @relation(fields: [deviceTypeId], references: [id], onDelete: SetNull)
   catalogDeviceId      String?
   catalogDevice        DeviceCatalog?  @relation(fields: [catalogDeviceId], references: [id], onDelete: SetNull)
   coverImageUrl        String?

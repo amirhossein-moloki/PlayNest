@@ -2,6 +2,8 @@ import { Router } from 'express';
 import * as CatalogController from './catalog.controller';
 import { validate } from '../../common/middleware/validate';
 import {
+  createDeviceTypeSchema,
+  updateDeviceTypeSchema,
   createDeviceCatalogSchema,
   updateDeviceCatalogSchema,
   createGameCatalogSchema,
@@ -35,6 +37,32 @@ export const platformAdminCatalogRouter = Router();
 
 // Protect all admin catalog routes with auth and requirePlatformAdmin
 platformAdminCatalogRouter.use(authMiddleware, requirePlatformAdmin, privateApiRateLimiter);
+
+// Device Types (Dynamic Types)
+platformAdminCatalogRouter.post(
+  '/device-types',
+  validate(createDeviceTypeSchema),
+  asyncHandler(CatalogController.createDeviceType)
+);
+platformAdminCatalogRouter.get(
+  '/device-types',
+  asyncHandler(CatalogController.getDeviceTypes)
+);
+platformAdminCatalogRouter.get(
+  '/device-types/:id',
+  validate(catalogIdParamSchema),
+  asyncHandler(CatalogController.getDeviceTypeById)
+);
+platformAdminCatalogRouter.patch(
+  '/device-types/:id',
+  validate(updateDeviceTypeSchema),
+  asyncHandler(CatalogController.updateDeviceType)
+);
+platformAdminCatalogRouter.delete(
+  '/device-types/:id',
+  validate(catalogIdParamSchema),
+  asyncHandler(CatalogController.deleteDeviceType)
+);
 
 // Devices
 platformAdminCatalogRouter.post(
@@ -96,6 +124,26 @@ platformAdminCatalogRouter.delete(
 // Public / Gaming Center Manager Catalog Router
 // ==========================================
 export const publicCatalogRouter = Router();
+
+// Device Types (Public / Manager)
+publicCatalogRouter.get(
+  '/device-types',
+  publicApiRateLimiter,
+  (req, _res, next) => {
+    if (req.query.isActive === undefined) {
+      req.query.isActive = 'true';
+    }
+    next();
+  },
+  asyncHandler(CatalogController.getDeviceTypes)
+);
+
+publicCatalogRouter.get(
+  '/device-types/:id',
+  publicApiRateLimiter,
+  validate(catalogIdParamSchema),
+  asyncHandler(CatalogController.getDeviceTypeById)
+);
 
 // Allow authenticated users (managers, staff, admins) or public to view active catalog items
 publicCatalogRouter.get(

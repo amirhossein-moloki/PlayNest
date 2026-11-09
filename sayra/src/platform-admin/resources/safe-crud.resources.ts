@@ -13,7 +13,7 @@ import { PlatformMediaStation } from '../../modules/platform-admin/media.station
 /**
  * Creates actions with audit logging and media lifecycle management for catalog items.
  */
-function createCatalogActions(entityName: 'DeviceCatalog' | 'GameCatalog'): Record<string, any> {
+function createCatalogActions(entityName: 'DeviceCatalog' | 'GameCatalog' | 'DeviceType'): Record<string, any> {
   return {
     edit: {
       after: async (originalResponse: any, request: any, context: any) => {
@@ -118,6 +118,19 @@ export function getSafeCrudResources(components?: { coverImageComponentId?: stri
       resource: getPrismaModelTarget('SiteSettings'),
       options: {
         navigation: ADMIN_NAVIGATION_GROUPS.CONTENT_PORTAL,
+        properties: {
+          ...buildSensitivePropertiesConfiguration(),
+          id: { isVisible: { list: true, show: true, edit: false, filter: true } },
+          createdAt: { isVisible: { list: true, show: true, edit: false, filter: true } },
+          updatedAt: { isVisible: { list: false, show: true, edit: false, filter: false } },
+        },
+      },
+    },
+    {
+      resource: getPrismaModelTarget('DeviceType'),
+      options: {
+        navigation: ADMIN_NAVIGATION_GROUPS.STATIONS_CATALOG,
+        actions: createCatalogActions('DeviceType'),
         properties: {
           ...buildSensitivePropertiesConfiguration(),
           id: { isVisible: { list: true, show: true, edit: false, filter: true } },

@@ -1,6 +1,9 @@
 import { NextFunction, Request, Response } from 'express';
 import * as CatalogStation from './catalog.station';
 import {
+  CreateDeviceTypeInput,
+  UpdateDeviceTypeInput,
+  listDeviceTypeSchema,
   CreateDeviceCatalogInput,
   UpdateDeviceCatalogInput,
   CreateGameCatalogInput,
@@ -8,6 +11,72 @@ import {
   listDeviceCatalogSchema,
   listGameCatalogSchema,
 } from './catalog.validator';
+
+// ==========================================
+// Device Type Controllers (Dynamic Device Types)
+// ==========================================
+
+export async function createDeviceType(
+  req: Request<unknown, unknown, CreateDeviceTypeInput>,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const deviceType = await CatalogStation.createDeviceType(req.body);
+    res.created(deviceType);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getDeviceTypes(req: Request, res: Response, next: NextFunction) {
+  try {
+    const query = listDeviceTypeSchema.parse(req.query);
+    const result = await CatalogStation.getDeviceTypes(query);
+    res.ok(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getDeviceTypeById(
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const deviceType = await CatalogStation.getDeviceTypeById(req.params.id);
+    res.ok(deviceType);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateDeviceType(
+  req: Request<{ id: string }, unknown, UpdateDeviceTypeInput>,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const updated = await CatalogStation.updateDeviceType(req.params.id, req.body);
+    res.ok(updated);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteDeviceType(
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    await CatalogStation.deleteDeviceType(req.params.id);
+    res.noContent();
+  } catch (error) {
+    next(error);
+  }
+}
 
 // ==========================================
 // Device Catalog Controllers

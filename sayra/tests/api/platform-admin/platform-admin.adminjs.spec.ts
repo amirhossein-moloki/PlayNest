@@ -304,7 +304,7 @@ describe('PlayNest Platform Admin Panel - Phase 1 Test Suite', () => {
 
     it('should configure Safe CRUD models with operations enabled', () => {
       const safeCrudResources = getSafeCrudResources();
-      const expectedModels = ['Category', 'Tag', 'SiteSettings', 'DeviceCatalog', 'GameCatalog'];
+      const expectedModels = ['Category', 'Tag', 'SiteSettings', 'DeviceType', 'DeviceCatalog', 'GameCatalog'];
 
       expect(safeCrudResources.length).toBe(expectedModels.length);
 
@@ -364,6 +364,47 @@ describe('PlayNest Platform Admin Panel - Phase 1 Test Suite', () => {
       expect(health.timestamp).toBeDefined();
       expect(redis.ping).toHaveBeenCalled();
       expect(prisma.$queryRaw).toHaveBeenCalled();
+    });
+  });
+
+  describe('5. AdminJS Prisma Type Coercion & Update Resilience', () => {
+    it('should coerce boolean strings ("true"/"false") to boolean primitives on prepareParams', async () => {
+      const { createCustomPrismaResource } = await import('../../../src/platform-admin/bootstrap/register-adapter');
+      class MockBaseResource {
+        properties() {
+          return [
+            { path: () => 'isActive', type: () => 'boolean', column: { type: 'Boolean' } },
+            { path: () => 'deviceType', type: () => 'string', column: { type: 'GameStationType' } },
+            { path: () => 'supportedPlatforms', type: () => 'string', column: { type: 'GameStationType', isList: true } },
+          ];
+        }
+        prepareParams(params: any) {
+          return { ...params };
+        }
+        id() {
+          return 'TestResource';
+        }
+      }
+
+      const CustomClass = createCustomPrismaResource(MockBaseResource);
+      const resource = new CustomClass();
+
+      const coerced = resource.prepareParams({
+        name: 'PS5 Test Unit',
+        deviceType: 'PLAYSTATION',
+        isActive: 'true',
+        supportedPlatforms: 'PLAYSTATION',
+      });
+
+      expect(coerced.isActive).toBe(true);
+      expect(typeof coerced.isActive).toBe('boolean');
+      expect(coerced.supportedPlatforms).toEqual(['PLAYSTATION']);
+
+      const coercedFalse = resource.prepareParams({
+        isActive: 'false',
+      });
+      expect(coercedFalse.isActive).toBe(false);
+      expect(typeof coercedFalse.isActive).toBe('boolean');
     });
   });
 });

@@ -180,6 +180,71 @@ components:
           type: object
           additionalProperties:
             type: string
+    DeviceType:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+        icon:
+          type: string
+          nullable: true
+        category:
+          type: string
+          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateDeviceTypeInput:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        category:
+          type: string
+          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+          default: PC
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateDeviceTypeInput:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        category:
+          type: string
+          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+        isActive:
+          type: boolean
+
     DeviceCatalog:
       type: object
       properties:
@@ -190,6 +255,11 @@ components:
         deviceType:
           type: string
           enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+        deviceTypeId:
+          type: string
+          nullable: true
+        deviceTypeRef:
+          $ref: '#/components/schemas/DeviceType'
         coverImageUrl:
           type: string
           format: uri
@@ -1784,6 +1854,85 @@ paths:
           $ref: '#/components/responses/NotFoundError'
       operationId: post_gamingCenters_gamingCenterId_stations_games_from_catalog
 
+  /catalog/device-types:
+    get:
+      summary: List all active device types (public / gaming center manager)
+      description: Returns list of active dynamic device types.
+      tags:
+      - Catalog
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      - name: category
+        in: query
+        schema:
+          type: string
+          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+      - name: isActive
+        in: query
+        schema:
+          type: boolean
+          default: true
+      - name: search
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: List of device types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeviceType'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+      operationId: get_catalog_device_types
+
+  /catalog/device-types/{id}:
+    get:
+      summary: Get device type by ID (public / gaming center manager)
+      description: Returns details of a specific device type by ID.
+      tags:
+      - Catalog
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Device type details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/DeviceType'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      operationId: get_catalog_device_types_id
+
   /catalog/devices:
     get:
       summary: Browse device catalog (public / gaming center manager)
@@ -1943,6 +2092,190 @@ paths:
         '404':
           $ref: '#/components/responses/NotFoundError'
       operationId: get_catalog_games_id
+
+  /platform-admin/catalog/device-types:
+    post:
+      summary: Create new dynamic device type (Platform Admin)
+      description: Creates a new device type definition in the platform catalog.
+      tags:
+      - PlatformAdmin
+      - Catalog
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDeviceTypeInput'
+      responses:
+        '201':
+          description: Device type created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/DeviceType'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+      operationId: post_platform_admin_catalog_device_types
+    get:
+      summary: List device types (Platform Admin)
+      description: Returns list of device types with pagination and filters.
+      tags:
+      - PlatformAdmin
+      - Catalog
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      - name: category
+        in: query
+        schema:
+          type: string
+          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+      - name: isActive
+        in: query
+        schema:
+          type: boolean
+      - name: search
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: List of device types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeviceType'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+      operationId: get_platform_admin_catalog_device_types
+
+  /platform-admin/catalog/device-types/{id}:
+    get:
+      summary: Get device type by ID (Platform Admin)
+      description: Retrieves a single device type by ID for platform admin inspection.
+      tags:
+      - PlatformAdmin
+      - Catalog
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Device type details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/DeviceType'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      operationId: get_platform_admin_catalog_device_types_id
+    patch:
+      summary: Update device type (Platform Admin)
+      description: Updates device type properties by ID.
+      tags:
+      - PlatformAdmin
+      - Catalog
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDeviceTypeInput'
+      responses:
+        '200':
+          description: Device type updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/DeviceType'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      operationId: patch_platform_admin_catalog_device_types_id
+    delete:
+      summary: Delete device type (Platform Admin)
+      description: Deletes a device type from the system.
+      tags:
+      - PlatformAdmin
+      - Catalog
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Device type deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      operationId: delete_platform_admin_catalog_device_types_id
 
   /platform-admin/catalog/devices:
     post:

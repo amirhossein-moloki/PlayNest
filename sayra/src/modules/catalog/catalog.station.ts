@@ -1,5 +1,8 @@
 import * as CatalogRepo from './catalog.repo';
 import {
+  CreateDeviceTypeInput,
+  UpdateDeviceTypeInput,
+  ListDeviceTypeQuery,
   CreateDeviceCatalogInput,
   UpdateDeviceCatalogInput,
   ListDeviceCatalogQuery,
@@ -9,6 +12,36 @@ import {
 } from './catalog.validator';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
+
+// ==========================================
+// Device Type Station Logic (Dynamic Device Types)
+// ==========================================
+
+export async function createDeviceType(data: CreateDeviceTypeInput) {
+  return CatalogRepo.createDeviceType(data);
+}
+
+export async function getDeviceTypeById(id: string) {
+  const deviceType = await CatalogRepo.findDeviceTypeById(id);
+  if (!deviceType) {
+    throw new AppError('Device type not found', httpStatus.NOT_FOUND);
+  }
+  return deviceType;
+}
+
+export async function getDeviceTypes(query: ListDeviceTypeQuery) {
+  return CatalogRepo.findDeviceTypes(query);
+}
+
+export async function updateDeviceType(id: string, data: UpdateDeviceTypeInput) {
+  await getDeviceTypeById(id);
+  return CatalogRepo.updateDeviceType(id, data);
+}
+
+export async function deleteDeviceType(id: string) {
+  await getDeviceTypeById(id);
+  return CatalogRepo.deleteDeviceType(id);
+}
 
 // ==========================================
 // Device Catalog Station Logic
