@@ -38,23 +38,23 @@ describe('Authentication API', () => {
     jest.clearAllMocks();
   });
 
-  describe('OTP Flow', () => {
-    it('should return 404 when requesting OTP for non-existent user', async () => {
-      MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue([]);
+  describe('User OTP Flow (Login / Auto-Register & Skip OTP)', () => {
+    it('Scenario 1: Request OTP for new or existing user should succeed', async () => {
+      MockedAuthRepository.createOtp.mockResolvedValue({ id: 'o1' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       const res = await request(app).post('/api/v1/auth/user/otp/request').send({ phone });
-      expect(res.status).toBe(httpStatus.NOT_FOUND);
-      expect(res.body.success).toBe(false);
-      expect(res.body.error.message).toContain('No user found');
+      expect(res.status).toBe(httpStatus.OK);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.message).toContain('OTP sent to');
     });
 
-    it('should return 401 when verifying with invalid/expired OTP', async () => {
+    it('Scenario 2: Return 401 when verifying with invalid/expired OTP', async () => {
       MockedAuthRepository.findRecentOtp.mockResolvedValue(null);
       const res = await request(app).post('/api/v1/auth/user/otp/verify').send({ phone, code: '123456' });
       expect(res.status).toBe(httpStatus.UNAUTHORIZED);
       expect(res.body.error.message).toBe('Invalid or expired OTP.');
     });
 
-    it('should return 200 when verifying valid OTP', async () => {
+    it('Scenario 3: Return 200 when verifying valid OTP for existing user', async () => {
       MockedAuthRepository.findRecentOtp.mockResolvedValue({ id: 'o1', codeHash: 'hashed' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       MockedArgon2.verify.mockResolvedValue(true /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue([{ gamingCenter: { id: gamingCenterId, name: 'Center' } }] /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
@@ -62,6 +62,96 @@ describe('Authentication API', () => {
       const res = await request(app).post('/api/v1/auth/user/otp/verify').send({ phone, code: '123456' });
       expect(res.status).toBe(httpStatus.OK);
       expect(res.body.data.gamingCenters).toBeDefined();
+    });
+
+    it('Scenario 4: Auto-register new user with STAFF role if no user exists', async () => {
+      const newUser = {
+        id: 'user-new',
+        fullName: 'کاربر جدید',
+        phone: '+989123456789',
+        role: 'STAFF',
+        gamingCenter: { id: gamingCenterId, name: 'Center' },
+      };
+      MockedAuthRepository.findRecentOtp.mockResolvedValue({ id: 'o1', codeHash: 'hashed' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedArgon2.verify.mockResolvedValue(true /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedAuthRepository.findUsersWithGamingCenters
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([newUser as any]); /* eslint-disable-line @typescript-eslint/no-explicit-any */
+      MockedAuthRepository.findFirstActiveGamingCenter.mockResolvedValue({ id: gamingCenterId, name: 'Center' } as any); /* eslint-disable-line @typescript-eslint/no-explicit-any */
+      MockedAuthRepository.createUserForOtp.mockResolvedValue(newUser as any); /* eslint-disable-line @typescript-eslint/no-explicit-any */
+
+      const res = await request(app).post('/api/v1/auth/user/otp/verify').send({ phone, code: '123456' });
+      expect(res.status).toBe(httpStatus.OK);
+      expect(res.body.data.gamingCenters).toBeDefined();
+      expect(MockedAuthRepository.createUserForOtp).toHaveBeenCalled();
+    });
+
+    it('Scenario 5: User + SKIP_OTP=true with 000000', async () => {
+      const { env } = await import('../../../src/config/env');
+      const originalSkip = env.SKIP_OTP;
+      (env as any).SKIP_OTP = true; /* eslint-disable-line @typescript-eslint/no-explicit-any */
+
+      try {
+        MockedAuthRepository.createOtp.mockResolvedValue({ id: 'o-user-skip' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+        MockedAuthRepository.findRecentOtp.mockResolvedValue({ id: 'o-user-skip', codeHash: 'hashed_000000' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+        MockedArgon2.verify.mockResolvedValue(true /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+        MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue([{ gamingCenter: { id: gamingCenterId, name: 'Center' } }] /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+
+        const reqRes = await request(app).post('/api/v1/auth/user/otp/request').send({ phone });
+        expect(reqRes.status).toBe(httpStatus.OK);
+
+        const verifyRes = await request(app).post('/api/v1/auth/user/otp/verify').send({ phone, code: '000000' });
+        expect(verifyRes.status).toBe(httpStatus.OK);
+        expect(verifyRes.body.data.gamingCenters).toBeDefined();
+      } finally {
+        (env as any).SKIP_OTP = originalSkip; /* eslint-disable-line @typescript-eslint/no-explicit-any */
+      }
+    });
+
+    it('Scenario 6: User + SKIP_OTP=true rejects code other than 000000', async () => {
+      const { env } = await import('../../../src/config/env');
+      const originalSkip = env.SKIP_OTP;
+      (env as any).SKIP_OTP = true; /* eslint-disable-line @typescript-eslint/no-explicit-any */
+
+      try {
+        const verifyRes = await request(app).post('/api/v1/auth/user/otp/verify').send({ phone, code: '123456' });
+        expect(verifyRes.status).toBe(httpStatus.UNAUTHORIZED);
+        expect(verifyRes.body.error.message).toBe('Invalid or expired OTP.');
+      } finally {
+        (env as any).SKIP_OTP = originalSkip; /* eslint-disable-line @typescript-eslint/no-explicit-any */
+      }
+    });
+
+    it('Scenario 7: User + SKIP_OTP=false rejects 000000 when code is invalid', async () => {
+      MockedAuthRepository.findRecentOtp.mockResolvedValue({ id: 'o-normal', codeHash: 'hashed_real_code' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedArgon2.verify.mockResolvedValue(false /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+
+      const verifyRes = await request(app).post('/api/v1/auth/user/otp/verify').send({ phone, code: '000000' });
+      expect(verifyRes.status).toBe(httpStatus.UNAUTHORIZED);
+      expect(verifyRes.body.error.message).toBe('Invalid or expired OTP.');
+    });
+
+    it('Scenario 8: User login with OTP succeeds with valid consumed OTP', async () => {
+      MockedAuthRepository.findRecentConsumedOtp.mockResolvedValue({ id: 'o-consumed' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedAuthRepository.findUserByPhone.mockResolvedValue({ id: userId, phone: '+989123456789' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedAuthRepository.createSession.mockResolvedValue({ id: 's-user-otp' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+
+      const res = await request(app).post('/api/v1/auth/user/login/otp').send({ phone, gamingCenterId });
+      expect(res.status).toBe(httpStatus.OK);
+      expect(res.body.data.tokens).toBeDefined();
+    });
+
+    it('Scenario 9: User login with OTP fails if no consumed OTP in window', async () => {
+      MockedAuthRepository.findRecentConsumedOtp.mockResolvedValue(null);
+
+      const res = await request(app).post('/api/v1/auth/user/login/otp').send({ phone, gamingCenterId });
+      expect(res.status).toBe(httpStatus.UNAUTHORIZED);
+      expect(res.body.error.message).toContain('No recent OTP verification found');
+    });
+
+    it('Scenario 10: Validation error on invalid phone format', async () => {
+      const res = await request(app).post('/api/v1/auth/user/otp/request').send({ phone: '123' });
+      expect(res.status).toBe(httpStatus.BAD_REQUEST);
     });
   });
 

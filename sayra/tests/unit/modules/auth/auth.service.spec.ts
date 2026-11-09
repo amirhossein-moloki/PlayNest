@@ -5,7 +5,7 @@ import AppError from '../../../../src/common/errors/AppError';
 import httpStatus from 'http-status';
 import { UserFactory, SessionFactory } from '../../../../tests/factories/user.factory';
 import { queueSms } from '../../../../src/jobs/producers/sms.producer';
-import { User, Session, PhoneOtp, CustomerAccount, GamingCenter } from '@prisma/client';
+import { User, Session, PhoneOtp, CustomerAccount, GamingCenter, UserRole } from '@prisma/client';
 
 jest.mock('../../../../src/modules/auth/auth.repository');
 jest.mock('../../../../src/jobs/producers/sms.producer', () => ({
@@ -24,9 +24,14 @@ const MockedQueueSms = queueSms as jest.MockedFunction<typeof queueSms>;
 type UserWithGamingCenter = User & { gamingCenter: GamingCenter };
 
 const T_P = '09000000000';
+const NORMALIZED_T_P = '+989000000000';
 const T_V = 't';
 
 describe('authService', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe('loginUser', () => {
     it('should login successfully with valid credentials', async () => {
       const user = UserFactory.create({ passwordHash: `h_${T_V}` }) as User;
@@ -59,28 +64,49 @@ describe('authService', () => {
   });
 
   describe('requestUserOtp', () => {
-    it('should request OTP successfully', async () => {
-      const users = [{ id: 'u-1', gamingCenter: { id: 'gc-1', name: 'g' } }] as unknown as UserWithGamingCenter[];
-      MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue(users);
+    it('should request OTP successfully for existing or new user in normal mode', async () => {
       MockedAuthRepository.createOtp.mockResolvedValue({} as PhoneOtp);
 
       const result = await authService.requestUserOtp(T_P);
 
-      expect(result.message).toContain(`OTP sent to ${T_P}`);
-      expect(MockedAuthRepository.createOtp).toHaveBeenCalled();
+      expect(result.message).toContain(`OTP sent to ${NORMALIZED_T_P}`);
+      expect(MockedAuthRepository.createOtp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          phone: NORMALIZED_T_P,
+          targetActorType: 'USER',
+        })
+      );
       expect(MockedQueueSms).toHaveBeenCalled();
     });
 
-    it('should throw NOT_FOUND if no user associated with phone', async () => {
-      MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue([]);
+    it('should bypass SMS queue and use 000000 when SKIP_OTP is enabled for user', async () => {
+      MockedQueueSms.mockClear();
+      const { env } = await import('../../../../src/config/env');
+      const originalSkipOtp = env.SKIP_OTP;
+      (env as any).SKIP_OTP = true; /* eslint-disable-line @typescript-eslint/no-explicit-any */
 
-      await expect(authService.requestUserOtp(T_P))
-        .rejects.toThrow(new AppError('No user found with this phone number.', httpStatus.NOT_FOUND));
+      try {
+        MockedAuthRepository.createOtp.mockResolvedValue({} as PhoneOtp);
+
+        const result = await authService.requestUserOtp(T_P);
+
+        expect(result.message).toContain(`OTP sent to ${NORMALIZED_T_P}`);
+        expect(MockedAuthRepository.createOtp).toHaveBeenCalledWith(
+          expect.objectContaining({
+            phone: NORMALIZED_T_P,
+            codeHash: 'h_000000',
+            targetActorType: 'USER',
+          })
+        );
+        expect(MockedQueueSms).not.toHaveBeenCalled();
+      } finally {
+        (env as any).SKIP_OTP = originalSkipOtp; /* eslint-disable-line @typescript-eslint/no-explicit-any */
+      }
     });
   });
 
   describe('verifyUserOtp', () => {
-    it('should verify OTP and return gaming centers', async () => {
+    it('should verify OTP and return gaming centers for existing user', async () => {
       const code = '123456';
       const codeHash = 'h_123456';
       const otp = { id: 'o-1', codeHash } as PhoneOtp;
@@ -95,6 +121,39 @@ describe('authService', () => {
 
       expect(result.gamingCenters).toEqual([{ id: 'gc-1', name: 'g' }]);
       expect(MockedAuthRepository.consumeOtp).toHaveBeenCalledWith(otp.id);
+    });
+
+    it('should auto-register new user with STAFF role if no user exists', async () => {
+      const code = '123456';
+      const codeHash = 'h_123456';
+      const otp = { id: 'o-1', codeHash } as PhoneOtp;
+      const newUser = {
+        id: 'u-new',
+        fullName: 'کاربر جدید',
+        phone: NORMALIZED_T_P,
+        role: UserRole.STAFF,
+        gamingCenter: { id: 'gc-active', name: 'Active Center' },
+      };
+
+      MockedAuthRepository.findRecentOtp.mockResolvedValue(otp);
+      MockedAuthRepository.consumeOtp.mockResolvedValue({} as PhoneOtp);
+      MockedAuthRepository.markUserPhoneVerified.mockResolvedValue({ count: 0 });
+      MockedAuthRepository.findUsersWithGamingCenters
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([newUser as any]); // eslint-disable-line @typescript-eslint/no-explicit-any
+      MockedAuthRepository.findFirstActiveGamingCenter.mockResolvedValue({ id: 'gc-active', name: 'Active Center' } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      MockedAuthRepository.createUserForOtp.mockResolvedValue(newUser as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+      const result = await authService.verifyUserOtp(T_P, code);
+
+      expect(result.gamingCenters).toEqual([{ id: 'gc-active', name: 'Active Center' }]);
+      expect(MockedAuthRepository.createUserForOtp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gamingCenterId: 'gc-active',
+          phone: NORMALIZED_T_P,
+          role: UserRole.STAFF,
+        })
+      );
     });
 
     it('should throw UNAUTHORIZED if OTP not found', async () => {
@@ -119,8 +178,13 @@ describe('authService', () => {
 
       const result = await authService.requestCustomerOtp(T_P);
 
-      expect(result.message).toContain(`OTP sent to ${T_P}`);
-      expect(MockedAuthRepository.createOtp).toHaveBeenCalled();
+      expect(result.message).toContain(`OTP sent to ${NORMALIZED_T_P}`);
+      expect(MockedAuthRepository.createOtp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          phone: NORMALIZED_T_P,
+          targetActorType: 'CUSTOMER',
+        })
+      );
       expect(MockedQueueSms).toHaveBeenCalled();
     });
 
@@ -135,11 +199,12 @@ describe('authService', () => {
 
         const result = await authService.requestCustomerOtp(T_P);
 
-        expect(result.message).toContain(`OTP sent to ${T_P}`);
+        expect(result.message).toContain(`OTP sent to ${NORMALIZED_T_P}`);
         expect(MockedAuthRepository.createOtp).toHaveBeenCalledWith(
           expect.objectContaining({
-            phone: T_P,
+            phone: NORMALIZED_T_P,
             codeHash: 'h_000000',
+            targetActorType: 'CUSTOMER',
           })
         );
         expect(MockedQueueSms).not.toHaveBeenCalled();
@@ -245,7 +310,7 @@ describe('authService', () => {
 
   describe('loginCustomer', () => {
     it('should login or register customer successfully', async () => {
-      const customer = { id: 'c-1', phone: T_P, phoneVerifiedAt: new Date() } as CustomerAccount;
+      const customer = { id: 'c-1', phone: NORMALIZED_T_P, phoneVerifiedAt: new Date() } as CustomerAccount;
       const session = SessionFactory.create({ actorId: customer.id, actorType: 'CUSTOMER' }) as Session;
 
       MockedAuthRepository.findCustomerByPhone.mockResolvedValue(customer);
@@ -258,7 +323,7 @@ describe('authService', () => {
     });
 
     it('should create new customer if not exists', async () => {
-      const customer = { id: 'c-1', phone: T_P, phoneVerifiedAt: new Date() } as CustomerAccount;
+      const customer = { id: 'c-1', phone: NORMALIZED_T_P, phoneVerifiedAt: new Date() } as CustomerAccount;
       const session = SessionFactory.create({ actorId: customer.id, actorType: 'CUSTOMER' }) as Session;
 
       MockedAuthRepository.findCustomerByPhone.mockResolvedValue(null);
@@ -267,7 +332,7 @@ describe('authService', () => {
 
       await authService.loginCustomer(T_P);
 
-      expect(MockedAuthRepository.createCustomer).toHaveBeenCalledWith(T_P, expect.any(Date));
+      expect(MockedAuthRepository.createCustomer).toHaveBeenCalledWith(NORMALIZED_T_P, expect.any(Date));
     });
   });
 

@@ -2,11 +2,12 @@ import argon2 from 'argon2';
 import crypto from 'crypto';
 import { AuthRepository } from './auth.repository';
 import { generateAccessToken } from './auth.tokens';
-import { OtpPurpose, SessionActorType } from '@prisma/client';
+import { OtpPurpose, SessionActorType, UserRole } from '@prisma/client';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { env } from '../../config/env';
 import { queueSms } from '../../jobs/producers/sms.producer';
+import { normalizePhone } from '../../common/utils/phone';
 
 const hashToken = (token: string) => {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -102,29 +103,38 @@ export const authService = {
   },
 
   async requestUserOtp(phone: string) {
-    const users = await AuthRepository.findUsersWithGamingCenters(phone);
-    if (users.length === 0) {
-      throw new AppError('No user found with this phone number.', httpStatus.NOT_FOUND);
-    }
+    const normalizedPhone = normalizePhone(phone);
 
-    const code = generateNumericOtp(OTP_LENGTH);
+    // If SKIP_OTP is enabled, use static code '000000' and skip sending real SMS
+    const code = env.SKIP_OTP ? '000000' : generateNumericOtp(OTP_LENGTH);
     const codeHash = await argon2.hash(code);
     const expiresAt = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
 
     await AuthRepository.createOtp({
-      phone,
+      phone: normalizedPhone,
       purpose: OtpPurpose.LOGIN,
       codeHash,
       expiresAt,
+      targetActorType: SessionActorType.USER,
     });
 
-    await queueSms({ mobile: phone, templateId: getOtpTemplateId(), parameters: [{ name: 'CODE', value: code }] });
+    if (!env.SKIP_OTP) {
+      await queueSms({ mobile: normalizedPhone, templateId: getOtpTemplateId(), parameters: [{ name: 'CODE', value: code }] });
+    }
 
-    return { message: `OTP sent to ${phone}. It will expire in ${OTP_EXPIRATION_MINUTES} minutes.` };
+    return { message: `OTP sent to ${normalizedPhone}. It will expire in ${OTP_EXPIRATION_MINUTES} minutes.` };
   },
 
   async verifyUserOtp(phone: string, code: string) {
-    const otp = await AuthRepository.findRecentOtp(phone, OtpPurpose.LOGIN);
+    const normalizedPhone = normalizePhone(phone);
+
+    // If SKIP_OTP is enabled, strictly require '000000'
+    if (env.SKIP_OTP && code !== '000000') {
+      throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
+    }
+
+    // If SKIP_OTP is disabled, reject '000000' static code if generated code was different
+    const otp = await AuthRepository.findRecentOtp(normalizedPhone, OtpPurpose.LOGIN, SessionActorType.USER);
 
     if (!otp) {
       throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
@@ -133,14 +143,39 @@ export const authService = {
     const isCodeValid = await argon2.verify(otp.codeHash, code);
 
     if (!isCodeValid) {
-      // Optional: Increment an attempt counter to prevent brute-force attacks
       throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
     }
 
     await AuthRepository.consumeOtp(otp.id);
-    await AuthRepository.markUserPhoneVerified(phone);
+    await AuthRepository.markUserPhoneVerified(normalizedPhone);
 
-    const users = await AuthRepository.findUsersWithGamingCenters(phone);
+    let users = await AuthRepository.findUsersWithGamingCenters(normalizedPhone);
+
+    // Automatic account registration for User if no account exists yet
+    if (users.length === 0) {
+      let activeCenter = await AuthRepository.findFirstActiveGamingCenter();
+      if (!activeCenter) {
+        activeCenter = await AuthRepository.createDefaultGamingCenter();
+      }
+
+      try {
+        const newUser = await AuthRepository.createUserForOtp({
+          gamingCenterId: activeCenter.id,
+          fullName: 'کاربر جدید',
+          phone: normalizedPhone,
+          role: UserRole.STAFF,
+          isActive: true,
+          phoneVerifiedAt: new Date(),
+        });
+        users = [newUser as any]; // eslint-disable-line @typescript-eslint/no-explicit-any
+      } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+        // Handle concurrent registration race condition safely
+        users = await AuthRepository.findUsersWithGamingCenters(normalizedPhone);
+        if (users.length === 0) {
+          throw err;
+        }
+      }
+    }
 
     const gamingCenters = users.map(user => ({
       id: user.gamingCenter.id,
@@ -151,32 +186,37 @@ export const authService = {
   },
 
   async requestCustomerOtp(phone: string) {
+    const normalizedPhone = normalizePhone(phone);
+
     // If SKIP_OTP is enabled, use static code '000000' and skip sending real SMS
     const code = env.SKIP_OTP ? '000000' : generateNumericOtp(OTP_LENGTH);
     const codeHash = await argon2.hash(code);
     const expiresAt = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
 
     await AuthRepository.createOtp({
-      phone,
+      phone: normalizedPhone,
       purpose: OtpPurpose.LOGIN,
       codeHash,
       expiresAt,
+      targetActorType: SessionActorType.CUSTOMER,
     });
 
     if (!env.SKIP_OTP) {
-      await queueSms({ mobile: phone, templateId: getOtpTemplateId(), parameters: [{ name: 'CODE', value: code }] });
+      await queueSms({ mobile: normalizedPhone, templateId: getOtpTemplateId(), parameters: [{ name: 'CODE', value: code }] });
     }
 
-    return { message: `OTP sent to ${phone}. It will expire in ${OTP_EXPIRATION_MINUTES} minutes.` };
+    return { message: `OTP sent to ${normalizedPhone}. It will expire in ${OTP_EXPIRATION_MINUTES} minutes.` };
   },
 
   async verifyCustomerOtp(phone: string, code: string) {
+    const normalizedPhone = normalizePhone(phone);
+
     // If SKIP_OTP is enabled, strictly require '000000'
     if (env.SKIP_OTP && code !== '000000') {
       throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
     }
 
-    const otp = await AuthRepository.findRecentOtp(phone, OtpPurpose.LOGIN);
+    const otp = await AuthRepository.findRecentOtp(normalizedPhone, OtpPurpose.LOGIN, SessionActorType.CUSTOMER);
 
     if (!otp) {
       throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
@@ -190,7 +230,7 @@ export const authService = {
 
     await AuthRepository.consumeOtp(otp.id);
 
-    const customer = await AuthRepository.findCustomerByPhone(phone);
+    const customer = await AuthRepository.findCustomerByPhone(normalizedPhone);
     if (customer && !customer.phoneVerifiedAt) {
       await AuthRepository.markCustomerPhoneVerified(customer.id);
     }
@@ -199,15 +239,21 @@ export const authService = {
   },
 
   async loginUserWithOtp(phone: string, gamingCenterId: string) {
+    const normalizedPhone = normalizePhone(phone);
     const verificationWindow = new Date(Date.now() - OTP_POST_VERIFICATION_WINDOW_MINUTES * 60 * 1000);
 
-    const recentVerifiedOtp = await AuthRepository.findRecentConsumedOtp(phone, OtpPurpose.LOGIN, verificationWindow);
+    const recentVerifiedOtp = await AuthRepository.findRecentConsumedOtp(
+      normalizedPhone,
+      OtpPurpose.LOGIN,
+      verificationWindow,
+      SessionActorType.USER
+    );
 
     if (!recentVerifiedOtp) {
       throw new AppError('No recent OTP verification found. Please verify again.', httpStatus.UNAUTHORIZED);
     }
 
-    const user = await AuthRepository.findUserByPhone(phone, gamingCenterId);
+    const user = await AuthRepository.findUserByPhone(normalizedPhone, gamingCenterId);
     if (!user) {
       throw new AppError('Invalid credentials for the selected gamingCenter.', httpStatus.UNAUTHORIZED);
     }
@@ -221,17 +267,18 @@ export const authService = {
   },
 
   async loginCustomer(phone: string) {
-    let customer = await AuthRepository.findCustomerByPhone(phone);
+    const normalizedPhone = normalizePhone(phone);
+    let customer = await AuthRepository.findCustomerByPhone(normalizedPhone);
 
     if (!customer) {
       // Use upsertCustomerAccount if available, otherwise fallback to createCustomer
       customer = await (AuthRepository.upsertCustomerAccount
-        ? AuthRepository.upsertCustomerAccount(phone, new Date())
-        : AuthRepository.createCustomer(phone, new Date()));
+        ? AuthRepository.upsertCustomerAccount(normalizedPhone, new Date())
+        : AuthRepository.createCustomer(normalizedPhone, new Date()));
 
       if (!customer) {
         /* istanbul ignore next */
-        customer = await AuthRepository.createCustomer(phone, new Date());
+        customer = await AuthRepository.createCustomer(normalizedPhone, new Date());
       }
     } else if (!customer.phoneVerifiedAt) {
       customer = await AuthRepository.markCustomerPhoneVerified(customer.id);
