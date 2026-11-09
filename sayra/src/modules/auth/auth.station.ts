@@ -2,7 +2,7 @@ import argon2 from 'argon2';
 import crypto from 'crypto';
 import { AuthRepository } from './auth.repository';
 import { generateAccessToken } from './auth.tokens';
-import { OtpPurpose, SessionActorType, UserRole } from '@prisma/client';
+import { OtpPurpose, SessionActorType } from '@prisma/client';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { env } from '../../config/env';
@@ -149,33 +149,7 @@ export const authService = {
     await AuthRepository.consumeOtp(otp.id);
     await AuthRepository.markUserPhoneVerified(normalizedPhone);
 
-    let users = await AuthRepository.findUsersWithGamingCenters(normalizedPhone);
-
-    // Automatic account registration for User if no account exists yet
-    if (users.length === 0) {
-      let activeCenter = await AuthRepository.findFirstActiveGamingCenter();
-      if (!activeCenter) {
-        activeCenter = await AuthRepository.createDefaultGamingCenter();
-      }
-
-      try {
-        const newUser = await AuthRepository.createUserForOtp({
-          gamingCenterId: activeCenter.id,
-          fullName: 'کاربر جدید',
-          phone: normalizedPhone,
-          role: UserRole.STAFF,
-          isActive: true,
-          phoneVerifiedAt: new Date(),
-        });
-        users = [newUser as any]; // eslint-disable-line @typescript-eslint/no-explicit-any
-      } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
-        // Handle concurrent registration race condition safely
-        users = await AuthRepository.findUsersWithGamingCenters(normalizedPhone);
-        if (users.length === 0) {
-          throw err;
-        }
-      }
-    }
+    const users = await AuthRepository.findUsersWithGamingCenters(normalizedPhone);
 
     const gamingCenters = users.map(user => ({
       id: user.gamingCenter.id,

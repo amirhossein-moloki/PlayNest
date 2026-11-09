@@ -20,40 +20,41 @@ describe('User Registration/Login Integration (Mocked Repo)', () => {
     jest.clearAllMocks();
   });
 
-  it('concurrency test: concurrent OTP verification creates only one user', async () => {
-    const newUser = {
-      id: 'u-conc-1',
-      fullName: 'کاربر جدید',
+  it('should return existing user gaming centers if present', async () => {
+    const existingUser = {
+      id: 'u-1',
+      fullName: 'کارمند سالن',
       phone: normalizedPhone,
       role: UserRole.STAFF,
       gamingCenter: { id: 'gc-active', name: 'Active Center' },
     };
 
     MockedAuthRepository.findRecentOtp.mockResolvedValue({
-      id: 'otp-conc',
+      id: 'otp-1',
       codeHash: 'hash',
     } as any);
 
     MockedAuthRepository.consumeOtp.mockResolvedValue({} as any);
     MockedAuthRepository.markUserPhoneVerified.mockResolvedValue({ count: 1 });
-    MockedAuthRepository.findFirstActiveGamingCenter.mockResolvedValue({ id: 'gc-active', name: 'Active Center' } as any);
+    MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue([existingUser as any]);
 
-    // Call 1 succeeds to create user, Call 2 hits unique constraint and catches to find existing user
-    MockedAuthRepository.findUsersWithGamingCenters
-      .mockResolvedValueOnce([]) // call 1 before create
-      .mockResolvedValueOnce([]) // call 2 before create
-      .mockResolvedValueOnce([newUser as any]); // call 2 after unique constraint in catch
+    const res = await authService.verifyUserOtp(phone, '123456');
 
-    MockedAuthRepository.createUserForOtp
-      .mockResolvedValueOnce(newUser as any)
-      .mockRejectedValueOnce(new Error('Unique constraint failed on the fields: (`gamingCenterId`,`phone`)'));
+    expect(res.gamingCenters).toEqual([{ id: 'gc-active', name: 'Active Center' }]);
+  });
 
-    const [res1, res2] = await Promise.all([
-      authService.verifyUserOtp(phone, '123456'),
-      authService.verifyUserOtp(phone, '123456'),
-    ]);
+  it('should return empty gaming centers if no user exists and never auto-create gaming center', async () => {
+    MockedAuthRepository.findRecentOtp.mockResolvedValue({
+      id: 'otp-2',
+      codeHash: 'hash',
+    } as any);
 
-    expect(res1.gamingCenters).toEqual([{ id: 'gc-active', name: 'Active Center' }]);
-    expect(res2.gamingCenters).toEqual([{ id: 'gc-active', name: 'Active Center' }]);
+    MockedAuthRepository.consumeOtp.mockResolvedValue({} as any);
+    MockedAuthRepository.markUserPhoneVerified.mockResolvedValue({ count: 0 });
+    MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue([]);
+
+    const res = await authService.verifyUserOtp(phone, '123456');
+
+    expect(res.gamingCenters).toEqual([]);
   });
 });
