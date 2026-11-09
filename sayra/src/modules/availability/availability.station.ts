@@ -3,7 +3,7 @@ import { AvailabilityRepo } from './availability.repo';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { addDays, addMinutes } from 'date-fns';
-import { format as formatTz, fromZonedTime, toZonedTime } from 'date-fns-tz';
+import { formatInTimeZone, fromZonedTime, toZonedTime } from 'date-fns-tz';
 import { resolveValidTimeZone } from '../reservation/reservation.validation';
 
 export interface TimeSlotItem {
@@ -152,7 +152,7 @@ export const getAvailableSlots = async (
     startZonedDate = new Date(startDate);
     endZonedDate = endDate ? new Date(endDate) : addDays(startZonedDate, 1);
   } else {
-    const todayStr = formatTz(new Date(), 'yyyy-MM-dd', { timeZone });
+    const todayStr = formatInTimeZone(new Date(), timeZone, 'yyyy-MM-dd');
     const { start, end } = getZonedDayRange(todayStr, timeZone);
     startZonedDate = start;
     endZonedDate = end;
@@ -200,15 +200,12 @@ export const getAvailableSlots = async (
   // 4. Generate 24-hour slices and 60-minute slots
   const daysResults: DayAvailabilitySlots[] = [];
 
-  // Identify each unique 24-hour calendar day in the range
-  const currentDayCursor = toZonedTime(startZonedDate, timeZone);
-
   // Ensure cursor starts at beginning of the day in local timezone
-  const cursorDateStr = formatTz(currentDayCursor, 'yyyy-MM-dd', { timeZone });
+  const cursorDateStr = formatInTimeZone(startZonedDate, timeZone, 'yyyy-MM-dd');
   let iterDate = fromZonedTime(`${cursorDateStr} 00:00:00`, timeZone);
 
   while (iterDate < endZonedDate) {
-    const dayStr = formatTz(iterDate, 'yyyy-MM-dd', { timeZone });
+    const dayStr = formatInTimeZone(iterDate, timeZone, 'yyyy-MM-dd');
     const localDayDate = toZonedTime(iterDate, timeZone);
     const dayOfWeek = localDayDate.getDay(); // 0 = Sunday, ..., 6 = Saturday
     const isClosedDay = closedDays.includes(dayOfWeek);
