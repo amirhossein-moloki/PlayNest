@@ -150,7 +150,6 @@ describe('Platform Admin Media & Direct Image Upload Test Suite', () => {
         return Promise.resolve(null);
       });
 
-      const cookieSignature = require('cookie-signature');
       const signedSid = 's:' + cookieSignature.sign(adminSessionId, ADMIN_CONSTANTS.COOKIE_SECRET);
 
       const imageBuffer = Buffer.from('fake-image-content-bytes');
