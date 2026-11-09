@@ -138,6 +138,63 @@ describe('GameCenter Onboarding Flow API', () => {
       expect(res.body.data.verified).toBe(true);
       expect(res.body.data.step).toBe('LOCATION_PENDING');
     });
+
+    it('should verify with 000000 when SKIP_OTP is enabled', async () => {
+      const { env } = await import('../../../src/config/env');
+      const originalSkip = env.SKIP_OTP;
+      (env as any).SKIP_OTP = true;
+
+      try {
+        const codeHash = await argon2.hash('000000');
+        (prisma as any).gameCenterOnboarding.findUnique.mockResolvedValue(mockDraft);
+        (prisma as any).phoneOtp.findFirst.mockResolvedValue({
+          id: 'otp_01',
+          phone: mockDraft.managerPhone,
+          codeHash,
+        });
+        (prisma as any).phoneOtp.update.mockResolvedValue({ id: 'otp_01', consumedAt: new Date() });
+        (prisma as any).user.findMany.mockResolvedValue([]);
+        (prisma as any).gameCenterOnboarding.update.mockResolvedValue({
+          ...mockDraft,
+          step: 'LOCATION_PENDING',
+        });
+
+        const res = await request(app)
+          .post('/api/v1/onboarding/otp/verify')
+          .send({
+            onboardingId: mockDraft.id,
+            code: '000000',
+          });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.verified).toBe(true);
+      } finally {
+        (env as any).SKIP_OTP = originalSkip;
+      }
+    });
+
+    it('should reject non-000000 code when SKIP_OTP is enabled', async () => {
+      const { env } = await import('../../../src/config/env');
+      const originalSkip = env.SKIP_OTP;
+      (env as any).SKIP_OTP = true;
+
+      try {
+        (prisma as any).gameCenterOnboarding.findUnique.mockResolvedValue(mockDraft);
+
+        const res = await request(app)
+          .post('/api/v1/onboarding/otp/verify')
+          .send({
+            onboardingId: mockDraft.id,
+            code: '123456',
+          });
+
+        expect(res.status).toBe(401);
+        expect(res.body.success).toBe(false);
+      } finally {
+        (env as any).SKIP_OTP = originalSkip;
+      }
+    });
   });
 
   describe('Step 2: PUT /api/v1/onboarding/:id/location', () => {

@@ -63,7 +63,7 @@ export const OnboardingStation = {
     }
 
     // Generate & save OTP
-    const code = generateNumericOtp(OTP_LENGTH);
+    const code = env.SKIP_OTP ? '000000' : generateNumericOtp(OTP_LENGTH);
     const codeHash = await argon2.hash(code);
     const expiresAt = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
 
@@ -74,14 +74,16 @@ export const OnboardingStation = {
       expiresAt,
     });
 
-    try {
-      await queueSms({
-        mobile: normalizedPhone,
-        templateId: getOtpTemplateId(),
-        parameters: [{ name: 'CODE', value: code }],
-      });
-    } catch {
-      // In tests or offline environments, allow graceful continuation
+    if (!env.SKIP_OTP) {
+      try {
+        await queueSms({
+          mobile: normalizedPhone,
+          templateId: getOtpTemplateId(),
+          parameters: [{ name: 'CODE', value: code }],
+        });
+      } catch {
+        // In tests or offline environments, allow graceful continuation
+      }
     }
 
     return {
@@ -100,6 +102,11 @@ export const OnboardingStation = {
     const draft = await OnboardingRepo.findById(onboardingId);
     if (!draft) {
       throw new AppError('Onboarding session not found', httpStatus.NOT_FOUND);
+    }
+
+    // If SKIP_OTP is enabled, strictly require '000000'
+    if (env.SKIP_OTP && code !== '000000') {
+      throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
     }
 
     const otp = await AuthRepository.findRecentOtp(draft.managerPhone, OtpPurpose.SIGNUP);

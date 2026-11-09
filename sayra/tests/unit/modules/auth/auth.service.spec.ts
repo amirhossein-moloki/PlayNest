@@ -77,6 +77,32 @@ describe('authService', () => {
       await expect(authService.requestUserOtp(T_P))
         .rejects.toThrow(new AppError('No user found with this phone number.', httpStatus.NOT_FOUND));
     });
+
+    it('should bypass SMS queue and use 000000 when SKIP_OTP is enabled', async () => {
+      MockedQueueSms.mockClear();
+      const { env } = await import('../../../../src/config/env');
+      const originalSkipOtp = env.SKIP_OTP;
+      (env as any).SKIP_OTP = true; /* eslint-disable-line @typescript-eslint/no-explicit-any */
+
+      try {
+        const users = [{ id: 'u-1', gamingCenter: { id: 'gc-1', name: 'g' } }] as unknown as UserWithGamingCenter[];
+        MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue(users);
+        MockedAuthRepository.createOtp.mockResolvedValue({} as PhoneOtp);
+
+        const result = await authService.requestUserOtp(T_P);
+
+        expect(result.message).toContain(`OTP sent to ${T_P}`);
+        expect(MockedAuthRepository.createOtp).toHaveBeenCalledWith(
+          expect.objectContaining({
+            phone: T_P,
+            codeHash: 'h_000000',
+          })
+        );
+        expect(MockedQueueSms).not.toHaveBeenCalled();
+      } finally {
+        (env as any).SKIP_OTP = originalSkipOtp; /* eslint-disable-line @typescript-eslint/no-explicit-any */
+      }
+    });
   });
 
   describe('verifyUserOtp', () => {
@@ -110,6 +136,42 @@ describe('authService', () => {
 
       await expect(authService.verifyUserOtp(T_P, 'w'))
         .rejects.toThrow(new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED));
+    });
+
+    it('should verify user successfully with 000000 when SKIP_OTP is enabled', async () => {
+      const { env } = await import('../../../../src/config/env');
+      const originalSkipOtp = env.SKIP_OTP;
+      (env as any).SKIP_OTP = true; /* eslint-disable-line @typescript-eslint/no-explicit-any */
+
+      try {
+        const otp = { id: 'o-1', codeHash: 'h_000000' } as PhoneOtp;
+        const users = [{ id: 'u-1', gamingCenter: { id: 'gc-1', name: 'g' } }] as unknown as UserWithGamingCenter[];
+
+        MockedAuthRepository.findRecentOtp.mockResolvedValue(otp);
+        MockedAuthRepository.consumeOtp.mockResolvedValue({} as PhoneOtp);
+        MockedAuthRepository.markUserPhoneVerified.mockResolvedValue({ count: 1 });
+        MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue(users);
+
+        const result = await authService.verifyUserOtp(T_P, '000000');
+
+        expect(result.gamingCenters).toEqual([{ id: 'gc-1', name: 'g' }]);
+        expect(MockedAuthRepository.consumeOtp).toHaveBeenCalledWith('o-1');
+      } finally {
+        (env as any).SKIP_OTP = originalSkipOtp; /* eslint-disable-line @typescript-eslint/no-explicit-any */
+      }
+    });
+
+    it('should reject user code other than 000000 when SKIP_OTP is enabled', async () => {
+      const { env } = await import('../../../../src/config/env');
+      const originalSkipOtp = env.SKIP_OTP;
+      (env as any).SKIP_OTP = true; /* eslint-disable-line @typescript-eslint/no-explicit-any */
+
+      try {
+        await expect(authService.verifyUserOtp(T_P, '123456'))
+          .rejects.toThrow(new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED));
+      } finally {
+        (env as any).SKIP_OTP = originalSkipOtp; /* eslint-disable-line @typescript-eslint/no-explicit-any */
+      }
     });
   });
 

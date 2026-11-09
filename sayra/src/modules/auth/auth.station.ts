@@ -107,7 +107,7 @@ export const authService = {
       throw new AppError('No user found with this phone number.', httpStatus.NOT_FOUND);
     }
 
-    const code = generateNumericOtp(OTP_LENGTH);
+    const code = env.SKIP_OTP ? '000000' : generateNumericOtp(OTP_LENGTH);
     const codeHash = await argon2.hash(code);
     const expiresAt = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
 
@@ -118,12 +118,19 @@ export const authService = {
       expiresAt,
     });
 
-    await queueSms({ mobile: phone, templateId: getOtpTemplateId(), parameters: [{ name: 'CODE', value: code }] });
+    if (!env.SKIP_OTP) {
+      await queueSms({ mobile: phone, templateId: getOtpTemplateId(), parameters: [{ name: 'CODE', value: code }] });
+    }
 
     return { message: `OTP sent to ${phone}. It will expire in ${OTP_EXPIRATION_MINUTES} minutes.` };
   },
 
   async verifyUserOtp(phone: string, code: string) {
+    // If SKIP_OTP is enabled, strictly require '000000'
+    if (env.SKIP_OTP && code !== '000000') {
+      throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
+    }
+
     const otp = await AuthRepository.findRecentOtp(phone, OtpPurpose.LOGIN);
 
     if (!otp) {
