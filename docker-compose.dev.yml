@@ -11,6 +11,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - ZIBAL_MERCHANT=${ZIBAL_MERCHANT:-zibal}
       - ZIBAL_CALLBACK_URL=${ZIBAL_CALLBACK_URL:-http://localhost:3000/api/v1/payments/zibal/callback}
+      - SKIP_OTP=${SKIP_OTP:-false}
     volumes:
       - ./sayra:/app
       - /app/node_modules
