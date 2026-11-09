@@ -51,28 +51,30 @@ export const AuthRepository = {
     });
   },
 
-  async createOtp(data: { phone: string; purpose: any; codeHash: string; expiresAt: Date }) { // eslint-disable-line @typescript-eslint/no-explicit-any
+  async createOtp(data: { phone: string; purpose: any; codeHash: string; expiresAt: Date; targetActorType?: SessionActorType }) { // eslint-disable-line @typescript-eslint/no-explicit-any
     return prisma.phoneOtp.create({ data });
   },
 
-  async findRecentOtp(phone: string, purpose: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+  async findRecentOtp(phone: string, purpose: any, targetActorType?: SessionActorType) { // eslint-disable-line @typescript-eslint/no-explicit-any
     return prisma.phoneOtp.findFirst({
       where: {
         phone,
         purpose,
         consumedAt: null,
         expiresAt: { gt: new Date() },
+        ...(targetActorType !== undefined ? { targetActorType } : {}),
       },
       orderBy: { createdAt: 'desc' },
     });
   },
 
-  async findRecentConsumedOtp(phone: string, purpose: any, window: Date) { // eslint-disable-line @typescript-eslint/no-explicit-any
+  async findRecentConsumedOtp(phone: string, purpose: any, window: Date, targetActorType?: SessionActorType) { // eslint-disable-line @typescript-eslint/no-explicit-any
     return prisma.phoneOtp.findFirst({
       where: {
         phone,
         purpose,
         consumedAt: { gte: window },
+        ...(targetActorType !== undefined ? { targetActorType } : {}),
       },
       orderBy: { consumedAt: 'desc' },
     });
@@ -89,6 +91,44 @@ export const AuthRepository = {
     return prisma.user.findMany({
       where: { phone },
       include: { gamingCenter: true },
+    });
+  },
+
+  async createUserForOtp(data: {
+    gamingCenterId: string;
+    fullName: string;
+    phone: string;
+    role?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    isActive?: boolean;
+    phoneVerifiedAt?: Date;
+  }) {
+    return prisma.user.create({
+      data: {
+        gamingCenterId: data.gamingCenterId,
+        fullName: data.fullName,
+        phone: data.phone,
+        role: data.role || 'STAFF',
+        isActive: data.isActive !== undefined ? data.isActive : true,
+        phoneVerifiedAt: data.phoneVerifiedAt || new Date(),
+      },
+      include: { gamingCenter: true },
+    });
+  },
+
+  async findFirstActiveGamingCenter() {
+    return prisma.gamingCenter.findFirst({
+      where: { isActive: true },
+      orderBy: { createdAt: 'asc' },
+    });
+  },
+
+  async createDefaultGamingCenter() {
+    return prisma.gamingCenter.create({
+      data: {
+        name: 'PlayNest Center',
+        slug: 'playnest-center',
+        isActive: true,
+      },
     });
   },
 

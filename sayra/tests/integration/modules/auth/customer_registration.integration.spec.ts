@@ -10,6 +10,7 @@ const MockedAuthRepository = AuthRepository as jest.Mocked<typeof AuthRepository
 
 describe('Customer Registration/Login Integration (Mocked Repo)', () => {
   const phone = '09123456789';
+  const normalizedPhone = '+989123456789';
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -18,7 +19,7 @@ describe('Customer Registration/Login Integration (Mocked Repo)', () => {
   it('should create a new customer account if it does not exist', async () => {
     const newCustomer = {
       id: 'cust-123',
-      phone,
+      phone: normalizedPhone,
       phoneVerifiedAt: new Date(),
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -35,7 +36,7 @@ describe('Customer Registration/Login Integration (Mocked Repo)', () => {
     const result = await authService.loginCustomer(phone);
 
     expect(result.customer).toEqual(newCustomer);
-    expect(MockedAuthRepository.createCustomer).toHaveBeenCalledWith(phone, expect.any(Date));
+    expect(MockedAuthRepository.createCustomer).toHaveBeenCalledWith(normalizedPhone, expect.any(Date));
     expect(MockedAuthRepository.createSession).toHaveBeenCalledWith(newCustomer.id, 'CUSTOMER', expect.any(String), expect.any(Date));
   });
 

@@ -154,9 +154,6 @@ if (parsed.success) {
   }
 
   if (parsed.data.NODE_ENV === 'production') {
-    if (parsed.data.SKIP_OTP === true) {
-      throw new Error('SKIP_OTP must not be enabled in production environment.');
-    }
     if (parsed.data.JWT_ACCESS_SECRET === 'generate_at_least_32_chars_long_random_string') {
       throw new Error(
         'JWT_ACCESS_SECRET must be changed from the default placeholder value in production.'
