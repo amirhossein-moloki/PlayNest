@@ -5,6 +5,7 @@ export const AvailabilityRepo = {
     return prisma.gameStation.findFirst({
       where: {
         id: stationId,
+        isActive: true,
         gamingCenter: { slug: gamingCenterSlug },
       },
       include: {
@@ -22,6 +23,7 @@ export const AvailabilityRepo = {
       where: {
         id: staffId,
         gamingCenterId,
+        isActive: true,
         stationSkills: { some: { stationId } },
       },
     });
@@ -43,14 +45,20 @@ export const AvailabilityRepo = {
     });
   },
 
-  async findReservation(gamingCenterId: string, staffIds: string[], startDate: Date, endDate: Date) {
+  async findReservation(
+    gamingCenterId: string,
+    stationId: string,
+    staffIds: string[],
+    startDate: Date,
+    endDate: Date
+  ) {
     return prisma.reservation.findMany({
       where: {
         gamingCenterId,
-        staffId: { in: staffIds },
-        status: { notIn: ['CANCELED', 'NO_SHOW'] },
-        startTime: { gte: startDate },
-        endTime: { lte: endDate },
+        stationId,
+        status: { in: ['CONFIRMED', 'IN_PROGRESS', 'PENDING'] },
+        startTime: { lt: endDate },
+        endTime: { gt: startDate },
       },
     });
   },
@@ -67,5 +75,5 @@ export const AvailabilityRepo = {
         ],
       },
     });
-  }
+  },
 };

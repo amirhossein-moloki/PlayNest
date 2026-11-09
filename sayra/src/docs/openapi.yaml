@@ -4618,7 +4618,7 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
   /public/gamingCenters/{gamingCenterSlug}/availability/slots:
     get:
-      summary: Get available slots
+      summary: Get available 60-minute time slots grouped by 24h days
       tags:
       - Availability
       parameters:
@@ -4627,25 +4627,44 @@ paths:
         required: true
         schema:
           type: string
-      - name: date
+      - name: stationId
         in: query
         required: true
         schema:
           type: string
-          format: date
-      - name: stationId
+      - name: date
         in: query
+        required: false
+        schema:
+          type: string
+          format: date
+          example: '2026-11-10'
+      - name: startDate
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: staffId
+        in: query
+        required: false
         schema:
           type: string
       responses:
         '200':
-          description: Available slots
+          description: List of 60-minute availability slots separated by 24-hour days
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
       operationId: get_public_gamingCenters_gamingCenterSlug_availability_slots
-      description: Get available slots
+      description: Returns 60-minute bookable slots according to gaming center operating hours, active status, and reservation/maintenance availability separated by 24-hour intervals.
   /public/gamingCenters/{gamingCenterSlug}/reservation:
     post:
       summary: Create an online reservation

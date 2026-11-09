@@ -9,6 +9,7 @@ describe('AvailabilityRepo', () => {
   const userMock = prismaMock.user /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
   const shiftMock = prismaMock.staffShift /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
   const resMock = prismaMock.reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const maintMock = prismaMock.stationMaintenance /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
   it('findStationWithGamingCenter', async () => {
     stationMock.findFirst.mockResolvedValue({ id: 's-1' });
@@ -36,7 +37,13 @@ describe('AvailabilityRepo', () => {
 
   it('findReservation', async () => {
     resMock.findMany.mockResolvedValue([]);
-    await AvailabilityRepo.findReservation('gc-1', ['u-1'], new Date(), new Date());
+    await AvailabilityRepo.findReservation('gc-1', 's-1', ['u-1'], new Date(), new Date());
     expect(resMock.findMany).toHaveBeenCalled();
+  });
+
+  it('findMaintenances', async () => {
+    maintMock.findMany.mockResolvedValue([]);
+    await AvailabilityRepo.findMaintenances('gc-1', 's-1', new Date(), new Date());
+    expect(maintMock.findMany).toHaveBeenCalled();
   });
 });
