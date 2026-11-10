@@ -32,8 +32,8 @@ describe('GamingCenterRepository', () => {
         updatedAt: new Date(),
         addresses: [],
         stations: [
-          { id: 'st-1', stationType: 'PC', name: 'PC-1' },
-          { id: 'st-2', stationType: 'PLAYSTATION', name: 'PS5-Console' },
+          { id: 'st-1', stationType: 'PC', name: 'PC-1', hourlyPrice: 65000, isActive: true },
+          { id: 'st-2', stationType: 'PLAYSTATION', name: 'PS5-Console', hourlyPrice: 85000, isActive: true },
         ],
         ratings: [
           { rating: 5, comment: 'عالی', status: 'PUBLISHED' },
@@ -42,7 +42,8 @@ describe('GamingCenterRepository', () => {
         settings: null,
       });
 
-      const result = await gamingCenterRepository.findById('center_10');
+      const result = await gamingCenterRepository.findById('center_10') as any;
+      expect(result.hourlyRate).toBe(65000);
       expect(gcMock.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
@@ -386,6 +387,57 @@ describe('GamingCenterRepository', () => {
 
       expect(transformed.hasDiscount).toBe(false);
       expect(transformed.has_discount).toBe(false);
+    });
+
+    it('should display the lowest registered station price when stations are present', () => {
+      const transformed = transformGamingCenter({
+        id: 'gc-with-stations',
+        name: 'Center with Stations',
+        isActive: true,
+        slug: 'center-with-stations',
+        description: null,
+        pcCount: 2,
+        consoleCount: 2,
+        hourlyRate: 80000,
+        openingTime: '10:00',
+        closingTime: '23:00',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        addresses: [],
+        stations: [
+          { id: 'st-1', stationType: 'PC', name: 'PC-1', hourlyPrice: 75000, isActive: true },
+          { id: 'st-2', stationType: 'PLAYSTATION', name: 'PS-1', hourlyPrice: 50000, isActive: true },
+          { id: 'st-3', stationType: 'PC', name: 'PC-VIP', hourlyPrice: 30000, isActive: false }, // inactive, should be ignored
+        ],
+        ratings: [],
+        settings: null,
+      } as any);
+
+      // lowest active station price is 50000
+      expect(transformed.hourlyRate).toBe(50000);
+    });
+
+    it('should use extraData.lowestStationPrice if provided in findAll', () => {
+      const transformed = transformGamingCenter({
+        id: 'gc-grouped',
+        name: 'Grouped Center',
+        isActive: true,
+        slug: 'grouped-center',
+        description: null,
+        pcCount: 1,
+        consoleCount: 1,
+        hourlyRate: 90000,
+        openingTime: '10:00',
+        closingTime: '23:00',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        addresses: [],
+        stations: [],
+        ratings: [],
+        settings: null,
+      } as any, undefined, { lowestStationPrice: 45000 });
+
+      expect(transformed.hourlyRate).toBe(45000);
     });
   });
 });

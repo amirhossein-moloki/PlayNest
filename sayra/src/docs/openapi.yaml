@@ -1032,6 +1032,55 @@ components:
           type: string
           nullable: true
           description: Unique ID of the manager user managing this gaming center (1-to-1 relationship)
+        hourlyRate:
+          type: number
+          description: Lowest hourly rate among registered active stations (or fallback default hourly rate)
+        pcCount:
+          type: integer
+          description: Number of PC gaming stations
+        consoleCount:
+          type: integer
+          description: Number of console gaming stations
+        pc:
+          type: boolean
+          description: Whether the center has PC stations available
+        ps4:
+          type: boolean
+          description: Whether the center has PS4 consoles available
+        ps5:
+          type: boolean
+          description: Whether the center has PS5 consoles available
+        xbox:
+          type: boolean
+          description: Whether the center has Xbox consoles available
+        is_open:
+          type: boolean
+          description: Current open/closed status according to working hours
+        raiting:
+          type: number
+          description: Average rating score
+        comment_count:
+          type: integer
+          description: Number of reviews with comments
+        addresses:
+          type: array
+          description: List of registered addresses
+          items:
+            type: object
+        deviceCounts:
+          type: object
+          description: Aggregated counts of stations by device type
+          properties:
+            PC:
+              type: integer
+            PLAYSTATION:
+              type: integer
+            XBOX:
+              type: integer
+            SWITCH:
+              type: integer
+            VR:
+              type: integer
         createdAt:
           type: string
           format: date-time
