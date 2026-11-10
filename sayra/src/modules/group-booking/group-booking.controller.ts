@@ -1,7 +1,26 @@
 import { Response, NextFunction } from 'express';
 import { GroupBookingStation } from './group-booking.station';
+import { BookingHoldStation } from '../booking-hold/booking-hold.station';
 import { AppRequest } from '../../types/express';
 import { UserRole } from '@prisma/client';
+
+export const checkoutGroupReservation = async (
+  req: AppRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { gamingCenterSlug } = req.params;
+    const idempotencyKey = req.header('idempotency-key') || req.header('Idempotency-Key');
+    const result = await BookingHoldStation.checkoutGroupReservation(gamingCenterSlug, {
+      ...req.body,
+      idempotencyKey,
+    });
+    res.created(result);
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const createPublicGroupBooking = async (
   req: AppRequest,

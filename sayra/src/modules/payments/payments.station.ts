@@ -121,10 +121,10 @@ const verifyPayment = async ({
   status?: string;
   providerName?: string;
 }) => {
-  // 1. Resolve payment record by authority or latest payment for reservation
+  // 1. Resolve payment record by authority or latest payment for reservation/hold
   const payment = authority
     ? await PaymentsRepo.findPaymentByProviderPaymentId(authority)
-    : await PaymentsRepo.findLatestPaymentByReservation(reservationId, gamingCenterId);
+    : await PaymentsRepo.findLatestPaymentByEntity(reservationId, gamingCenterId);
 
   if (!payment) {
     throw new AppError('Payment record not found.', httpStatus.NOT_FOUND);
@@ -180,7 +180,15 @@ const verifyPayment = async ({
   // 5. Atomic database status update based on provider result
   const finalPayment = await PaymentsRepo.transaction(async (tx) => {
     if (verifyResult.success) {
-      return PaymentsRepo.handleSuccessfulPayment(tx, payment.id, verifyResult.refId);
+      const updated = await PaymentsRepo.handleSuccessfulPayment(tx, payment.id, verifyResult.refId);
+
+      // If linked to BookingHold, convert to reservations atomically inside same transaction or right after
+      if (payment.bookingHoldId) {
+        const { BookingHoldStation } = await import('../booking-hold/booking-hold.station');
+        await BookingHoldStation.convertHoldToReservations(payment.bookingHoldId, payment.id, tx);
+      }
+
+      return updated;
     } else {
       return PaymentsRepo.handleFailedPayment(
         tx,

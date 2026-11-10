@@ -18,7 +18,7 @@ const findReservationForUpdate = (reservationId: string, gamingCenterId: string)
 const findPaymentByProviderPaymentId = (providerPaymentId: string) => {
   return prisma.payment.findFirst({
     where: { providerPaymentId },
-    include: { reservation: true },
+    include: { reservation: true, bookingHold: true, groupBooking: true },
   });
 };
 
@@ -27,6 +27,20 @@ const findLatestPaymentByReservation = (reservationId: string, gamingCenterId: s
     where: { reservationId, gamingCenterId },
     orderBy: { createdAt: 'desc' },
     include: { reservation: true },
+  });
+};
+
+const findLatestPaymentByEntity = (entityId: string, gamingCenterId: string) => {
+  return prisma.payment.findFirst({
+    where: {
+      OR: [
+        { reservationId: entityId, gamingCenterId },
+        { bookingHoldId: entityId, gamingCenterId },
+        { id: entityId, gamingCenterId },
+      ],
+    },
+    orderBy: { createdAt: 'desc' },
+    include: { reservation: true, bookingHold: true, groupBooking: true },
   });
 };
 
@@ -51,7 +65,7 @@ const createPaymentAndUpdateReservation = ({
 const handleSuccessfulPayment = async (tx: Tx, paymentId: string, refId?: string) => {
   const payment = await tx.payment.findUnique({
     where: { id: paymentId },
-    include: { reservation: true },
+    include: { reservation: true, bookingHold: true, groupBooking: true },
   });
 
   if (!payment) {
@@ -185,6 +199,13 @@ const handleFailedPayment = async (
     },
   });
 
+  if (payment.bookingHoldId) {
+    await tx.bookingHold.updateMany({
+      where: { id: payment.bookingHoldId, status: 'ACTIVE' },
+      data: { status: 'RELEASED' },
+    });
+  }
+
   if (payment.reservation && payment.reservation.paymentState !== ReservationPaymentState.PAID) {
     const newReservationPaymentState =
       newStatus === PaymentStatus.CANCELED
@@ -216,6 +237,7 @@ export const PaymentsRepo = {
   findReservationForUpdate,
   findPaymentByProviderPaymentId,
   findLatestPaymentByReservation,
+  findLatestPaymentByEntity,
   createPaymentAndUpdateReservation,
   handleSuccessfulPayment,
   handleFailedPayment,
