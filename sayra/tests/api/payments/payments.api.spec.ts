@@ -5,7 +5,15 @@ import request from 'supertest';
 import app from '../../../src/app';
 import { prisma } from '../../../src/config/prisma';
 import { generateAccessToken } from '../../../src/modules/auth/auth.tokens';
+import { zibalClient } from '../../../src/modules/payments/providers/zibal.client';
 import httpStatus from 'http-status';
+
+jest.mock('../../../src/modules/payments/providers/zibal.client', () => ({
+  zibalClient: {
+    request: jest.fn(),
+    verify: jest.fn(),
+  },
+}));
 
 jest.mock('../../../src/config/redis', () => ({
   get: jest.fn().mockImplementation(() => Promise.resolve(null)),
@@ -105,16 +113,12 @@ describe('Payment API', () => {
         stationSnapshot: { currency: 'IRR' },
       });
 
-      const mockFetch = jest.fn().mockImplementation(() =>
-        Promise.resolve({
-          json: () =>
-            Promise.resolve({
-              data: { authority: 'A00000000000000000000000000000000001', code: 100 },
-              errors: [],
-            }),
-        })
-      );
-      (global as any).fetch = mockFetch;
+      (zibalClient.request as any).mockResolvedValue({
+        trackId: '12345678',
+        result: 100,
+        message: 'success',
+        paymentUrl: 'https://gateway.zibal.ir/start/12345678',
+      });
 
       const mockTx = {
         payment: {
@@ -142,7 +146,7 @@ describe('Payment API', () => {
 
       expect(res.status).toBe(httpStatus.CREATED);
       expect(res.body.data.paymentId).toBe('clp6u7o00000108msh9v8k7g8');
-      expect(res.body.data.checkoutUrl).toContain('A00000000000000000000000000000000001');
+      expect(res.body.data.checkoutUrl).toContain('12345678');
       expect(mockTx.payment.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({

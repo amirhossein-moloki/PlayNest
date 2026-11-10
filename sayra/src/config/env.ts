@@ -83,7 +83,7 @@ const EnvSchema = z.object({
   PAYMENT_PROVIDER_WEBHOOK_SECRET: z.string().min(1),
 
   // Payments
-  DEFAULT_PAYMENT_PROVIDER: z.enum(['ZARINPAL', 'FAKE', 'STRIPE', 'ZIBAL']).default('ZARINPAL'),
+  DEFAULT_PAYMENT_PROVIDER: z.enum(['ZARINPAL', 'FAKE', 'STRIPE', 'ZIBAL']).default('ZIBAL'),
 
   // ZarinPal
   ZARINPAL_MERCHANT_ID: z.string().min(1).default('00000000-0000-0000-0000-000000000000'),
@@ -92,7 +92,7 @@ const EnvSchema = z.object({
 
   // Zibal
   ZIBAL_MERCHANT: z.string().min(1).default('zibal'),
-  ZIBAL_CALLBACK_URL: z.string().min(1).default('http://localhost:3000/api/v1/payments/zibal/callback'),
+  ZIBAL_CALLBACK_URL: z.string().min(1).default('https://api.sayra-booking.ir/api/v1/payments/zibal/callback'),
 
   // Frontend / Payment Redirect URLs
   FRONTEND_URL: z.string().min(1).default('https://www.sayra-booking.ir'),

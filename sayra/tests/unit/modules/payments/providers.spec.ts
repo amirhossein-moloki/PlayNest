@@ -138,9 +138,9 @@ describe('Payment Provider Adapters', () => {
   });
 
   describe('PaymentProviderFactory', () => {
-    it('should return ZarinPalProvider by default', () => {
+    it('should return ZibalProvider by default', () => {
       const provider = PaymentProviderFactory.getProvider();
-      expect(provider.name).toBe('ZARINPAL');
+      expect(provider.name).toBe('ZIBAL');
     });
 
     it('should return FakePaymentProvider in dev/test environment', () => {
@@ -148,9 +148,9 @@ describe('Payment Provider Adapters', () => {
       expect(provider.name).toBe('FAKE');
     });
 
-    it('should return ZibalProvider when requested', () => {
-      const provider = PaymentProviderFactory.getProvider('ZIBAL');
-      expect(provider.name).toBe('ZIBAL');
+    it('should return ZarinPalProvider when requested', () => {
+      const provider = PaymentProviderFactory.getProvider('ZARINPAL');
+      expect(provider.name).toBe('ZARINPAL');
     });
 
     it('should throw error for unsupported provider', () => {
