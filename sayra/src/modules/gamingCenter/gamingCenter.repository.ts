@@ -55,11 +55,93 @@ type GamingCenterWithRelations = Prisma.GamingCenterGetPayload<{
   };
 }> & {
   stations?: GameStation[];
+  media?: Array<{
+    url: string;
+    thumbUrl?: string | null;
+    purpose: string;
+    isActive: boolean;
+    sortOrder?: number;
+  }>;
+  discounts?: Array<{
+    isActive: boolean;
+    startAt: Date;
+    endAt: Date;
+  }>;
+  discountCampaigns?: Array<{
+    isActive: boolean;
+    status?: string | null;
+    deletedAt?: Date | null;
+    startAt: Date;
+    endAt: Date;
+  }>;
+  hasDiscount?: boolean;
+  coverImages?: string[];
+  coverImageUrl?: string | null;
 };
+
+export function checkHasActiveDiscount(
+  gc: {
+    discounts?: Array<{ isActive: boolean; startAt: Date; endAt: Date }>;
+    discountCampaigns?: Array<{ isActive: boolean; status?: string | null; deletedAt?: Date | null; startAt: Date; endAt: Date }>;
+  },
+  now: Date = new Date()
+): boolean {
+  if (Array.isArray(gc.discounts)) {
+    const hasActiveDiscount = gc.discounts.some(
+      (d) => d.isActive && new Date(d.startAt) <= now && new Date(d.endAt) >= now
+    );
+    if (hasActiveDiscount) return true;
+  }
+
+  if (Array.isArray(gc.discountCampaigns)) {
+    const hasActiveCampaign = gc.discountCampaigns.some(
+      (c) =>
+        c.isActive &&
+        (!c.status || c.status === 'ACTIVE') &&
+        !c.deletedAt &&
+        new Date(c.startAt) <= now &&
+        new Date(c.endAt) >= now
+    );
+    if (hasActiveCampaign) return true;
+  }
+
+  return false;
+}
+
+export function extractCoverImages(
+  media?: Array<{
+    url: string;
+    thumbUrl?: string | null;
+    purpose: string;
+    isActive: boolean;
+    sortOrder?: number;
+  }>
+): { coverImages: string[]; coverImageUrl: string | null } {
+  if (!media || !Array.isArray(media) || media.length === 0) {
+    return { coverImages: [], coverImageUrl: null };
+  }
+
+  const activeCovers = media
+    .filter((m) => m.isActive && m.purpose === 'COVER')
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+  const covers = activeCovers.length > 0 ? activeCovers : media.filter((m) => m.isActive);
+  const urls = covers.map((m) => m.url).filter(Boolean);
+
+  return {
+    coverImages: urls,
+    coverImageUrl: urls[0] ?? null,
+  };
+}
 
 export function transformGamingCenter(
   gc: GamingCenterWithRelations,
-  deviceCounts?: { PC: number; PLAYSTATION: number; XBOX: number; SWITCH: number; VR: number }
+  deviceCounts?: { PC: number; PLAYSTATION: number; XBOX: number; SWITCH: number; VR: number },
+  extraData?: {
+    hasDiscount?: boolean;
+    coverImages?: string[];
+    coverImageUrl?: string | null;
+  }
 ): GamingCenterListItem {
   const stations: GameStation[] = gc.stations || [];
   const ratings: Rating[] = gc.ratings || [];
@@ -125,6 +207,18 @@ export function transformGamingCenter(
     ? deviceCounts.PLAYSTATION + deviceCounts.XBOX + deviceCounts.SWITCH + deviceCounts.VR
     : gc.consoleCount;
 
+  // Resolve discount status
+  const hasDiscount = extraData?.hasDiscount !== undefined
+    ? extraData.hasDiscount
+    : (gc.hasDiscount !== undefined ? gc.hasDiscount : checkHasActiveDiscount(gc));
+
+  // Resolve cover images
+  const covers = extraData?.coverImages !== undefined
+    ? { coverImages: extraData.coverImages, coverImageUrl: extraData.coverImageUrl ?? (extraData.coverImages[0] ?? null) }
+    : (gc.coverImages !== undefined
+      ? { coverImages: gc.coverImages, coverImageUrl: gc.coverImageUrl ?? (gc.coverImages[0] ?? null) }
+      : extractCoverImages(gc.media));
+
   return {
     id: gc.id,
     name: gc.name,
@@ -144,6 +238,10 @@ export function transformGamingCenter(
     createdAt: gc.createdAt,
     updatedAt: gc.updatedAt,
     addresses,
+    hasDiscount,
+    has_discount: hasDiscount,
+    coverImages: covers.coverImages,
+    coverImageUrl: covers.coverImageUrl,
     ...(manager
       ? {
         owner: {
@@ -223,6 +321,7 @@ export const gamingCenterRepository = {
     const isCustomSelection = Boolean(options && (options.include !== undefined || options.fields !== undefined));
 
     if (!isCustomSelection) {
+      const now = new Date();
       const gc = await prisma.gamingCenter.findFirst({
         where: {
           OR: [
@@ -237,6 +336,33 @@ export const gamingCenterRepository = {
           ratings: true,
           settings: true,
           manager: true,
+          media: {
+            where: {
+              isActive: true,
+            },
+            orderBy: {
+              sortOrder: 'asc',
+            },
+          },
+          discounts: {
+            where: {
+              isActive: true,
+              startAt: { lte: now },
+              endAt: { gte: now },
+            },
+          },
+          discountCampaigns: {
+            where: {
+              isActive: true,
+              deletedAt: null,
+              startAt: { lte: now },
+              endAt: { gte: now },
+              OR: [
+                { status: 'ACTIVE' },
+                { status: null },
+              ],
+            },
+          },
         },
       });
 
@@ -254,6 +380,8 @@ export const gamingCenterRepository = {
       if (includeRelations.includes('stations')) includeClause.stations = true;
       if (includeRelations.includes('ratings')) includeClause.ratings = true;
       if (includeRelations.includes('settings')) includeClause.settings = true;
+      if (includeRelations.includes('media')) includeClause.media = true;
+      if (includeRelations.includes('discounts')) includeClause.discounts = true;
     }
 
     if (selectFields && selectFields.length > 0) {
@@ -269,6 +397,8 @@ export const gamingCenterRepository = {
         if (includeRelations.includes('stations')) selectClause.stations = true;
         if (includeRelations.includes('ratings')) selectClause.ratings = true;
         if (includeRelations.includes('settings')) selectClause.settings = true;
+        if (includeRelations.includes('media')) selectClause.media = true;
+        if (includeRelations.includes('discounts')) selectClause.discounts = true;
       }
 
       const gc = await prisma.gamingCenter.findFirst({
@@ -409,6 +539,7 @@ export const gamingCenterRepository = {
     const orderField = sortBy && allowedSortFields[sortBy] ? sortBy : 'createdAt';
     const orderDirection = sortOrder === 'asc' ? 'asc' : 'desc';
 
+    const now = new Date();
     const [rawCenters, total] = await Promise.all([
       prisma.gamingCenter.findMany({
         where,
@@ -420,6 +551,33 @@ export const gamingCenterRepository = {
           ratings: true,
           settings: true,
           manager: true,
+          media: {
+            where: {
+              isActive: true,
+            },
+            orderBy: {
+              sortOrder: 'asc',
+            },
+          },
+          discounts: {
+            where: {
+              isActive: true,
+              startAt: { lte: now },
+              endAt: { gte: now },
+            },
+          },
+          discountCampaigns: {
+            where: {
+              isActive: true,
+              deletedAt: null,
+              startAt: { lte: now },
+              endAt: { gte: now },
+              OR: [
+                { status: 'ACTIVE' },
+                { status: null },
+              ],
+            },
+          },
         },
       }),
       prisma.gamingCenter.count({ where }),

@@ -29,7 +29,7 @@ export const updateGamingCenterSchema = z.object({
   games: z.array(z.string()).max(100, 'Games list cannot exceed 100 items').optional(),
 });
 
-export const ALLOWED_GAMING_CENTER_INCLUDES = ['addresses', 'stations', 'ratings', 'settings'] as const;
+export const ALLOWED_GAMING_CENTER_INCLUDES = ['addresses', 'stations', 'ratings', 'settings', 'media', 'discounts'] as const;
 export type GamingCenterIncludeField = (typeof ALLOWED_GAMING_CENTER_INCLUDES)[number];
 
 export const ALLOWED_GAMING_CENTER_FIELDS = [
