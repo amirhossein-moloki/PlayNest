@@ -18,10 +18,10 @@ jest.mock('../../../src/config/redis', () => ({
 }));
 jest.mock('../../../src/config/prisma', () => ({
   prisma: {
-    user: { findUnique: jest.fn(), findFirst: jest.fn(), updateMany: jest.fn() },
-    customerAccount: { findUnique: jest.fn(), findFirst: jest.fn() },
-    session: { findUnique: jest.fn(), update: jest.fn() },
-    phoneOtp: { findFirst: jest.fn(), update: jest.fn(), create: jest.fn() },
+    user: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockImplementation(() => Promise.resolve([])), updateMany: jest.fn() },
+    customerAccount: { findUnique: jest.fn(), findFirst: jest.fn(), upsert: jest.fn() },
+    session: { findUnique: jest.fn(), update: jest.fn(), create: jest.fn() },
+    phoneOtp: { findFirst: jest.fn(), update: jest.fn(), updateMany: jest.fn(), create: jest.fn() },
     gamingCenter: { findUnique: jest.fn() },
   }
 }));
@@ -254,6 +254,32 @@ describe('Authentication API', () => {
       } finally {
         (env as any).SKIP_OTP = originalSkip; /* eslint-disable-line @typescript-eslint/no-explicit-any */
       }
+    });
+
+    it('Scenario 7: When phone belongs to active Manager, verify customer OTP authenticates as USER and prevents customer creation', async () => {
+      const managerUser = {
+        id: 'mgr-user-1',
+        phone: customerPhone,
+        role: 'MANAGER',
+        isActive: true,
+        gamingCenter: { id: gamingCenterId, name: 'Main Center' },
+      };
+
+      MockedAuthRepository.findRecentOtp.mockResolvedValue({ id: 'o-mgr', codeHash: 'hashed_otp' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedArgon2.verify.mockResolvedValue(true /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedAuthRepository.consumeOtp.mockResolvedValue({ id: 'o-mgr' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+
+      (prisma.user.findMany /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).mockResolvedValue([managerUser]);
+      (prisma.customerAccount.findUnique /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).mockResolvedValue(null);
+      (prisma.session.create /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).mockResolvedValue({ id: 's-mgr-session' });
+
+      const verifyRes = await request(app).post('/api/v1/auth/customer/otp/verify').send({ phone: customerPhone, code: '123456' });
+      expect(verifyRes.status).toBe(httpStatus.OK);
+      expect(verifyRes.body.data.user.id).toBe(managerUser.id);
+      expect(verifyRes.body.data.user.actorType).toBe('USER');
+      expect(verifyRes.body.data.user.roles).toContain('MANAGER');
+      expect(verifyRes.body.data.tokens).toBeDefined();
+      expect(MockedAuthRepository.createCustomer).not.toHaveBeenCalled();
     });
   });
 

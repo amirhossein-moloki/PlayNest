@@ -1,5 +1,6 @@
 import { prisma } from '../../config/prisma';
 import { User, CustomerAccount } from '@prisma/client';
+import { getPhoneVariants, normalizePhone } from '../../common/utils/phone';
 
 export interface UserWithCenters extends User {
   gamingCenter: {
@@ -28,8 +29,15 @@ export const IdentityService = {
    *   Flagged as isNewCustomer = true (to be provisioned).
    */
   async identifyByPhone(phone: string): Promise<IdentifiedIdentity> {
+    const normalizedPhone = normalizePhone(phone);
+    const phoneVariants = getPhoneVariants(phone);
+
+    // Look for active Users matching any variant of the phone number
     const userAccounts = await prisma.user.findMany({
-      where: { phone, isActive: true },
+      where: {
+        phone: { in: phoneVariants },
+        isActive: true,
+      },
       include: {
         gamingCenter: {
           select: { id: true, name: true },
@@ -37,9 +45,17 @@ export const IdentityService = {
       },
     });
 
-    const customerAccount = await prisma.customerAccount.findUnique({
-      where: { phone },
+    let customerAccount = await prisma.customerAccount.findUnique({
+      where: { phone: normalizedPhone },
     });
+
+    if (!customerAccount && prisma.customerAccount.findFirst) {
+      customerAccount = await prisma.customerAccount.findFirst({
+        where: {
+          phone: { in: phoneVariants },
+        },
+      });
+    }
 
     if (userAccounts.length > 0) {
       // Primary actor is USER (takes the primary user ID, e.g. first active one)

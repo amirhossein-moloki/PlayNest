@@ -215,6 +215,43 @@ describe('Unified OTP Authentication & Security Hardening Test Suite', () => {
     expect(res.body.data.user.gamingCenters[0].role).toBe(UserRole.MANAGER);
   });
 
+  it('4b. Branch Manager with 09... phone in DB logs in via unified OTP without creating CustomerAccount', async () => {
+    const managerPhoneInDb = '09141011001';
+    const mockOtp = {
+      id: 'otp-mgr-persian',
+      phone: '+989141011001',
+      codeHash: await argon2.hash('123456'),
+      attempts: 0,
+      expiresAt: new Date(Date.now() + 60000),
+      consumedAt: null,
+    };
+    (prisma.phoneOtp.findFirst as any).mockResolvedValue(mockOtp);
+    (prisma.phoneOtp.updateMany as any).mockResolvedValue({ count: 1 });
+
+    const mockManager = {
+      id: 'usr-mgr-db',
+      phone: managerPhoneInDb, // stored as 09... in DB
+      role: UserRole.MANAGER,
+      isActive: true,
+      gamingCenter: { id: 'center-db', name: 'Tabriz Center' },
+    };
+    (prisma.user.findMany as any).mockResolvedValue([mockManager]);
+    (prisma.customerAccount.findUnique as any).mockResolvedValue(null);
+    (prisma.customerAccount.upsert as any).mockResolvedValue(null);
+    (prisma.session.create as any).mockResolvedValue({ id: 'sess-mgr-db' });
+
+    // Client logs in using +989141011001
+    const res = await request(app)
+      .post('/api/v1/auth/otp/login')
+      .send({ phone: '+989141011001', otp: '123456' });
+
+    expect(res.status).toBe(httpStatus.OK);
+    expect(res.body.data.user.actorType).toBe('USER');
+    expect(res.body.data.user.roles).toContain(UserRole.MANAGER);
+    expect(res.body.data.user.id).toBe(mockManager.id);
+    expect(prisma.customerAccount.upsert).not.toHaveBeenCalled();
+  });
+
   // 5. Employee User Login
   it('5. Employee User Login: extracts STAFF/EMPLOYEE role', async () => {
     const mockOtp = {

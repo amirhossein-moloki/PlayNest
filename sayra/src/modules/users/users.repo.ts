@@ -2,6 +2,7 @@ import { prisma } from '../../config/prisma';
 import { CreateUserInput, UpdateUserInput, ListUsersQuery } from './users.validators';
 import { Prisma } from '@prisma/client';
 import { getPaginationParams, formatPaginatedResult } from '../../common/utils/pagination';
+import { getPhoneVariants } from '../../common/utils/phone';
 
 export const createUser = async (gamingCenterId: string, data: CreateUserInput) => {
   const createInput: Prisma.UserUncheckedCreateInput = {
@@ -112,9 +113,11 @@ export const findActiveManagerInCenter = async (gamingCenterId: string, excludeU
 };
 
 export const findManagerByPhone = async (phone: string) => {
+  const variants = getPhoneVariants(phone);
+
   return prisma.user.findFirst({
     where: {
-      phone,
+      phone: { in: variants },
       role: 'MANAGER',
       isActive: true,
     },

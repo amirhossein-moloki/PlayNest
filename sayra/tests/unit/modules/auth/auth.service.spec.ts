@@ -12,6 +12,17 @@ jest.mock('../../../../src/jobs/producers/sms.producer', () => ({
   queueSms: jest.fn(),
 }));
 
+jest.mock('../../../../src/config/prisma', () => ({
+  prisma: {
+    user: {
+      findMany: jest.fn().mockImplementation(() => Promise.resolve([])),
+      findFirst: jest.fn().mockImplementation(() => Promise.resolve(null)),
+    },
+    customerAccount: { findUnique: jest.fn(), findFirst: jest.fn() },
+    session: { create: jest.fn() },
+  },
+}));
+
 // Mock argon2 for performance
 jest.mock('argon2', () => ({
   hash: jest.fn().mockImplementation((val) => Promise.resolve(`h_${val}`)),

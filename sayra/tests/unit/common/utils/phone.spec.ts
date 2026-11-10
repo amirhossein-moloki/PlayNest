@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { normalizePhone } from '../../../../src/common/utils/phone';
+import { normalizePhone, getPhoneVariants } from '../../../../src/common/utils/phone';
 
 describe('phone utility', () => {
   describe('normalizePhone', () => {
@@ -23,6 +23,28 @@ describe('phone utility', () => {
 
     it('should prepend + to digits if no other rule matches', () => {
       expect(normalizePhone('989123456789')).toBe('+989123456789');
+    });
+
+    it('should normalize 10-digit Iranian phone number starting with 9', () => {
+      expect(normalizePhone('9123456789')).toBe('+989123456789');
+    });
+  });
+
+  describe('getPhoneVariants', () => {
+    it('should return all representations for an Iranian mobile number', () => {
+      const variants = getPhoneVariants('09123456789');
+      expect(variants).toContain('+989123456789');
+      expect(variants).toContain('09123456789');
+      expect(variants).toContain('989123456789');
+      expect(variants).toContain('00989123456789');
+      expect(variants).toContain('9123456789');
+    });
+
+    it('should return variants when called with international format', () => {
+      const variants = getPhoneVariants('+989123456789');
+      expect(variants).toContain('+989123456789');
+      expect(variants).toContain('09123456789');
+      expect(variants).toContain('989123456789');
     });
   });
 });
