@@ -23,6 +23,9 @@ jest.mock('../src/config/env', () => ({
     ZARINPAL_SANDBOX: true,
     ZIBAL_MERCHANT: 'zibal',
     ZIBAL_CALLBACK_URL: 'http://localhost:3000/api/v1/payments/zibal/callback',
+    FRONTEND_URL: 'https://www.sayra-booking.ir',
+    PAYMENT_SUCCESS_URL: 'https://www.sayra-booking.ir/payment/success',
+    PAYMENT_FAILED_URL: 'https://www.sayra-booking.ir/payment/failed',
   },
 }));
 
