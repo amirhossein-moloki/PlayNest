@@ -5,6 +5,8 @@ import {
   refresh,
   logout,
   me,
+  requestOtp,
+  loginWithOtp,
   requestUserOtp,
   verifyUserOtp,
   loginUserWithOtp,
@@ -18,6 +20,7 @@ import {
   refreshSchema,
   requestOtpSchema,
   verifyOtpSchema,
+  otpLoginSchema,
   loginWithOtpSchema
 } from './auth.validators';
 import { authMiddleware } from '../../common/middleware/auth';
@@ -31,14 +34,24 @@ if (env.NODE_ENV !== 'test') {
   router.use(publicApiRateLimiter);
 }
 
-// --- User OTP Flow ---
-router.post('/user/otp/request', validate(requestOtpSchema), asyncHandler(requestUserOtp));
-router.post('/user/otp/verify', validate(verifyOtpSchema), asyncHandler(verifyUserOtp));
-router.post('/user/login/otp', validate(loginWithOtpSchema), asyncHandler(loginUserWithOtp));
+// --- Unified OTP Authentication (Standard Endpoints) ---
+router.post('/otp/request', validate(requestOtpSchema), asyncHandler(requestOtp));
+router.post('/otp/login', validate(otpLoginSchema), asyncHandler(loginWithOtp));
 
-// --- Customer OTP Flow ---
-router.post('/customer/otp/request', validate(requestOtpSchema), asyncHandler(requestCustomerOtp));
-router.post('/customer/otp/verify', validate(verifyOtpSchema), asyncHandler(verifyCustomerOtp));
+// --- Deprecated Endpoints (Forwarding / Controlled Deprecation) ---
+const deprecationWarning = (replacement: string) => (_req: unknown, res: { setHeader: (name: string, val: string) => void }, next: () => void) => {
+  res.setHeader('X-API-Deprecation-Warning', `This endpoint is deprecated. Use ${replacement} instead.`);
+  next();
+};
+
+// --- User OTP Flow (Deprecated) ---
+router.post('/user/otp/request', deprecationWarning('/api/v1/auth/otp/request'), validate(requestOtpSchema), asyncHandler(requestUserOtp));
+router.post('/user/otp/verify', deprecationWarning('/api/v1/auth/otp/login'), validate(verifyOtpSchema), asyncHandler(verifyUserOtp));
+router.post('/user/login/otp', deprecationWarning('/api/v1/auth/otp/login'), validate(loginWithOtpSchema), asyncHandler(loginUserWithOtp));
+
+// --- Customer OTP Flow (Deprecated) ---
+router.post('/customer/otp/request', deprecationWarning('/api/v1/auth/otp/request'), validate(requestOtpSchema), asyncHandler(requestCustomerOtp));
+router.post('/customer/otp/verify', deprecationWarning('/api/v1/auth/otp/login'), validate(verifyOtpSchema), asyncHandler(verifyCustomerOtp));
 
 // --- Platform Admin Login ---
 router.post('/platform-admin/login', validate(platformAdminLoginSchema), asyncHandler(loginPlatformAdmin));
@@ -46,7 +59,6 @@ router.post('/platform-admin/login', validate(platformAdminLoginSchema), asyncHa
 // --- Classic Login ---
 router.post('/login', validate(loginSchema), asyncHandler(login));
 router.post('/refresh', validate(refreshSchema), asyncHandler(refresh));
-
 
 // --- Protected ---
 router.post('/logout', authMiddleware, asyncHandler(logout));

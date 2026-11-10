@@ -5845,9 +5845,117 @@ paths:
                 $ref: '#/components/schemas/Success'
       operationId: get_auth_me
       description: Get current user info
+  /auth/otp/request:
+    post:
+      summary: Request OTP for all users and customers
+      description: Request a one-time password sent to any user or customer phone number
+      tags:
+      - Auth
+      operationId: post_auth_otp_request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - phone
+              properties:
+                phone:
+                  type: string
+                  example: "09123456789"
+      responses:
+        '200':
+          description: OTP sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/otp/login:
+    post:
+      summary: Verify OTP and login for all users and customers
+      description: Verifies OTP, detects user/customer actor type and roles, and issues session tokens
+      tags:
+      - Auth
+      operationId: post_auth_otp_login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - phone
+              - otp
+              properties:
+                phone:
+                  type: string
+                  example: "09123456789"
+                otp:
+                  type: string
+                  example: "123456"
+      responses:
+        '200':
+          description: Successfully authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                      refreshToken:
+                        type: string
+                      user:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          phone:
+                            type: string
+                          actorType:
+                            type: string
+                            enum: [USER, CUSTOMER]
+                          roles:
+                            type: array
+                            items:
+                              type: string
+                          permissions:
+                            type: array
+                            items:
+                              type: string
+                          gamingCenters:
+                            type: array
+                            items:
+                              type: object
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /auth/customer/otp/request:
     post:
       summary: Request OTP (Customer)
+      deprecated: true
       tags:
       - Auth
       requestBody:
@@ -5873,6 +5981,7 @@ paths:
   /auth/customer/otp/verify:
     post:
       summary: Verify OTP (Customer)
+      deprecated: true
       tags:
       - Auth
       requestBody:
@@ -6480,6 +6589,7 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
   /auth/user/otp/request:
     post:
+      deprecated: true
       tags:
       - Auth
       summary: Request OTP for user authentication
@@ -6513,6 +6623,7 @@ paths:
                     example: OTP sent
   /auth/user/otp/verify:
     post:
+      deprecated: true
       tags:
       - Auth
       summary: Verify user OTP
@@ -6549,6 +6660,7 @@ paths:
                     type: object
   /auth/user/login/otp:
     post:
+      deprecated: true
       tags:
       - Auth
       summary: Login user with OTP code

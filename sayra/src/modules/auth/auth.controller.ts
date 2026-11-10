@@ -18,6 +18,31 @@ export const loginPlatformAdmin = async (req: Request, res: Response) => {
   res.ok(result);
 };
 
+/**
+ * Unified OTP Request: POST /api/v1/auth/otp/request
+ */
+export const requestOtp = async (req: Request, res: Response) => {
+  const { phone } = req.body;
+  const metadata = {
+    ip: req.ip || (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress,
+    userAgent: req.headers['user-agent'],
+  };
+  const result = await authService.requestOtpUnified(phone, metadata);
+  res.ok(result);
+};
+
+/**
+ * Unified OTP Login: POST /api/v1/auth/otp/login
+ */
+export const loginWithOtp = async (req: Request, res: Response) => {
+  const { phone, otp } = req.body;
+  const metadata = {
+    ip: req.ip || (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress,
+  };
+  const result = await authService.loginWithOtpUnified(phone, otp, metadata);
+  res.ok(result);
+};
+
 export const requestUserOtp = async (req: Request, res: Response) => {
   const { phone } = req.body;
   const result = await authService.requestUserOtp(phone);

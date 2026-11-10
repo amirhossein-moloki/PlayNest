@@ -48,6 +48,10 @@ const EnvSchema = z.object({
 
   // OTP / Auth Features
   SKIP_OTP: z.preprocess(toBool, z.boolean()).default(false),
+  OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  OTP_EXPIRATION_MINUTES: z.coerce.number().int().positive().default(2),
+  OTP_REQUEST_RATE_LIMIT_PHONE: z.coerce.number().int().positive().default(3),
+  OTP_REQUEST_RATE_LIMIT_IP: z.coerce.number().int().positive().default(10),
 
   // Rate Limiting
   RATE_LIMIT_ENABLED: z.preprocess(toBool, z.boolean()).default(true),

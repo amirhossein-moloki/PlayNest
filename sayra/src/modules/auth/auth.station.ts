@@ -298,5 +298,82 @@ export const authService = {
     }
     await AuthRepository.revokeSession(sessionId);
     return { message: 'Logged out successfully' };
+  },
+
+  /**
+   * Unified OTP Request (A): POST /api/v1/auth/otp/request
+   */
+  async requestOtpUnified(phone: string, metadata?: { ip?: string; userAgent?: string }) {
+    const { OtpService } = await import('./otp.service');
+    const normalizedPhone = normalizePhone(phone);
+    return OtpService.requestOtp(normalizedPhone, OtpPurpose.LOGIN, metadata);
+  },
+
+  /**
+   * Unified OTP Login (B): POST /api/v1/auth/otp/login
+   */
+  async loginWithOtpUnified(phone: string, code: string, metadata?: { ip?: string }) {
+    const { OtpService } = await import('./otp.service');
+    const { IdentityService } = await import('./identity.service');
+    const { UserProvisioningService } = await import('./user-provisioning.service');
+    const { AuthorizationService } = await import('./authorization.service');
+    const { SessionService } = await import('./session.service');
+
+    const normalizedPhone = normalizePhone(phone);
+
+    // 1-6: Verify OTP, enforce rate limits, attempts limit, Argon2 verification, atomic consumption
+    await OtpService.verifyAndConsumeOtp(normalizedPhone, code, OtpPurpose.LOGIN, metadata);
+
+    // 7-11: Identify identity and roles strictly from DB
+    const identity = await IdentityService.identifyByPhone(normalizedPhone);
+
+    let actorId = identity.primaryActorId;
+    let actorType: SessionActorType = identity.actorType;
+    let roles: string[] = [];
+    let permissions: string[] = [];
+    let gamingCenters: Array<{ id: string; name: string; role: string }> = [];
+
+    if (identity.actorType === 'USER' && identity.userAccounts.length > 0) {
+      actorType = SessionActorType.USER;
+      actorId = identity.primaryActorId;
+      const authContext = AuthorizationService.resolveUserAuthorization(identity.userAccounts);
+      roles = authContext.roles;
+      permissions = authContext.permissions;
+      gamingCenters = authContext.gamingCenters;
+
+      // Mark user phones verified
+      await AuthRepository.markUserPhoneVerified(normalizedPhone);
+    } else {
+      // Customer path (either existing CustomerAccount or newly provisioned)
+      actorType = SessionActorType.CUSTOMER;
+      let customer = identity.customerAccount;
+      if (!customer || identity.isNewCustomer) {
+        customer = await UserProvisioningService.provisionCustomer(normalizedPhone);
+      } else if (!customer.phoneVerifiedAt) {
+        customer = await AuthRepository.markCustomerPhoneVerified(customer.id);
+      }
+      actorId = customer.id;
+      const authContext = AuthorizationService.resolveCustomerAuthorization();
+      roles = authContext.roles;
+      permissions = authContext.permissions;
+      gamingCenters = authContext.gamingCenters;
+    }
+
+    // 12-13: Create Session, issue access and refresh tokens
+    const { tokens } = await SessionService.createSession(actorId, actorType, roles);
+
+    // 14: Return standardized response
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: {
+        id: actorId,
+        phone: normalizedPhone,
+        actorType,
+        roles,
+        permissions,
+        gamingCenters,
+      },
+    };
   }
 };
