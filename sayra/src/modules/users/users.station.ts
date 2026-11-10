@@ -32,16 +32,10 @@ export const createStaffMember = async (
     }
   }
 
-  const { normalizePhone } = await import('../../common/utils/phone');
-  const normalizedData = {
-    ...data,
-    phone: normalizePhone(data.phone),
-  };
-
   // The database schema has a unique constraint on (gamingCenterId, phone),
   // so Prisma will throw a specific error if a duplicate is found.
   // We can catch this in the controller to return a 409 Conflict error.
-  const newUser = await userRepo.createUser(gamingCenterId, normalizedData);
+  const newUser = await userRepo.createUser(gamingCenterId, data);
 
   // If role is MANAGER, set managerId on gamingCenter
   if (data.role === 'MANAGER') {

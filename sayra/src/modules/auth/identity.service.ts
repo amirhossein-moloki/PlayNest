@@ -1,5 +1,6 @@
 import { prisma } from '../../config/prisma';
 import { User, CustomerAccount } from '@prisma/client';
+import { getPhoneVariants, normalizePhone } from '../../common/utils/phone';
 
 export interface UserWithCenters extends User {
   gamingCenter: {
@@ -28,7 +29,6 @@ export const IdentityService = {
    *   Flagged as isNewCustomer = true (to be provisioned).
    */
   async identifyByPhone(phone: string): Promise<IdentifiedIdentity> {
-    const { getPhoneVariants, normalizePhone } = await import('../../common/utils/phone');
     const normalizedPhone = normalizePhone(phone);
     const phoneVariants = getPhoneVariants(phone);
 

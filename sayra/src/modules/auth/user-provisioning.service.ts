@@ -1,6 +1,7 @@
 import { prisma } from '../../config/prisma';
 import { CustomerAccount } from '@prisma/client';
 import logger from '../../config/logger';
+import { normalizePhone, getPhoneVariants } from '../../common/utils/phone';
 
 export const UserProvisioningService = {
   /**
@@ -9,7 +10,6 @@ export const UserProvisioningService = {
    * Prisma upsert / retry-on-unique-violation ensures exactly one record is created.
    */
   async provisionCustomer(phone: string): Promise<CustomerAccount> {
-    const { normalizePhone, getPhoneVariants } = await import('../../common/utils/phone');
     const normalizedPhone = normalizePhone(phone);
     const variants = getPhoneVariants(phone);
 

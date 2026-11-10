@@ -14,7 +14,10 @@ jest.mock('../../../../src/jobs/producers/sms.producer', () => ({
 
 jest.mock('../../../../src/config/prisma', () => ({
   prisma: {
-    user: { findMany: jest.fn().mockImplementation(() => Promise.resolve([])) },
+    user: {
+      findMany: jest.fn().mockImplementation(() => Promise.resolve([])),
+      findFirst: jest.fn().mockImplementation(() => Promise.resolve(null)),
+    },
     customerAccount: { findUnique: jest.fn(), findFirst: jest.fn() },
     session: { create: jest.fn() },
   },
