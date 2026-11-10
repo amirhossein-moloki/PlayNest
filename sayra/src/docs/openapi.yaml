@@ -9733,7 +9733,7 @@ paths:
   /payments/zibal/callback:
     get:
       summary: Zibal payment gateway browser return callback
-      description: Handles browser redirection from Zibal payment gateway, verifies transaction server-to-server, updates payment status, and renders success/failure page.
+      description: Handles browser redirection from Zibal payment gateway, verifies transaction server-to-server, updates payment status, and redirects to frontend success/failure URL.
       tags:
       - Payments
       operationId: get_payments_zibal_callback
@@ -9763,27 +9763,16 @@ paths:
           type: string
         description: Internal reservation/order identifier
       responses:
-        '200':
-          description: Payment successful, renders success HTML page
-          content:
-            text/html:
+        '302':
+          description: Redirect to frontend payment success or failure page
+          headers:
+            Location:
               schema:
                 type: string
-        '400':
-          description: Payment verification failed or rejected, renders failure HTML page
-          content:
-            text/html:
-              schema:
-                type: string
-        '404':
-          description: Payment transaction not found
-          content:
-            text/html:
-              schema:
-                type: string
+              description: URI of the frontend success (/payment/success) or failed (/payment/failed) page
     post:
       summary: Zibal payment gateway server return callback
-      description: Handles POST redirection from Zibal payment gateway.
+      description: Handles POST redirection from Zibal payment gateway and redirects to frontend success/failure URL.
       tags:
       - Payments
       operationId: post_payments_zibal_callback
@@ -9809,18 +9798,13 @@ paths:
         schema:
           type: string
       responses:
-        '200':
-          description: Payment successful HTML page
-          content:
-            text/html:
+        '302':
+          description: Redirect to frontend payment success or failure page
+          headers:
+            Location:
               schema:
                 type: string
-        '400':
-          description: Payment failure HTML page
-          content:
-            text/html:
-              schema:
-                type: string
+              description: URI of the frontend success (/payment/success) or failed (/payment/failed) page
   /webhooks/payments/{provider}:
     post:
       summary: Payment provider asynchronous webhook endpoint

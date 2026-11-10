@@ -3,8 +3,68 @@ import { prisma } from '../../config/prisma';
 import { PaymentsRepo } from './payments.repo';
 import { PaymentProviderFactory } from './providers';
 import { PaymentStatus } from '@prisma/client';
-import { renderPaymentSuccessPage, renderPaymentFailurePage } from './views/payment-result.view';
 import logger from '../../config/logger';
+import { env } from '../../config/env';
+
+/**
+ * Builds a redirect URL safely attaching query parameters.
+ */
+function buildRedirectUrl(baseUrl: string, params: Record<string, string | number | undefined | null>): string {
+  try {
+    const url = new URL(baseUrl);
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null && value !== '') {
+        url.searchParams.set(key, String(value));
+      }
+    }
+    return url.toString();
+  } catch {
+    const queryParts: string[] = [];
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+      }
+    }
+    const separator = baseUrl.includes('?') ? '&' : '?';
+    return queryParts.length > 0 ? `${baseUrl}${separator}${queryParts.join('&')}` : baseUrl;
+  }
+}
+
+export function getPaymentSuccessRedirectUrl(params: {
+  orderId?: string | null;
+  amount?: number | null;
+  currency?: string | null;
+  trackId?: string | number | null;
+  refNumber?: string | null;
+  message?: string | null;
+}): string {
+  const baseUrl = env.PAYMENT_SUCCESS_URL || `${env.FRONTEND_URL.replace(/\/+$/, '')}/payment/success`;
+  return buildRedirectUrl(baseUrl, {
+    orderId: params.orderId,
+    amount: params.amount,
+    currency: params.currency,
+    trackId: params.trackId,
+    refNumber: params.refNumber,
+    message: params.message,
+    status: 'success',
+  });
+}
+
+export function getPaymentFailedRedirectUrl(params: {
+  orderId?: string | null;
+  trackId?: string | number | null;
+  failureReason?: string | null;
+  message?: string | null;
+}): string {
+  const baseUrl = env.PAYMENT_FAILED_URL || `${env.FRONTEND_URL.replace(/\/+$/, '')}/payment/failed`;
+  return buildRedirectUrl(baseUrl, {
+    orderId: params.orderId,
+    trackId: params.trackId,
+    failureReason: params.failureReason,
+    message: params.message,
+    status: 'failed',
+  });
+}
 
 export async function handleZibalCallback(req: Request, res: Response): Promise<void> {
   const trackIdQuery = req.query.trackId;
@@ -16,11 +76,10 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
   const orderId = orderIdQuery ? String(orderIdQuery) : undefined;
 
   if (!trackId) {
-    res.status(400).type('html').send(
-      renderPaymentFailurePage({
-        message: 'شناسه پیگیری (trackId) در درخواست بازگشت درگاه یافت نشد.',
-      })
-    );
+    const redirectUrl = getPaymentFailedRedirectUrl({
+      message: 'شناسه پیگیری (trackId) در درخواست بازگشت درگاه یافت نشد.',
+    });
+    res.redirect(302, redirectUrl);
     return;
   }
 
@@ -48,28 +107,26 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
 
   if (!payment) {
     logger.warn({ trackId, orderId }, 'Zibal Callback: Payment record not found in database');
-    res.status(404).type('html').send(
-      renderPaymentFailurePage({
-        trackId,
-        orderId,
-        message: 'تراکنش پرداخت متناظر در سیستم یافت نشد.',
-      })
-    );
+    const redirectUrl = getPaymentFailedRedirectUrl({
+      trackId,
+      orderId,
+      message: 'تراکنش پرداخت متناظر در سیستم یافت نشد.',
+    });
+    res.redirect(302, redirectUrl);
     return;
   }
 
-  // 2. Idempotency check: If already paid, render success page without repeating transactions/ledger/commissions
+  // 2. Idempotency check: If already paid, redirect to success URL without repeating transactions/ledger/commissions
   if (payment.status === PaymentStatus.PAID) {
-    res.status(200).type('html').send(
-      renderPaymentSuccessPage({
-        orderId: payment.reservationId || payment.id,
-        amount: payment.amount,
-        currency: payment.currency,
-        trackId: payment.providerPaymentId || trackId,
-        refNumber: payment.referenceCode,
-        message: 'این پرداخت قبلاً با موفقیت تأیید و ثبت شده است.',
-      })
-    );
+    const redirectUrl = getPaymentSuccessRedirectUrl({
+      orderId: payment.reservationId || payment.id,
+      amount: payment.amount,
+      currency: payment.currency,
+      trackId: payment.providerPaymentId || trackId,
+      refNumber: payment.referenceCode,
+      message: 'این پرداخت قبلاً با موفقیت تأیید و ثبت شده است.',
+    });
+    res.redirect(302, redirectUrl);
     return;
   }
 
@@ -89,13 +146,12 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
       );
     });
 
-    res.status(400).type('html').send(
-      renderPaymentFailurePage({
-        orderId: payment.reservationId || payment.id,
-        trackId,
-        failureReason: 'پرداخت در درگاه بانکی لغو شد یا با خطا متوقف گردید.',
-      })
-    );
+    const redirectUrl = getPaymentFailedRedirectUrl({
+      orderId: payment.reservationId || payment.id,
+      trackId,
+      failureReason: 'پرداخت در درگاه بانکی لغو شد یا با خطا متوقف گردید.',
+    });
+    res.redirect(302, redirectUrl);
     return;
   }
 
@@ -132,32 +188,29 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
     });
 
     if (verifyResult.success) {
-      res.status(200).type('html').send(
-        renderPaymentSuccessPage({
-          orderId: finalPayment.reservationId || finalPayment.id,
-          amount: finalPayment.amount,
-          currency: finalPayment.currency,
-          trackId: finalPayment.providerPaymentId || trackId,
-          refNumber: finalPayment.referenceCode,
-        })
-      );
+      const redirectUrl = getPaymentSuccessRedirectUrl({
+        orderId: finalPayment.reservationId || finalPayment.id,
+        amount: finalPayment.amount,
+        currency: finalPayment.currency,
+        trackId: finalPayment.providerPaymentId || trackId,
+        refNumber: finalPayment.referenceCode,
+      });
+      res.redirect(302, redirectUrl);
     } else {
-      res.status(400).type('html').send(
-        renderPaymentFailurePage({
-          orderId: finalPayment.reservationId || finalPayment.id,
-          trackId,
-          failureReason: finalPayment.failureReason || 'تأییدیه نهایی توسط زیبال صادر نشد.',
-        })
-      );
+      const redirectUrl = getPaymentFailedRedirectUrl({
+        orderId: finalPayment.reservationId || finalPayment.id,
+        trackId,
+        failureReason: finalPayment.failureReason || 'تأییدیه نهایی توسط زیبال صادر نشد.',
+      });
+      res.redirect(302, redirectUrl);
     }
   } catch (error) {
     logger.error({ error, paymentId: payment.id, trackId }, 'Error processing verified payment transaction');
-    res.status(500).type('html').send(
-      renderPaymentFailurePage({
-        orderId: payment.reservationId || payment.id,
-        trackId,
-        failureReason: 'خطای داخلی سرور در به‌روزرسانی وضعیت سفارش.',
-      })
-    );
+    const redirectUrl = getPaymentFailedRedirectUrl({
+      orderId: payment.reservationId || payment.id,
+      trackId,
+      failureReason: 'خطای داخلی سرور در به‌روزرسانی وضعیت سفارش.',
+    });
+    res.redirect(302, redirectUrl);
   }
 }

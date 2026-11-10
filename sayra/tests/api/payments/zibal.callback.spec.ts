@@ -37,25 +37,27 @@ describe('Zibal Callback Route (GET /api/v1/payments/zibal/callback)', () => {
     jest.clearAllMocks();
   });
 
-  it('1. should return 400 when trackId query parameter is missing', async () => {
+  it('1. should redirect to payment failed URL when trackId query parameter is missing', async () => {
     const res = await request(app).get('/api/v1/payments/zibal/callback');
 
-    expect(res.status).toBe(400);
-    expect(res.text).toContain('خطا در پرداخت');
-    expect(res.text).toContain('شناسه پیگیری (trackId) در درخواست بازگشت درگاه یافت نشد');
+    expect(res.status).toBe(302);
+    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/failed');
+    expect(res.header.location).toContain('status=failed');
   });
 
-  it('2. should return 404 when payment record does not exist in database', async () => {
+  it('2. should redirect to payment failed URL when payment record does not exist in database', async () => {
     (prisma.payment.findFirst as any).mockResolvedValueOnce(null);
 
     const res = await request(app).get(`/api/v1/payments/zibal/callback?trackId=${trackId}&orderId=${orderId}`);
 
-    expect(res.status).toBe(404);
-    expect(res.text).toContain('خطا در پرداخت');
-    expect(res.text).toContain('تراکنش پرداخت متناظر در سیستم یافت نشد');
+    expect(res.status).toBe(302);
+    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/failed');
+    expect(res.header.location).toContain(`trackId=${trackId}`);
+    expect(res.header.location).toContain(`orderId=${orderId}`);
+    expect(res.header.location).toContain('status=failed');
   });
 
-  it('3. should handle idempotency: return 200 with success page when payment is already PAID', async () => {
+  it('3. should handle idempotency: redirect to payment success URL when payment is already PAID', async () => {
     (prisma.payment.findFirst as any).mockResolvedValueOnce({
       id: 'pay-1',
       reservationId: orderId,
@@ -68,13 +70,14 @@ describe('Zibal Callback Route (GET /api/v1/payments/zibal/callback)', () => {
 
     const res = await request(app).get(`/api/v1/payments/zibal/callback?trackId=${trackId}&status=1`);
 
-    expect(res.status).toBe(200);
-    expect(res.text).toContain('پرداخت با موفقیت انجام شد');
-    expect(res.text).toContain('این پرداخت قبلاً با موفقیت تأیید و ثبت شده است');
-    expect(res.text).toContain('REF-ALREADY-PAID');
+    expect(res.status).toBe(302);
+    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/success');
+    expect(res.header.location).toContain('refNumber=REF-ALREADY-PAID');
+    expect(res.header.location).toContain(`trackId=${trackId}`);
+    expect(res.header.location).toContain('status=success');
   });
 
-  it('4. should handle explicit failure returned by gateway (status != 1 and status != 2)', async () => {
+  it('4. should redirect to payment failed URL on explicit failure returned by gateway (status != 1 and status != 2)', async () => {
     (prisma.payment.findFirst as any).mockResolvedValueOnce({
       id: 'pay-1',
       reservationId: orderId,
@@ -91,12 +94,14 @@ describe('Zibal Callback Route (GET /api/v1/payments/zibal/callback)', () => {
 
     const res = await request(app).get(`/api/v1/payments/zibal/callback?trackId=${trackId}&status=3&success=0`);
 
-    expect(res.status).toBe(400);
-    expect(res.text).toContain('پرداخت ناموفق بود');
+    expect(res.status).toBe(302);
+    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/failed');
+    expect(res.header.location).toContain(`trackId=${trackId}`);
+    expect(res.header.location).toContain('status=failed');
     expect(handleFailedSpy).toHaveBeenCalled();
   });
 
-  it('5. should authoritatively verify and succeed when gateway reports status=1 or 2', async () => {
+  it('5. should authoritatively verify and redirect to payment success URL when gateway reports status=1 or 2', async () => {
     (prisma.payment.findFirst as any).mockResolvedValueOnce({
       id: 'pay-1',
       reservationId: orderId,
@@ -133,9 +138,11 @@ describe('Zibal Callback Route (GET /api/v1/payments/zibal/callback)', () => {
 
     const res = await request(app).get(`/api/v1/payments/zibal/callback?trackId=${trackId}&status=1&success=1`);
 
-    expect(res.status).toBe(200);
-    expect(res.text).toContain('پرداخت با موفقیت انجام شد');
-    expect(res.text).toContain('ZIBAL-REF-12345');
+    expect(res.status).toBe(302);
+    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/success');
+    expect(res.header.location).toContain('refNumber=ZIBAL-REF-12345');
+    expect(res.header.location).toContain(`orderId=${orderId}`);
+    expect(res.header.location).toContain('status=success');
     expect(mockProvider.verifyPayment).toHaveBeenCalledWith({
       authority: trackId,
       amount: 200000,
@@ -146,7 +153,7 @@ describe('Zibal Callback Route (GET /api/v1/payments/zibal/callback)', () => {
     });
   });
 
-  it('6. should render failure page when verification fails (e.g. amount mismatch)', async () => {
+  it('6. should redirect to payment failed URL when verification fails (e.g. amount mismatch)', async () => {
     (prisma.payment.findFirst as any).mockResolvedValueOnce({
       id: 'pay-1',
       reservationId: orderId,
@@ -175,8 +182,9 @@ describe('Zibal Callback Route (GET /api/v1/payments/zibal/callback)', () => {
 
     const res = await request(app).get(`/api/v1/payments/zibal/callback?trackId=${trackId}&status=1`);
 
-    expect(res.status).toBe(400);
-    expect(res.text).toContain('پرداخت ناموفق بود');
-    expect(res.text).toContain('Payment integrity check failed');
+    expect(res.status).toBe(302);
+    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/failed');
+    expect(res.header.location).toContain('status=failed');
+    expect(res.header.location).toContain('Payment+integrity+check+failed');
   });
 });
