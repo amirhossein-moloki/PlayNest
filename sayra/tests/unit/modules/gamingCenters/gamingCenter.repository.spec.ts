@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { prismaMock } from '../../../mocks/prisma';
-import { gamingCenterRepository, checkIsOpen, transformGamingCenter } from '../../../../src/modules/gamingCenter/gamingCenter.repository';
+import { gamingCenterRepository, checkIsOpen, transformGamingCenter, calculateGamingCenterPricing } from '../../../../src/modules/gamingCenter/gamingCenter.repository';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -438,6 +438,158 @@ describe('GamingCenterRepository', () => {
       } as any, undefined, { lowestStationPrice: 45000 });
 
       expect(transformed.hourlyRate).toBe(45000);
+    });
+
+    it('should return default pricing and null banner when no discounts or media exist', () => {
+      const transformed = transformGamingCenter({
+        id: 'gc-plain',
+        name: 'Plain Center',
+        isActive: true,
+        slug: 'plain-center',
+        description: null,
+        pcCount: 1,
+        consoleCount: 1,
+        hourlyRate: 100000,
+        openingTime: '10:00',
+        closingTime: '23:00',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        addresses: [],
+        stations: [],
+        ratings: [],
+        settings: null,
+        media: [],
+        discounts: [],
+        discountCampaigns: [],
+      } as any);
+
+      expect(transformed.banner).toBeNull();
+      expect(transformed.pricing).toEqual({
+        originalPrice: 100000,
+        discountPercentage: 0,
+        discountAmount: 0,
+        finalPrice: 100000,
+        hasDiscount: false,
+      });
+    });
+
+    it('should calculate pricing correctly for active percentage and fixed discounts', () => {
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 3600000);
+      const oneHourLater = new Date(now.getTime() + 3600000);
+
+      const transformed = transformGamingCenter({
+        id: 'gc-with-discount',
+        name: 'Discounted Center',
+        isActive: true,
+        slug: 'discounted-center',
+        description: null,
+        pcCount: 2,
+        consoleCount: 2,
+        hourlyRate: 100000,
+        openingTime: '10:00',
+        closingTime: '23:00',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        addresses: [],
+        stations: [],
+        ratings: [],
+        settings: null,
+        media: [
+          {
+            url: 'https://cdn.example.com/banner-hero.jpg',
+            purpose: 'COVER',
+            isActive: true,
+            sortOrder: 1,
+          },
+        ],
+        discounts: [
+          {
+            isActive: true,
+            valueType: 'PERCENTAGE',
+            value: 20,
+            startAt: oneHourAgo,
+            endAt: oneHourLater,
+          },
+        ],
+      } as any);
+
+      expect(transformed.banner).toBe('https://cdn.example.com/banner-hero.jpg');
+      expect(transformed.pricing).toEqual({
+        originalPrice: 100000,
+        discountPercentage: 20,
+        discountAmount: 20000,
+        finalPrice: 80000,
+        hasDiscount: true,
+      });
+      expect(transformed.hasDiscount).toBe(true);
+      expect(transformed.has_discount).toBe(true);
+    });
+  });
+
+  describe('calculateGamingCenterPricing helper', () => {
+    it('should return zero discount if no valid discounts exist', () => {
+      const pricing = calculateGamingCenterPricing(100000, []);
+      expect(pricing).toEqual({
+        originalPrice: 100000,
+        discountPercentage: 0,
+        discountAmount: 0,
+        finalPrice: 100000,
+        hasDiscount: false,
+      });
+    });
+
+    it('should handle fixed amount discount', () => {
+      const now = new Date();
+      const pricing = calculateGamingCenterPricing(
+        100000,
+        [
+          {
+            isActive: true,
+            valueType: 'FIXED_AMOUNT',
+            value: 15000,
+            startAt: new Date(now.getTime() - 1000),
+            endAt: new Date(now.getTime() + 1000),
+          },
+        ],
+        undefined,
+        now
+      );
+
+      expect(pricing).toEqual({
+        originalPrice: 100000,
+        discountPercentage: 15,
+        discountAmount: 15000,
+        finalPrice: 85000,
+        hasDiscount: true,
+      });
+    });
+
+    it('should handle discount campaigns with maxDiscountAmount', () => {
+      const now = new Date();
+      const pricing = calculateGamingCenterPricing(
+        200000,
+        [],
+        [
+          {
+            isActive: true,
+            valueType: 'PERCENTAGE',
+            value: 50, // 50% of 200000 = 100000, but capped at 30000
+            maxDiscountAmount: 30000,
+            startAt: new Date(now.getTime() - 1000),
+            endAt: new Date(now.getTime() + 1000),
+          },
+        ],
+        now
+      );
+
+      expect(pricing).toEqual({
+        originalPrice: 200000,
+        discountPercentage: 50,
+        discountAmount: 30000,
+        finalPrice: 170000,
+        hasDiscount: true,
+      });
     });
   });
 });

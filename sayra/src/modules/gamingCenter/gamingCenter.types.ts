@@ -13,6 +13,14 @@ export interface DeviceTypeCounts {
   VR: number;
 }
 
+export interface GamingCenterPricing {
+  originalPrice: number;
+  discountPercentage: number;
+  discountAmount: number;
+  finalPrice: number;
+  hasDiscount: boolean;
+}
+
 export interface GamingCenterListItem {
   id: string;
   name: string;
@@ -36,6 +44,8 @@ export interface GamingCenterListItem {
   has_discount: boolean;
   coverImages: string[];
   coverImageUrl: string | null;
+  banner: string | null;
+  pricing: GamingCenterPricing;
   deviceCounts?: DeviceTypeCounts;
   owner?: {
     id: string;

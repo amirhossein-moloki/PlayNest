@@ -1,6 +1,6 @@
 import { prisma } from '../../config/prisma';
-import { CreateGamingCenterInput, UpdateGamingCenterInput, GamingCenterListItem } from './gamingCenter.types';
-import { Prisma, GameStation, Rating, Settings, Address } from '@prisma/client';
+import { CreateGamingCenterInput, UpdateGamingCenterInput, GamingCenterListItem, GamingCenterPricing } from './gamingCenter.types';
+import { Prisma, GameStation, Rating, Settings, Address, DiscountValueType } from '@prisma/client';
 import { ListGamingCentersQuery, GetGamingCenterDetailsQuery } from './gamingCenter.validation';
 import { getPaginationParams, formatPaginatedResult } from '../../common/utils/pagination';
 import { toZonedTime } from 'date-fns-tz';
@@ -64,11 +64,18 @@ type GamingCenterWithRelations = Prisma.GamingCenterGetPayload<{
   }>;
   discounts?: Array<{
     isActive: boolean;
+    valueType?: DiscountValueType | string;
+    value?: number;
     startAt: Date;
     endAt: Date;
   }>;
   discountCampaigns?: Array<{
     isActive: boolean;
+    valueType?: DiscountValueType | string;
+    discountType?: DiscountValueType | string | null;
+    value?: number;
+    discountValue?: number | null;
+    maxDiscountAmount?: number | null;
     status?: string | null;
     deletedAt?: Date | null;
     startAt: Date;
@@ -77,6 +84,8 @@ type GamingCenterWithRelations = Prisma.GamingCenterGetPayload<{
   hasDiscount?: boolean;
   coverImages?: string[];
   coverImageUrl?: string | null;
+  banner?: string | null;
+  pricing?: GamingCenterPricing;
 };
 
 export function checkHasActiveDiscount(
@@ -116,9 +125,9 @@ export function extractCoverImages(
     isActive: boolean;
     sortOrder?: number;
   }>
-): { coverImages: string[]; coverImageUrl: string | null } {
+): { coverImages: string[]; coverImageUrl: string | null; banner: string | null } {
   if (!media || !Array.isArray(media) || media.length === 0) {
-    return { coverImages: [], coverImageUrl: null };
+    return { coverImages: [], coverImageUrl: null, banner: null };
   }
 
   const activeCovers = media
@@ -131,6 +140,139 @@ export function extractCoverImages(
   return {
     coverImages: urls,
     coverImageUrl: urls[0] ?? null,
+    banner: urls[0] ?? null,
+  };
+}
+
+export function calculateGamingCenterPricing(
+  originalPrice: number,
+  discounts?: Array<{
+    isActive: boolean;
+    valueType?: DiscountValueType | string;
+    value?: number;
+    startAt: Date;
+    endAt: Date;
+  }>,
+  discountCampaigns?: Array<{
+    isActive: boolean;
+    valueType?: DiscountValueType | string;
+    discountType?: DiscountValueType | string | null;
+    value?: number;
+    discountValue?: number | null;
+    maxDiscountAmount?: number | null;
+    status?: string | null;
+    deletedAt?: Date | null;
+    startAt: Date;
+    endAt: Date;
+  }>,
+  now: Date = new Date()
+): GamingCenterPricing {
+  if (originalPrice <= 0) {
+    return {
+      originalPrice,
+      discountPercentage: 0,
+      discountAmount: 0,
+      finalPrice: originalPrice,
+      hasDiscount: false,
+    };
+  }
+
+  // Filter valid discounts based on active timeframe and status
+  const validDiscounts: Array<{
+    valueType: 'PERCENTAGE' | 'FIXED_AMOUNT';
+    value: number;
+    maxDiscountAmount?: number | null;
+  }> = [];
+
+  if (Array.isArray(discounts)) {
+    for (const d of discounts) {
+      if (d.isActive && new Date(d.startAt) <= now && new Date(d.endAt) >= now) {
+        const valType = (d.valueType as 'PERCENTAGE' | 'FIXED_AMOUNT') || 'PERCENTAGE';
+        const val = typeof d.value === 'number' ? d.value : 0;
+        if (val > 0) {
+          validDiscounts.push({ valueType: valType, value: val });
+        }
+      }
+    }
+  }
+
+  if (Array.isArray(discountCampaigns)) {
+    for (const c of discountCampaigns) {
+      if (
+        c.isActive &&
+        (!c.status || c.status === 'ACTIVE') &&
+        !c.deletedAt &&
+        new Date(c.startAt) <= now &&
+        new Date(c.endAt) >= now
+      ) {
+        const valType = (c.discountType || c.valueType || 'PERCENTAGE') as 'PERCENTAGE' | 'FIXED_AMOUNT';
+        const val = typeof c.discountValue === 'number' ? c.discountValue : (typeof c.value === 'number' ? c.value : 0);
+        if (val > 0) {
+          validDiscounts.push({
+            valueType: valType,
+            value: val,
+            maxDiscountAmount: c.maxDiscountAmount,
+          });
+        }
+      }
+    }
+  }
+
+  if (validDiscounts.length === 0) {
+    return {
+      originalPrice,
+      discountPercentage: 0,
+      discountAmount: 0,
+      finalPrice: originalPrice,
+      hasDiscount: false,
+    };
+  }
+
+  // Evaluate candidate discounts and pick the best one (highest discount amount)
+  let bestDiscountAmount = 0;
+  let bestPercentage = 0;
+
+  for (const item of validDiscounts) {
+    let amt = 0;
+    let pct = 0;
+
+    if (item.valueType === 'PERCENTAGE') {
+      pct = item.value;
+      amt = (originalPrice * pct) / 100;
+      if (item.maxDiscountAmount !== undefined && item.maxDiscountAmount !== null && item.maxDiscountAmount > 0) {
+        amt = Math.min(amt, item.maxDiscountAmount);
+      }
+    } else if (item.valueType === 'FIXED_AMOUNT') {
+      amt = item.value;
+      pct = Math.round((amt / originalPrice) * 10000) / 100;
+    }
+
+    amt = Math.min(originalPrice, Math.max(0, Math.round(amt * 100) / 100));
+
+    if (amt > bestDiscountAmount) {
+      bestDiscountAmount = amt;
+      bestPercentage = Math.round(pct * 100) / 100;
+    }
+  }
+
+  if (bestDiscountAmount <= 0) {
+    return {
+      originalPrice,
+      discountPercentage: 0,
+      discountAmount: 0,
+      finalPrice: originalPrice,
+      hasDiscount: false,
+    };
+  }
+
+  const finalPrice = Math.max(0, Math.round((originalPrice - bestDiscountAmount) * 100) / 100);
+
+  return {
+    originalPrice,
+    discountPercentage: bestPercentage,
+    discountAmount: bestDiscountAmount,
+    finalPrice,
+    hasDiscount: true,
   };
 }
 
@@ -213,12 +355,14 @@ export function transformGamingCenter(
     ? extraData.hasDiscount
     : (gc.hasDiscount !== undefined ? gc.hasDiscount : checkHasActiveDiscount(gc));
 
-  // Resolve cover images
+  // Resolve cover images and banner
   const covers = extraData?.coverImages !== undefined
-    ? { coverImages: extraData.coverImages, coverImageUrl: extraData.coverImageUrl ?? (extraData.coverImages[0] ?? null) }
+    ? { coverImages: extraData.coverImages, coverImageUrl: extraData.coverImageUrl ?? (extraData.coverImages[0] ?? null), banner: extraData.coverImageUrl ?? (extraData.coverImages[0] ?? null) }
     : (gc.coverImages !== undefined
-      ? { coverImages: gc.coverImages, coverImageUrl: gc.coverImageUrl ?? (gc.coverImages[0] ?? null) }
+      ? { coverImages: gc.coverImages, coverImageUrl: gc.coverImageUrl ?? (gc.coverImages[0] ?? null), banner: gc.banner !== undefined ? gc.banner : (gc.coverImageUrl ?? (gc.coverImages[0] ?? null)) }
       : extractCoverImages(gc.media));
+
+  const resolvedBanner = gc.banner !== undefined ? gc.banner : (covers.banner ?? null);
 
   // Calculate lowest station hourly price (minimum registered active station price)
   let lowestRate: number | null = null;
@@ -234,6 +378,13 @@ export function transformGamingCenter(
   }
 
   const effectiveHourlyRate = lowestRate !== null ? lowestRate : gc.hourlyRate;
+
+  // Calculate structured pricing
+  const pricing = gc.pricing !== undefined
+    ? gc.pricing
+    : calculateGamingCenterPricing(effectiveHourlyRate, gc.discounts, gc.discountCampaigns);
+
+  const effectiveHasDiscount = pricing.hasDiscount || hasDiscount;
 
   return {
     id: gc.id,
@@ -254,10 +405,12 @@ export function transformGamingCenter(
     createdAt: gc.createdAt,
     updatedAt: gc.updatedAt,
     addresses,
-    hasDiscount,
-    has_discount: hasDiscount,
+    hasDiscount: effectiveHasDiscount,
+    has_discount: effectiveHasDiscount,
     coverImages: covers.coverImages,
     coverImageUrl: covers.coverImageUrl,
+    banner: resolvedBanner,
+    pricing,
     ...(manager
       ? {
         owner: {

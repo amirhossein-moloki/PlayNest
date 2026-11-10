@@ -1028,6 +1028,35 @@ components:
           type: string
           nullable: true
           description: Primary cover image URL for the gaming center
+        banner:
+          type: string
+          nullable: true
+          description: Banner image URL of the gaming center (null if not available)
+        pricing:
+          type: object
+          description: Pricing and active discount details for the gaming center
+          properties:
+            originalPrice:
+              type: number
+              description: Original hourly rate without discount
+            discountPercentage:
+              type: number
+              description: Active discount percentage (0 if no discount)
+            discountAmount:
+              type: number
+              description: Calculated discount amount (0 if no discount)
+            finalPrice:
+              type: number
+              description: Final hourly rate after discount
+            hasDiscount:
+              type: boolean
+              description: Indicates whether an active discount exists
+          required:
+            - originalPrice
+            - discountPercentage
+            - discountAmount
+            - finalPrice
+            - hasDiscount
         managerId:
           type: string
           nullable: true

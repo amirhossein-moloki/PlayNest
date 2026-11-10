@@ -81,6 +81,8 @@ describe('Gaming Centers API - Retrieval by ID and Slug', () => {
       {
         id: 'discount_01',
         isActive: true,
+        valueType: 'PERCENTAGE',
+        value: 20,
         startAt: new Date(now.getTime() - 3600000),
         endAt: new Date(now.getTime() + 3600000),
       },
@@ -112,6 +114,14 @@ describe('Gaming Centers API - Retrieval by ID and Slug', () => {
         'https://cdn.example.com/cover2.jpg',
       ]);
       expect(res.body.data.coverImageUrl).toBe('https://cdn.example.com/cover1.jpg');
+      expect(res.body.data.banner).toBe('https://cdn.example.com/cover1.jpg');
+      expect(res.body.data.pricing).toEqual({
+        originalPrice: 50000,
+        discountPercentage: 20,
+        discountAmount: 10000,
+        finalPrice: 40000,
+        hasDiscount: true,
+      });
       expect(prisma.gamingCenter.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
@@ -170,6 +180,40 @@ describe('Gaming Centers API - Retrieval by ID and Slug', () => {
         'https://cdn.example.com/cover2.jpg',
       ]);
       expect(item.coverImageUrl).toBe('https://cdn.example.com/cover1.jpg');
+      expect(item.banner).toBe('https://cdn.example.com/cover1.jpg');
+      expect(item.pricing).toEqual({
+        originalPrice: 50000,
+        discountPercentage: 20,
+        discountAmount: 10000,
+        finalPrice: 40000,
+        hasDiscount: true,
+      });
+    });
+
+    it('should list gaming centers without discounts having default pricing and null banner when no media', async () => {
+      const plainCenter = {
+        ...mockCenterData,
+        id: 'center_plain',
+        media: [],
+        discounts: [],
+      };
+      (prisma.gamingCenter.findMany as jest.Mock).mockResolvedValue([plainCenter]);
+      (prisma.gamingCenter.count as jest.Mock).mockResolvedValue(1);
+
+      const res = await request(app).get('/api/v1/gamingCenters');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      const item = res.body.data.data[0];
+      expect(item.id).toBe('center_plain');
+      expect(item.banner).toBeNull();
+      expect(item.pricing).toEqual({
+        originalPrice: 50000,
+        discountPercentage: 0,
+        discountAmount: 0,
+        finalPrice: 50000,
+        hasDiscount: false,
+      });
     });
   });
 
@@ -197,6 +241,14 @@ describe('Gaming Centers API - Retrieval by ID and Slug', () => {
         'https://cdn.example.com/cover2.jpg',
       ]);
       expect(res.body.data.coverImageUrl).toBe('https://cdn.example.com/cover1.jpg');
+      expect(res.body.data.banner).toBe('https://cdn.example.com/cover1.jpg');
+      expect(res.body.data.pricing).toEqual({
+        originalPrice: 50000,
+        discountPercentage: 20,
+        discountAmount: 10000,
+        finalPrice: 40000,
+        hasDiscount: true,
+      });
     });
 
     it('should return 404 for non-existent public gaming center slug', async () => {
