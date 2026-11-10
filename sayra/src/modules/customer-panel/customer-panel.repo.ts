@@ -100,6 +100,27 @@ export const CustomerPanelRepo = {
     return client.reservation.findUnique({ where: { id } });
   },
 
+  async updateCustomerAccount(id: string, data: Prisma.CustomerAccountUpdateInput, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.customerAccount.update({
+      where: { id },
+      data,
+      include: {
+        profiles: {
+          include: {
+            gamingCenter: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  },
+
   async transaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>) {
     return prisma.$transaction(fn);
   },

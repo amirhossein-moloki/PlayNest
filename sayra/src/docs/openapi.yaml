@@ -5348,6 +5348,45 @@ paths:
                     $ref: '#/components/schemas/Customer'
       operationId: get_customer_me
       description: Get current customer info
+    patch:
+      summary: Update current customer profile
+      description: Update profile details for the authenticated customer
+      tags:
+      - Customer Panel
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  description: Full name of the customer
+      responses:
+        '200':
+          description: Customer profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Customer'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      operationId: patch_customer_me
   /customer/reservation:
     get:
       summary: List my reservation

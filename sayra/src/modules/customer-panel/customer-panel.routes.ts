@@ -11,6 +11,7 @@ import {
   customerSubmitReviewSchema,
   proposalActionParamsSchema,
   listProposalsParamsSchema,
+  updateCustomerProfileSchema,
 } from './customer-panel.validators';
 import { privateApiRateLimiter } from '../../common/middleware/rateLimit';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
@@ -21,6 +22,12 @@ const router = Router();
 router.use(privateApiRateLimiter, authMiddleware, requireActorType(SessionActorType.CUSTOMER));
 
 router.get('/me', asyncHandler<AppRequest>(CustomerPanelController.getMe));
+
+router.patch(
+  '/me',
+  validate(updateCustomerProfileSchema),
+  asyncHandler<AppRequest>(CustomerPanelController.updateMe)
+);
 
 router.get('/reservation', validate(getCustomerReservationSchema), asyncHandler<AppRequest>(CustomerPanelController.getMyReservation));
 

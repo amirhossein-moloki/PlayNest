@@ -3,7 +3,7 @@ import { toZonedTime } from 'date-fns-tz';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { CustomerPanelRepo } from './customer-panel.repo';
-import { GetCustomerReservationQuery, CustomerSubmitReviewInput } from './customer-panel.validators';
+import { GetCustomerReservationQuery, CustomerSubmitReviewInput, UpdateCustomerProfileInput } from './customer-panel.validators';
 import { ReservationStatus, ReservationProposalStatus, Prisma, SessionActorType } from '@prisma/client';
 import { auditService } from '../audit/audit.station';
 import { walletService } from '../wallet/wallet.station';
@@ -24,6 +24,21 @@ export const CustomerPanelStation = {
       throw new AppError('Customer account not found', httpStatus.NOT_FOUND);
     }
     return account;
+  },
+
+  async updateProfile(customerAccountId: string, input: UpdateCustomerProfileInput) {
+    const account = await CustomerPanelRepo.findCustomerAccountById(customerAccountId);
+    if (!account) {
+      throw new AppError('Customer account not found', httpStatus.NOT_FOUND);
+    }
+
+    const data: Prisma.CustomerAccountUpdateInput = {};
+    if (input.fullName !== undefined) {
+      data.fullName = input.fullName;
+    }
+
+    const updated = await CustomerPanelRepo.updateCustomerAccount(customerAccountId, data);
+    return updated;
   },
 
   async getReservation(customerAccountId: string, query: GetCustomerReservationQuery) {

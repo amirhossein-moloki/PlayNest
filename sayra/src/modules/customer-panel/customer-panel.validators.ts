@@ -57,6 +57,13 @@ export const listProposalsParamsSchema = z.object({
   }),
 });
 
+export const updateCustomerProfileSchema = z.object({
+  body: z.object({
+    fullName: z.string().trim().min(2, 'Full name must be at least 2 characters long').max(100, 'Full name must not exceed 100 characters').optional(),
+  }).strict(),
+});
+
 export type GetCustomerReservationQuery = z.infer<typeof getCustomerReservationSchema>['query'];
 export type CustomerCancelReservationInput = z.infer<typeof customerCancelReservationSchema>['body'];
 export type CustomerSubmitReviewInput = z.infer<typeof customerSubmitReviewSchema>['body'];
+export type UpdateCustomerProfileInput = z.infer<typeof updateCustomerProfileSchema>['body'];
