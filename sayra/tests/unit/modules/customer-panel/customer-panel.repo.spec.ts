@@ -38,4 +38,17 @@ describe('CustomerPanelRepo', () => {
     await CustomerPanelRepo.updateReservation('res-1', 'ca-1', { note: 'new' });
     expect(resMock.updateMany).toHaveBeenCalled();
   });
+
+  it('updateCustomerAccount', async () => {
+    const updatedUser = { id: 'ca-1', fullName: 'Gamer Pro', phone: '09123456789', profiles: [] };
+    accountMock.update.mockResolvedValue(updatedUser);
+    const result = await CustomerPanelRepo.updateCustomerAccount('ca-1', { fullName: 'Gamer Pro' });
+    expect(accountMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'ca-1' },
+        data: { fullName: 'Gamer Pro' },
+      })
+    );
+    expect(result).toEqual(updatedUser);
+  });
 });

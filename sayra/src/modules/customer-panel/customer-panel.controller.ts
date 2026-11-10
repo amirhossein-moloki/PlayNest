@@ -8,6 +8,12 @@ export const getMe = async (req: AppRequest, res: Response) => {
   res.ok(profile);
 };
 
+export const updateMe = async (req: AppRequest, res: Response) => {
+  const customerAccountId = req.actor.id;
+  const updatedProfile = await CustomerPanelStation.updateProfile(customerAccountId, req.body);
+  res.ok(updatedProfile);
+};
+
 export const getMyReservation = async (req: AppRequest, res: Response) => {
   const customerAccountId = req.actor.id;
   const result = await CustomerPanelStation.getReservation(customerAccountId, req.query);
