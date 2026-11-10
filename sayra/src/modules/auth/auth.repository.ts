@@ -87,10 +87,62 @@ export const AuthRepository = {
     });
   },
 
+  async atomicConsumeOtp(id: string) {
+    return prisma.phoneOtp.updateMany({
+      where: {
+        id,
+        consumedAt: null,
+      },
+      data: {
+        consumedAt: new Date(),
+      },
+    });
+  },
+
+  async incrementOtpAttempts(id: string) {
+    return prisma.phoneOtp.update({
+      where: { id },
+      data: {
+        attempts: {
+          increment: 1,
+        },
+      },
+    });
+  },
+
+  async invalidateActiveOtps(phone: string, purpose: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+    return prisma.phoneOtp.updateMany({
+      where: {
+        phone,
+        purpose,
+        consumedAt: null,
+      },
+      data: {
+        consumedAt: new Date(),
+      },
+    });
+  },
+
   async findUsersWithGamingCenters(phone: string) {
     return prisma.user.findMany({
       where: { phone },
       include: { gamingCenter: true },
+    });
+  },
+
+  async findUsersWithDetailsByPhone(phone: string) {
+    return prisma.user.findMany({
+      where: { phone },
+      include: {
+        gamingCenter: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
     });
   },
 

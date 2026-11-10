@@ -20,6 +20,13 @@ export const requestOtpSchema = z.object({
   }),
 });
 
+export const unifiedLoginOtpSchema = z.object({
+  body: z.object({
+    phone: z.string().min(10, 'Phone number must be at least 10 digits'),
+    otp: z.string().length(6, 'OTP code must be 6 digits'),
+  }),
+});
+
 export const verifyOtpSchema = z.object({
   body: z.object({
     phone: z.string().min(10, 'Phone number must be at least 10 digits'),

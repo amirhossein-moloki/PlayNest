@@ -18,6 +18,24 @@ export const loginPlatformAdmin = async (req: Request, res: Response) => {
   res.ok(result);
 };
 
+export const requestOtp = async (req: Request, res: Response) => {
+  const { phone } = req.body;
+  const result = await authService.requestUnifiedOtp(phone, {
+    ip: req.ip,
+    userAgent: req.headers['user-agent'],
+  });
+  res.ok(result);
+};
+
+export const loginWithOtp = async (req: Request, res: Response) => {
+  const { phone, otp } = req.body;
+  const result = await authService.loginWithUnifiedOtp(phone, otp, {
+    ip: req.ip,
+    userAgent: req.headers['user-agent'],
+  });
+  res.ok(result);
+};
+
 export const requestUserOtp = async (req: Request, res: Response) => {
   const { phone } = req.body;
   const result = await authService.requestUserOtp(phone);

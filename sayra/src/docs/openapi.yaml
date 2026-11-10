@@ -5806,9 +5806,99 @@ paths:
                 $ref: '#/components/schemas/Success'
       operationId: get_auth_me
       description: Get current user info
+  /auth/otp/request:
+    post:
+      summary: Request Unified OTP
+      tags:
+      - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - phone
+              properties:
+                phone:
+                  type: string
+                  example: "09123456789"
+      responses:
+        '200':
+          description: OTP sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: post_auth_otp_request
+      description: Request Unified OTP for any actor
+  /auth/otp/login:
+    post:
+      summary: Login with Unified OTP
+      tags:
+      - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - phone
+              - otp
+              properties:
+                phone:
+                  type: string
+                  example: "09123456789"
+                otp:
+                  type: string
+                  example: "123456"
+      responses:
+        '200':
+          description: Authenticated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                      refreshToken:
+                        type: string
+                      user:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          phone:
+                            type: string
+                          actorType:
+                            type: string
+                            enum: [USER, CUSTOMER]
+                          roles:
+                            type: array
+                            items:
+                              type: string
+                          permissions:
+                            type: array
+                            items:
+                              type: string
+                          gamingCenters:
+                            type: array
+                            items:
+                              type: object
+      operationId: post_auth_otp_login
+      description: Authenticate and issue tokens using unified OTP
   /auth/customer/otp/request:
     post:
       summary: Request OTP (Customer)
+      deprecated: true
       tags:
       - Auth
       requestBody:

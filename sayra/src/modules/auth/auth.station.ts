@@ -298,5 +298,141 @@ export const authService = {
     }
     await AuthRepository.revokeSession(sessionId);
     return { message: 'Logged out successfully' };
+  },
+
+  async requestUnifiedOtp(phone: string, _meta?: { ip?: string; userAgent?: string }) {
+    void _meta;
+    const normalizedPhone = normalizePhone(phone);
+
+    // Invalidate any active, unconsumed OTPs for this phone to prevent multi-OTP confusion
+    await AuthRepository.invalidateActiveOtps(normalizedPhone, OtpPurpose.LOGIN);
+
+    // SKIP_OTP strictly only allowed in non-production environments
+    const isSkipOtpEnabled = Boolean(env.SKIP_OTP && env.NODE_ENV !== 'production');
+    const code = isSkipOtpEnabled ? '000000' : generateNumericOtp(OTP_LENGTH);
+    const codeHash = await argon2.hash(code);
+    const expiresAt = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
+
+    await AuthRepository.createOtp({
+      phone: normalizedPhone,
+      purpose: OtpPurpose.LOGIN,
+      codeHash,
+      expiresAt,
+    });
+
+    if (!isSkipOtpEnabled) {
+      await queueSms({
+        mobile: normalizedPhone,
+        templateId: getOtpTemplateId(),
+        parameters: [{ name: 'CODE', value: code }],
+      });
+    }
+
+    return {
+      message: `OTP sent to ${normalizedPhone}. It will expire in ${OTP_EXPIRATION_MINUTES} minutes.`,
+    };
+  },
+
+  async loginWithUnifiedOtp(phone: string, otpCode: string, _meta?: { ip?: string; userAgent?: string }) {
+    void _meta;
+    const normalizedPhone = normalizePhone(phone);
+    const isSkipOtpEnabled = Boolean(env.SKIP_OTP && env.NODE_ENV !== 'production');
+
+    // 1. Find recent unconsumed, unexpired OTP
+    const otp = await AuthRepository.findRecentOtp(normalizedPhone, OtpPurpose.LOGIN);
+
+    if (!otp) {
+      throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
+    }
+
+    // 2. Brute-force protection: Max 5 attempts
+    if (otp.attempts >= 5) {
+      // Invalidate the OTP permanently
+      await AuthRepository.consumeOtp(otp.id);
+      throw new AppError('Too many failed attempts. Please request a new OTP.', httpStatus.TOO_MANY_REQUESTS);
+    }
+
+    // 3. Verify OTP code
+    let isCodeValid = false;
+    if (isSkipOtpEnabled && otpCode === '000000') {
+      isCodeValid = true;
+    } else {
+      isCodeValid = await argon2.verify(otp.codeHash, otpCode);
+    }
+
+    if (!isCodeValid) {
+      // Increment attempt counter atomically
+      await AuthRepository.incrementOtpAttempts(otp.id);
+      throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
+    }
+
+    // 4. Atomic single-use consumption (Race condition & Replay protection)
+    const consumeResult = await AuthRepository.atomicConsumeOtp(otp.id);
+    if (!consumeResult || consumeResult.count === 0) {
+      throw new AppError('OTP has already been used. Please request a new OTP.', httpStatus.UNAUTHORIZED);
+    }
+
+    // 5. Identify Actor & Roles
+    const users = await AuthRepository.findUsersWithDetailsByPhone(normalizedPhone);
+    let customer = await AuthRepository.findCustomerByPhone(normalizedPhone);
+
+    let actorId: string;
+    let actorType: SessionActorType;
+    let roles: string[] = [];
+    let gamingCenters: Array<{ id: string; name: string; role: string }> = [];
+
+    if (users && users.length > 0) {
+      // User account exists (Staff / Manager / Admin)
+      const primaryUser = users[0];
+      actorId = primaryUser.id;
+      actorType = SessionActorType.USER;
+      roles = Array.from(new Set(users.map(u => u.role)));
+      gamingCenters = users.map(u => ({
+        id: u.gamingCenter.id,
+        name: u.gamingCenter.name,
+        role: u.role,
+      }));
+
+      // Mark phone verified for user
+      await AuthRepository.markUserPhoneVerified(normalizedPhone);
+
+      // If customer account also exists, mark it verified too
+      if (customer && !customer.phoneVerifiedAt) {
+        await AuthRepository.markCustomerPhoneVerified(customer.id);
+      }
+    } else if (customer) {
+      // Customer account exists
+      actorId = customer.id;
+      actorType = SessionActorType.CUSTOMER;
+      roles = ['CUSTOMER'];
+      gamingCenters = [];
+
+      if (!customer.phoneVerifiedAt) {
+        await AuthRepository.markCustomerPhoneVerified(customer.id);
+      }
+    } else {
+      // New phone: Auto-provision a basic customer account atomically
+      customer = await AuthRepository.upsertCustomerAccount(normalizedPhone, new Date());
+      actorId = customer.id;
+      actorType = SessionActorType.CUSTOMER;
+      roles = ['CUSTOMER'];
+      gamingCenters = [];
+    }
+
+    // 6. Create session and generate tokens
+    const { accessToken, refreshToken } = await createAndSaveSession(actorId, actorType);
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: actorId,
+        phone: normalizedPhone,
+        actorType,
+        roles,
+        permissions: [],
+        gamingCenters,
+      },
+    };
   }
 };

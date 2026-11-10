@@ -134,6 +134,47 @@ describe('AuthRepository', () => {
     });
   });
 
+  describe('atomicConsumeOtp', () => {
+    it('should atomically consume unconsumed OTP', async () => {
+      const id = 'o-1';
+      otpMock.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await AuthRepository.atomicConsumeOtp(id);
+      expect(result).toEqual({ count: 1 });
+      expect(otpMock.updateMany).toHaveBeenCalledWith({
+        where: { id, consumedAt: null },
+        data: { consumedAt: expect.any(Date) },
+      });
+    });
+  });
+
+  describe('incrementOtpAttempts', () => {
+    it('should increment attempt counter', async () => {
+      const id = 'o-1';
+      otpMock.update.mockResolvedValue({ id, attempts: 1 });
+
+      await AuthRepository.incrementOtpAttempts(id);
+      expect(otpMock.update).toHaveBeenCalledWith({
+        where: { id },
+        data: { attempts: { increment: 1 } },
+      });
+    });
+  });
+
+  describe('invalidateActiveOtps', () => {
+    it('should consume active unconsumed OTPs', async () => {
+      const purpose = 'LOGIN' as any;
+      otpMock.updateMany.mockResolvedValue({ count: 2 });
+
+      const result = await AuthRepository.invalidateActiveOtps(phone, purpose);
+      expect(result).toEqual({ count: 2 });
+      expect(otpMock.updateMany).toHaveBeenCalledWith({
+        where: { phone, purpose, consumedAt: null },
+        data: { consumedAt: expect.any(Date) },
+      });
+    });
+  });
+
   describe('findUsersWithGamingCenters', () => {
     it('should find users and include their gaming centers', async () => {
       const mockUsers = [{ id: 'u-1', gamingCenter: { id: 'gc-1' } }];

@@ -9,7 +9,9 @@ import {
   verifyUserOtp,
   loginUserWithOtp,
   requestCustomerOtp,
-  verifyCustomerOtp
+  verifyCustomerOtp,
+  requestOtp,
+  loginWithOtp
 } from './auth.controller';
 import { validate } from '../../common/middleware/validate';
 import {
@@ -18,7 +20,8 @@ import {
   refreshSchema,
   requestOtpSchema,
   verifyOtpSchema,
-  loginWithOtpSchema
+  loginWithOtpSchema,
+  unifiedLoginOtpSchema
 } from './auth.validators';
 import { authMiddleware } from '../../common/middleware/auth';
 import { publicApiRateLimiter } from '../../common/middleware/rateLimit';
@@ -31,12 +34,16 @@ if (env.NODE_ENV !== 'test') {
   router.use(publicApiRateLimiter);
 }
 
-// --- User OTP Flow ---
+// --- Unified OTP Authentication Flow ---
+router.post('/otp/request', validate(requestOtpSchema), asyncHandler(requestOtp));
+router.post('/otp/login', validate(unifiedLoginOtpSchema), asyncHandler(loginWithOtp));
+
+// --- Deprecated User OTP Flow (retained for backward compatibility) ---
 router.post('/user/otp/request', validate(requestOtpSchema), asyncHandler(requestUserOtp));
 router.post('/user/otp/verify', validate(verifyOtpSchema), asyncHandler(verifyUserOtp));
 router.post('/user/login/otp', validate(loginWithOtpSchema), asyncHandler(loginUserWithOtp));
 
-// --- Customer OTP Flow ---
+// --- Deprecated Customer OTP Flow (retained for backward compatibility) ---
 router.post('/customer/otp/request', validate(requestOtpSchema), asyncHandler(requestCustomerOtp));
 router.post('/customer/otp/verify', validate(verifyOtpSchema), asyncHandler(verifyCustomerOtp));
 
