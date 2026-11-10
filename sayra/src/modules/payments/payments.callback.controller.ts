@@ -66,6 +66,152 @@ export function getPaymentFailedRedirectUrl(params: {
   });
 }
 
+export async function handlePaymentCallback(req: Request, res: Response): Promise<void> {
+  const authorityQuery = req.query.Authority || req.query.authority || req.body?.Authority || req.body?.authority;
+  const statusQuery = req.query.Status || req.query.status || req.body?.Status || req.body?.status;
+  const orderIdQuery = req.query.orderId || req.body?.orderId;
+
+  const authority = authorityQuery ? String(authorityQuery) : undefined;
+  const orderId = orderIdQuery ? String(orderIdQuery) : undefined;
+  const status = statusQuery ? String(statusQuery).toUpperCase() : undefined;
+
+  if (!authority) {
+    const redirectUrl = getPaymentFailedRedirectUrl({
+      message: 'شناسه پیگیری یا Authority در درخواست بازگشت درگاه یافت نشد.',
+    });
+    res.redirect(302, redirectUrl);
+    return;
+  }
+
+  // 1. Locate payment durable record by providerPaymentId (authority) or orderId
+  let payment = await prisma.payment.findFirst({
+    where: {
+      providerPaymentId: authority,
+    },
+    include: {
+      reservation: true,
+    },
+  });
+
+  if (!payment && orderId) {
+    payment = await prisma.payment.findFirst({
+      where: {
+        OR: [{ reservationId: orderId }, { id: orderId }],
+      },
+      include: {
+        reservation: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  if (!payment) {
+    logger.warn({ authority, orderId }, 'Payment Callback: Payment record not found in database');
+    const redirectUrl = getPaymentFailedRedirectUrl({
+      trackId: authority,
+      orderId,
+      message: 'تراکنش پرداخت متناظر در سیستم یافت نشد.',
+    });
+    res.redirect(302, redirectUrl);
+    return;
+  }
+
+  // 2. Idempotency check: If already paid, redirect to success URL
+  if (payment.status === PaymentStatus.PAID) {
+    const redirectUrl = getPaymentSuccessRedirectUrl({
+      orderId: payment.reservationId || payment.id,
+      amount: payment.amount,
+      currency: payment.currency,
+      trackId: payment.providerPaymentId || authority,
+      refNumber: payment.referenceCode,
+      message: 'این پرداخت قبلاً با موفقیت تأیید و ثبت شده است.',
+    });
+    res.redirect(302, redirectUrl);
+    return;
+  }
+
+  // 3. Check gateway preliminary status before calling verify (e.g. NOK or user cancel)
+  const isFailedStatus = status && status !== 'OK' && status !== '1' && status !== '2';
+
+  if (isFailedStatus) {
+    await PaymentsRepo.transaction(async (tx) => {
+      await PaymentsRepo.handleFailedPayment(
+        tx,
+        payment.id,
+        PaymentStatus.FAILED,
+        `Gateway callback returned unfulfilled status: status=${statusQuery}`
+      );
+    });
+
+    const redirectUrl = getPaymentFailedRedirectUrl({
+      orderId: payment.reservationId || payment.id,
+      trackId: authority,
+      failureReason: 'پرداخت در درگاه بانکی لغو شد یا با خطا متوقف گردید.',
+    });
+    res.redirect(302, redirectUrl);
+    return;
+  }
+
+  // 4. Server-to-server authoritative verification via SDK
+  const provider = PaymentProviderFactory.getProvider(payment.provider || 'ZARINPAL');
+
+  const verifyResult = await provider.verifyPayment({
+    authority,
+    amount: payment.amount,
+    metadata: {
+      orderId: payment.reservationId || payment.id,
+      reservationId: payment.reservationId,
+    },
+  });
+
+  // 5. Atomic database status update based strictly on verify result
+  try {
+    const finalPayment = await PaymentsRepo.transaction(async (tx) => {
+      if (verifyResult.success) {
+        const updated = await PaymentsRepo.handleSuccessfulPayment(tx, payment.id, verifyResult.refId);
+        if (payment.bookingHoldId) {
+          const { BookingHoldStation } = await import('../booking-hold/booking-hold.station');
+          await BookingHoldStation.convertHoldToReservations(payment.bookingHoldId, payment.id, tx);
+        }
+        return updated;
+      } else {
+        return PaymentsRepo.handleFailedPayment(
+          tx,
+          payment.id,
+          verifyResult.status,
+          verifyResult.failureReason
+        );
+      }
+    });
+
+    if (verifyResult.success) {
+      const redirectUrl = getPaymentSuccessRedirectUrl({
+        orderId: finalPayment.reservationId || finalPayment.id,
+        amount: finalPayment.amount,
+        currency: finalPayment.currency,
+        trackId: finalPayment.providerPaymentId || authority,
+        refNumber: finalPayment.referenceCode,
+      });
+      res.redirect(302, redirectUrl);
+    } else {
+      const redirectUrl = getPaymentFailedRedirectUrl({
+        orderId: finalPayment.reservationId || finalPayment.id,
+        trackId: authority,
+        failureReason: finalPayment.failureReason || 'تأییدیه نهایی توسط درگاه بانکی صادر نشد.',
+      });
+      res.redirect(302, redirectUrl);
+    }
+  } catch (error) {
+    logger.error({ error, paymentId: payment.id, authority }, 'Error processing verified payment transaction');
+    const redirectUrl = getPaymentFailedRedirectUrl({
+      orderId: payment.reservationId || payment.id,
+      trackId: authority,
+      failureReason: 'خطای داخلی سرور در به‌روزرسانی وضعیت سفارش.',
+    });
+    res.redirect(302, redirectUrl);
+  }
+}
+
 export async function handleZibalCallback(req: Request, res: Response): Promise<void> {
   const trackIdQuery = req.query.trackId;
   const statusQuery = req.query.status;
