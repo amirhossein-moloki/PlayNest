@@ -9759,6 +9759,69 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+  /payments/callback:
+    get:
+      summary: Payment gateway browser return callback
+      description: Handles browser redirection from payment gateway (such as ZarinPal), verifies transaction server-to-server, updates payment status, and redirects to frontend success/failure URL.
+      tags:
+      - Payments
+      operationId: get_payments_callback
+      parameters:
+      - name: Authority
+        in: query
+        required: true
+        schema:
+          type: string
+        description: Gateway payment authority or transaction tracking token
+      - name: Status
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Gateway transaction return status code (e.g. OK or NOK)
+      - name: orderId
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Internal reservation/order identifier
+      responses:
+        '302':
+          description: Redirect to frontend payment success or failure page
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URI of the frontend success (/payment/success) or failed (/payment/failed) page
+    post:
+      summary: Payment gateway server return callback
+      description: Handles POST redirection from payment gateway and redirects to frontend success/failure URL.
+      tags:
+      - Payments
+      operationId: post_payments_callback
+      parameters:
+      - name: Authority
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: Status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: orderId
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '302':
+          description: Redirect to frontend payment success or failure page
+          headers:
+            Location:
+              schema:
+                type: string
   /payments/zibal/callback:
     get:
       summary: Zibal payment gateway browser return callback
