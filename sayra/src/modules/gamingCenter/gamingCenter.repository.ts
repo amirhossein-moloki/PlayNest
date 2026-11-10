@@ -141,6 +141,7 @@ export function transformGamingCenter(
     hasDiscount?: boolean;
     coverImages?: string[];
     coverImageUrl?: string | null;
+    lowestStationPrice?: number | null;
   }
 ): GamingCenterListItem {
   const stations: GameStation[] = gc.stations || [];
@@ -219,6 +220,21 @@ export function transformGamingCenter(
       ? { coverImages: gc.coverImages, coverImageUrl: gc.coverImageUrl ?? (gc.coverImages[0] ?? null) }
       : extractCoverImages(gc.media));
 
+  // Calculate lowest station hourly price (minimum registered active station price)
+  let lowestRate: number | null = null;
+  if (extraData?.lowestStationPrice !== undefined && extraData.lowestStationPrice !== null) {
+    lowestRate = extraData.lowestStationPrice;
+  } else if (stations.length > 0) {
+    const activeStationPrices = stations
+      .filter((s) => s.isActive !== false && typeof s.hourlyPrice === 'number' && !isNaN(s.hourlyPrice))
+      .map((s) => s.hourlyPrice);
+    if (activeStationPrices.length > 0) {
+      lowestRate = Math.min(...activeStationPrices);
+    }
+  }
+
+  const effectiveHourlyRate = lowestRate !== null ? lowestRate : gc.hourlyRate;
+
   return {
     id: gc.id,
     name: gc.name,
@@ -232,7 +248,7 @@ export function transformGamingCenter(
     pc: hasPc,
     xbox: hasXbox,
     is_open: isOpen,
-    hourlyRate: gc.hourlyRate,
+    hourlyRate: effectiveHourlyRate,
     raiting: avgRating,
     comment_count: commentCount > 0 ? commentCount : count,
     createdAt: gc.createdAt,
@@ -585,9 +601,11 @@ export const gamingCenterRepository = {
 
     const centerIds = rawCenters.map((c) => c.id);
 
-    // Efficiently aggregate station counts by type directly in the database
-    let groupedCounts: Array<{ gamingCenterId: string; stationType: string; _count: { _all: number } }> = [];
+    // Efficiently aggregate station counts by type and minimum station hourly price directly in the database
+    let groupedCounts: Array<{ gamingCenterId: string; stationType: string; _count: { _all: number }; _min?: { hourlyPrice?: number | null } }> = [];
     let hasGroupResults = false;
+    const minPricesMap = new Map<string, number>();
+
     if (centerIds.length > 0 && typeof prisma.gameStation?.groupBy === 'function') {
       try {
         const res = await prisma.gameStation.groupBy({
@@ -599,10 +617,22 @@ export const gamingCenterRepository = {
           _count: {
             _all: true,
           },
+          _min: {
+            hourlyPrice: true,
+          },
         });
         if (Array.isArray(res)) {
           groupedCounts = res;
           hasGroupResults = res.length > 0;
+          for (const item of res) {
+            const minPrice = item._min?.hourlyPrice;
+            if (typeof minPrice === 'number') {
+              const currentMin = minPricesMap.get(item.gamingCenterId);
+              if (currentMin === undefined || minPrice < currentMin) {
+                minPricesMap.set(item.gamingCenterId, minPrice);
+              }
+            }
+          }
         }
       } catch {
         groupedCounts = [];
@@ -629,7 +659,8 @@ export const gamingCenterRepository = {
 
     let data = rawCenters.map((gc) => {
       const deviceCounts = hasGroupResults ? countsMap.get(gc.id) : undefined;
-      return transformGamingCenter(gc, deviceCounts);
+      const lowestStationPrice = minPricesMap.get(gc.id) ?? null;
+      return transformGamingCenter(gc, deviceCounts, { lowestStationPrice });
     });
 
     // If minStationCount was specified for a device type

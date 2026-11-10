@@ -196,13 +196,13 @@ describe('Gaming Centers Advanced Filters & Station Custom Selection API', () =>
   });
 
   describe('3. Optimized Gaming Center List API (Device Aggregation & Advanced Filters)', () => {
-    it('should aggregate device counts via groupBy and return structured device counts', async () => {
+    it('should aggregate device counts via groupBy and return structured device counts and lowest station hourlyRate', async () => {
       (prisma.gamingCenter.findMany as jest.Mock).mockResolvedValue([mockCenter1]);
       (prisma.gamingCenter.count as jest.Mock).mockResolvedValue(1);
       (prisma.gameStation.groupBy as jest.Mock).mockResolvedValue([
-        { gamingCenterId: 'center_10', stationType: 'PC', _count: { _all: 8 } },
-        { gamingCenterId: 'center_10', stationType: 'PLAYSTATION', _count: { _all: 5 } },
-        { gamingCenterId: 'center_10', stationType: 'XBOX', _count: { _all: 3 } },
+        { gamingCenterId: 'center_10', stationType: 'PC', _count: { _all: 8 }, _min: { hourlyPrice: 55000 } },
+        { gamingCenterId: 'center_10', stationType: 'PLAYSTATION', _count: { _all: 5 }, _min: { hourlyPrice: 75000 } },
+        { gamingCenterId: 'center_10', stationType: 'XBOX', _count: { _all: 3 }, _min: { hourlyPrice: 60000 } },
       ]);
 
       const res = await request(app).get('/api/v1/gamingCenters');
@@ -219,6 +219,8 @@ describe('Gaming Centers Advanced Filters & Station Custom Selection API', () =>
         SWITCH: 0,
         VR: 0,
       });
+      // Lowest active station price is 55000 (from PC stations)
+      expect(center.hourlyRate).toBe(55000);
       // Verification that individual stations are NOT exposed in list response
       expect(center.stations).toBeUndefined();
     });
