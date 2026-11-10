@@ -31,6 +31,7 @@ jest.mock('../../../src/config/prisma', () => ({
 }));
 
 describe('Gaming Centers API - Retrieval by ID and Slug', () => {
+  const now = new Date();
   const mockCenterData = {
     id: 'center_01',
     name: 'Rematch Game Net',
@@ -60,6 +61,31 @@ describe('Gaming Centers API - Retrieval by ID and Slug', () => {
     ratings: [
       { rating: 5, comment: 'Awesome', status: 'PUBLISHED' },
     ],
+    media: [
+      {
+        id: 'media_01',
+        url: 'https://cdn.example.com/cover1.jpg',
+        purpose: 'COVER',
+        isActive: true,
+        sortOrder: 1,
+      },
+      {
+        id: 'media_02',
+        url: 'https://cdn.example.com/cover2.jpg',
+        purpose: 'COVER',
+        isActive: true,
+        sortOrder: 2,
+      },
+    ],
+    discounts: [
+      {
+        id: 'discount_01',
+        isActive: true,
+        startAt: new Date(now.getTime() - 3600000),
+        endAt: new Date(now.getTime() + 3600000),
+      },
+    ],
+    discountCampaigns: [],
     settings: null,
   };
 
@@ -79,6 +105,13 @@ describe('Gaming Centers API - Retrieval by ID and Slug', () => {
       expect(res.body.data.slug).toBe('rematch-game-net');
       expect(res.body.data.pc).toBe(true);
       expect(res.body.data.ps5).toBe(true);
+      expect(res.body.data.hasDiscount).toBe(true);
+      expect(res.body.data.has_discount).toBe(true);
+      expect(res.body.data.coverImages).toEqual([
+        'https://cdn.example.com/cover1.jpg',
+        'https://cdn.example.com/cover2.jpg',
+      ]);
+      expect(res.body.data.coverImageUrl).toBe('https://cdn.example.com/cover1.jpg');
       expect(prisma.gamingCenter.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
@@ -118,6 +151,28 @@ describe('Gaming Centers API - Retrieval by ID and Slug', () => {
     });
   });
 
+  describe('GET /api/v1/gamingCenters', () => {
+    it('should list gaming centers with hasDiscount and coverImages', async () => {
+      (prisma.gamingCenter.findMany as jest.Mock).mockResolvedValue([mockCenterData]);
+      (prisma.gamingCenter.count as jest.Mock).mockResolvedValue(1);
+
+      const res = await request(app).get('/api/v1/gamingCenters');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.data.length).toBe(1);
+      const item = res.body.data.data[0];
+      expect(item.id).toBe('center_01');
+      expect(item.hasDiscount).toBe(true);
+      expect(item.has_discount).toBe(true);
+      expect(item.coverImages).toEqual([
+        'https://cdn.example.com/cover1.jpg',
+        'https://cdn.example.com/cover2.jpg',
+      ]);
+      expect(item.coverImageUrl).toBe('https://cdn.example.com/cover1.jpg');
+    });
+  });
+
   describe('GET /api/v1/public/gamingCenters/:gamingCenterSlug', () => {
     it('should return gaming center JSON details when queried via public route', async () => {
       (prisma.gamingCenter.findUnique as jest.Mock).mockResolvedValue({
@@ -135,6 +190,13 @@ describe('Gaming Centers API - Retrieval by ID and Slug', () => {
       expect(res.body.success).toBe(true);
       expect(res.body.data.id).toBe('center_01');
       expect(res.body.data.slug).toBe('rematch-game-net');
+      expect(res.body.data.hasDiscount).toBe(true);
+      expect(res.body.data.has_discount).toBe(true);
+      expect(res.body.data.coverImages).toEqual([
+        'https://cdn.example.com/cover1.jpg',
+        'https://cdn.example.com/cover2.jpg',
+      ]);
+      expect(res.body.data.coverImageUrl).toBe('https://cdn.example.com/cover1.jpg');
     });
 
     it('should return 404 for non-existent public gaming center slug', async () => {

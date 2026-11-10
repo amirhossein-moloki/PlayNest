@@ -1013,6 +1013,21 @@ components:
           type: boolean
         description:
           type: string
+        hasDiscount:
+          type: boolean
+          description: Indicates whether the gaming center currently has any active discounts or campaigns
+        has_discount:
+          type: boolean
+          description: Snake_case alias for hasDiscount
+        coverImages:
+          type: array
+          description: List of cover image URLs for the gaming center
+          items:
+            type: string
+        coverImageUrl:
+          type: string
+          nullable: true
+          description: Primary cover image URL for the gaming center
         managerId:
           type: string
           nullable: true

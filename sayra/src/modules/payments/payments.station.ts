@@ -121,10 +121,10 @@ const verifyPayment = async ({
   status?: string;
   providerName?: string;
 }) => {
-  // 1. Resolve payment record by authority or latest payment for reservation
+  // 1. Resolve payment record by authority or latest payment for reservation/hold
   const payment = authority
     ? await PaymentsRepo.findPaymentByProviderPaymentId(authority)
-    : await PaymentsRepo.findLatestPaymentByReservation(reservationId, gamingCenterId);
+    : await PaymentsRepo.findLatestPaymentByEntity(reservationId, gamingCenterId);
 
   if (!payment) {
     throw new AppError('Payment record not found.', httpStatus.NOT_FOUND);

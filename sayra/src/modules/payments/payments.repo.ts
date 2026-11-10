@@ -24,11 +24,19 @@ const findPaymentByProviderPaymentId = (providerPaymentId: string) => {
 
 const findLatestPaymentByReservation = (reservationId: string, gamingCenterId: string) => {
   return prisma.payment.findFirst({
+    where: { reservationId, gamingCenterId },
+    orderBy: { createdAt: 'desc' },
+    include: { reservation: true },
+  });
+};
+
+const findLatestPaymentByEntity = (entityId: string, gamingCenterId: string) => {
+  return prisma.payment.findFirst({
     where: {
       OR: [
-        { reservationId, gamingCenterId },
-        { bookingHoldId: reservationId, gamingCenterId },
-        { id: reservationId, gamingCenterId },
+        { reservationId: entityId, gamingCenterId },
+        { bookingHoldId: entityId, gamingCenterId },
+        { id: entityId, gamingCenterId },
       ],
     },
     orderBy: { createdAt: 'desc' },
@@ -229,6 +237,7 @@ export const PaymentsRepo = {
   findReservationForUpdate,
   findPaymentByProviderPaymentId,
   findLatestPaymentByReservation,
+  findLatestPaymentByEntity,
   createPaymentAndUpdateReservation,
   handleSuccessfulPayment,
   handleFailedPayment,
