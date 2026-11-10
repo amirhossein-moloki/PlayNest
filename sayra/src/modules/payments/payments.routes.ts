@@ -20,7 +20,7 @@ import { idempotencyMiddleware } from '../../common/middleware/idempotency';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
 import { AppRequest } from '../../types/express';
 
-const router = Router();
+const router = Router({ mergeParams: true });
 
 // Initiate payment
 router.post(

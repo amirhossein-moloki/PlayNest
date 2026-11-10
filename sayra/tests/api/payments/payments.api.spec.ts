@@ -27,6 +27,7 @@ jest.mock('../../../src/config/prisma', () => ({
 describe('Payment API', () => {
   const gamingCenterId = 'clp6u7o00000108msh9v8k7g5';
   const reservationId = 'clp6u7o00000108msh9v8k7g6';
+  const otherReservationId = 'clp6u7o00000108msh9v8k7g7';
   const userId = 'user-1';
 
   beforeEach(() => {
@@ -41,7 +42,7 @@ describe('Payment API', () => {
       expect(res.status).toBe(httpStatus.UNAUTHORIZED);
     });
 
-    it('should return 404 for wrong tenant', async () => {
+    it('should return 404 for wrong tenant (tenant mismatch or nonexistent center)', async () => {
       const token = generateAccessToken({ sessionId: 's1', actorId: userId, actorType: 'USER' });
       (prisma.user.findUnique as any).mockResolvedValue({ id: userId, gamingCenterId: 'other-gc', role: 'MANAGER' });
 
@@ -50,6 +51,106 @@ describe('Payment API', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({});
       expect(res.status).toBe(httpStatus.NOT_FOUND);
+      expect(res.body.error?.message).toBe('GamingCenter not found.');
+    });
+
+    it('should forward gamingCenterId and return 404 if reservation does not exist, without creating payment', async () => {
+      const token = generateAccessToken({ sessionId: 's1', actorId: userId, actorType: 'USER' });
+      (prisma.user.findUnique as any).mockResolvedValue({ id: userId, gamingCenterId, role: 'MANAGER' });
+      (prisma.reservation.findFirst as any).mockResolvedValue(null);
+
+      const res = await request(app)
+        .post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/init`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('Idempotency-Key', 'idempotency-key-16-chars-1')
+        .send({});
+
+      expect(res.status).toBe(httpStatus.NOT_FOUND);
+      expect(res.body.error?.message).toBe('Reservation not found.');
+      expect(prisma.reservation.findFirst).toHaveBeenCalledWith({
+        where: { id: reservationId, gamingCenterId },
+      });
+      expect(prisma.payment.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('should return 404 if reservation belongs to a different gaming center, without creating payment', async () => {
+      const token = generateAccessToken({ sessionId: 's1', actorId: userId, actorType: 'USER' });
+      (prisma.user.findUnique as any).mockResolvedValue({ id: userId, gamingCenterId, role: 'MANAGER' });
+      // Reservation belongs to otherGamingCenterId, so query scoped to gamingCenterId returns null
+      (prisma.reservation.findFirst as any).mockResolvedValue(null);
+
+      const res = await request(app)
+        .post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${otherReservationId}/payments/init`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('Idempotency-Key', 'idempotency-key-16-chars-2')
+        .send({});
+
+      expect(res.status).toBe(httpStatus.NOT_FOUND);
+      expect(res.body.error?.message).toBe('Reservation not found.');
+      expect(prisma.reservation.findFirst).toHaveBeenCalledWith({
+        where: { id: otherReservationId, gamingCenterId },
+      });
+    });
+
+    it('should successfully forward gamingCenterId through router to handler when valid', async () => {
+      const token = generateAccessToken({ sessionId: 's1', actorId: userId, actorType: 'USER' });
+      (prisma.user.findUnique as any).mockResolvedValue({ id: userId, gamingCenterId, role: 'MANAGER' });
+      (prisma.reservation.findFirst as any).mockResolvedValue({
+        id: reservationId,
+        gamingCenterId,
+        totalPrice: 100000,
+        customerPayableAmount: 100000,
+        paymentState: 'UNPAID',
+        status: 'CONFIRMED',
+        stationSnapshot: { currency: 'IRR' },
+      });
+
+      const mockFetch = jest.fn().mockImplementation(() =>
+        Promise.resolve({
+          json: () =>
+            Promise.resolve({
+              data: { authority: 'A00000000000000000000000000000000001', code: 100 },
+              errors: [],
+            }),
+        })
+      );
+      (global as any).fetch = mockFetch;
+
+      const mockTx = {
+        payment: {
+          create: jest.fn().mockImplementation(() =>
+            Promise.resolve({
+              id: 'clp6u7o00000108msh9v8k7g8',
+              status: 'INITIATED',
+              gamingCenterId,
+              reservationId,
+            })
+          ),
+        },
+        reservation: {
+          update: jest.fn().mockImplementation(() => Promise.resolve({})),
+        },
+      };
+      (prisma as any).$transaction = jest.fn().mockImplementation(async (cb: any) => cb(mockTx));
+      (prisma.payment.update as any) = jest.fn().mockImplementation(() => Promise.resolve({}));
+
+      const res = await request(app)
+        .post(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/init`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('Idempotency-Key', 'idempotency-key-16-chars-3')
+        .send({});
+
+      expect(res.status).toBe(httpStatus.CREATED);
+      expect(res.body.data.paymentId).toBe('clp6u7o00000108msh9v8k7g8');
+      expect(res.body.data.checkoutUrl).toContain('A00000000000000000000000000000000001');
+      expect(mockTx.payment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            gamingCenter: { connect: { id: gamingCenterId } },
+            reservation: { connect: { id: reservationId } },
+          }),
+        })
+      );
     });
   });
 
@@ -59,6 +160,20 @@ describe('Payment API', () => {
         .get(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/verify?Authority=A0001&Status=OK`);
       expect(res.status).toBe(httpStatus.UNAUTHORIZED);
     });
+
+    it('should correctly access gamingCenterId and proceed past tenantGuard when authorized', async () => {
+      const token = generateAccessToken({ sessionId: 's1', actorId: userId, actorType: 'USER' });
+      (prisma.user.findUnique as any).mockResolvedValue({ id: userId, gamingCenterId, role: 'MANAGER' });
+      (prisma.payment.findFirst as any).mockResolvedValue(null);
+
+      const res = await request(app)
+        .get(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/verify?Authority=A0001&Status=OK`)
+        .set('Authorization', `Bearer ${token}`);
+
+      // Reaches payments.station verifyPayment -> payment not found
+      expect(res.status).toBe(httpStatus.NOT_FOUND);
+      expect(res.body.error?.message).toBe('Payment record not found.');
+    });
   });
 
   describe('GET /payments/status', () => {
@@ -66,6 +181,25 @@ describe('Payment API', () => {
       const res = await request(app)
         .get(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/status`);
       expect(res.status).toBe(httpStatus.UNAUTHORIZED);
+    });
+
+    it('should correctly access gamingCenterId and proceed past tenantGuard when authorized', async () => {
+      const token = generateAccessToken({ sessionId: 's1', actorId: userId, actorType: 'USER' });
+      (prisma.user.findUnique as any).mockResolvedValue({ id: userId, gamingCenterId, role: 'MANAGER' });
+      (prisma.payment.findFirst as any).mockResolvedValue(null);
+
+      const res = await request(app)
+        .get(`/api/v1/gamingCenters/${gamingCenterId}/reservation/${reservationId}/payments/status`)
+        .set('Authorization', `Bearer ${token}`);
+
+      // Reaches payments.station getPaymentStatus -> payment not found
+      expect(res.status).toBe(httpStatus.NOT_FOUND);
+      expect(res.body.error?.message).toBe('No payment record found for this reservation.');
+      expect(prisma.payment.findFirst).toHaveBeenCalledWith({
+        where: { reservationId, gamingCenterId },
+        orderBy: { createdAt: 'desc' },
+        include: { reservation: true },
+      });
     });
   });
 
