@@ -3,10 +3,17 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { PaymentsStation } from '../../../../src/modules/payments/payments.station';
 import { PaymentsRepo } from '../../../../src/modules/payments/payments.repo';
 import { ReservationPaymentState, PaymentStatus, ReservationStatus } from '@prisma/client';
+import { zibalClient } from '../../../../src/modules/payments/providers/zibal.client';
 import AppError from '../../../../src/common/errors/AppError';
 import httpStatus from 'http-status';
 
 jest.mock('../../../../src/modules/payments/payments.repo');
+jest.mock('../../../../src/modules/payments/providers/zibal.client', () => ({
+  zibalClient: {
+    request: jest.fn(),
+    verify: jest.fn(),
+  },
+}));
 
 const mockFetch = jest.fn() as any;
 global.fetch = mockFetch;
@@ -38,12 +45,11 @@ describe('Payment Flow Integration', () => {
     MockedPaymentsRepo.findReservationForUpdate.mockResolvedValue(reservation as any);
     MockedPaymentsRepo.createPaymentAndUpdateReservation.mockResolvedValue({ payment } as any);
 
-    mockFetch.mockResolvedValue({
-      json: () =>
-        Promise.resolve({
-          data: { authority: 'A00000000000000000000000000000000001', code: 100 },
-          errors: [],
-        }),
+    (zibalClient.request as any).mockResolvedValue({
+      trackId: '12345678',
+      result: 100,
+      message: 'success',
+      paymentUrl: 'https://gateway.zibal.ir/start/12345678',
     });
 
     const result = await PaymentsStation.initiatePayment({
@@ -53,9 +59,9 @@ describe('Payment Flow Integration', () => {
     });
 
     expect(result.paymentId).toBe(payment.id);
-    expect(result.checkoutUrl).toContain('A00000000000000000000000000000000001');
+    expect(result.checkoutUrl).toContain('12345678');
     expect(MockedPaymentsRepo.updatePayment).toHaveBeenCalledWith(payment.id, {
-      providerPaymentId: 'A00000000000000000000000000000000001',
+      providerPaymentId: '12345678',
     });
   });
 
@@ -112,13 +118,9 @@ describe('Payment Flow Integration', () => {
     MockedPaymentsRepo.createPaymentAndUpdateReservation.mockResolvedValue({ payment } as any);
     MockedPaymentsRepo.transaction.mockImplementation(async (cb: any) => cb({}));
 
-    mockFetch.mockResolvedValue({
-      json: () =>
-        Promise.resolve({
-          data: null,
-          errors: { code: -1, message: 'Invalid Merchant ID' },
-        }),
-    });
+    (zibalClient.request as any).mockRejectedValue(
+      new AppError('Payment initiation rejected by provider.', httpStatus.BAD_GATEWAY)
+    );
 
     await expect(
       PaymentsStation.initiatePayment({
@@ -126,7 +128,7 @@ describe('Payment Flow Integration', () => {
         reservationId,
         idempotencyKey: 'key-3',
       })
-    ).rejects.toThrow('Payment initiation failed with provider.');
+    ).rejects.toThrow('Payment initiation rejected by provider.');
   });
 
   it('should verify payment using server-to-server provider check', async () => {
