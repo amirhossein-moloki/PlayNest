@@ -80,9 +80,14 @@ const processPaymentWebhook = async ({
 
       // Apply the state machine logic
       switch (eventStatus) {
-      case 'SUCCEEDED':
+      case 'SUCCEEDED': {
         await PaymentsRepo.handleSuccessfulPayment(tx, paymentId);
+        if (payment.bookingHoldId) {
+          const { BookingHoldStation } = await import('../booking-hold/booking-hold.station');
+          await BookingHoldStation.convertHoldToReservations(payment.bookingHoldId, payment.id, tx);
+        }
         break;
+      }
       case 'FAILED':
         await PaymentsRepo.handleFailedPayment(tx, paymentId);
         break;

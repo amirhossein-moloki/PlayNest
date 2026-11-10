@@ -18,15 +18,21 @@ const findReservationForUpdate = (reservationId: string, gamingCenterId: string)
 const findPaymentByProviderPaymentId = (providerPaymentId: string) => {
   return prisma.payment.findFirst({
     where: { providerPaymentId },
-    include: { reservation: true },
+    include: { reservation: true, bookingHold: true, groupBooking: true },
   });
 };
 
 const findLatestPaymentByReservation = (reservationId: string, gamingCenterId: string) => {
   return prisma.payment.findFirst({
-    where: { reservationId, gamingCenterId },
+    where: {
+      OR: [
+        { reservationId, gamingCenterId },
+        { bookingHoldId: reservationId, gamingCenterId },
+        { id: reservationId, gamingCenterId },
+      ],
+    },
     orderBy: { createdAt: 'desc' },
-    include: { reservation: true },
+    include: { reservation: true, bookingHold: true, groupBooking: true },
   });
 };
 
@@ -51,7 +57,7 @@ const createPaymentAndUpdateReservation = ({
 const handleSuccessfulPayment = async (tx: Tx, paymentId: string, refId?: string) => {
   const payment = await tx.payment.findUnique({
     where: { id: paymentId },
-    include: { reservation: true },
+    include: { reservation: true, bookingHold: true, groupBooking: true },
   });
 
   if (!payment) {
@@ -184,6 +190,13 @@ const handleFailedPayment = async (
       failureReason: failureReason || payment.failureReason,
     },
   });
+
+  if (payment.bookingHoldId) {
+    await tx.bookingHold.updateMany({
+      where: { id: payment.bookingHoldId, status: 'ACTIVE' },
+      data: { status: 'RELEASED' },
+    });
+  }
 
   if (payment.reservation && payment.reservation.paymentState !== ReservationPaymentState.PAID) {
     const newReservationPaymentState =

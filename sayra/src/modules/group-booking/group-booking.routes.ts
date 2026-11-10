@@ -3,6 +3,7 @@ import { validate } from '../../common/middleware/validate';
 import * as groupBookingController from './group-booking.controller';
 import {
   createPublicGroupReservationSchema,
+  checkoutGroupReservationSchema,
   createGroupBookingSchema,
   listGroupBookingQuerySchema,
   groupBookingIdParamSchema,
@@ -22,6 +23,15 @@ import { AppRequest } from '../../types/express';
 // --- Public Group Booking Router ---
 // Mount under: /api/v1/public/gamingCenters/:gamingCenterSlug/group-reservations
 export const publicGroupBookingRouter = Router({ mergeParams: true });
+
+publicGroupBookingRouter.post(
+  '/checkout',
+  ...(env.NODE_ENV !== 'test' ? [publicReservationRateLimiter] : []),
+  resolveGamingCenterBySlug,
+  validate(checkoutGroupReservationSchema),
+  asyncHandler(idempotencyMiddleware),
+  asyncHandler<AppRequest>(groupBookingController.checkoutGroupReservation)
+);
 
 publicGroupBookingRouter.post(
   '/',

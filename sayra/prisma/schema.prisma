@@ -38,6 +38,13 @@ enum ReservationStatus {
   EXPIRED
 }
 
+enum BookingHoldStatus {
+  ACTIVE
+  CONVERTED
+  EXPIRED
+  RELEASED
+}
+
 enum ReservationProposalStatus {
   PENDING
   ACCEPTED
@@ -518,8 +525,8 @@ model GamingCenter {
   games          String[] @default([])
 
   // Direct 1-to-1 Manager relationship (Each gaming center has at most one manager, each manager manages at most one center)
-  managerId    String? @unique
-  manager      User?   @relation("GamingCenterManager", fields: [managerId], references: [id], onDelete: SetNull)
+  managerId String? @unique
+  manager   User?   @relation("GamingCenterManager", fields: [managerId], references: [id], onDelete: SetNull)
 
   users        User[]
   stations     GameStation[]
@@ -558,6 +565,7 @@ model GamingCenter {
   // New features
   tournaments   Tournament[]
   groupBookings GroupBooking[]
+  bookingHolds  BookingHold[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -574,10 +582,10 @@ model GamingCenter {
   marketingSpends MarketingCampaignSpend[]
   forecastRuns    RevenueForecastRun[]
 
-  verifications GamingCenterVerification[]
-  onboarding    GameCenterOnboarding?
+  verifications  GamingCenterVerification[]
+  onboarding     GameCenterOnboarding?
   advertisements AdvertisementRequest[]
-  tickets       Ticket[]
+  tickets        Ticket[]
 
   @@index([slug])
   @@index([verificationStatus])
@@ -633,11 +641,11 @@ model User {
   stationSkills StaffStationSkill[]
   auditLogs     AuditLog[]
 
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  Ticket        Ticket[]       @relation("TicketAssignee")
-  ticketsCreated Ticket[]      @relation("TicketCreator")
-  notifications Notification[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  Ticket                Ticket[]               @relation("TicketAssignee")
+  ticketsCreated        Ticket[]               @relation("TicketCreator")
+  notifications         Notification[]
   advertisementRequests AdvertisementRequest[] @relation("AdRequestOwner")
 
   @@unique([gamingCenterId, phone])
@@ -678,6 +686,7 @@ model CustomerAccount {
   auditLogs          AuditLog[]
   memberships        Membership[]
   groupBookings      GroupBooking[]
+  bookingHolds       BookingHold[]
   discountUsages     DiscountUsage[]
 
   createdAt       DateTime        @default(now())
@@ -702,6 +711,7 @@ model CustomerProfile {
 
   reservations    Reservation[]
   groupBookings   GroupBooking[]
+  bookingHolds    BookingHold[]
   waitlistEntries WaitlistEntry[]
 
   createdAt DateTime @default(now())
@@ -790,11 +800,11 @@ model Media {
   uploadedById String?
   uploadedBy   User?   @relation("UploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
 
-  authorAvatars   AuthorProfile[] @relation("AuthorAvatar")
-  postCovers      Post[]          @relation("PostCover")
-  postOgImages    Post[]          @relation("PostOgImage")
-  postAttachments PostMedia[]
-  pageAttachments PageMedia[]
+  authorAvatars         AuthorProfile[]        @relation("AuthorAvatar")
+  postCovers            Post[]                 @relation("PostCover")
+  postOgImages          Post[]                 @relation("PostOgImage")
+  postAttachments       PostMedia[]
+  pageAttachments       PageMedia[]
   advertisementRequests AdvertisementRequest[]
 
   createdAt DateTime @default(now())
@@ -1103,10 +1113,10 @@ model GameCenterOnboarding {
   longitude  Decimal?
 
   // Working Hours draft
-  timezone    String   @default("Asia/Tehran")
+  timezone    String  @default("Asia/Tehran")
   openingTime String?
   closingTime String?
-  closedDays  Int[]    @default([])
+  closedDays  Int[]   @default([])
 
   // Media draft
   logoMediaId     String?
@@ -1128,9 +1138,9 @@ model GamingCenterVerification {
   status GamingCenterVerificationStatus @default(PENDING)
 
   // 1. National ID card / Shenasnameh photo
-  nationalCardUrl String
+  nationalCardUrl    String
   // 2. Selfie holding National ID / Shenasnameh
-  idWithSelfieUrl String
+  idWithSelfieUrl    String
   // 3. Business license / Activity permit photo
   businessLicenseUrl String
 
@@ -1327,19 +1337,19 @@ model Settings {
 }
 
 model DeviceType {
-  id          String           @id @default(cuid())
-  name        String           @unique
-  slug        String           @unique
+  id          String          @id @default(cuid())
+  name        String          @unique
+  slug        String          @unique
   description String?
   icon        String?
-  category    GameStationType  @default(PC)
-  isActive    Boolean          @default(true)
+  category    GameStationType @default(PC)
+  isActive    Boolean         @default(true)
 
   deviceCatalogs DeviceCatalog[]
   stations       GameStation[]
 
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([isActive])
   @@index([category])
@@ -1355,10 +1365,10 @@ model DeviceCatalog {
   description   String?
   isActive      Boolean         @default(true)
 
-  stations      GameStation[]
+  stations GameStation[]
 
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([deviceType, isActive])
   @@index([deviceTypeId])
@@ -1374,8 +1384,8 @@ model GameCatalog {
   description        String?
   isActive           Boolean           @default(true)
 
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([isActive])
 }
@@ -1410,6 +1420,7 @@ model GameStation {
   maintenances      StationMaintenance[]
   gamingSessions    GamingSession[]
   groupBookingItems GroupBookingItem[]
+  bookingHoldItems  BookingHoldItem[]
   waitlistEntries   WaitlistEntry[]
   waitlistOffers    WaitlistOffer[]
 
@@ -1615,6 +1626,72 @@ model GroupBookingItem {
   updatedAt DateTime @updatedAt
 
   @@index([groupBookingId])
+  @@index([stationId])
+}
+
+model BookingHold {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id])
+
+  customerProfileId String
+  customerProfile   CustomerProfile @relation(fields: [customerProfileId], references: [id])
+
+  customerAccountId String
+  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id])
+
+  startTime       DateTime @db.Timestamptz(6)
+  endTime         DateTime @db.Timestamptz(6)
+  durationMinutes Int      @default(60)
+  playerCount     Int      @default(1)
+
+  totalAmount Int
+  currency    String            @default("IRR")
+  status      BookingHoldStatus @default(ACTIVE)
+
+  expiresAt DateTime @db.Timestamptz(6)
+
+  idempotencyKey String?
+
+  convertedGroupBookingId String?
+
+  note String?
+
+  items   BookingHoldItem[]
+  payment Payment?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([gamingCenterId, idempotencyKey])
+  @@index([gamingCenterId, status, expiresAt])
+  @@index([status, expiresAt])
+  @@index([customerAccountId, status])
+  @@index([gamingCenterId, startTime])
+}
+
+model BookingHoldItem {
+  id String @id @default(cuid())
+
+  bookingHoldId String
+  bookingHold   BookingHold @relation(fields: [bookingHoldId], references: [id], onDelete: Cascade)
+
+  stationId String
+  station   GameStation @relation(fields: [stationId], references: [id])
+
+  staffId String?
+
+  price          Float
+  discountAmount Float   @default(0)
+  discountId     String?
+
+  stationSnapshot Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([bookingHoldId])
   @@index([stationId])
 }
 
@@ -1840,6 +1917,9 @@ model Payment {
   groupBookingId String?
   groupBooking   GroupBooking? @relation(fields: [groupBookingId], references: [id], onDelete: Cascade)
 
+  bookingHoldId String?      @unique
+  bookingHold   BookingHold? @relation(fields: [bookingHoldId], references: [id], onDelete: Cascade)
+
   amount   Int
   currency String
 
@@ -2057,9 +2137,9 @@ model PlatformAdmin {
   isSuperuser  Boolean   @default(true)
   lastLogin    DateTime?
 
-  auditLogs AuditLog[]
-  reviewedVerifications GamingCenterVerification[]
-  reviewedAdvertisements AdvertisementRequest[] @relation("AdRequestReviewer")
+  auditLogs              AuditLog[]
+  reviewedVerifications  GamingCenterVerification[]
+  reviewedAdvertisements AdvertisementRequest[]     @relation("AdRequestReviewer")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2234,12 +2314,12 @@ model DiscountCampaign {
   discountValue  Float?
   minOrderAmount Float?
 
-  scopeType              CampaignScopeType?      @default(GLOBAL)
-  applicableGamecenterIds String[]               @default([])
-  applicableDeviceTypes   GameStationType[]      @default([])
+  scopeType               CampaignScopeType? @default(GLOBAL)
+  applicableGamecenterIds String[]           @default([])
+  applicableDeviceTypes   GameStationType[]  @default([])
 
-  targetAudience CampaignTargetAudience? @default(ALL_USERS)
-  specificUserIds String[]               @default([])
+  targetAudience  CampaignTargetAudience? @default(ALL_USERS)
+  specificUserIds String[]                @default([])
 
   totalUsageLimit   Int?
   perUserUsageLimit Int?
@@ -2297,18 +2377,18 @@ model PlatformSetting {
   maintenanceMessage String  @default("Site is undergoing maintenance. Please check back later.")
 
   // Reservation Rules
-  platformCommissionPercent    Float @default(5.0)
-  maxAdvanceBookingDays        Int   @default(14)
-  onlinePaymentTimeoutMinutes  Int   @default(15)
-  cancellationPenaltyPercent   Float @default(10.0)
-  freeCancellationHours        Int   @default(2)
+  platformCommissionPercent   Float @default(5.0)
+  maxAdvanceBookingDays       Int   @default(14)
+  onlinePaymentTimeoutMinutes Int   @default(15)
+  cancellationPenaltyPercent  Float @default(10.0)
+  freeCancellationHours       Int   @default(2)
 
   // Notification Settings
-  autoSendBookingSms              Boolean @default(true)
-  autoSendReminderSms             Boolean @default(true)
-  welcomeSmsTemplate              String  @default("Welcome to PlayNest, {name}!")
-  bookingConfirmationSmsTemplate  String  @default("Your booking #{id} at {center} is confirmed.")
-  bookingReminderSmsTemplate      String  @default("Reminder: Your booking #{id} starts in {hours} hours.")
+  autoSendBookingSms             Boolean @default(true)
+  autoSendReminderSms            Boolean @default(true)
+  welcomeSmsTemplate             String  @default("Welcome to PlayNest, {name}!")
+  bookingConfirmationSmsTemplate String  @default("Your booking #{id} at {center} is confirmed.")
+  bookingReminderSmsTemplate     String  @default("Reminder: Your booking #{id} starts in {hours} hours.")
 
   // Review Moderation Settings
   reviewApprovalPolicy ReviewApprovalPolicy @default(AUTO)
@@ -2781,34 +2861,34 @@ model AdvertisementRequest {
 }
 
 model CalendarYear {
-  id                         String          @id @default(cuid())
-  year                       Int             @unique
-  isOfficialCalendarPublished Boolean         @default(false)
-  source                     String?         @default("official_calendar")
-  lastSyncedAt               DateTime?       @db.Timestamptz(6)
+  id                          String    @id @default(cuid())
+  year                        Int       @unique
+  isOfficialCalendarPublished Boolean   @default(false)
+  source                      String?   @default("official_calendar")
+  lastSyncedAt                DateTime? @db.Timestamptz(6)
 
-  createdAt                  DateTime        @default(now())
-  updatedAt                  DateTime        @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  events                     CalendarEvent[]
+  events CalendarEvent[]
 
   @@index([year])
 }
 
 model CalendarEvent {
-  id         String        @id @default(cuid())
-  yearId     String?
-  year       CalendarYear? @relation(fields: [yearId], references: [id], onDelete: Cascade)
+  id     String        @id @default(cuid())
+  yearId String?
+  year   CalendarYear? @relation(fields: [yearId], references: [id], onDelete: Cascade)
 
-  date       String
-  title      String
-  type       String        // national, religious, historical, cultural, international
-  isHoliday  Boolean       @default(false)
-  source     String        @default("official_calendar")
-  verified   Boolean       @default(true)
+  date      String
+  title     String
+  type      String // national, religious, historical, cultural, international
+  isHoliday Boolean @default(false)
+  source    String  @default("official_calendar")
+  verified  Boolean @default(true)
 
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([date, title])
   @@index([date])

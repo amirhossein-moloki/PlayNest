@@ -52,7 +52,7 @@ export const AvailabilityRepo = {
     startDate: Date,
     endDate: Date
   ) {
-    return prisma.reservation.findMany({
+    const reservations = await prisma.reservation.findMany({
       where: {
         gamingCenterId,
         stationId,
@@ -61,6 +61,30 @@ export const AvailabilityRepo = {
         endTime: { gt: startDate },
       },
     });
+
+    const activeHolds = await prisma.bookingHold.findMany({
+      where: {
+        gamingCenterId,
+        status: 'ACTIVE',
+        expiresAt: { gt: new Date() },
+        startTime: { lt: endDate },
+        endTime: { gt: startDate },
+        items: {
+          some: { stationId },
+        },
+      },
+    });
+
+    const holdIntervals = (activeHolds || []).map((h) => ({
+      id: h.id,
+      gamingCenterId: h.gamingCenterId,
+      stationId,
+      startTime: h.startTime,
+      endTime: h.endTime,
+      status: 'PENDING' as const,
+    }));
+
+    return [...reservations, ...holdIntervals] as typeof reservations;
   },
 
   async findMaintenances(gamingCenterId: string, stationId: string, startDate: Date, endDate: Date) {

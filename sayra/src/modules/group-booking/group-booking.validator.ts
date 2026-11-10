@@ -30,6 +30,23 @@ export const createPublicGroupReservationSchema = z.object({
   }),
 });
 
+export const checkoutGroupReservationSchema = z.object({
+  headers: z.object({
+    'idempotency-key': z.string().min(16).max(128).optional(),
+  }).passthrough().optional(),
+  params: z.object({
+    gamingCenterSlug: z.string(),
+  }),
+  body: z.object({
+    startTime: z.string().datetime(),
+    durationMinutes: z.number().int().min(15).max(1440).optional().default(60),
+    items: z.array(groupBookingItemSchema).min(1, 'At least one station item is required'),
+    customer: customerSchema,
+    note: z.string().max(500).optional(),
+    provider: z.string().optional(),
+  }),
+});
+
 export const createGroupBookingSchema = z.object({
   params: z.object({
     gamingCenterId: z.string(),

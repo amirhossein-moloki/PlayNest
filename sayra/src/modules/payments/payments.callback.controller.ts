@@ -115,7 +115,12 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
   try {
     const finalPayment = await PaymentsRepo.transaction(async (tx) => {
       if (verifyResult.success) {
-        return PaymentsRepo.handleSuccessfulPayment(tx, payment.id, verifyResult.refId);
+        const updated = await PaymentsRepo.handleSuccessfulPayment(tx, payment.id, verifyResult.refId);
+        if (payment.bookingHoldId) {
+          const { BookingHoldStation } = await import('../booking-hold/booking-hold.station');
+          await BookingHoldStation.convertHoldToReservations(payment.bookingHoldId, payment.id, tx);
+        }
+        return updated;
       } else {
         return PaymentsRepo.handleFailedPayment(
           tx,

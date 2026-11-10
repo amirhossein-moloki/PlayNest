@@ -1705,6 +1705,172 @@ components:
           type: string
           format: date-time
 paths:
+  /public/gamingCenters/{gamingCenterSlug}/group-reservations/checkout:
+    post:
+      operationId: checkoutPublicGroupReservation
+      summary: Initiate secure payment-first group reservation checkout
+      description: Validates availability, creates an active BookingHold and pending payment, and returns gateway payment URL.
+      tags:
+      - Group Reservations
+      security: []
+      parameters:
+      - name: gamingCenterSlug
+        in: path
+        required: true
+        description: Unique slug of the gaming center
+        schema:
+          type: string
+      - name: idempotency-key
+        in: header
+        required: false
+        description: Unique key to prevent duplicate checkouts
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - startTime
+              - items
+              - customer
+              properties:
+                startTime:
+                  type: string
+                  format: date-time
+                durationMinutes:
+                  type: integer
+                  default: 60
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                    - stationId
+                    properties:
+                      stationId:
+                        type: string
+                      staffId:
+                        type: string
+                customer:
+                  type: object
+                  required:
+                  - fullName
+                  - phone
+                  properties:
+                    fullName:
+                      type: string
+                    phone:
+                      type: string
+                    email:
+                      type: string
+                note:
+                  type: string
+                provider:
+                  type: string
+      responses:
+        '201':
+          description: Booking hold created and payment checkout URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      holdId:
+                        type: string
+                      paymentId:
+                        type: string
+                      paymentStatus:
+                        type: string
+                      holdExpiresAt:
+                        type: string
+                        format: date-time
+                      paymentUrl:
+                        type: string
+                      totalAmount:
+                        type: integer
+                      currency:
+                        type: string
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Slot not available
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /payments/{paymentId}/verify:
+    post:
+      operationId: verifyDirectPayment
+      summary: Verify payment status and trigger hold conversion
+      description: Verifies payment with the provider on the backend and converts active BookingHold to confirmed/paid reservations.
+      tags:
+      - Payments
+      security: []
+      parameters:
+      - name: paymentId
+        in: path
+        required: true
+        description: Payment ID
+        schema:
+          type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                authority:
+                  type: string
+                status:
+                  type: string
+                provider:
+                  type: string
+      responses:
+        '200':
+          description: Verification result and converted group reservation if applicable
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /payments/webhook:
+    post:
+      operationId: handleUniversalPaymentWebhook
+      summary: Process universal payment gateway webhooks
+      description: Asynchronously receives payment events from gateways and safely triggers atomic conversion.
+      tags:
+      - Payments
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - paymentId
+              - status
+              properties:
+                eventId:
+                  type: string
+                paymentId:
+                  type: string
+                status:
+                  type: string
+                refId:
+                  type: string
+                amount:
+                  type: number
+      responses:
+        '200':
+          description: Webhook acknowledged
+
   /iran-calendar/days:
     get:
       operationId: getIranCalendarDays
@@ -10655,6 +10821,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
 tags:
+- name: Group Reservations
+  description: Public and tenant group reservation and booking hold checkout operations
 - name: Calendar
   description: Iranian official and Jalali calendar operations
 - name: Catalog
