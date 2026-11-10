@@ -5,6 +5,13 @@ import { SessionFactory } from '../../../../tests/factories/user.factory';
 import { CustomerAccount } from '@prisma/client';
 
 jest.mock('../../../../src/modules/auth/auth.repository');
+jest.mock('../../../../src/config/prisma', () => ({
+  prisma: {
+    user: { findMany: jest.fn().mockImplementation(() => Promise.resolve([])) },
+    customerAccount: { findUnique: jest.fn(), findFirst: jest.fn() },
+    session: { create: jest.fn() },
+  },
+}));
 
 const MockedAuthRepository = AuthRepository as jest.Mocked<typeof AuthRepository>;
 

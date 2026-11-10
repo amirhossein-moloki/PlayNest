@@ -241,18 +241,59 @@ export const authService = {
   },
 
   async loginCustomer(phone: string) {
+    const { getPhoneVariants } = await import('../../common/utils/phone');
+    const { IdentityService } = await import('./identity.service');
+    const { AuthorizationService } = await import('./authorization.service');
+    const { SessionService } = await import('./session.service');
+
     const normalizedPhone = normalizePhone(phone);
+    const variants = getPhoneVariants(phone);
+
+    // Identify identity strictly from database across all phone representations
+    const identity = await IdentityService.identifyByPhone(normalizedPhone);
+
+    // If an active staff or manager account exists, authenticate as USER and NEVER create a CustomerAccount
+    if (identity.actorType === 'USER' && identity.userAccounts.length > 0) {
+      const primaryUser = identity.userAccounts[0];
+      const authContext = AuthorizationService.resolveUserAuthorization(identity.userAccounts);
+      await AuthRepository.markUserPhoneVerified(normalizedPhone);
+      const { tokens } = await SessionService.createSession(primaryUser.id, SessionActorType.USER, authContext.roles);
+
+      return {
+        user: {
+          id: primaryUser.id,
+          phone: normalizedPhone,
+          actorType: SessionActorType.USER,
+          roles: authContext.roles,
+          permissions: authContext.permissions,
+          gamingCenters: authContext.gamingCenters,
+        },
+        tokens: { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken },
+      };
+    }
+
     let customer = await AuthRepository.findCustomerByPhone(normalizedPhone);
+    if (!customer) {
+      // Check customer account by variants as well
+      const { prisma } = await import('../../config/prisma');
+      const existingCustomer = await prisma.customerAccount.findFirst({
+        where: { phone: { in: variants } },
+      });
+      if (existingCustomer) {
+        customer = existingCustomer;
+      }
+    }
 
     if (!customer) {
-      // Use upsertCustomerAccount if available, otherwise fallback to createCustomer
-      customer = await (AuthRepository.upsertCustomerAccount
-        ? AuthRepository.upsertCustomerAccount(normalizedPhone, new Date())
-        : AuthRepository.createCustomer(normalizedPhone, new Date()));
-
-      if (!customer) {
-        /* istanbul ignore next */
+      if (AuthRepository.upsertCustomerAccount) {
+        customer = await AuthRepository.upsertCustomerAccount(normalizedPhone, new Date());
+      }
+      if (!customer && AuthRepository.createCustomer) {
         customer = await AuthRepository.createCustomer(normalizedPhone, new Date());
+      }
+      if (!customer) {
+        const { UserProvisioningService } = await import('./user-provisioning.service');
+        customer = await UserProvisioningService.provisionCustomer(normalizedPhone);
       }
     } else if (!customer.phoneVerifiedAt) {
       customer = await AuthRepository.markCustomerPhoneVerified(customer.id);

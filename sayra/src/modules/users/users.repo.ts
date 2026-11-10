@@ -112,9 +112,12 @@ export const findActiveManagerInCenter = async (gamingCenterId: string, excludeU
 };
 
 export const findManagerByPhone = async (phone: string) => {
+  const { getPhoneVariants } = await import('../../common/utils/phone');
+  const variants = getPhoneVariants(phone);
+
   return prisma.user.findFirst({
     where: {
-      phone,
+      phone: { in: variants },
       role: 'MANAGER',
       isActive: true,
     },
