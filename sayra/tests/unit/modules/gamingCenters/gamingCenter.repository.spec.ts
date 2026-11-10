@@ -43,22 +43,27 @@ describe('GamingCenterRepository', () => {
       });
 
       const result = await gamingCenterRepository.findById('center_10');
-      expect(gcMock.findFirst).toHaveBeenCalledWith({
-        where: {
-          OR: [
-            { id: 'center_10' },
-            { slug: 'center_10' },
-          ],
-          isActive: true,
-        },
-        include: {
-          addresses: true,
-          stations: true,
-          ratings: true,
-          settings: true,
-          manager: true,
-        },
-      });
+      expect(gcMock.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [
+              { id: 'center_10' },
+              { slug: 'center_10' },
+            ],
+            isActive: true,
+          },
+          include: expect.objectContaining({
+            addresses: true,
+            stations: true,
+            ratings: true,
+            settings: true,
+            manager: true,
+            media: expect.any(Object),
+            discounts: expect.any(Object),
+            discountCampaigns: expect.any(Object),
+          }),
+        })
+      );
 
       expect(result).toBeDefined();
       expect(result?.pc).toBe(true);
@@ -68,6 +73,9 @@ describe('GamingCenterRepository', () => {
       expect(result?.raiting).toBe(4.5);
       expect(result?.comment_count).toBe(2);
       expect(typeof result?.is_open).toBe('boolean');
+      expect(result?.hasDiscount).toBe(false);
+      expect(result?.coverImages).toEqual([]);
+      expect(result?.coverImageUrl).toBeNull();
     });
 
     it('should find by slug and isActive and transform', async () => {
@@ -91,22 +99,27 @@ describe('GamingCenterRepository', () => {
       });
 
       const result = await gamingCenterRepository.findById('arsha-cafe-game-net');
-      expect(gcMock.findFirst).toHaveBeenCalledWith({
-        where: {
-          OR: [
-            { id: 'arsha-cafe-game-net' },
-            { slug: 'arsha-cafe-game-net' },
-          ],
-          isActive: true,
-        },
-        include: {
-          addresses: true,
-          stations: true,
-          ratings: true,
-          settings: true,
-          manager: true,
-        },
-      });
+      expect(gcMock.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [
+              { id: 'arsha-cafe-game-net' },
+              { slug: 'arsha-cafe-game-net' },
+            ],
+            isActive: true,
+          },
+          include: expect.objectContaining({
+            addresses: true,
+            stations: true,
+            ratings: true,
+            settings: true,
+            manager: true,
+            media: expect.any(Object),
+            discounts: expect.any(Object),
+            discountCampaigns: expect.any(Object),
+          }),
+        })
+      );
 
       expect(result).toBeDefined();
       expect(result?.slug).toBe('arsha-cafe-game-net');
@@ -280,6 +293,99 @@ describe('GamingCenterRepository', () => {
       expect(transformed.ps5).toBe(false);
       expect(transformed.xbox).toBe(false);
       expect(transformed.is_open).toBe(true);
+      expect(transformed.hasDiscount).toBe(false);
+      expect(transformed.has_discount).toBe(false);
+      expect(transformed.coverImages).toEqual([]);
+      expect(transformed.coverImageUrl).toBeNull();
+    });
+
+    it('should detect active discount and extract cover images', () => {
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 3600000);
+      const oneHourLater = new Date(now.getTime() + 3600000);
+
+      const transformed = transformGamingCenter({
+        id: 'gc-promo',
+        name: 'Promo Center',
+        isActive: true,
+        slug: 'promo-center',
+        description: null,
+        pcCount: 10,
+        consoleCount: 2,
+        hourlyRate: 60000,
+        openingTime: '10:00',
+        closingTime: '23:00',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        addresses: [],
+        stations: [],
+        ratings: [],
+        settings: null,
+        discounts: [
+          {
+            isActive: true,
+            startAt: oneHourAgo,
+            endAt: oneHourLater,
+          },
+        ],
+        media: [
+          {
+            url: 'https://example.com/cover2.jpg',
+            purpose: 'COVER',
+            isActive: true,
+            sortOrder: 2,
+          },
+          {
+            url: 'https://example.com/cover1.jpg',
+            purpose: 'COVER',
+            isActive: true,
+            sortOrder: 1,
+          },
+        ],
+      } as any);
+
+      expect(transformed.hasDiscount).toBe(true);
+      expect(transformed.has_discount).toBe(true);
+      expect(transformed.coverImages).toEqual([
+        'https://example.com/cover1.jpg',
+        'https://example.com/cover2.jpg',
+      ]);
+      expect(transformed.coverImageUrl).toBe('https://example.com/cover1.jpg');
+    });
+
+    it('should evaluate hasDiscount as false when discount is expired', () => {
+      const now = new Date();
+      const twoHoursAgo = new Date(now.getTime() - 7200000);
+      const oneHourAgo = new Date(now.getTime() - 3600000);
+
+      const transformed = transformGamingCenter({
+        id: 'gc-expired-promo',
+        name: 'Expired Promo Center',
+        isActive: true,
+        slug: 'expired-promo-center',
+        description: null,
+        pcCount: 10,
+        consoleCount: 2,
+        hourlyRate: 60000,
+        openingTime: '10:00',
+        closingTime: '23:00',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        addresses: [],
+        stations: [],
+        ratings: [],
+        settings: null,
+        discounts: [
+          {
+            isActive: true,
+            startAt: twoHoursAgo,
+            endAt: oneHourAgo,
+          },
+        ],
+      } as any);
+
+      expect(transformed.hasDiscount).toBe(false);
+      expect(transformed.has_discount).toBe(false);
     });
   });
 });

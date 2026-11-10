@@ -32,6 +32,10 @@ export interface GamingCenterListItem {
   createdAt: Date | string;
   updatedAt: Date | string;
   addresses: Address[];
+  hasDiscount: boolean;
+  has_discount: boolean;
+  coverImages: string[];
+  coverImageUrl: string | null;
   deviceCounts?: DeviceTypeCounts;
   owner?: {
     id: string;
