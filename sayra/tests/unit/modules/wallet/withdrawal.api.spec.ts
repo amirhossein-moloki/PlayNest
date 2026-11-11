@@ -19,20 +19,20 @@ jest.mock('../../../../src/modules/audit/audit.station', () => ({
 // Mock middlewares
 let currentActor: any = null;
 
+function resForbidden(_req: any, res: any) {
+  res.status(401).json({ success: false, error: { message: 'Unauthorized' } });
+}
+
 jest.mock('../../../../src/common/middleware/auth', () => ({
   authMiddleware: (req: any, _res: any, next: any) => {
     if (currentActor) {
       req.actor = currentActor;
       next();
     } else {
-      resForbidden(req, _res, next);
+      resForbidden(req, _res);
     }
   },
 }));
-
-function resForbidden(_req: any, res: any, _next: any) {
-  res.status(401).json({ success: false, error: { message: 'Unauthorized' } });
-}
 
 describe('Withdrawal Routes Access Control & API Integration', () => {
   let app: Express;

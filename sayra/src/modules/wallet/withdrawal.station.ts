@@ -1,5 +1,5 @@
 import { Prisma, WithdrawalRequestStatus, WalletTransactionType } from '@prisma/client';
-import { WithdrawalRepo, ListWithdrawalRequestsFilters, ListTransactionsFilters } from './withdrawal.repo';
+import { WithdrawalRepo, ListWithdrawalRequestsFilters } from './withdrawal.repo';
 import { prisma } from '../../config/prisma';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
