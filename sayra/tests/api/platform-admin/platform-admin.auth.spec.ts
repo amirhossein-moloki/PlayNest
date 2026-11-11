@@ -63,6 +63,10 @@ describe('PLATFORM_ADMIN Authentication API', () => {
     expect(res.body.data.tokens).toBeDefined();
     expect(res.body.data.tokens.accessToken).toBeDefined();
     expect(res.body.data.tokens.refreshToken).toBeDefined();
+    expect(res.body.data.accessToken).toBeDefined();
+    expect(res.body.data.refreshToken).toBeDefined();
+    expect(res.body.data.accessToken).toBe(res.body.data.tokens.accessToken);
+    expect(res.body.data.refreshToken).toBe(res.body.data.tokens.refreshToken);
     expect(res.body.data.admin.id).toBe('pa_123');
     expect(res.body.data.admin.passwordHash).toBeUndefined();
   });

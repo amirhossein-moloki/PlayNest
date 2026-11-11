@@ -996,6 +996,22 @@ components:
               type: string
             user:
               $ref: '#/components/schemas/User'
+    PlatformAdminLoginResponse:
+      type: object
+      properties:
+        admin:
+          $ref: '#/components/schemas/PlatformAdmin'
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        tokens:
+          type: object
+          properties:
+            accessToken:
+              type: string
+            refreshToken:
+              type: string
     User:
       type: object
       properties:
@@ -7959,7 +7975,7 @@ paths:
                 - type: object
                   properties:
                     data:
-                      $ref: '#/components/schemas/AuthResponse'
+                      $ref: '#/components/schemas/PlatformAdminLoginResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
   /platform-admin/campaigns:
