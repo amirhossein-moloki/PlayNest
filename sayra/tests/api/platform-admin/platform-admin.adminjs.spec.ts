@@ -274,7 +274,6 @@ describe('PlayNest Platform Admin Panel - Phase 1 Test Suite', () => {
         'Refund',
         'LedgerEntry',
         'WalletTransaction',
-        'WithdrawalRequest',
         'CommissionPolicy',
         'Earning',
         'ReconciliationRecord',

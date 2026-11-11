@@ -287,19 +287,6 @@ enum WalletTransactionType {
   RESERVATION_PAYMENT
   DEPOSIT
   MANUAL_ADJUSTMENT
-  WITHDRAWAL_HOLD
-  WITHDRAWAL_REFUND
-  WITHDRAWAL_PAID
-}
-
-enum WithdrawalRequestStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  PROCESSING
-  PAID
-  FAILED
-  CANCELLED
 }
 
 enum TicketStatus {
@@ -694,16 +681,12 @@ model CustomerAccount {
 
   phoneVerifiedAt DateTime?
 
-  walletBalance   Int       @default(0)
-  reservedBalance Int       @default(0)
-  lastWithdrawalRequestAt DateTime?
+  walletBalance Int @default(0)
 
   profiles           CustomerProfile[]
   reservations       Reservation[]
   ratings            Rating[]
   walletTransactions WalletTransaction[]
-  withdrawalRequests WithdrawalRequest[]
-  notifications      CustomerNotification[]
   auditLogs          AuditLog[]
   memberships        Membership[]
   groupBookings      GroupBooking[]
@@ -2025,9 +2008,6 @@ model WalletTransaction {
   reservationId String?
   reservation   Reservation? @relation(fields: [reservationId], references: [id])
 
-  withdrawalRequestId String?
-  withdrawalRequest   WithdrawalRequest? @relation(fields: [withdrawalRequestId], references: [id])
-
   note String?
 
   createdAt DateTime @default(now())
@@ -2035,58 +2015,6 @@ model WalletTransaction {
   @@unique([reservationId, type], name: "unique_reservation_transaction_type")
   @@index([customerAccountId])
   @@index([reservationId])
-  @@index([withdrawalRequestId])
-}
-
-model WithdrawalRequest {
-  id                String                  @id @default(cuid())
-  customerAccountId String
-  customerAccount   CustomerAccount         @relation(fields: [customerAccountId], references: [id], onDelete: Restrict)
-
-  amount            Int
-  currency          String                  @default("IRR")
-  status            WithdrawalRequestStatus @default(PENDING)
-
-  rejectionReason   String?                 @db.Text
-  paymentReference  String?
-  bankDetails       Json?
-  note              String?                 @db.Text
-
-  reviewerAdminId   String?
-  reviewerAdmin     PlatformAdmin?          @relation("WithdrawalReviewer", fields: [reviewerAdminId], references: [id])
-
-  approvedAt        DateTime?               @db.Timestamptz(6)
-  processedAt       DateTime?               @db.Timestamptz(6)
-  paidAt            DateTime?               @db.Timestamptz(6)
-  rejectedAt        DateTime?               @db.Timestamptz(6)
-  cancelledAt       DateTime?               @db.Timestamptz(6)
-
-  walletTransactions WalletTransaction[]
-
-  createdAt         DateTime                @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime                @updatedAt @db.Timestamptz(6)
-
-  @@index([customerAccountId, createdAt])
-  @@index([status, createdAt])
-  @@index([status, approvedAt])
-}
-
-model CustomerNotification {
-  id                String          @id @default(cuid())
-  customerAccountId String
-  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
-
-  title             String
-  message           String          @db.Text
-  type              String          @default("GENERAL")
-  isRead            Boolean         @default(false)
-  metadata          Json?
-
-  createdAt         DateTime        @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime        @updatedAt @db.Timestamptz(6)
-
-  @@index([customerAccountId, isRead, createdAt])
-  @@index([customerAccountId, createdAt])
 }
 
 model Membership {
@@ -2257,7 +2185,6 @@ model PlatformAdmin {
   auditLogs              AuditLog[]
   reviewedVerifications  GamingCenterVerification[]
   reviewedAdvertisements AdvertisementRequest[]     @relation("AdRequestReviewer")
-  reviewedWithdrawals    WithdrawalRequest[]        @relation("WithdrawalReviewer")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

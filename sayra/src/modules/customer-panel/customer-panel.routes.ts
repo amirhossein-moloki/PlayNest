@@ -29,63 +29,6 @@ router.patch(
   asyncHandler<AppRequest>(CustomerPanelController.updateMe)
 );
 
-// Customer Wallet & Withdrawal Endpoints
-import * as WithdrawalController from '../wallet/withdrawal.controller';
-import {
-  requestWithdrawalSchema,
-  listCustomerWithdrawalsSchema,
-  customerWithdrawalIdParamSchema,
-  listCustomerTransactionsSchema,
-  customerTransactionIdParamSchema,
-  listCustomerNotificationsSchema,
-  customerNotificationIdParamSchema,
-} from '../wallet/withdrawal.validators';
-
-router.get('/wallet', asyncHandler<AppRequest>(WithdrawalController.getMyWallet));
-
-router.post(
-  '/wallet/withdraw',
-  validate(requestWithdrawalSchema),
-  asyncHandler<AppRequest>(WithdrawalController.createWithdrawalRequest)
-);
-
-router.get(
-  '/wallet/withdrawals',
-  validate(listCustomerWithdrawalsSchema),
-  asyncHandler<AppRequest>(WithdrawalController.listMyWithdrawals)
-);
-
-router.get(
-  '/wallet/withdrawals/:id',
-  validate(customerWithdrawalIdParamSchema),
-  asyncHandler<AppRequest>(WithdrawalController.getMyWithdrawalDetails)
-);
-
-router.get(
-  '/wallet/transactions',
-  validate(listCustomerTransactionsSchema),
-  asyncHandler<AppRequest>(WithdrawalController.listMyTransactions)
-);
-
-router.get(
-  '/wallet/transactions/:id',
-  validate(customerTransactionIdParamSchema),
-  asyncHandler<AppRequest>(WithdrawalController.getMyTransactionDetails)
-);
-
-// Customer In-App Notifications
-router.get(
-  '/notifications',
-  validate(listCustomerNotificationsSchema),
-  asyncHandler<AppRequest>(WithdrawalController.listMyNotifications)
-);
-
-router.patch(
-  '/notifications/:id/read',
-  validate(customerNotificationIdParamSchema),
-  asyncHandler<AppRequest>(WithdrawalController.markMyNotificationAsRead)
-);
-
 router.get('/reservation', validate(getCustomerReservationSchema), asyncHandler<AppRequest>(CustomerPanelController.getMyReservation));
 
 router.get('/:reservationId', asyncHandler<AppRequest>(CustomerPanelController.getMyReservationDetails));
