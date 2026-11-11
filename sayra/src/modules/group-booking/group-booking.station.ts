@@ -90,7 +90,7 @@ export const GroupBookingStation = {
       throw new AppError('GamingCenter not found.', httpStatus.NOT_FOUND);
     }
 
-    if (!gamingCenter.isActive) {
+    if (gamingCenter.isActive === false) {
       throw new AppError('GamingCenter is currently inactive.', httpStatus.FORBIDDEN, {
         code: 'GAMING_CENTER_INACTIVE',
       });
@@ -247,7 +247,7 @@ export const GroupBookingStation = {
       throw new AppError('GamingCenter not found.', httpStatus.NOT_FOUND);
     }
 
-    if (!gamingCenter.isActive) {
+    if (gamingCenter.isActive === false) {
       throw new AppError('GamingCenter is currently inactive.', httpStatus.FORBIDDEN, {
         code: 'GAMING_CENTER_INACTIVE',
       });
