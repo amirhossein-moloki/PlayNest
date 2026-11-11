@@ -567,6 +567,10 @@ model GamingCenter {
   groupBookings GroupBooking[]
   bookingHolds  BookingHold[]
 
+  // Operating Hours & Schedules & Closures
+  schedules GamingCenterSchedule[]
+  closures  GamingCenterClosure[]
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   Payment   Payment[]
@@ -1326,14 +1330,51 @@ model Settings {
   onlineBookingAutoConfirm   Boolean @default(false)
   requireOtpForPublicBooking Boolean @default(false)
 
-  maxAdvanceBookingDays    Int   @default(7)
-  minAdvanceBookingMinutes Int   @default(30)
-  cancellationHours        Int   @default(2)
-  noShowPenaltyAmount      Float @default(0)
-  autoReleaseUnpaidMinutes Int   @default(15)
+  maxAdvanceBookingDays                  Int   @default(7)
+  minAdvanceBookingMinutes               Int   @default(30)
+  cancellationHours                      Int   @default(2)
+  noShowPenaltyAmount                    Float @default(0)
+  autoReleaseUnpaidMinutes               Int   @default(15)
+  reservationConfirmationTimeoutMinutes  Int   @default(30)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model GamingCenterSchedule {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+
+  dayOfWeek Int // 0 = Sunday, 1 = Monday, ..., 6 = Saturday (matching standard JS/date-fns)
+  startTime String? // "HH:mm" e.g., "09:00"
+  endTime   String? // "HH:mm" e.g., "23:00" or "02:00" (overnight)
+  isClosed  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([gamingCenterId, dayOfWeek])
+  @@index([gamingCenterId])
+}
+
+model GamingCenterClosure {
+  id String @id @default(cuid())
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+
+  title     String?
+  reason    String?
+  startDate DateTime @db.Timestamptz(6)
+  endDate   DateTime @db.Timestamptz(6)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gamingCenterId, startDate, endDate])
+  @@index([gamingCenterId])
 }
 
 model DeviceType {
@@ -1526,7 +1567,8 @@ model Reservation {
   utmMedium   String?
   utmCampaign String?
 
-  expiresAt DateTime? @db.Timestamptz(6)
+  expiresAt             DateTime? @db.Timestamptz(6)
+  confirmationExpiresAt DateTime? @db.Timestamptz(6)
 
   completedAt DateTime? @db.Timestamptz(6)
   noShowAt    DateTime? @db.Timestamptz(6)
@@ -1557,6 +1599,7 @@ model Reservation {
   @@index([gamingCenterId, paymentState, startTime])
   @@index([groupBookingId])
   @@index([status, expiresAt])
+  @@index([status, confirmationExpiresAt])
 }
 
 model GroupBooking {
@@ -1589,7 +1632,8 @@ model GroupBooking {
   canceledByUserId String?
   canceledBy       User?     @relation("GroupBookingCanceler", fields: [canceledByUserId], references: [id])
 
-  expiresAt DateTime? @db.Timestamptz(6)
+  expiresAt             DateTime? @db.Timestamptz(6)
+  confirmationExpiresAt DateTime? @db.Timestamptz(6)
 
   items        GroupBookingItem[]
   reservations Reservation[]
@@ -1603,6 +1647,7 @@ model GroupBooking {
   @@index([customerProfileId, startTime])
   @@index([gamingCenterId, status, startTime])
   @@index([status, expiresAt])
+  @@index([status, confirmationExpiresAt])
 }
 
 model GroupBookingItem {

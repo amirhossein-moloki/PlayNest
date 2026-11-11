@@ -18,6 +18,8 @@ import {
 } from '../modules/station/station.routes';
 import staffRouter from '../modules/users/users.routes';
 import shiftsRouter from '../modules/staffShifts/staffShifts.routes';
+import { privateSchedulesRouter, publicSchedulesRouter } from '../modules/schedules/schedules.routes';
+import { privateClosuresRouter, publicClosuresRouter } from '../modules/closures/closures.routes';
 import availabilityRouter from '../modules/availability/availability.routes';
 import reservationRoutes from '../modules/reservation/reservation.routes';
 import publicReservationRoutes from '../modules/reservation/reservation.public.routes';
@@ -134,6 +136,14 @@ router.use('/public/gamingCenters/:gamingCenterSlug/stations', publicStationRout
 
 // --- Staff Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/staff', staffRouter);
+
+// --- Schedules Module Routes ---
+router.use('/gamingCenters/:gamingCenterId/schedules', privateSchedulesRouter);
+router.use('/public/gamingCenters/:gamingCenterSlug/schedules', resolveGamingCenterBySlug, publicSchedulesRouter);
+
+// --- Closures Module Routes ---
+router.use('/gamingCenters/:gamingCenterId/closures', privateClosuresRouter);
+router.use('/public/gamingCenters/:gamingCenterSlug/closures', resolveGamingCenterBySlug, publicClosuresRouter);
 
 // --- Shifts Module Routes ---
 // Nested under staff for clarity

@@ -49,7 +49,7 @@ export const ReservationRepo = {
     const client = tx || prisma;
     return client.gamingCenter.findUnique({
       where: { id },
-      include: { settings: true },
+      include: { settings: true, schedules: true, closures: true },
     });
   },
 
@@ -57,7 +57,7 @@ export const ReservationRepo = {
     const client = tx || prisma;
     return client.gamingCenter.findUnique({
       where: { slug },
-      include: { settings: true },
+      include: { settings: true, schedules: true, closures: true },
     });
   },
 
@@ -140,16 +140,19 @@ export const ReservationRepo = {
     return client.reservation.findMany({
       where: {
         status: ReservationStatus.PENDING,
-        expiresAt: { lte: now },
-        paymentState: { not: ReservationPaymentState.PAID },
+        OR: [
+          { confirmationExpiresAt: { lte: now } },
+          { expiresAt: { lte: now } },
+        ],
       },
       select: {
         id: true,
         gamingCenterId: true,
         expiresAt: true,
+        confirmationExpiresAt: true,
       },
       take: batchSize,
-      orderBy: { expiresAt: 'asc' },
+      orderBy: { createdAt: 'asc' },
     });
   },
 
@@ -158,16 +161,19 @@ export const ReservationRepo = {
     return client.groupBooking.findMany({
       where: {
         status: ReservationStatus.PENDING,
-        expiresAt: { lte: now },
-        paymentState: { not: ReservationPaymentState.PAID },
+        OR: [
+          { confirmationExpiresAt: { lte: now } },
+          { expiresAt: { lte: now } },
+        ],
       },
       select: {
         id: true,
         gamingCenterId: true,
         expiresAt: true,
+        confirmationExpiresAt: true,
       },
       take: batchSize,
-      orderBy: { expiresAt: 'asc' },
+      orderBy: { createdAt: 'asc' },
     });
   },
 
@@ -177,14 +183,29 @@ export const ReservationRepo = {
       where: {
         id,
         status: ReservationStatus.PENDING,
-        expiresAt: { lte: now },
-        paymentState: { not: ReservationPaymentState.PAID },
+        OR: [
+          { confirmationExpiresAt: { lte: now } },
+          { expiresAt: { lte: now } },
+        ],
       },
       data: {
         status: ReservationStatus.EXPIRED,
       },
     });
-    return result.count > 0;
+
+    if (result.count > 0) {
+      await client.reservationHistory.create({
+        data: {
+          reservationId: id,
+          fromStatus: ReservationStatus.PENDING,
+          toStatus: ReservationStatus.EXPIRED,
+          action: 'EXPIRE',
+          reason: 'عدم تأیید رزرو توسط صاحب گیمنت در مهلت تعیین‌شده',
+        },
+      });
+      return true;
+    }
+    return false;
   },
 
   async expireGroupBookingCandidate(id: string, now: Date, tx?: Prisma.TransactionClient): Promise<boolean> {
@@ -193,8 +214,10 @@ export const ReservationRepo = {
       where: {
         id,
         status: ReservationStatus.PENDING,
-        expiresAt: { lte: now },
-        paymentState: { not: ReservationPaymentState.PAID },
+        OR: [
+          { confirmationExpiresAt: { lte: now } },
+          { expiresAt: { lte: now } },
+        ],
       },
       data: {
         status: ReservationStatus.EXPIRED,
@@ -202,6 +225,11 @@ export const ReservationRepo = {
     });
 
     if (result.count > 0) {
+      const childReservations = await client.reservation.findMany({
+        where: { groupBookingId: id },
+        select: { id: true, status: true },
+      });
+
       await client.reservation.updateMany({
         where: {
           groupBookingId: id,
@@ -211,6 +239,18 @@ export const ReservationRepo = {
           status: ReservationStatus.EXPIRED,
         },
       });
+
+      for (const res of childReservations) {
+        await client.reservationHistory.create({
+          data: {
+            reservationId: res.id,
+            fromStatus: res.status,
+            toStatus: ReservationStatus.EXPIRED,
+            action: 'EXPIRE',
+            reason: 'عدم تأیید رزرو توسط صاحب گیمنت در مهلت تعیین‌شده',
+          },
+        });
+      }
       return true;
     }
     return false;

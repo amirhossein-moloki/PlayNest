@@ -189,14 +189,21 @@ export const reservationStation = {
         throw new AppError('GamingCenter not found.', httpStatus.NOT_FOUND);
       }
 
-      // Check global operating hours
-      validateOperatingHours(
-        startTime,
-        endTime,
-        gamingCenter.settings?.workStartTime || gamingCenter.openingTime,
-        gamingCenter.settings?.workEndTime || gamingCenter.closingTime,
-        gamingCenter.settings?.timeZone
-      );
+      if (gamingCenter.isActive === false) {
+        throw new AppError('GamingCenter is currently inactive.', httpStatus.FORBIDDEN, {
+          code: 'GAMING_CENTER_INACTIVE',
+        });
+      }
+
+      // Check global operating hours, per-day schedules, and closures
+      validateOperatingHours(startTime, endTime, {
+        openingTime: gamingCenter.settings?.workStartTime || gamingCenter.openingTime,
+        closingTime: gamingCenter.settings?.workEndTime || gamingCenter.closingTime,
+        timeZone: gamingCenter.settings?.timeZone || gamingCenter.timezone,
+        closedDays: gamingCenter.closedDays,
+        schedules: gamingCenter.schedules,
+        closures: gamingCenter.closures,
+      });
 
       const staff = await ReservationRepo.findStaff(staffId, gamingCenterId, stationId, undefined, tx);
 
@@ -319,6 +326,12 @@ export const reservationStation = {
           throw new AppError('GamingCenter not found.', httpStatus.NOT_FOUND);
         }
 
+        if (gamingCenter.isActive === false) {
+          throw new AppError('GamingCenter is currently inactive.', httpStatus.FORBIDDEN, {
+            code: 'GAMING_CENTER_INACTIVE',
+          });
+        }
+
         if (!gamingCenter.settings?.allowOnlineBooking) {
           throw new AppError('Online reservation is disabled.', httpStatus.FORBIDDEN, {
             code: 'ONLINE_RESERVATION_DISABLED',
@@ -365,14 +378,15 @@ export const reservationStation = {
         const maintenances = await ReservationRepo.findOverlappingMaintenance(station.id, startTime, endTime, tx);
         validateStationAvailability(station, maintenances);
 
-        // Check global operating hours
-        validateOperatingHours(
-          startTime,
-          endTime,
-          gamingCenter.settings?.workStartTime || gamingCenter.openingTime,
-          gamingCenter.settings?.workEndTime || gamingCenter.closingTime,
-          gamingCenter.settings?.timeZone
-        );
+        // Check operating hours, schedules, and closures
+        validateOperatingHours(startTime, endTime, {
+          openingTime: gamingCenter.settings?.workStartTime || gamingCenter.openingTime,
+          closingTime: gamingCenter.settings?.workEndTime || gamingCenter.closingTime,
+          timeZone: gamingCenter.settings?.timeZone || gamingCenter.timezone,
+          closedDays: gamingCenter.closedDays,
+          schedules: gamingCenter.schedules,
+          closures: gamingCenter.closures,
+        });
 
         const timeZone = gamingCenter.settings?.timeZone || 'UTC';
         const zonedStartAt = toZonedTime(startTime, timeZone);
@@ -413,9 +427,11 @@ export const reservationStation = {
           tx
         );
 
-        const expiresAt = status === ReservationStatus.PENDING
-          ? new Date(Date.now() + 60 * 1000)
+        const timeoutMinutes = gamingCenter.settings?.reservationConfirmationTimeoutMinutes ?? 30;
+        const confirmationExpiresAt = status === ReservationStatus.PENDING
+          ? new Date(Date.now() + timeoutMinutes * 60 * 1000)
           : null;
+        const expiresAt = confirmationExpiresAt;
 
         const reservation = await ReservationRepo.createReservation({
           gamingCenterId: gamingCenter.id,
@@ -430,6 +446,7 @@ export const reservationStation = {
           status,
           source: ReservationSource.ONLINE,
           expiresAt,
+          confirmationExpiresAt,
           stationSnapshot: {
             name: station.name,
             hourlyPrice: station.hourlyPrice,
@@ -625,13 +642,14 @@ export const reservationStation = {
           validateStationAvailability(effectiveStation, maintenances);
 
           // Check global operating hours
-          validateOperatingHours(
-            newStartAt,
-            newEndAt,
-            settings?.workStartTime || gamingCenter?.openingTime,
-            settings?.workEndTime || gamingCenter?.closingTime,
-            settings?.timeZone
-          );
+          validateOperatingHours(newStartAt, newEndAt, {
+            openingTime: settings?.workStartTime || gamingCenter?.openingTime,
+            closingTime: settings?.workEndTime || gamingCenter?.closingTime,
+            timeZone: settings?.timeZone || gamingCenter?.timezone,
+            closedDays: gamingCenter?.closedDays,
+            schedules: gamingCenter?.schedules,
+            closures: gamingCenter?.closures,
+          });
 
           const zonedNewStartAt = toZonedTime(newStartAt, timeZone);
 

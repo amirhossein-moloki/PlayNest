@@ -1,5 +1,5 @@
 import { addMinutes, addDays, isBefore } from 'date-fns';
-import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
+import { formatInTimeZone, fromZonedTime, toZonedTime } from 'date-fns-tz';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { getZonedStartAndEnd } from '../../common/utils/date';
@@ -24,7 +24,7 @@ export const validateLeadTime = (
 
 /**
  * Validates whether the requested timezone string is valid.
- * Falls back to 'UTC' if invalid.
+ * Falls back to 'Asia/Tehran' or 'UTC' if invalid.
  */
 export const resolveValidTimeZone = (timeZone?: string | null): string => {
   if (!timeZone) return 'UTC';
@@ -36,41 +36,123 @@ export const resolveValidTimeZone = (timeZone?: string | null): string => {
   }
 };
 
+export interface OperatingHoursOptions {
+  timeZone?: string | null;
+  openingTime?: string | null;
+  closingTime?: string | null;
+  closedDays?: number[];
+  schedules?: Array<{
+    dayOfWeek: number;
+    startTime?: string | null;
+    endTime?: string | null;
+    isClosed: boolean;
+  }>;
+  closures?: Array<{
+    id?: string;
+    title?: string | null;
+    reason?: string | null;
+    startDate: Date;
+    endDate: Date;
+  }>;
+}
+
 /**
- * Validates that a reservation interval falls strictly within the site's operating hours.
+ * Validates that a reservation interval falls strictly within the site's operating hours and not on closed days or exceptional closures.
  */
 export const validateOperatingHours = (
   startTime: Date,
   endTime: Date,
-  rawWorkStart?: string | null,
+  rawWorkStart?: string | null | OperatingHoursOptions,
   rawWorkEnd?: string | null,
   rawTimeZone?: string | null
 ): void => {
-  if (!rawWorkStart || !rawWorkEnd) {
-    return; // Operating 24/7 if no explicit operating hours set
+  let options: OperatingHoursOptions = {};
+
+  if (rawWorkStart && typeof rawWorkStart === 'object' && ('schedules' in rawWorkStart || 'closures' in rawWorkStart || 'timeZone' in rawWorkStart || 'openingTime' in rawWorkStart)) {
+    options = rawWorkStart;
+  } else {
+    options = {
+      openingTime: (rawWorkStart as string) || null,
+      closingTime: rawWorkEnd || null,
+      timeZone: rawTimeZone || null,
+    };
   }
 
-  const timeZone = resolveValidTimeZone(rawTimeZone);
+  const timeZone = resolveValidTimeZone(options.timeZone);
+
+  // 1. Check exceptional closures
+  if (options.closures && options.closures.length > 0) {
+    for (const closure of options.closures) {
+      const cStart = new Date(closure.startDate);
+      const cEnd = new Date(closure.endDate);
+      // Overlap condition: startTime < cEnd && endTime > cStart
+      if (startTime < cEnd && endTime > cStart) {
+        throw new AppError(
+          closure.reason ? `Center is closed: ${closure.reason}` : 'Selected time overlaps with a temporary closure.',
+          httpStatus.CONFLICT,
+          { code: 'CENTER_CLOSED', details: { closure } }
+        );
+      }
+    }
+  }
+
+  // 2. Determine dayOfWeek in the center's local timezone
+  const zonedStartTime = toZonedTime(startTime, timeZone);
+  const dayOfWeek = zonedStartTime.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
   const startDayStr = formatInTimeZone(startTime, timeZone, 'yyyy-MM-dd');
+
+  let dayOpeningTime = options.openingTime;
+  let dayClosingTime = options.closingTime;
+  let isClosedDay = options.closedDays?.includes(dayOfWeek) ?? false;
+
+  // If specific day schedule is defined in schedules, it overrides default opening/closing/closedDays
+  if (options.schedules && options.schedules.length > 0) {
+    const specificSchedule = options.schedules.find((s) => s.dayOfWeek === dayOfWeek);
+    if (specificSchedule) {
+      if (specificSchedule.isClosed) {
+        isClosedDay = true;
+      } else {
+        isClosedDay = false;
+        dayOpeningTime = specificSchedule.startTime || dayOpeningTime;
+        dayClosingTime = specificSchedule.endTime || dayClosingTime;
+      }
+    }
+  }
+
+  if (isClosedDay) {
+    throw new AppError('Center is closed on the selected day.', httpStatus.CONFLICT, {
+      code: 'CENTER_CLOSED',
+    });
+  }
+
+  if (!dayOpeningTime || !dayClosingTime) {
+    // 24/7 if no opening/closing time is configured
+    return;
+  }
 
   const parseMins = (str: string) => {
     const [h, m] = str.split(':').map(Number);
     return (h || 0) * 60 + (m || 0);
   };
 
-  const startMins = parseMins(rawWorkStart);
-  let endMins = parseMins(rawWorkEnd);
-  if (endMins === 0 && rawWorkEnd === '00:00') {
+  const startMins = parseMins(dayOpeningTime);
+  let endMins = parseMins(dayClosingTime);
+  if (endMins === 0 && (dayClosingTime === '00:00' || dayClosingTime === '24:00')) {
     endMins = 24 * 60;
   }
 
-  const opStartToday = fromZonedTime(`${startDayStr} ${rawWorkStart}:00`, timeZone);
+  if (startMins === endMins) {
+    // 24 hours open
+    return;
+  }
+
+  const opStartToday = fromZonedTime(`${startDayStr} ${dayOpeningTime}:00`, timeZone);
 
   if (endMins > startMins) {
     // Same-day operating shift (e.g. 09:00 to 23:00)
-    const opEndToday = rawWorkEnd === '24:00' || rawWorkEnd === '00:00'
+    const opEndToday = dayClosingTime === '24:00' || dayClosingTime === '00:00'
       ? addDays(fromZonedTime(`${startDayStr} 00:00:00`, timeZone), 1)
-      : fromZonedTime(`${startDayStr} ${rawWorkEnd}:00`, timeZone);
+      : fromZonedTime(`${startDayStr} ${dayClosingTime}:00`, timeZone);
 
     const isContainedToday = startTime >= opStartToday && endTime <= opEndToday;
     if (!isContainedToday) {
@@ -80,7 +162,7 @@ export const validateOperatingHours = (
     }
   } else {
     // Overnight / day-crossing shift (e.g. 18:00 to 02:00 next day)
-    const opEndToday = addDays(fromZonedTime(`${startDayStr} ${rawWorkEnd}:00`, timeZone), 1);
+    const opEndToday = addDays(fromZonedTime(`${startDayStr} ${dayClosingTime}:00`, timeZone), 1);
 
     const opStartPrev = addDays(opStartToday, -1);
     const opEndPrev = addDays(opEndToday, -1);

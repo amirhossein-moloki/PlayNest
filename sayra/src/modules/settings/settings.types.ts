@@ -16,4 +16,5 @@ export interface UpdateSettingsInput {
   depositRequirementPercentage?: number;
   noShowPenaltyAmount?: number;
   autoReleaseUnpaidMinutes?: number;
+  reservationConfirmationTimeoutMinutes?: number;
 }

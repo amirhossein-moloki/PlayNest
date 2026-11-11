@@ -21,6 +21,7 @@ export const updateSettingsSchema = z.object({
     depositRequirementPercentage: z.number().min(0).optional(),
     noShowPenaltyAmount: z.number().min(0).optional(),
     autoReleaseUnpaidMinutes: z.number().int().min(0).optional(),
+    reservationConfirmationTimeoutMinutes: z.number().int().min(1).max(1440).optional(),
   }),
   params: z.object({
     gamingCenterId: z.string().min(1, 'gamingCenterId is required'),
