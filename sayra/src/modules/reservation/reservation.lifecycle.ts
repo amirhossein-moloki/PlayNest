@@ -41,19 +41,52 @@ export const reservationLifecycle = {
       return reservation;
     }
 
+    if (reservation.status === ReservationStatus.CANCELED) {
+      throw new AppError('Cannot confirm a reservation that has already been canceled.', httpStatus.CONFLICT, {
+        code: 'RESERVATION_ALREADY_CANCELED',
+      });
+    }
+
     ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.CONFIRMED);
 
     const updatedReservation = await ReservationRepo.transaction(async (tx) => {
-      const result = await ReservationRepo.updateReservationWithInclude(
-        reservationId,
-        gamingCenterId,
-        { status: ReservationStatus.CONFIRMED },
-        {
+      // Atomic conditional update ensuring only PENDING reservation can be confirmed
+      const updateResult = await tx.reservation.updateMany({
+        where: {
+          id: reservationId,
+          gamingCenterId,
+          status: ReservationStatus.PENDING,
+        },
+        data: {
+          status: ReservationStatus.CONFIRMED,
+        },
+      });
+
+      if (updateResult.count === 0) {
+        const latest = await ReservationRepo.findReservationById(reservationId, gamingCenterId, tx);
+        if (!latest) {
+          throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
+        }
+        if (latest.status === ReservationStatus.CONFIRMED) {
+          return latest;
+        }
+        if (latest.status === ReservationStatus.CANCELED) {
+          throw new AppError('Cannot confirm a reservation that has already been canceled.', httpStatus.CONFLICT, {
+            code: 'RESERVATION_ALREADY_CANCELED',
+          });
+        }
+        throw new AppError(`Cannot confirm reservation with status ${latest.status}.`, httpStatus.CONFLICT, {
+          code: 'INVALID_TRANSITION',
+        });
+      }
+
+      const result = await tx.reservation.findUnique({
+        where: { id: reservationId },
+        include: {
           gamingCenter: { include: { settings: true } },
           customerAccount: true,
         },
-        tx
-      );
+      });
 
       if (!result) {
         throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
@@ -69,10 +102,14 @@ export const reservationLifecycle = {
       return result;
     });
 
+    const confirmedWithRelations = updatedReservation as typeof updatedReservation & {
+      gamingCenter?: unknown;
+      customerAccount?: unknown;
+    };
     eventEmitter.emit(AppEvents.RESERVATION_CONFIRMED, {
       reservation: updatedReservation,
-      gamingCenter: updatedReservation.gamingCenter,
-      customerAccount: updatedReservation.customerAccount,
+      gamingCenter: confirmedWithRelations.gamingCenter,
+      customerAccount: confirmedWithRelations.customerAccount,
     });
 
     return updatedReservation;

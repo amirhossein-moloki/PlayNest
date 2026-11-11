@@ -53,4 +53,33 @@ export class ReservationStateMachine {
     ];
     return terminalStates.includes(status);
   }
+
+  /**
+   * Validates if a reservation can be canceled by customer prior to gaming center owner confirmation.
+   * Only reservations in PENDING status can be canceled through this customer pre-confirmation flow.
+   */
+  static validateCustomerPreConfirmationCancellation(status: ReservationStatus): void {
+    if (status === ReservationStatus.CANCELED) {
+      // Idempotent case - allowed to be handled cleanly
+      return;
+    }
+    if (status === ReservationStatus.CONFIRMED) {
+      throw new AppError(
+        'Reservation has already been confirmed by the gaming center and cannot be canceled via pre-confirmation flow',
+        httpStatus.CONFLICT,
+        { code: 'RESERVATION_ALREADY_CONFIRMED' }
+      );
+    }
+    if (status !== ReservationStatus.PENDING) {
+      throw new AppError(
+        `Only pending reservations can be canceled before confirmation. Current status: ${status}`,
+        httpStatus.CONFLICT,
+        { code: 'INVALID_TRANSITION' }
+      );
+    }
+  }
+
+  static canCustomerCancelBeforeConfirmation(status: ReservationStatus): boolean {
+    return status === ReservationStatus.PENDING;
+  }
 }

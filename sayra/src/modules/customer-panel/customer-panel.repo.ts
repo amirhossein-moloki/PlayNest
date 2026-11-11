@@ -100,6 +100,39 @@ export const CustomerPanelRepo = {
     return client.reservation.findUnique({ where: { id } });
   },
 
+  async cancelPendingReservationAtomic(
+    id: string,
+    customerAccountId: string,
+    data: Prisma.ReservationUncheckedUpdateInput,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx || prisma;
+    const updateResult = await client.reservation.updateMany({
+      where: {
+        id,
+        customerAccountId,
+        status: 'PENDING',
+      },
+      data,
+    });
+
+    if (updateResult.count === 0) {
+      return null;
+    }
+
+    return client.reservation.findUnique({
+      where: { id },
+      include: {
+        gamingCenter: {
+          include: {
+            settings: true,
+          },
+        },
+        customerAccount: true,
+      },
+    });
+  },
+
   async updateCustomerAccount(id: string, data: Prisma.CustomerAccountUpdateInput, tx?: Prisma.TransactionClient) {
     const client = tx || prisma;
     return client.customerAccount.update({

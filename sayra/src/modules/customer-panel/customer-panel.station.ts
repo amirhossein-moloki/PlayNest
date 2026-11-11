@@ -4,11 +4,12 @@ import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { CustomerPanelRepo } from './customer-panel.repo';
 import { GetCustomerReservationQuery, CustomerSubmitReviewInput, UpdateCustomerProfileInput } from './customer-panel.validators';
-import { ReservationStatus, ReservationProposalStatus, Prisma, SessionActorType } from '@prisma/client';
+import { ReservationStatus, ReservationProposalStatus, Prisma, SessionActorType, CancellationCategory, CancellationActor } from '@prisma/client';
 import { auditService } from '../audit/audit.station';
 import { walletService } from '../wallet/wallet.station';
 import { AnalyticsRepo } from '../analytics/analytics.repo';
 import * as reviewsRepo from '../ratings/ratings.repo';
+import { AppEvents, eventEmitter } from '../../common/events/event-emitter';
 import { ReservationStateMachine } from '../reservation/reservation.state-machine';
 import { ReservationRepo } from '../reservation/reservation.repo';
 import { reservationStation } from '../reservation/reservation.station';
@@ -51,13 +52,19 @@ export const CustomerPanelStation = {
       gamingCenterId,
     };
 
-    const [reservation, totalItems] = await Promise.all([
+    const [reservations, totalItems] = await Promise.all([
       CustomerPanelRepo.findManyReservation(where, skip, pageSize),
       CustomerPanelRepo.countReservation(where),
     ]);
 
+    // Attach canCancel helper flag for client UI (true only when status is PENDING)
+    const formattedReservations = reservations.map((r) => ({
+      ...r,
+      canCancel: ReservationStateMachine.canCustomerCancelBeforeConfirmation(r.status),
+    }));
+
     return {
-      data: reservation,
+      data: formattedReservations,
       meta: {
         page,
         pageSize,
@@ -72,7 +79,12 @@ export const CustomerPanelStation = {
     if (!reservation) {
       throw new AppError('Reservation not found', httpStatus.NOT_FOUND);
     }
-    return reservation;
+
+    // Attach canCancel helper flag for client UI (true only when status is PENDING)
+    return {
+      ...reservation,
+      canCancel: ReservationStateMachine.canCustomerCancelBeforeConfirmation(reservation.status),
+    };
   },
 
   async rescheduleReservation(
@@ -106,33 +118,84 @@ export const CustomerPanelStation = {
       throw new AppError('Reservation not found', httpStatus.NOT_FOUND);
     }
 
+    // Idempotent: If already canceled, return reservation safely without re-triggering actions
     if (reservation.status === ReservationStatus.CANCELED) {
       return reservation;
     }
 
-    ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.CANCELED);
+    // Strict rule: Customer pre-confirmation cancellation is only permitted when status is PENDING
+    ReservationStateMachine.validateCustomerPreConfirmationCancellation(reservation.status);
+
+    const cancelReason = reason || 'Canceled by customer before confirmation';
+    const canceledAt = new Date();
 
     const updatedReservation = await CustomerPanelRepo.transaction(async (tx) => {
-      const result = await CustomerPanelRepo.updateReservation(reservationId, customerAccountId, {
-        status: ReservationStatus.CANCELED,
-        canceledAt: new Date(),
-        cancelReason: reason || 'Canceled by customer',
-      }, tx);
+      // Atomic conditional update ensuring only PENDING reservation for this customer can be canceled
+      const result = await CustomerPanelRepo.cancelPendingReservationAtomic(
+        reservationId,
+        customerAccountId,
+        {
+          status: ReservationStatus.CANCELED,
+          canceledAt,
+          cancelReason,
+          cancelCategory: CancellationCategory.CUSTOMER_CANCEL,
+          cancelActor: CancellationActor.CUSTOMER,
+        },
+        tx
+      );
+
+      // If update count was 0, a race condition occurred (e.g. owner confirmed or another cancel executed)
+      if (!result) {
+        const latest = await CustomerPanelRepo.findReservationById(reservationId, customerAccountId);
+        if (!latest) {
+          throw new AppError('Reservation not found', httpStatus.NOT_FOUND);
+        }
+        if (latest.status === ReservationStatus.CANCELED) {
+          return latest;
+        }
+        if (latest.status === ReservationStatus.CONFIRMED) {
+          throw new AppError(
+            'Reservation has already been confirmed by the gaming center and cannot be canceled via pre-confirmation flow',
+            httpStatus.CONFLICT,
+            { code: 'RESERVATION_ALREADY_CONFIRMED' }
+          );
+        }
+        throw new AppError(
+          `Only pending reservations can be canceled before confirmation. Current status: ${latest.status}`,
+          httpStatus.CONFLICT,
+          { code: 'INVALID_TRANSITION' }
+        );
+      }
 
       await ReservationRepo.createHistory({
         reservationId,
         fromStatus: reservation.status,
         toStatus: ReservationStatus.CANCELED,
-        action: 'CANCEL',
+        action: 'CANCEL_BY_CUSTOMER',
         actorId: customerAccountId,
         actorType: SessionActorType.CUSTOMER,
-        reason: reason || 'Canceled by customer',
+        reason: cancelReason,
+        metadata: {
+          preConfirmation: true,
+          canceledAt: canceledAt.toISOString(),
+        },
       }, tx);
 
-      // Trigger refund if there are successful payments
+      // Trigger refund if there are successful payments (idempotent inside walletService)
       await walletService.refundReservationToWallet(reservationId, tx);
 
       return result;
+    });
+
+    // Fire RESERVATION_CANCELED event so waitlist is notified, slot released, SMS sent
+    const resWithRelations = updatedReservation as typeof updatedReservation & {
+      gamingCenter?: unknown;
+      customerAccount?: unknown;
+    };
+    eventEmitter.emit(AppEvents.RESERVATION_CANCELED, {
+      reservation: updatedReservation,
+      gamingCenter: resWithRelations.gamingCenter,
+      customerAccount: resWithRelations.customerAccount,
     });
 
     await auditService.log(

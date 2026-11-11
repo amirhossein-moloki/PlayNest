@@ -5686,7 +5686,7 @@ paths:
       description: Get reservation details
   /customer/reservation/{reservationId}/cancel:
     post:
-      summary: Cancel my reservation
+      summary: Cancel my reservation before confirmation
       tags:
       - Customer Panel
       security:
@@ -5697,15 +5697,37 @@ paths:
         required: true
         schema:
           type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  maxLength: 500
+                  description: Optional cancellation reason provided by the customer
       responses:
         '200':
-          description: Reservation canceled
+          description: Reservation successfully canceled before confirmation
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '404':
+          description: Reservation not found or does not belong to customer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Reservation cannot be canceled (e.g. already confirmed, completed, or terminal)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       operationId: post_customer_reservation_reservationId_cancel
-      description: Cancel my reservation
+      description: Allows a customer to cancel their own pending reservation prior to gaming center owner confirmation. Atomically releases time slot and issues wallet refund if payment exists.
   /customer/reservation/{reservationId}/ratings:
     post:
       summary: Submit a review (customer panel)
