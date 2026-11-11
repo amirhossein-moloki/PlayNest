@@ -2285,7 +2285,7 @@ model Ticket {
   id String @id @default(cuid())
 
   customerAccountId String?
-  customerAccount   CustomerAccount? @relation(fields: [customerAccountId], references: [id])
+  customerAccount   CustomerAccount? @relation(fields: [customerAccountId], references: [id], onDelete: Restrict)
 
   userId String?
   user   User?   @relation("TicketCreator", fields: [userId], references: [id])
