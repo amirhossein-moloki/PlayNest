@@ -1,11 +1,23 @@
--- Migration: Align Station Catalog Index and Harmonize Analytics Indexes
+-- Migration: Add Zibal Payment Provider, Align Station Catalog Index and Harmonize Analytics Indexes
 -- Safe, non-destructive, idempotent migration for PlayNest Sayra production
 
--- 1. GameStation: Add index on (gamingCenterId, catalogDeviceId) to optimize catalog-based queries
+-- 1. PaymentProvider: Safely add ZIBAL if it does not already exist
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_enum
+        JOIN pg_type ON pg_enum.enumtypid = pg_type.oid
+        WHERE pg_type.typname = 'PaymentProvider' AND pg_enum.enumlabel = 'ZIBAL'
+    ) THEN
+        ALTER TYPE "PaymentProvider" ADD VALUE 'ZIBAL';
+    END IF;
+END $$;
+
+-- 2. GameStation: Add index on (gamingCenterId, catalogDeviceId) to optimize catalog-based queries
 CREATE INDEX IF NOT EXISTS "GameStation_gamingCenterId_catalogDeviceId_idx"
     ON "GameStation"("gamingCenterId", "catalogDeviceId");
 
--- 2. AnalyticsEvent: Standardize unique index on deduplicationKey and composite query index
+-- 3. AnalyticsEvent: Standardize unique index on deduplicationKey and composite query index
 -- Ensures compatibility with Prisma's unique constraint model without data loss
 DO $$
 BEGIN
@@ -35,7 +47,7 @@ END $$;
 CREATE INDEX IF NOT EXISTS "AnalyticsEvent_gamingCenterId_eventType_timestamp_idx"
     ON "AnalyticsEvent"("gamingCenterId", "eventType", "timestamp");
 
--- 3. WalletTransaction: Standardize composite unique index on (reservationId, type)
+-- 4. WalletTransaction: Standardize composite unique index on (reservationId, type)
 DO $$
 BEGIN
     -- Only replace if current index is a partial index
