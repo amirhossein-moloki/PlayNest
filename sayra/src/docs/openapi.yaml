@@ -1061,6 +1061,10 @@ components:
           type: string
           nullable: true
           description: Unique ID of the manager user managing this gaming center (1-to-1 relationship)
+        cancellationHours:
+          type: integer
+          example: 2
+          description: Hours before reservation start time within which cancellation is permitted
         hourlyRate:
           type: number
           description: Lowest hourly rate among registered active stations (or fallback default hourly rate)
@@ -5704,6 +5708,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '400':
+          description: Cancellation deadline exceeded or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       operationId: post_customer_reservation_reservationId_cancel
       description: Cancel my reservation
   /customer/reservation/{reservationId}/ratings:

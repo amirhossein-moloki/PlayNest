@@ -385,6 +385,7 @@ export function transformGamingCenter(
     : calculateGamingCenterPricing(effectiveHourlyRate, gc.discounts, gc.discountCampaigns);
 
   const effectiveHasDiscount = pricing.hasDiscount || hasDiscount;
+  const cancellationHours = settings?.cancellationHours ?? 2;
 
   return {
     id: gc.id,
@@ -411,6 +412,7 @@ export function transformGamingCenter(
     coverImageUrl: covers.coverImageUrl,
     banner: resolvedBanner,
     pricing,
+    cancellationHours,
     ...(manager
       ? {
         owner: {

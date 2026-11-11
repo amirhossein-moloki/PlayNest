@@ -298,6 +298,32 @@ describe('GamingCenterRepository', () => {
       expect(transformed.has_discount).toBe(false);
       expect(transformed.coverImages).toEqual([]);
       expect(transformed.coverImageUrl).toBeNull();
+      expect(transformed.cancellationHours).toBe(2);
+    });
+
+    it('should expose custom cancellationHours from settings', () => {
+      const transformed = transformGamingCenter({
+        id: 'gc-custom-cancel',
+        name: 'Custom Cancel Center',
+        isActive: true,
+        slug: 'custom-cancel',
+        description: null,
+        pcCount: 2,
+        consoleCount: 2,
+        hourlyRate: 50000,
+        openingTime: null,
+        closingTime: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        addresses: [],
+        stations: [],
+        ratings: [],
+        settings: {
+          cancellationHours: 5,
+        },
+      } as any);
+
+      expect(transformed.cancellationHours).toBe(5);
     });
 
     it('should detect active discount and extract cover images', () => {
