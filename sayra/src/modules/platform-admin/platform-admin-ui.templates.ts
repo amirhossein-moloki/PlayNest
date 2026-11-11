@@ -500,6 +500,48 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
     </div>
   </div>
 
+  <!-- Approve Advertisement Modal -->
+  <div id="approveAdModal" class="auth-overlay" style="display: none;">
+    <div class="auth-card" style="max-width: 450px;">
+      <h2><i class="fa-solid fa-check" style="color: var(--success);"></i> Approve Advertisement</h2>
+      <p>Configure the approved duration and display priority.</p>
+      <form id="approveAdForm" onsubmit="submitApproveAd(event)">
+        <input type="hidden" id="approveAdId" />
+        <div class="form-group">
+          <label for="approveAdDuration">Approved Duration (Days)</label>
+          <input type="number" id="approveAdDuration" class="form-control" min="1" max="365" required />
+        </div>
+        <div class="form-group">
+          <label for="approveAdPriority">Display Priority (0 - 1000)</label>
+          <input type="number" id="approveAdPriority" class="form-control" min="0" max="1000" value="0" />
+        </div>
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+          <button type="button" class="btn btn-secondary" onclick="closeApproveAdModal()">Cancel</button>
+          <button type="submit" class="btn btn-success">Confirm Approval</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Reject Advertisement Modal -->
+  <div id="rejectAdModal" class="auth-overlay" style="display: none;">
+    <div class="auth-card" style="max-width: 450px;">
+      <h2><i class="fa-solid fa-xmark" style="color: var(--danger);"></i> Reject Advertisement</h2>
+      <p>Please enter the reason for rejecting this advertisement request.</p>
+      <form id="rejectAdForm" onsubmit="submitRejectAd(event)">
+        <input type="hidden" id="rejectAdId" />
+        <div class="form-group">
+          <label for="rejectAdReason">Rejection Reason</label>
+          <textarea id="rejectAdReason" class="form-control" rows="3" required placeholder="Banner quality does not meet guidelines..."></textarea>
+        </div>
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+          <button type="button" class="btn btn-secondary" onclick="closeRejectAdModal()">Cancel</button>
+          <button type="submit" class="btn btn-danger">Confirm Rejection</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Platform Admin Authentication Modal (SSR Authentication Flow) -->
   <div id="authOverlay" class="auth-overlay" style="display: none;">
     <div class="auth-card">
@@ -816,10 +858,22 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
       } catch (e) { console.error(e); }
     }
 
-    async function openApproveAdModal(id, currentDuration) {
-      var days = prompt('Enter approved duration in days:', currentDuration || 30);
-      if (!days) return;
-      var priority = prompt('Enter display priority (0-1000):', '0');
+    function openApproveAdModal(id, currentDuration) {
+      document.getElementById('approveAdId').value = id;
+      document.getElementById('approveAdDuration').value = currentDuration || 30;
+      document.getElementById('approveAdPriority').value = 0;
+      document.getElementById('approveAdModal').style.display = 'flex';
+    }
+
+    function closeApproveAdModal() {
+      document.getElementById('approveAdModal').style.display = 'none';
+    }
+
+    async function submitApproveAd(e) {
+      e.preventDefault();
+      var id = document.getElementById('approveAdId').value;
+      var days = document.getElementById('approveAdDuration').value;
+      var priority = document.getElementById('approveAdPriority').value;
       var body = {
         status: 'APPROVED',
         durationDays: parseInt(days, 10),
@@ -830,20 +884,41 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
         headers: headers(),
         body: JSON.stringify(body)
       });
-      if (res.ok) { showToast('Advertisement approved successfully.'); loadAds(); }
-      else { alert('Failed to approve advertisement'); }
+      if (res.ok) {
+        showToast('Advertisement approved successfully.');
+        closeApproveAdModal();
+        loadAds();
+      } else {
+        alert('Failed to approve advertisement');
+      }
     }
 
-    async function openRejectAdModal(id) {
-      var reason = prompt('Please enter the rejection reason for this advertisement:');
-      if (!reason) return;
+    function openRejectAdModal(id) {
+      document.getElementById('rejectAdId').value = id;
+      document.getElementById('rejectAdReason').value = '';
+      document.getElementById('rejectAdModal').style.display = 'flex';
+    }
+
+    function closeRejectAdModal() {
+      document.getElementById('rejectAdModal').style.display = 'none';
+    }
+
+    async function submitRejectAd(e) {
+      e.preventDefault();
+      var id = document.getElementById('rejectAdId').value;
+      var reason = document.getElementById('rejectAdReason').value.trim();
       var res = await fetch('/api/v1/platform-admin/ad-requests/' + id + '/status', {
         method: 'PATCH',
         headers: headers(),
         body: JSON.stringify({ status: 'REJECTED', decisionReason: reason })
       });
-      if (res.ok) { showToast('Advertisement rejected.'); loadAds(); }
-      else { alert('Failed to reject advertisement'); }
+      if (res.ok) {
+        showToast('Advertisement rejected.');
+        closeRejectAdModal();
+        loadAds();
+      } else {
+        alert('Failed to reject advertisement');
+      }
     }
 
     async function deleteAdRequestPrompt(id) {

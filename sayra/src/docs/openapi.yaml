@@ -1797,7 +1797,547 @@ components:
         updatedAt:
           type: string
           format: date-time
+    AdvertisementRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        bannerUrl:
+          type: string
+        mediaType:
+          type: string
+          enum: [IMAGE, VIDEO, AUDIO, DOCUMENT, FILE]
+        destinationUrl:
+          type: string
+          nullable: true
+        proposedDurationDays:
+          type: integer
+          example: 30
+        durationDays:
+          type: integer
+          example: 30
+        priority:
+          type: integer
+          example: 0
+        startDate:
+          type: string
+          format: date-time
+          nullable: true
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED, ACTIVE, EXPIRED, DELETED]
+        decisionReason:
+          type: string
+          nullable: true
+        adminNote:
+          type: string
+          nullable: true
+        gamingCenterId:
+          type: string
+        ownerId:
+          type: string
+        remainingDays:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+    CreateAdvertisementInput:
+      type: object
+      required:
+      - title
+      - bannerUrl
+      properties:
+        title:
+          type: string
+          example: Spring Championship 2026
+        description:
+          type: string
+          example: Special discounts and prizes for PS5 and PC gamers
+        bannerUrl:
+          type: string
+          example: /uploads/banners/spring2026.png
+        destinationUrl:
+          type: string
+          example: https://playnest.ir/events/spring-2026
+        proposedDurationDays:
+          type: integer
+          default: 30
+          example: 30
+    UpdatePlatformAdStatusInput:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum: [APPROVED, REJECTED]
+        decisionReason:
+          type: string
+          description: Required when status is REJECTED
+        adminNote:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        durationDays:
+          type: integer
+        priority:
+          type: integer
+          default: 0
 paths:
+  /public/advertisements/slider:
+    get:
+      operationId: getPublicSliderAdvertisements
+      summary: Get active advertisement slides for public banner slider
+      description: Returns currently active and approved advertisements across the platform, sorted by priority.
+      tags:
+      - Public
+      security: []
+      responses:
+        '200':
+          description: List of active slider advertisements
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        title:
+                          type: string
+                        description:
+                          type: string
+                          nullable: true
+                        bannerUrl:
+                          type: string
+                        mediaType:
+                          type: string
+                        destinationUrl:
+                          type: string
+                          nullable: true
+                        priority:
+                          type: integer
+                        startDate:
+                          type: string
+                          format: date-time
+                        endDate:
+                          type: string
+                          format: date-time
+                        gamingCenterName:
+                          type: string
+                        gamingCenterSlug:
+                          type: string
+  /gamingCenters/{gamingCenterId}/advertisements:
+    get:
+      operationId: listCenterAdvertisements
+      summary: List advertisements for a gaming center
+      description: Returns paginated list of advertisements created by the gaming center owner.
+      tags:
+      - Advertisements
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED, ACTIVE, EXPIRED, DELETED]
+      - name: search
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: List of advertisements
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdvertisementRequest'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+    post:
+      operationId: createCenterAdvertisement
+      summary: Submit a new advertisement request
+      description: Creates a new advertisement request in PENDING status for admin review.
+      tags:
+      - Advertisements
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAdvertisementInput'
+      responses:
+        '201':
+          description: Advertisement request created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/AdvertisementRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+  /gamingCenters/{gamingCenterId}/advertisements/upload:
+    post:
+      operationId: uploadAdvertisementBanner
+      summary: Upload an advertisement banner image
+      description: Validates and stores a banner image, returning original and thumbnail URLs.
+      tags:
+      - Advertisements
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - banner
+              properties:
+                banner:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Banner image uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      url:
+                        type: string
+                      thumbUrl:
+                        type: string
+  /gamingCenters/{gamingCenterId}/advertisements/{id}:
+    get:
+      operationId: getCenterAdvertisementById
+      summary: Get advertisement details
+      description: Returns details of a specific advertisement belonging to the gaming center.
+      tags:
+      - Advertisements
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Advertisement details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/AdvertisementRequest'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    patch:
+      operationId: updateCenterAdvertisement
+      summary: Update a pending advertisement request
+      description: Modifies details of an advertisement while it remains in PENDING status.
+      tags:
+      - Advertisements
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                bannerUrl:
+                  type: string
+                destinationUrl:
+                  type: string
+                proposedDurationDays:
+                  type: integer
+      responses:
+        '200':
+          description: Advertisement updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/AdvertisementRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      operationId: deleteCenterAdvertisement
+      summary: Cancel / delete an advertisement request
+      description: Soft deletes the advertisement request.
+      tags:
+      - Advertisements
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Advertisement deleted
+  /platform-admin/ad-requests:
+    get:
+      operationId: listPlatformAdRequests
+      summary: List all advertisement requests across platform
+      description: Returns paginated list of all advertisement requests for Platform Admin review.
+      tags:
+      - PlatformAdmin
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED, ACTIVE, EXPIRED, DELETED]
+      - name: search
+        in: query
+        schema:
+          type: string
+      - name: gamingCenterId
+        in: query
+        schema:
+          type: string
+      - name: ownerId
+        in: query
+        schema:
+          type: string
+      - name: city
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: List of platform ad requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdvertisementRequest'
+  /platform-admin/ad-requests/{id}:
+    get:
+      operationId: getPlatformAdRequestById
+      summary: Get advertisement request details for Platform Admin
+      description: Returns full details of an ad request including gaming center and owner info.
+      tags:
+      - PlatformAdmin
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Advertisement details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/AdvertisementRequest'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      operationId: deletePlatformAdRequest
+      summary: Delete an advertisement request by Platform Admin
+      description: Soft deletes an ad request and records an administrative audit log.
+      tags:
+      - PlatformAdmin
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Advertisement deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/AdvertisementRequest'
+  /platform-admin/ad-requests/{id}/status:
+    patch:
+      operationId: updatePlatformAdRequestStatus
+      summary: Review, approve, or reject an advertisement request
+      description: Approves or rejects an ad request, allowing custom duration, start/end dates, and display priority.
+      tags:
+      - PlatformAdmin
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlatformAdStatusInput'
+      responses:
+        '200':
+          description: Status updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/AdvertisementRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Conflict - Request already decided
   /public/gamingCenters/{gamingCenterSlug}/group-reservations/checkout:
     post:
       operationId: checkoutPublicGroupReservation
@@ -11019,5 +11559,7 @@ tags:
   description: System-wide Platform Administration and multi-center governance
 - name: Expenses
   description: Gaming center operational expense tracking, categorization, and approvals
+- name: Advertisements
+  description: Gaming center owner advertisement requests and banner slider submissions
 security:
 - bearerAuth: []
