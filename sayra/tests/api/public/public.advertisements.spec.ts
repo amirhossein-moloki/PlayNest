@@ -9,6 +9,9 @@ jest.mock('../../../src/config/prisma', () => {
       advertisementRequest: {
         findMany: jest.fn(),
       },
+      gamingCenter: {
+        findUnique: jest.fn(),
+      },
     },
   };
 });
@@ -79,6 +82,53 @@ describe('Public Advertisement Slider API', () => {
           { priority: 'desc' },
           { createdAt: 'desc' },
         ],
+      })
+    );
+  });
+
+  it('GET /api/v1/public/advertisements/slider strictly excludes PENDING and REJECTED advertisements', async () => {
+    ((prisma as any).advertisementRequest.findMany as jest.Mock).mockImplementation((args: any) => {
+      const statusFilter = args?.where?.status?.in || [];
+      expect(statusFilter).toEqual(['APPROVED', 'ACTIVE']);
+      expect(statusFilter).not.toContain('PENDING');
+      expect(statusFilter).not.toContain('REJECTED');
+      return Promise.resolve(sampleActiveAds.filter((ad) => statusFilter.includes(ad.status)));
+    });
+
+    const res = await request(app).get('/api/v1/public/advertisements/slider');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(2);
+    res.body.data.forEach((ad: any) => {
+      expect(['ad_active_1', 'ad_active_2']).toContain(ad.id);
+    });
+  });
+
+  it('GET /api/v1/public/gamingCenters/:gamingCenterSlug/advertisements/slider filters by specific center slug and approved/active status', async () => {
+    ((prisma as any).gamingCenter.findUnique as jest.Mock).mockResolvedValue({
+      id: 'gc_1',
+      name: 'Nexus Arena',
+      slug: 'nexus-arena',
+      isActive: true,
+    });
+    ((prisma as any).advertisementRequest.findMany as jest.Mock).mockResolvedValue([sampleActiveAds[0]]);
+
+    const res = await request(app).get('/api/v1/public/gamingCenters/nexus-arena/advertisements/slider');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].gamingCenterSlug).toBe('nexus-arena');
+
+    expect((prisma as any).advertisementRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          deletedAt: null,
+          status: { in: ['APPROVED', 'ACTIVE'] },
+          gamingCenter: {
+            slug: 'nexus-arena',
+            isActive: true,
+          },
+        }),
       })
     );
   });
