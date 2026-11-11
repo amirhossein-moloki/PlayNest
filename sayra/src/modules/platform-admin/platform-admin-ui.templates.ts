@@ -285,17 +285,29 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
     <!-- Tab 3: Advertisements -->
     <div id="tab-ads" class="card" style="display:none;">
       <div class="section-header">
-        <div class="section-title"><i class="fa-solid fa-rectangle-ad"></i> Advertisement Requests</div>
-        <button class="btn btn-secondary btn-sm" onclick="loadAds()"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+        <div class="section-title"><i class="fa-solid fa-rectangle-ad"></i> Slider Advertisement Management</div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <input type="text" id="ad-search-input" placeholder="Search center or title..." class="input" style="width:200px; padding:6px 12px; font-size:13px;" onkeyup="loadAds()" />
+          <select id="ad-status-filter" class="select" style="padding:6px 12px; font-size:13px;" onchange="loadAds()">
+            <option value="">All Statuses</option>
+            <option value="PENDING">PENDING</option>
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="APPROVED">APPROVED</option>
+            <option value="REJECTED">REJECTED</option>
+            <option value="EXPIRED">EXPIRED</option>
+            <option value="DELETED">DELETED</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" onclick="loadAds()"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+        </div>
       </div>
       <table>
         <thead>
           <tr>
-            <th>Title</th>
+            <th>Banner & Title</th>
             <th>Gaming Center</th>
-            <th>Position</th>
-            <th>Period</th>
-            <th>Price (IRR)</th>
+            <th>Priority</th>
+            <th>Period (Start ~ End)</th>
+            <th>Duration</th>
             <th>Status</th>
             <th>Actions</th>
           </tr>
@@ -752,7 +764,13 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
 
     async function loadAds() {
       try {
-        var res = await fetch('/api/v1/platform-admin/ad-requests', { headers: headers() });
+        var statusFilter = (document.getElementById('ad-status-filter') || {}).value || '';
+        var searchVal = (document.getElementById('ad-search-input') || {}).value || '';
+        var url = '/api/v1/platform-admin/ad-requests?limit=50';
+        if (statusFilter) url += '&status=' + encodeURIComponent(statusFilter);
+        if (searchVal) url += '&search=' + encodeURIComponent(searchVal);
+
+        var res = await fetch(url, { headers: headers() });
         var data = (await res.json()).data;
         var items = Array.isArray(data) ? data : ((data && data.items) || []);
         var tbody = document.getElementById('ads-table-body');
@@ -761,24 +779,36 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
           return;
         }
         tbody.innerHTML = items.map(function(a) {
-          var badgeCls = a.status === 'APPROVED' ? 'badge-success' : (a.status === 'REJECTED' ? 'badge-danger' : 'badge-warning');
-          var centerName = a.gamingCenter && a.gamingCenter.name ? a.gamingCenter.name : '-';
-          var actionsHtml = a.status === 'PENDING'
-            ? '<div style="display:flex; gap:6px;">' +
-                '<button class="btn btn-sm btn-success" onclick="updateAdStatus(\'' + a.id + '\', \'APPROVED\')">Approve</button>' +
-                '<button class="btn btn-sm btn-danger" onclick="updateAdStatus(\'' + a.id + '\', \'REJECTED\')">Reject</button>' +
-              '</div>'
-            : '<span style="color:var(--text-muted); font-size:12px;">Processed</span>';
+          var badgeCls = 'badge-secondary';
+          if (a.status === 'ACTIVE') badgeCls = 'badge-success';
+          else if (a.status === 'APPROVED') badgeCls = 'badge-info';
+          else if (a.status === 'REJECTED') badgeCls = 'badge-danger';
+          else if (a.status === 'PENDING') badgeCls = 'badge-warning';
+          else if (a.status === 'EXPIRED') badgeCls = 'badge-secondary';
+          else if (a.status === 'DELETED') badgeCls = 'badge-danger';
 
-          var start = a.startDate ? a.startDate.slice(0, 10) : '';
-          var end = a.endDate ? a.endDate.slice(0, 10) : '';
+          var centerName = a.gamingCenter && a.gamingCenter.name ? a.gamingCenter.name : '-';
+          var actionsHtml = '<div style="display:flex; gap:6px;">';
+          if (a.status === 'PENDING') {
+            actionsHtml += '<button class="btn btn-sm btn-success" onclick="openApproveAdModal(\'' + a.id + '\', ' + (a.durationDays || 30) + ')">Approve</button>' +
+              '<button class="btn btn-sm btn-danger" onclick="openRejectAdModal(\'' + a.id + '\')">Reject</button>';
+          }
+          if (a.status !== 'DELETED') {
+            actionsHtml += '<button class="btn btn-sm btn-outline-danger" onclick="deleteAdRequestPrompt(\'' + a.id + '\')"><i class="fa-solid fa-trash"></i></button>';
+          }
+          actionsHtml += '</div>';
+
+          var start = a.startDate ? a.startDate.slice(0, 10) : '-';
+          var end = a.endDate ? a.endDate.slice(0, 10) : '-';
+
+          var bannerImg = a.bannerUrl ? '<img src="' + a.bannerUrl + '" style="width:60px; height:34px; object-fit:cover; border-radius:4px; margin-right:8px; vertical-align:middle;" />' : '';
 
           return '<tr>' +
-            '<td><strong>' + a.title + '</strong></td>' +
+            '<td>' + bannerImg + '<strong>' + a.title + '</strong></td>' +
             '<td>' + centerName + '</td>' +
-            '<td><span class="badge badge-info">' + (a.position || 'BANNER') + '</span></td>' +
+            '<td><span class="badge badge-info">' + (a.priority || 0) + '</span></td>' +
             '<td style="direction:ltr; font-size:12px;">' + start + ' ~ ' + end + '</td>' +
-            '<td>' + Number(a.price || 0).toLocaleString() + '</td>' +
+            '<td>' + (a.durationDays || 30) + ' days</td>' +
             '<td><span class="badge ' + badgeCls + '">' + a.status + '</span></td>' +
             '<td>' + actionsHtml + '</td>' +
           '</tr>';
@@ -786,13 +816,44 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
       } catch (e) { console.error(e); }
     }
 
-    async function updateAdStatus(id, status) {
+    async function openApproveAdModal(id, currentDuration) {
+      var days = prompt('Enter approved duration in days:', currentDuration || 30);
+      if (!days) return;
+      var priority = prompt('Enter display priority (0-1000):', '0');
+      var body = {
+        status: 'APPROVED',
+        durationDays: parseInt(days, 10),
+        priority: parseInt(priority, 10) || 0
+      };
       var res = await fetch('/api/v1/platform-admin/ad-requests/' + id + '/status', {
         method: 'PATCH',
         headers: headers(),
-        body: JSON.stringify({ status: status })
+        body: JSON.stringify(body)
       });
-      if (res.ok) { showToast('Advertisement status updated.'); loadAds(); }
+      if (res.ok) { showToast('Advertisement approved successfully.'); loadAds(); }
+      else { alert('Failed to approve advertisement'); }
+    }
+
+    async function openRejectAdModal(id) {
+      var reason = prompt('Please enter the rejection reason for this advertisement:');
+      if (!reason) return;
+      var res = await fetch('/api/v1/platform-admin/ad-requests/' + id + '/status', {
+        method: 'PATCH',
+        headers: headers(),
+        body: JSON.stringify({ status: 'REJECTED', decisionReason: reason })
+      });
+      if (res.ok) { showToast('Advertisement rejected.'); loadAds(); }
+      else { alert('Failed to reject advertisement'); }
+    }
+
+    async function deleteAdRequestPrompt(id) {
+      if (!confirm('Are you sure you want to delete this advertisement? It will no longer appear on public sliders.')) return;
+      var res = await fetch('/api/v1/platform-admin/ad-requests/' + id, {
+        method: 'DELETE',
+        headers: headers()
+      });
+      if (res.ok) { showToast('Advertisement deleted.'); loadAds(); }
+      else { alert('Failed to delete advertisement'); }
     }
 
     async function loadCampaigns() {

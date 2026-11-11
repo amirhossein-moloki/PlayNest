@@ -63,6 +63,7 @@ router.patch('/gaming-centers/:id/status', asyncHandler(PlatformAdminController.
 router.get('/ad-requests', asyncHandler(PlatformAdRequestsController.listAdRequests));
 router.get('/ad-requests/:id', asyncHandler(PlatformAdRequestsController.getAdRequestById));
 router.patch('/ad-requests/:id/status', asyncHandler(PlatformAdRequestsController.updateAdRequestStatus));
+router.delete('/ad-requests/:id', asyncHandler(PlatformAdRequestsController.deleteAdRequest));
 
 // Media Upload for Platform Super Admin
 router.post('/media/upload', mediaUpload.single('file'), asyncHandler(PlatformMediaController.uploadMedia));

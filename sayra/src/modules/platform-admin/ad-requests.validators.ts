@@ -4,14 +4,14 @@ export const listPlatformAdRequestsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
   search: z.string().trim().optional(),
-  status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED']).optional(),
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'ACTIVE', 'EXPIRED', 'DELETED']).optional(),
   gamingCenterId: z.string().trim().optional(),
   ownerId: z.string().trim().optional(),
   city: z.string().trim().optional(),
   startDate: z.string().datetime().optional(),
   endDate: z.string().datetime().optional(),
   sortBy: z
-    .enum(['createdAt', 'updatedAt', 'startDate', 'endDate', 'durationDays', 'title', 'status'])
+    .enum(['createdAt', 'updatedAt', 'startDate', 'endDate', 'durationDays', 'priority', 'title', 'status'])
     .optional()
     .default('createdAt'),
   sortOrder: z.enum(['asc', 'desc', 'ASC', 'DESC']).optional().default('desc'),
@@ -24,7 +24,9 @@ export const updatePlatformAdRequestStatusSchema = z.object({
       decisionReason: z.string().trim().optional(),
       adminNote: z.string().trim().optional(),
       startDate: z.string().datetime().optional(),
+      endDate: z.string().datetime().optional(),
       durationDays: z.coerce.number().int().positive().optional(),
+      priority: z.coerce.number().int().min(0).max(1000).optional(),
     })
     .superRefine((data, ctx) => {
       if (data.status === 'REJECTED' && (!data.decisionReason || data.decisionReason.trim() === '')) {

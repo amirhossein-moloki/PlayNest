@@ -2816,21 +2816,25 @@ enum AdvertisementRequestStatus {
   PENDING
   APPROVED
   REJECTED
+  ACTIVE
   EXPIRED
+  DELETED
 }
 
 model AdvertisementRequest {
   id String @id @default(cuid())
 
   // Main ad information
-  title          String
-  description    String?   @db.Text
-  bannerUrl      String
-  mediaType      MediaType @default(IMAGE)
-  destinationUrl String?
-  durationDays   Int       @default(30)
-  startDate      DateTime?
-  endDate        DateTime?
+  title                String
+  description          String?   @db.Text
+  bannerUrl            String
+  mediaType            MediaType @default(IMAGE)
+  destinationUrl       String?
+  proposedDurationDays Int       @default(30)
+  durationDays         Int       @default(30)
+  priority             Int       @default(0)
+  startDate            DateTime?
+  endDate              DateTime?
 
   // Relations
   gamingCenterId String
@@ -2850,6 +2854,8 @@ model AdvertisementRequest {
   reviewedAt     DateTime?
   adminNote      String?                    @db.Text
 
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -2857,6 +2863,8 @@ model AdvertisementRequest {
   @@index([ownerId])
   @@index([status])
   @@index([startDate, endDate])
+  @@index([priority])
+  @@index([deletedAt])
   @@index([createdAt])
 }
 

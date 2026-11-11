@@ -66,12 +66,31 @@ export const PlatformAdRequestsController = {
         decisionReason?: string;
         adminNote?: string;
         startDate?: string;
+        endDate?: string;
         durationDays?: number;
+        priority?: number;
       };
 
       const result = await PlatformAdRequestsStation.updateAdRequestStatus(
         id,
         validated,
+        req.actor as { id: string; actorType?: string },
+        { ip: req.ip, userAgent: req.headers['user-agent'] as string }
+      );
+      res.ok(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * DELETE /platform-admin/ad-requests/:id
+   */
+  async deleteAdRequest(req: AppRequest, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const result = await PlatformAdRequestsStation.deleteAdRequest(
+        id,
         req.actor as { id: string; actorType?: string },
         { ip: req.ip, userAgent: req.headers['user-agent'] as string }
       );

@@ -40,7 +40,9 @@ import {
   publicMediaRouter,
   publicPagesRouter,
   publicGamingCenterRouter,
+  publicAdvertisementsRouter,
 } from '../modules/public/public.routes';
+import { advertisementRouter } from '../modules/advertisement/advertisement.routes';
 import { paymentsRoutes, paymentsManagementRouter } from '../modules/payments/payments.routes';
 import { paymentsCallbackRouter } from '../modules/payments/payments.callback.routes';
 import { directPaymentsRouter } from '../modules/payments/payments.direct.routes';
@@ -198,6 +200,9 @@ router.use('/gamingCenters/:gamingCenterId/expenses', expenseRoutes);
 router.use('/gamingCenters/:gamingCenterId', dashboardAdminUiRouter);
 router.use('/admin', dashboardAdminUiRouter);
 
+// --- Advertisement Module Routes ---
+router.use('/gamingCenters/:gamingCenterId/advertisements', advertisementRouter);
+
 // --- Gaming Sessions Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/reservation/:reservationId/sessions', gamingSessionsRoutes);
 
@@ -212,6 +217,9 @@ router.use('/gamingCenters/:gamingCenterId', cmsRouter);
 
 // --- CMS Admin UI ---
 router.use('/admin', cmsAdminUiRouter);
+
+// --- Public Advertisement Slider Routes ---
+router.use('/public/advertisements', publicAdvertisementsRouter);
 
 // --- Public CMS Routes ---
 router.use('/public/gamingCenters/:gamingCenterSlug/pages', publicPagesRouter);
