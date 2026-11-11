@@ -173,13 +173,6 @@ if (parsed.success) {
         'JWT_REFRESH_SECRET must be changed from the default placeholder value in production.'
       );
     }
-    if (parsed.data.DEFAULT_PAYMENT_PROVIDER === 'ZIBAL') {
-      if (!parsed.data.ZIBAL_MERCHANT || parsed.data.ZIBAL_MERCHANT === 'zibal') {
-        throw new Error(
-          'ZIBAL_MERCHANT must be configured with a valid merchant ID in production and cannot use sandbox placeholder "zibal".'
-        );
-      }
-    }
   }
 }
 
