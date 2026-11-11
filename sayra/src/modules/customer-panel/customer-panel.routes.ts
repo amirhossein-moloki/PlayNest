@@ -43,6 +43,22 @@ import {
 
 router.get('/wallet', asyncHandler<AppRequest>(WithdrawalController.getMyWallet));
 
+// Customer Online Wallet Charge Endpoints
+import * as ChargeController from '../wallet/charge.controller';
+import { chargeWalletSchema, getChargeStatusSchema } from '../wallet/charge.validators';
+
+router.post(
+  '/wallet/charge',
+  validate(chargeWalletSchema),
+  asyncHandler<AppRequest>(ChargeController.initiateWalletCharge)
+);
+
+router.get(
+  '/wallet/charge/:chargeId',
+  validate(getChargeStatusSchema),
+  asyncHandler<AppRequest>(ChargeController.getWalletChargeStatus)
+);
+
 router.post(
   '/wallet/withdraw',
   validate(requestWithdrawalSchema),

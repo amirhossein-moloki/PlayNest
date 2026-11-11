@@ -37,6 +37,7 @@ export function getPaymentSuccessRedirectUrl(params: {
   trackId?: string | number | null;
   refNumber?: string | null;
   message?: string | null;
+  type?: string | null;
 }): string {
   const baseUrl = env.PAYMENT_SUCCESS_URL || `${env.FRONTEND_URL.replace(/\/+$/, '')}/payment/success`;
   return buildRedirectUrl(baseUrl, {
@@ -46,6 +47,7 @@ export function getPaymentSuccessRedirectUrl(params: {
     trackId: params.trackId,
     refNumber: params.refNumber,
     message: params.message,
+    type: params.type,
     status: 'success',
   });
 }
@@ -55,6 +57,7 @@ export function getPaymentFailedRedirectUrl(params: {
   trackId?: string | number | null;
   failureReason?: string | null;
   message?: string | null;
+  type?: string | null;
 }): string {
   const baseUrl = env.PAYMENT_FAILED_URL || `${env.FRONTEND_URL.replace(/\/+$/, '')}/payment/failed`;
   return buildRedirectUrl(baseUrl, {
@@ -62,6 +65,7 @@ export function getPaymentFailedRedirectUrl(params: {
     trackId: params.trackId,
     failureReason: params.failureReason,
     message: params.message,
+    type: params.type,
     status: 'failed',
   });
 }
@@ -217,6 +221,68 @@ export async function handlePaymentCallback(req: Request, res: Response): Promis
   }
 }
 
+export async function handleZibalWalletCallback(req: Request, res: Response): Promise<void> {
+  const trackIdQuery = req.query.trackId;
+  const statusQuery = req.query.status;
+  const successQuery = req.query.success;
+  const orderIdQuery = req.query.orderId;
+
+  const trackId = trackIdQuery ? String(trackIdQuery) : undefined;
+  const orderId = orderIdQuery ? String(orderIdQuery) : undefined;
+
+  if (!trackId && !orderId) {
+    const redirectUrl = getPaymentFailedRedirectUrl({
+      type: 'wallet_charge',
+      message: 'شناسه پیگیری (trackId) یا شماره سفارش در درخواست بازگشت درگاه یافت نشد.',
+    });
+    res.redirect(302, redirectUrl);
+    return;
+  }
+
+  const { WalletChargeStation } = await import('../wallet/charge.station');
+
+  try {
+    const result = await WalletChargeStation.verifyCharge({
+      trackId: trackId || '',
+      orderId,
+      statusQuery: statusQuery as string | number | undefined,
+      successQuery: successQuery as string | number | undefined,
+    });
+
+    if (result.success && result.charge) {
+      const redirectUrl = getPaymentSuccessRedirectUrl({
+        orderId: result.charge.id,
+        amount: result.charge.amount,
+        currency: result.charge.currency,
+        trackId: result.charge.trackId || trackId,
+        refNumber: result.refNumber || result.charge.refNumber,
+        type: 'wallet_charge',
+        message: result.alreadyProcessed ? 'این شارژ کیف پول قبلاً با موفقیت تأیید و ثبت شده است.' : undefined,
+      });
+      res.redirect(302, redirectUrl);
+      return;
+    } else {
+      const redirectUrl = getPaymentFailedRedirectUrl({
+        orderId: result.charge?.id || orderId,
+        trackId,
+        type: 'wallet_charge',
+        failureReason: result.failureReason || 'پرداخت شارژ کیف پول ناموفق بود یا توسط درگاه رد شد.',
+      });
+      res.redirect(302, redirectUrl);
+      return;
+    }
+  } catch (error) {
+    logger.error({ error, trackId, orderId }, 'Error processing verified wallet charge callback');
+    const redirectUrl = getPaymentFailedRedirectUrl({
+      orderId,
+      trackId,
+      type: 'wallet_charge',
+      failureReason: 'خطای داخلی سرور در به‌روزرسانی موجودی کیف پول.',
+    });
+    res.redirect(302, redirectUrl);
+  }
+}
+
 export async function handleZibalCallback(req: Request, res: Response): Promise<void> {
   const trackIdQuery = req.query.trackId;
   const statusQuery = req.query.status;
@@ -259,6 +325,20 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
   }
 
   if (!payment) {
+    // Check if this callback belongs to a WalletCharge
+    const walletCharge = await prisma.walletCharge.findFirst({
+      where: {
+        OR: [
+          ...(trackId ? [{ trackId }] : []),
+          ...(orderId ? [{ id: orderId }] : []),
+        ],
+      },
+    });
+
+    if (walletCharge) {
+      return handleZibalWalletCallback(req, res);
+    }
+
     logger.warn({ trackId, orderId }, 'Zibal Callback: Payment record not found in database');
     const redirectUrl = getPaymentFailedRedirectUrl({
       trackId,

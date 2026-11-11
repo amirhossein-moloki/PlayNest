@@ -11678,6 +11678,131 @@ paths:
                     $ref: '#/components/schemas/CustomerWalletOverview'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+  /customer/wallet/charge:
+    post:
+      summary: Initiate online wallet recharge
+      description: Initiates an online wallet recharge using Zibal payment gateway and returns payment URL
+      tags:
+      - Customer Panel
+      operationId: post_customer_wallet_charge
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          type: string
+        description: Unique idempotency key to prevent duplicate charge initiations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - amount
+              properties:
+                amount:
+                  type: integer
+                  example: 500000
+                  description: Amount to charge
+                currency:
+                  type: string
+                  example: IRT
+                  default: IRT
+                  description: Currency code (IRT or IRR)
+      responses:
+        '201':
+          description: Wallet charge initiated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      chargeId:
+                        type: string
+                      trackId:
+                        type: string
+                      paymentUrl:
+                        type: string
+                      amount:
+                        type: integer
+                      currency:
+                        type: string
+                      status:
+                        type: string
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /customer/wallet/charge/{chargeId}:
+    get:
+      summary: Get wallet charge status
+      description: Returns payment and credit status of a specific wallet charge transaction
+      tags:
+      - Customer Panel
+      operationId: get_customer_wallet_charge_status
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: chargeId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Unique ID of the wallet charge
+      responses:
+        '200':
+          description: Wallet charge details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      customerAccountId:
+                        type: string
+                      amount:
+                        type: integer
+                      currency:
+                        type: string
+                      provider:
+                        type: string
+                      status:
+                        type: string
+                      trackId:
+                        type: string
+                      refNumber:
+                        type: string
+                      failureReason:
+                        type: string
+                      paidAt:
+                        type: string
+                        format: date-time
+                      createdAt:
+                        type: string
+                        format: date-time
+                      updatedAt:
+                        type: string
+                        format: date-time
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
   /customer/wallet/withdraw:
     post:
       summary: Request wallet withdrawal
