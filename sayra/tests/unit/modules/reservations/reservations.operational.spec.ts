@@ -5,6 +5,7 @@ import {
   validateStationAvailability,
   validateStaffShiftHours,
   resolveValidTimeZone,
+  validateCancellationDeadline,
 } from '../../../../src/modules/reservation/reservation.validation';
 import AppError from '../../../../src/common/errors/AppError';
 import { addMinutes } from 'date-fns';
@@ -38,6 +39,37 @@ describe('Operational Reservation Validation Rules', () => {
 
       expect(() => validateLeadTime(startTime, 60, now)).toThrow(AppError);
       expect(() => validateLeadTime(startTime, 15, now)).not.toThrow();
+    });
+  });
+
+  describe('validateCancellationDeadline', () => {
+    it('should allow cancellation when current time is more than cancellationHours before start time', () => {
+      const now = new Date('2026-12-01T10:00:00Z');
+      const startTime = new Date('2026-12-01T13:00:00Z'); // 3 hours in advance, requirement is 2 hours
+
+      expect(() => validateCancellationDeadline(startTime, 2, now)).not.toThrow();
+    });
+
+    it('should throw CANCELLATION_DEADLINE_EXCEEDED when current time is within cancellationHours window', () => {
+      const now = new Date('2026-12-01T10:00:00Z');
+      const startTime = new Date('2026-12-01T11:30:00Z'); // 1.5 hours in advance < 2 hours
+
+      expect(() => validateCancellationDeadline(startTime, 2, now)).toThrow(AppError);
+      try {
+        validateCancellationDeadline(startTime, 2, now);
+      } catch (err: unknown) {
+        const error = err as AppError;
+        expect(error.statusCode).toBe(400);
+        expect(error.code).toBe('CANCELLATION_DEADLINE_EXCEEDED');
+      }
+    });
+
+    it('should respect custom cancellationHours', () => {
+      const now = new Date('2026-12-01T10:00:00Z');
+      const startTime = new Date('2026-12-01T14:00:00Z'); // 4 hours in advance
+
+      expect(() => validateCancellationDeadline(startTime, 5, now)).toThrow(AppError); // requires 5 hours -> fails
+      expect(() => validateCancellationDeadline(startTime, 3, now)).not.toThrow(); // requires 3 hours -> passes
     });
   });
 

@@ -46,6 +46,7 @@ export interface GamingCenterListItem {
   coverImageUrl: string | null;
   banner: string | null;
   pricing: GamingCenterPricing;
+  cancellationHours?: number;
   deviceCounts?: DeviceTypeCounts;
   owner?: {
     id: string;

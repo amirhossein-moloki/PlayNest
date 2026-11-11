@@ -118,6 +118,25 @@ export const validateStationAvailability = (
 };
 
 /**
+ * Validates whether cancellation is permitted prior to reservation start time.
+ * Cancellation is allowed if current time is at least cancellationHours before startTime.
+ */
+export const validateCancellationDeadline = (
+  startTime: Date,
+  cancellationHours: number = 2,
+  now: Date = new Date()
+): void => {
+  const deadline = new Date(startTime.getTime() - cancellationHours * 60 * 60 * 1000);
+  if (now.getTime() > deadline.getTime()) {
+    throw new AppError(
+      `Reservations can only be cancelled at least ${cancellationHours} hours before start time.`,
+      httpStatus.BAD_REQUEST,
+      { code: 'CANCELLATION_DEADLINE_EXCEEDED' }
+    );
+  }
+};
+
+/**
  * Validates staff shift coverage for a reservation.
  */
 export const validateStaffShiftHours = (

@@ -15,6 +15,7 @@ import { reservationStation } from '../reservation/reservation.station';
 import { RescheduleReservationInput } from '../reservation/reservation.dto';
 import { getZonedStartAndEnd } from '../../common/utils/date';
 import { calculateBasePrice } from '../../common/utils/money';
+import { validateCancellationDeadline } from '../reservation/reservation.validation';
 
 export const CustomerPanelStation = {
   async getProfile(customerAccountId: string) {
@@ -108,6 +109,10 @@ export const CustomerPanelStation = {
     if (reservation.status === ReservationStatus.CANCELED) {
       return reservation;
     }
+
+    const settings = reservation.gamingCenter?.settings || await ReservationRepo.findSettings(reservation.gamingCenterId);
+    const cancellationHours = settings?.cancellationHours ?? 2;
+    validateCancellationDeadline(reservation.startTime, cancellationHours);
 
     ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.CANCELED);
 
