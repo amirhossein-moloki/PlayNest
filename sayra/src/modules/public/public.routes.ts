@@ -8,8 +8,10 @@ import {
   getPublicPage,
   getPublicGamingCenterHome,
 } from './pages.public.controller';
+import { PublicAdvertisementsController } from './advertisements.public.controller';
 
 export const publicGamingCenterRouter = Router({ mergeParams: true });
+export const publicAdvertisementsRouter = Router({ mergeParams: true });
 export const publicPagesRouter = Router({ mergeParams: true });
 export const publicMediaRouter = Router({ mergeParams: true });
 export const publicLinksRouter = Router({ mergeParams: true });
@@ -48,4 +50,19 @@ publicGamingCenterRouter.get(
   publicApiRateLimiter,
   resolveGamingCenterBySlug,
   getPublicGamingCenterHome
+);
+
+// Global Slider Ads
+publicAdvertisementsRouter.get(
+  '/slider',
+  publicApiRateLimiter,
+  PublicAdvertisementsController.getSliderAdvertisements
+);
+
+// Center-specific Slider Ads
+publicGamingCenterRouter.get(
+  '/advertisements/slider',
+  publicApiRateLimiter,
+  resolveGamingCenterBySlug,
+  PublicAdvertisementsController.getSliderAdvertisements
 );

@@ -721,6 +721,36 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
           </table>
         </div>
       </div>
+
+      <!-- Section 15: تبلیغات و اسلایدر (Advertisement & Slider Requests) -->
+      <div class="card full-width" style="margin-top:24px; border:2px solid #e2e8f0; border-radius:12px; padding:20px; background:#ffffff;">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:16px;">
+          <div>
+            <h3 style="margin:0; font-size:18px; color:#0f172a;">📢 تبلیغات و اسلایدر (Slider Advertisements)</h3>
+            <p style="margin:4px 0 0; font-size:13px; color:#64748b;">مدیریت، پیگیری وضعیت و ثبت درخواست‌های بنر تبلیغاتی گیم‌نت برای نمایش در اسلایدر سایت</p>
+          </div>
+          <button class="btn btn-primary" onclick="openCreateAdModal()">+ ثبت تبلیغ جدید</button>
+        </div>
+        <div class="card-body">
+          <table id="tblAds">
+            <thead>
+              <tr>
+                <th>بنر و عنوان</th>
+                <th>مدت پیشنهادی</th>
+                <th>مدت تأییدشده</th>
+                <th>بازه زمانی نمایش</th>
+                <th>روزهای باقیمانده</th>
+                <th>وضعیت</th>
+                <th>علت رد / توضیحات</th>
+                <th>عملیات</th>
+              </tr>
+            </thead>
+            <tbody id="tblAdsBody">
+              <tr><td colspan="8" style="text-align:center;">در حال دریافت لیست تبلیغات...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </main>
 
     <div id="loadingOverlay" class="loading-overlay" style="display: none;">
@@ -1087,8 +1117,118 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
       document.getElementById('exportReconciliationBtn').addEventListener('click', () => exportTableToCSV('tblReconciliationFindings', 'reconciliation_findings_' + gamingCenterId + '.csv'));
       document.getElementById('exportFinancialsBtn').addEventListener('click', () => exportTableToCSV('tblFinancialSummary', 'financial_summary_' + gamingCenterId + '.csv'));
 
+      // Advertisement and Slider Operations
+      async function loadAdvertisements() {
+        const tbody = document.getElementById('tblAdsBody');
+        try {
+          const res = await fetch('/api/v1/gamingCenters/' + gamingCenterId + '/advertisements', {
+            headers: getAuthHeaders()
+          });
+          if (!res.ok) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#94a3b8;">دریافت لیست با خطا مواجه شد. لطفاً توکن احراز هویت را بررسی کنید.</td></tr>';
+            return;
+          }
+          const data = await res.json();
+          const items = data.data || [];
+          if (!items.length) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#94a3b8;">هیچ تبلیغی ثبت نشده است. با کلیک بر روی «ثبت تبلیغ جدید» درخواست خود را ارسال کنید.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = items.map(ad => {
+            let badgeClass = 'badge-warning';
+            let statusFa = 'در انتظار بررسی';
+            if (ad.status === 'ACTIVE') { badgeClass = 'badge-success'; statusFa = 'در حال نمایش'; }
+            else if (ad.status === 'APPROVED') { badgeClass = 'badge-info'; statusFa = 'تأیید شده'; }
+            else if (ad.status === 'REJECTED') { badgeClass = 'badge-danger'; statusFa = 'رد شده'; }
+            else if (ad.status === 'EXPIRED') { badgeClass = 'badge-secondary'; statusFa = 'منقضی شده'; }
+            else if (ad.status === 'DELETED') { badgeClass = 'badge-danger'; statusFa = 'حذف شده'; }
+
+            const period = (ad.startDate ? new Date(ad.startDate).toLocaleDateString('fa-IR') : '-') +
+              ' تا ' + (ad.endDate ? new Date(ad.endDate).toLocaleDateString('fa-IR') : '-');
+
+            const remaining = ad.remainingDays !== null ? (ad.remainingDays + ' روز') : '-';
+            const reason = ad.decisionReason || ad.adminNote || '-';
+
+            let actions = '-';
+            if (ad.status === 'PENDING') {
+              actions = \`<button class="btn btn-secondary btn-sm" onclick="cancelAdvertisement('\${ad.id}')">لغو / حذف</button>\`;
+            }
+
+            return \`
+              <tr>
+                <td>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <img src="\${ad.bannerUrl}" style="width:50px; height:28px; object-fit:cover; border-radius:4px;" />
+                    <strong>\${ad.title}</strong>
+                  </div>
+                </td>
+                <td>\${ad.proposedDurationDays} روز</td>
+                <td>\${ad.durationDays} روز</td>
+                <td style="font-size:12px;">\${period}</td>
+                <td>\${remaining}</td>
+                <td><span class="badge \${badgeClass}">\${statusFa}</span></td>
+                <td style="color:#ef4444; font-size:12px;">\${reason}</td>
+                <td>\${actions}</td>
+              </tr>
+            \`;
+          }).join('');
+        } catch (e) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#ef4444;">خطا در ارتباط با سرور: ' + e.message + '</td></tr>';
+        }
+      }
+
+      window.openCreateAdModal = async function() {
+        const title = prompt('عنوان تبلیغ:');
+        if (!title) return;
+        const bannerUrl = prompt('آدرس اینترنتی بنر تبلیغاتی (URL):');
+        if (!bannerUrl) return;
+        const destUrl = prompt('لینک مقصد تبلیغ (اختیاری):') || '';
+        const duration = prompt('مدت زمان پیشنهادی نمایش به روز (مثلاً 14، 30، 60):', '30');
+
+        try {
+          const res = await fetch('/api/v1/gamingCenters/' + gamingCenterId + '/advertisements', {
+            method: 'POST',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, getAuthHeaders()),
+            body: JSON.stringify({
+              title,
+              bannerUrl,
+              destinationUrl: destUrl || undefined,
+              proposedDurationDays: parseInt(duration, 10) || 30
+            })
+          });
+          if (res.ok) {
+            alert('درخواست تبلیغ با موفقیت ثبت شد و در انتظار بررسی ادمین قرار گرفت.');
+            loadAdvertisements();
+          } else {
+            const err = await res.json();
+            alert('خطا در ثبت تبلیغ: ' + (err.message || 'ورودی‌های نامعتبر'));
+          }
+        } catch (e) {
+          alert('خطا: ' + e.message);
+        }
+      };
+
+      window.cancelAdvertisement = async function(id) {
+        if (!confirm('آیا از لغو یا حذف این درخواست تبلیغ اطمینان دارید؟')) return;
+        try {
+          const res = await fetch('/api/v1/gamingCenters/' + gamingCenterId + '/advertisements/' + id, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+          });
+          if (res.ok) {
+            alert('درخواست تبلیغ با موفقیت حذف شد.');
+            loadAdvertisements();
+          } else {
+            alert('حذف تبلیغ با خطا مواجه شد.');
+          }
+        } catch (e) {
+          alert('خطا: ' + e.message);
+        }
+      };
+
       // Initial load
       loadDashboard();
+      loadAdvertisements();
     </script>
   </body>
 </html>`;

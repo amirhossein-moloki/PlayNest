@@ -20,10 +20,23 @@ export const PlatformAdRequestsStation = {
     const firstName = ownerNames[0] || '';
     const lastName = ownerNames.slice(1).join(' ') || '';
 
-    // Check expiry dynamically if approved and endDate is in the past
+    // Check expiry dynamically if approved or active
+    const now = new Date();
     let computedStatus = item.status;
-    if (item.status === 'APPROVED' && item.endDate && new Date(item.endDate) < new Date()) {
-      computedStatus = 'EXPIRED';
+    if (item.status === 'APPROVED' || item.status === 'ACTIVE') {
+      if (item.endDate && new Date(item.endDate) < now) {
+        computedStatus = 'EXPIRED';
+      } else if (item.startDate && new Date(item.startDate) <= now) {
+        computedStatus = 'ACTIVE';
+      } else {
+        computedStatus = 'APPROVED';
+      }
+    }
+
+    let remainingDays: number | null = null;
+    if (item.endDate && (computedStatus === 'ACTIVE' || computedStatus === 'APPROVED')) {
+      const diffTime = new Date(item.endDate).getTime() - now.getTime();
+      remainingDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
     }
 
     return {
@@ -33,7 +46,9 @@ export const PlatformAdRequestsStation = {
       bannerUrl: item.bannerUrl,
       mediaType: item.mediaType,
       destinationUrl: item.destinationUrl,
+      proposedDurationDays: item.proposedDurationDays ?? 30,
       durationDays: item.durationDays,
+      priority: item.priority ?? 0,
       startDate: item.startDate,
       endDate: item.endDate,
       status: computedStatus,
@@ -76,6 +91,8 @@ export const PlatformAdRequestsStation = {
           sizeBytes: item.media.sizeBytes,
         }
         : null,
+      remainingDays,
+      deletedAt: item.deletedAt ?? null,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
     };
@@ -193,7 +210,9 @@ export const PlatformAdRequestsStation = {
       decisionReason?: string;
       adminNote?: string;
       startDate?: string;
+      endDate?: string;
       durationDays?: number;
+      priority?: number;
     },
     adminActor: { id: string; actorType?: string },
     context?: { ip?: string; userAgent?: string }
@@ -203,7 +222,7 @@ export const PlatformAdRequestsStation = {
       throw new AppError('Advertisement request not found', httpStatus.NOT_FOUND);
     }
 
-    // Business rule: Once decided (APPROVED or REJECTED), requests cannot be re-evaluated
+    // Business rule: Once decided (APPROVED or REJECTED) or deleted, requests cannot be re-evaluated
     if (existing.status !== 'PENDING') {
       throw new AppError(
         `Cannot update status: advertisement request is already in ${existing.status} status`,
@@ -226,14 +245,24 @@ export const PlatformAdRequestsStation = {
       const startDate = body.startDate ? new Date(body.startDate) : (existing.startDate ? new Date(existing.startDate) : now);
       const durationDays = body.durationDays ?? existing.durationDays ?? 30;
 
-      const endDate = new Date(startDate.getTime());
-      endDate.setDate(endDate.getDate() + durationDays);
+      let endDate: Date;
+      if (body.endDate) {
+        endDate = new Date(body.endDate);
+      } else {
+        endDate = new Date(startDate.getTime());
+        endDate.setDate(endDate.getDate() + durationDays);
+      }
+
+      // If ad start date has already arrived, set status to ACTIVE immediately
+      const initialApprovedStatus = startDate <= now ? 'ACTIVE' : 'APPROVED';
 
       updateData = {
         ...updateData,
+        status: initialApprovedStatus,
         startDate,
         durationDays,
         endDate,
+        priority: body.priority !== undefined ? body.priority : (existing.priority ?? 0),
       };
     } else if (body.status === 'REJECTED') {
       if (!body.decisionReason || body.decisionReason.trim() === '') {
@@ -313,6 +342,93 @@ export const PlatformAdRequestsStation = {
         startDate: updated.startDate,
         endDate: updated.endDate,
         durationDays: updated.durationDays,
+      },
+      ipAddress: context?.ip,
+      userAgent: context?.userAgent,
+    });
+
+    return this.formatAdRequest(updated);
+  },
+
+  /**
+   * Delete an advertisement request by Platform Admin (soft delete)
+   */
+  async deleteAdRequest(
+    id: string,
+    adminActor: { id: string; actorType?: string },
+    context?: { ip?: string; userAgent?: string }
+  ) {
+    const existing = await PlatformAdRequestsRepo.findById(id);
+    if (!existing || existing.deletedAt) {
+      throw new AppError('Advertisement request not found', httpStatus.NOT_FOUND);
+    }
+
+    const adminId = adminActor.id || (adminActor as any).actorId;
+    const now = new Date();
+
+    const updated = await PlatformAdRequestsRepo.transaction(async (tx: any) => {
+      return tx.advertisementRequest.update({
+        where: { id },
+        data: {
+          status: 'DELETED',
+          deletedAt: now,
+        },
+        include: {
+          gamingCenter: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              addresses: {
+                select: {
+                  city: true,
+                  addressLine: true,
+                  isPrimary: true,
+                },
+              },
+            },
+          },
+          owner: {
+            select: {
+              id: true,
+              fullName: true,
+              phone: true,
+              email: true,
+            },
+          },
+          reviewedBy: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+            },
+          },
+          media: {
+            select: {
+              id: true,
+              url: true,
+              thumbUrl: true,
+              type: true,
+              mime: true,
+              sizeBytes: true,
+            },
+          },
+        },
+      });
+    });
+
+    await auditService.recordLog({
+      gamingCenterId: existing.gamingCenterId,
+      platformAdminId: adminId,
+      action: 'ADVERTISEMENT_REQUEST_DELETED',
+      entity: 'AdvertisementRequest',
+      entityId: id,
+      oldData: {
+        status: existing.status,
+      },
+      newData: {
+        status: 'DELETED',
+        deletedAt: now,
       },
       ipAddress: context?.ip,
       userAgent: context?.userAgent,

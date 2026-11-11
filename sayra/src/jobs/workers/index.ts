@@ -5,6 +5,7 @@ import { cmsSyncMediaWorker } from './cmsSyncMedia.worker';
 import { reservationExpiryWorker } from './reservationExpiry.worker';
 import { waitlistExpiryWorker } from './waitlistExpiry.worker';
 import { bookingHoldExpiryWorker } from './bookingHoldExpiry.worker';
+import { advertisementExpiryWorker } from './advertisementExpiry.worker';
 import logger from '../../config/logger';
 import '../monitoring/queue-monitor';
 
@@ -19,9 +20,11 @@ export const initWorkers = () => {
   reservationExpiryWorker.start();
   waitlistExpiryWorker.start();
   bookingHoldExpiryWorker.start();
+  advertisementExpiryWorker.start();
 };
 
 export const stopWorkers = async () => {
+  await advertisementExpiryWorker.stop();
   await reservationExpiryWorker.stop();
   await waitlistExpiryWorker.stop();
   await bookingHoldExpiryWorker.stop();
