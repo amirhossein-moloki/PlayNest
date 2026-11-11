@@ -99,6 +99,8 @@ export const authService = {
     return {
       admin: safeAdmin,
       tokens: { accessToken, refreshToken },
+      accessToken,
+      refreshToken,
     };
   },
 
