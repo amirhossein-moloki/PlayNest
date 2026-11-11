@@ -49,6 +49,93 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   schemas:
+    CustomerWalletOverview:
+      type: object
+      properties:
+        walletBalance:
+          type: integer
+          example: 1000000
+        reservedBalance:
+          type: integer
+          example: 200000
+        availableBalance:
+          type: integer
+          example: 800000
+        currency:
+          type: string
+          example: IRR
+        canWithdraw:
+          type: boolean
+          example: true
+        lastWithdrawalRequestAt:
+          type: string
+          format: date-time
+          nullable: true
+        nextAllowedWithdrawalAt:
+          type: string
+          format: date-time
+          nullable: true
+    RequestWithdrawalInput:
+      type: object
+      required:
+      - amount
+      properties:
+        amount:
+          type: integer
+          minimum: 1
+          example: 200000
+        bankDetails:
+          type: object
+          properties:
+            sheba:
+              type: string
+              example: IR123456789012345678901234
+            cardNumber:
+              type: string
+              example: '6037991812345678'
+            accountHolderName:
+              type: string
+              example: رضا رضایی
+            bankName:
+              type: string
+              example: بانک ملی
+        note:
+          type: string
+          example: برداشت موجودی به حساب بانکی
+    WithdrawalRequestItem:
+      type: object
+      properties:
+        id:
+          type: string
+        customerAccountId:
+          type: string
+        amount:
+          type: integer
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED, PROCESSING, PAID, FAILED, CANCELLED]
+        rejectionReason:
+          type: string
+          nullable: true
+        paymentReference:
+          type: string
+          nullable: true
+        bankDetails:
+          type: object
+          nullable: true
+        approvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
     IranCalendarDaysResponse:
       type: object
       required:
@@ -11567,6 +11654,359 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+  /customer/wallet:
+    get:
+      summary: Get customer wallet balance overview
+      description: Returns customer total wallet balance, reserved balance, and available balance for withdrawal
+      tags:
+      - Customer Panel
+      operationId: get_customer_wallet_overview
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Wallet overview
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/CustomerWalletOverview'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /customer/wallet/withdraw:
+    post:
+      summary: Request wallet withdrawal
+      description: Submits a withdrawal request from customer wallet with 24-hour rate limiting and atomic balance reservation
+      tags:
+      - Customer Panel
+      operationId: post_customer_wallet_withdraw
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestWithdrawalInput'
+      responses:
+        '201':
+          description: Withdrawal request created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/WithdrawalRequestItem'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          description: 24-hour withdrawal cooldown limit exceeded
+  /customer/wallet/withdrawals:
+    get:
+      summary: List my withdrawal requests
+      description: Returns paginated list of withdrawal requests submitted by current authenticated customer
+      tags:
+      - Customer Panel
+      operationId: get_customer_wallet_withdrawals
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+      - name: pageSize
+        in: query
+        schema:
+          type: integer
+          default: 20
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED, PROCESSING, PAID, FAILED, CANCELLED]
+      responses:
+        '200':
+          description: Paginated withdrawal requests
+  /customer/wallet/withdrawals/{id}:
+    get:
+      summary: Get withdrawal request details
+      description: Returns details of a specific withdrawal request owned by current customer
+      tags:
+      - Customer Panel
+      operationId: get_customer_wallet_withdrawal_details
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Withdrawal request details
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /customer/wallet/transactions:
+    get:
+      summary: List wallet transactions
+      description: Returns paginated history of customer wallet transactions (deposits, refunds, holds, payouts)
+      tags:
+      - Customer Panel
+      operationId: get_customer_wallet_transactions
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+      - name: pageSize
+        in: query
+        schema:
+          type: integer
+          default: 20
+      - name: type
+        in: query
+        schema:
+          type: string
+          enum: [REFUND, RESERVATION_PAYMENT, DEPOSIT, MANUAL_ADJUSTMENT, WITHDRAWAL_HOLD, WITHDRAWAL_REFUND, WITHDRAWAL_PAID]
+      responses:
+        '200':
+          description: Paginated transactions
+  /customer/wallet/transactions/{id}:
+    get:
+      summary: Get wallet transaction details
+      description: Returns details of a specific wallet transaction owned by current customer
+      tags:
+      - Customer Panel
+      operationId: get_customer_wallet_transaction_details
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Transaction details
+  /customer/notifications:
+    get:
+      summary: List customer in-app notifications
+      description: Returns in-app notifications for authenticated customer
+      tags:
+      - Customer Panel
+      operationId: get_customer_notifications
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+      - name: pageSize
+        in: query
+        schema:
+          type: integer
+          default: 20
+      responses:
+        '200':
+          description: Customer notifications
+  /customer/notifications/{id}/read:
+    patch:
+      summary: Mark customer notification as read
+      description: Marks a specific customer in-app notification as read
+      tags:
+      - Customer Panel
+      operationId: patch_customer_notification_read
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Notification marked as read
+  /platform-admin/withdrawals:
+    get:
+      summary: List all withdrawal requests (Platform Admin)
+      description: Lists all user withdrawal requests across the platform with filtering, date range, search, and pagination
+      tags:
+      - PlatformAdmin
+      operationId: get_platform_admin_withdrawals
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+      - name: pageSize
+        in: query
+        schema:
+          type: integer
+          default: 20
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED, PROCESSING, PAID, FAILED, CANCELLED]
+      - name: customerAccountId
+        in: query
+        schema:
+          type: string
+      - name: search
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Paginated withdrawal requests
+  /platform-admin/withdrawals/overdue:
+    get:
+      summary: List overdue approved withdrawals (Platform Admin)
+      description: Returns approved withdrawal requests that exceeded the 72-hour payout SLA
+      tags:
+      - PlatformAdmin
+      operationId: get_platform_admin_withdrawals_overdue
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Overdue withdrawal requests list
+  /platform-admin/withdrawals/{id}:
+    get:
+      summary: Get withdrawal request details (Platform Admin)
+      description: Returns complete details of a withdrawal request including user account balances and audit trail
+      tags:
+      - PlatformAdmin
+      operationId: get_platform_admin_withdrawal_details
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Withdrawal request details
+  /platform-admin/withdrawals/{id}/approve:
+    post:
+      summary: Approve withdrawal request (Platform Admin)
+      description: Approves a PENDING withdrawal request and advances it to APPROVED status
+      tags:
+      - PlatformAdmin
+      operationId: post_platform_admin_withdrawal_approve
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+      responses:
+        '200':
+          description: Withdrawal request approved
+        '409':
+          description: Invalid transition or not in PENDING status
+  /platform-admin/withdrawals/{id}/reject:
+    post:
+      summary: Reject withdrawal request (Platform Admin)
+      description: Rejects a withdrawal request, unreserves held balance back to user available wallet, and logs rejection reason
+      tags:
+      - PlatformAdmin
+      operationId: post_platform_admin_withdrawal_reject
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - reason
+              properties:
+                reason:
+                  type: string
+                  minLength: 3
+                note:
+                  type: string
+      responses:
+        '200':
+          description: Withdrawal request rejected and funds returned
+        '409':
+          description: Invalid transition
+  /platform-admin/withdrawals/{id}/payment:
+    patch:
+      summary: Update withdrawal payment status (Platform Admin)
+      description: Updates payment status to PROCESSING, PAID, or FAILED. When PAID, atomically deducts wallet balance and reserved balance
+      tags:
+      - PlatformAdmin
+      operationId: patch_platform_admin_withdrawal_payment
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - status
+              properties:
+                status:
+                  type: string
+                  enum: [PROCESSING, PAID, FAILED]
+                paymentReference:
+                  type: string
+                note:
+                  type: string
+      responses:
+        '200':
+          description: Payment status updated
 tags:
 - name: Group Reservations
   description: Public and tenant group reservation and booking hold checkout operations

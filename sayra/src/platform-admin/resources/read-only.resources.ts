@@ -31,6 +31,14 @@ export function getReadOnlyResources(): any[] {
       },
     },
     {
+      resource: getPrismaModelTarget('WithdrawalRequest'),
+      options: {
+        navigation: ADMIN_NAVIGATION_GROUPS.FINANCE_BILLING,
+        actions: readOnlyActionsConfig,
+        properties: buildSensitivePropertiesConfiguration(),
+      },
+    },
+    {
       resource: getPrismaModelTarget('ReservationHistory'),
       options: {
         navigation: ADMIN_NAVIGATION_GROUPS.BOOKINGS_OPERATIONS,

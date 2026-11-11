@@ -11,6 +11,15 @@ import { platformAnalyticsDashboardTemplate } from './platform-analytics-ui.temp
 import { asyncHandler } from '../../common/middleware/asyncHandler';
 import { PlatformAdRequestsController } from './ad-requests.controller';
 import { PlatformMediaController } from './media.controller';
+import { PlatformWithdrawalsController } from './withdrawals.controller';
+import { validate } from '../../common/middleware/validate';
+import {
+  listPlatformWithdrawalsSchema,
+  getPlatformWithdrawalDetailsSchema,
+  approvePlatformWithdrawalSchema,
+  rejectPlatformWithdrawalSchema,
+  updatePlatformWithdrawalPaymentSchema,
+} from './withdrawals.validators';
 import multer from 'multer';
 
 const router = Router();
@@ -85,6 +94,34 @@ router.post('/users/:id/revoke-sessions', asyncHandler(PlatformAdminController.r
 
 // Customers Management across all centers
 router.get('/customers', asyncHandler(PlatformAdminController.listCustomers));
+
+// Withdrawals Management
+router.get(
+  '/withdrawals',
+  validate(listPlatformWithdrawalsSchema),
+  asyncHandler(PlatformWithdrawalsController.listWithdrawals)
+);
+router.get('/withdrawals/overdue', asyncHandler(PlatformWithdrawalsController.getOverdueWithdrawals));
+router.get(
+  '/withdrawals/:id',
+  validate(getPlatformWithdrawalDetailsSchema),
+  asyncHandler(PlatformWithdrawalsController.getWithdrawalById)
+);
+router.post(
+  '/withdrawals/:id/approve',
+  validate(approvePlatformWithdrawalSchema),
+  asyncHandler(PlatformWithdrawalsController.approveWithdrawal)
+);
+router.post(
+  '/withdrawals/:id/reject',
+  validate(rejectPlatformWithdrawalSchema),
+  asyncHandler(PlatformWithdrawalsController.rejectWithdrawal)
+);
+router.patch(
+  '/withdrawals/:id/payment',
+  validate(updatePlatformWithdrawalPaymentSchema),
+  asyncHandler(PlatformWithdrawalsController.updateWithdrawalPayment)
+);
 
 // Reservations Management across all centers
 router.get('/reservations', asyncHandler(PlatformAdminController.listReservations));
