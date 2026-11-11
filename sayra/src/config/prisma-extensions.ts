@@ -34,7 +34,9 @@ export const TENANT_MODELS = new Set([
 export const GLOBAL_CRM_MODELS = new Set([
   'CustomerProfile', // Also has gamingCenterId
   'WalletTransaction',
-  'Membership'
+  'Membership',
+  'WithdrawalRequest',
+  'CustomerNotification',
 ]);
 
 import { getRequestContext } from '../common/context/request-context';
