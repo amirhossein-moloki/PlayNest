@@ -81,8 +81,23 @@ export const BookingHoldStation = {
     // Check idempotency if key provided
     if (idempotencyKey) {
       const existingHold = await BookingHoldRepo.findHoldByIdempotencyKey(gamingCenter.id, idempotencyKey);
-      if (existingHold && existingHold.status === BookingHoldStatus.ACTIVE && existingHold.expiresAt > new Date()) {
-        return existingHold;
+      if (existingHold) {
+        if (existingHold.status === BookingHoldStatus.ACTIVE && existingHold.expiresAt > new Date()) {
+          return existingHold;
+        }
+        // If the hold was already converted into reservations, return it
+        if (existingHold.status === BookingHoldStatus.CONVERTED) {
+          return existingHold;
+        }
+        // If the hold is RELEASED or EXPIRED, clear the idempotencyKey from it and its payment
+        // so that the user can retry checkout cleanly without unique constraint violation.
+        if (existingHold.status === BookingHoldStatus.RELEASED || existingHold.status === BookingHoldStatus.EXPIRED || existingHold.expiresAt <= new Date()) {
+          await BookingHoldRepo.clearIdempotencyKeyForFailedHold(
+            existingHold.id,
+            gamingCenter.id,
+            idempotencyKey
+          );
+        }
       }
     }
 
@@ -426,23 +441,30 @@ export const BookingHoldStation = {
     } catch (error) {
       logger.error({ error, holdId: hold.id, paymentId: payment.id }, 'Payment gateway initiation failed; releasing hold');
 
-      // Fail payment & release hold consistently
+      // Fail payment & release hold consistently, clearing idempotency key to allow clean retry
       await PaymentsRepo.transaction(async (tx) => {
         await tx.payment.update({
           where: { id: payment.id },
           data: {
             status: PaymentStatus.FAILED,
             failureReason: error instanceof Error ? error.message : 'Gateway initiation failed',
+            idempotencyKey: null,
           },
         });
         await tx.bookingHold.update({
           where: { id: hold.id },
-          data: { status: BookingHoldStatus.RELEASED },
+          data: {
+            status: BookingHoldStatus.RELEASED,
+            idempotencyKey: null,
+          },
         });
       });
 
       if (error instanceof AppError) throw error;
-      throw new AppError('Failed to initiate payment gateway request.', httpStatus.BAD_GATEWAY);
+      throw new AppError(
+        error instanceof Error ? error.message : 'Failed to initiate payment gateway request.',
+        httpStatus.BAD_GATEWAY
+      );
     }
   },
 };

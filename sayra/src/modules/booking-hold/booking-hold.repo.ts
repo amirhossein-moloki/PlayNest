@@ -114,6 +114,24 @@ export const BookingHoldRepo = {
     });
   },
 
+  async clearIdempotencyKeyForFailedHold(
+    holdId: string,
+    gamingCenterId: string,
+    idempotencyKey: string,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx || prisma;
+    // Clear idempotency key on hold and on payment atomically so user can retry
+    await client.bookingHold.updateMany({
+      where: { id: holdId, gamingCenterId, idempotencyKey },
+      data: { idempotencyKey: null },
+    });
+    await client.payment.updateMany({
+      where: { bookingHoldId: holdId, gamingCenterId, idempotencyKey },
+      data: { idempotencyKey: null },
+    });
+  },
+
   async findHoldForUpdate(id: string, tx: Prisma.TransactionClient) {
     try {
       await tx.$executeRaw`SELECT id FROM "BookingHold" WHERE id = ${id} FOR UPDATE`;

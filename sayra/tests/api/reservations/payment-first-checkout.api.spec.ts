@@ -119,5 +119,22 @@ describe('Payment-First Group Reservation Checkout & Verification API', () => {
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
     });
+
+    it('should return 502 Bad Gateway when payment gateway fails during initiation', async () => {
+      (BookingHoldStation.checkoutGroupReservation as jest.Mock).mockRejectedValue(
+        new AppError('Payment initiation rejected by provider.', 502, {
+          code: 'GATEWAY_ERROR',
+        })
+      );
+
+      const res = await request(app)
+        .post('/api/v1/public/gamingCenters/gamenet-arena/group-reservations/checkout')
+        .set('idempotency-key', 'idemp_key_gateway_err_123456')
+        .send(validCheckoutPayload);
+
+      expect(res.status).toBe(502);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.message).toContain('Payment initiation rejected by provider.');
+    });
   });
 });

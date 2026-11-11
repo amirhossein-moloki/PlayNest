@@ -86,3 +86,4 @@ Thumbs.db
 # Optional: lockfiles (یکی را
 
 /nginx/ssl/
+.backup_files/

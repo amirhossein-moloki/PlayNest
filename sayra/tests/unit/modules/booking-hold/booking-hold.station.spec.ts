@@ -263,4 +263,99 @@ describe('BookingHoldStation', () => {
       ).rejects.toThrow('Slot conflict detected during reservation creation. Payment preserved for reconciliation.');
     });
   });
+
+  describe('idempotency and retry behavior', () => {
+    const startTime = '2026-11-20T16:00:00Z';
+    const items = [{ stationId: 'st-1' }];
+    const idempotencyKey = 'idemp_key_test_1234567890';
+
+    it('should return existing hold when status is ACTIVE and unexpired', async () => {
+      const mockCenter = {
+        id: gamingCenterId,
+        slug: gamingCenterSlug,
+        settings: { allowOnlineBooking: true, minAdvanceBookingMinutes: 30 },
+      };
+      MockedReservationRepo.findGamingCenterBySlugWithSettings.mockResolvedValue(mockCenter as any);
+
+      const activeHold = {
+        id: 'hold-active',
+        gamingCenterId,
+        status: BookingHoldStatus.ACTIVE,
+        expiresAt: new Date(Date.now() + 600000),
+      };
+      MockedBookingHoldRepo.findHoldByIdempotencyKey.mockResolvedValue(activeHold as any);
+
+      const result = await BookingHoldStation.createBookingHold(gamingCenterSlug, {
+        startTime,
+        durationMinutes: 60,
+        items,
+        customer,
+        idempotencyKey,
+      });
+
+      expect(result).toBe(activeHold);
+      expect(MockedBookingHoldRepo.clearIdempotencyKeyForFailedHold).not.toHaveBeenCalled();
+    });
+
+    it('should clear idempotency key from RELEASED hold and allow creating a new hold', async () => {
+      const mockCenter = {
+        id: gamingCenterId,
+        slug: gamingCenterSlug,
+        settings: { allowOnlineBooking: true, minAdvanceBookingMinutes: 30 },
+      };
+      MockedReservationRepo.findGamingCenterBySlugWithSettings.mockResolvedValue(mockCenter as any);
+
+      const releasedHold = {
+        id: 'hold-released',
+        gamingCenterId,
+        status: BookingHoldStatus.RELEASED,
+        expiresAt: new Date(Date.now() - 600000),
+      };
+      MockedBookingHoldRepo.findHoldByIdempotencyKey.mockResolvedValue(releasedHold as any);
+      MockedBookingHoldRepo.clearIdempotencyKeyForFailedHold.mockResolvedValue(undefined as any);
+
+      const stations = [
+        { id: 'st-1', name: 'Station 1', hourlyPrice: 100000, minRentHours: 1, maxRentHours: 8, stationType: 'PC' },
+      ];
+      MockedBookingHoldRepo.transaction.mockImplementation(async (fn: any) => {
+        return fn({
+          gameStation: {
+            findMany: (jest.fn() as any).mockResolvedValue(stations),
+          },
+          customerAccount: {
+            findUnique: (jest.fn() as any).mockResolvedValue({ id: 'ca-1', phone: '09121112233' }),
+          },
+          customerProfile: {
+            findUnique: (jest.fn() as any).mockResolvedValue({ id: 'cp-1', customerAccountId: 'ca-1' }),
+          },
+        } as any);
+      });
+      MockedBookingHoldRepo.findOverlappingReservationsAndHoldsForStations.mockResolvedValue([]);
+
+      const newHold = {
+        id: 'hold-new',
+        gamingCenterId,
+        status: BookingHoldStatus.ACTIVE,
+        totalAmount: 100000,
+        currency: 'IRR',
+        expiresAt: new Date(Date.now() + 600000),
+      };
+      MockedBookingHoldRepo.createBookingHold.mockResolvedValue(newHold as any);
+
+      const result = await BookingHoldStation.createBookingHold(gamingCenterSlug, {
+        startTime,
+        durationMinutes: 60,
+        items,
+        customer,
+        idempotencyKey,
+      });
+
+      expect(MockedBookingHoldRepo.clearIdempotencyKeyForFailedHold).toHaveBeenCalledWith(
+        'hold-released',
+        gamingCenterId,
+        idempotencyKey
+      );
+      expect(result.id).toBe('hold-new');
+    });
+  });
 });

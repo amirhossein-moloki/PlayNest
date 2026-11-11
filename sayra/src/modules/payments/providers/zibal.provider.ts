@@ -82,7 +82,10 @@ export class ZibalProvider implements IPaymentProvider {
       }
 
       console.error('Zibal payment initiation unexpected error:', error);
-      throw new AppError('Internal error during payment initiation.', httpStatus.INTERNAL_SERVER_ERROR);
+      throw new AppError(
+        error instanceof Error ? `Payment provider error: ${error.message}` : 'Payment provider error during payment initiation.',
+        httpStatus.BAD_GATEWAY
+      );
     }
   }
 
