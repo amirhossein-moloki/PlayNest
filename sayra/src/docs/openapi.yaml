@@ -1959,6 +1959,63 @@ paths:
                           type: string
                         gamingCenterSlug:
                           type: string
+  /public/gamingCenters/{gamingCenterSlug}/advertisements/slider:
+    get:
+      operationId: getPublicCenterSliderAdvertisements
+      summary: Get active advertisement slides for a specific gaming center banner slider
+      description: Returns currently approved and active advertisements specifically for the specified gaming center, sorted by priority.
+      tags:
+      - Public
+      security: []
+      parameters:
+      - name: gamingCenterSlug
+        in: path
+        required: true
+        description: Unique slug of the gaming center
+        schema:
+          type: string
+      responses:
+        '200':
+          description: List of active slider advertisements for the center
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        title:
+                          type: string
+                        description:
+                          type: string
+                          nullable: true
+                        bannerUrl:
+                          type: string
+                        mediaType:
+                          type: string
+                        destinationUrl:
+                          type: string
+                          nullable: true
+                        priority:
+                          type: integer
+                        startDate:
+                          type: string
+                          format: date-time
+                        endDate:
+                          type: string
+                          format: date-time
+                        gamingCenterName:
+                          type: string
+                        gamingCenterSlug:
+                          type: string
   /gamingCenters/{gamingCenterId}/advertisements:
     get:
       operationId: listCenterAdvertisements
