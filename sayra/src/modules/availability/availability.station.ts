@@ -117,9 +117,9 @@ export function getWorkingIntervalsForDate(
 }
 
 export const getAvailableSlots = async (
-  query: GetAvailabilityQuery & { gamingCenterSlug: string }
+  query: GetAvailabilityQuery & { gamingCenterSlug: string; now?: Date | string }
 ): Promise<DayAvailabilitySlots[]> => {
-  const { gamingCenterSlug, stationId, staffId, date, startDate, endDate } = query;
+  const { gamingCenterSlug, stationId, staffId, date, startDate, endDate, now: queryNow } = query;
 
   // 1. Fetch GameStation and GamingCenter info
   const station = await AvailabilityRepo.findStationWithGamingCenter(stationId, gamingCenterSlug);
@@ -201,6 +201,7 @@ export const getAvailableSlots = async (
 
   // 4. Generate 24-hour slices and 60-minute slots
   const daysResults: DayAvailabilitySlots[] = [];
+  const now = queryNow ? new Date(queryNow) : new Date();
 
   // Ensure cursor starts at beginning of the day in local timezone
   const cursorDateStr = formatInTimeZone(startZonedDate, timeZone, 'yyyy-MM-dd');
@@ -285,7 +286,11 @@ export const getAvailableSlots = async (
             let isAvailable = true;
             let unavailableReason: TimeSlotItem['unavailableReason'];
 
-            if (isClosureConflict) {
+            if (slotStart < now) {
+              // Slot is in the past
+              isAvailable = false;
+              unavailableReason = 'PAST';
+            } else if (isClosureConflict) {
               isAvailable = false;
               unavailableReason = 'RESERVED';
             } else if (isMaintenanceConflict) {
