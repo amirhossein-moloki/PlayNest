@@ -108,11 +108,32 @@ export class ZibalProvider implements IPaymentProvider {
       };
     } catch (error) {
       if (error instanceof ZibalIntegrityError) {
-        console.error('Zibal integrity mismatch error:', error.message);
+        const details = (error as { details?: { expectedAmount?: number; actualAmount?: number; expectedOrderId?: string | number; actualOrderId?: string | number } }).details;
+        const isOrderIdMismatch =
+          (details?.expectedOrderId !== undefined && details?.actualOrderId !== undefined) ||
+          error.message?.toLowerCase().includes('orderid');
+
+        console.error('Zibal integrity mismatch error:', {
+          message: error.message,
+          trackId: params.authority,
+          expectedAmount: details?.expectedAmount ?? params.amount,
+          actualAmount: details?.actualAmount,
+          expectedOrderId: details?.expectedOrderId ?? orderId,
+          actualOrderId: details?.actualOrderId,
+        });
+
+        if (isOrderIdMismatch) {
+          return {
+            success: false,
+            status: PaymentStatus.FAILED,
+            failureReason: 'Payment integrity check failed: orderId mismatch.',
+          };
+        }
+
         return {
           success: false,
           status: PaymentStatus.FAILED,
-          failureReason: 'Payment integrity check failed: amount or orderId mismatch.',
+          failureReason: 'Payment integrity check failed: amount mismatch.',
         };
       }
 

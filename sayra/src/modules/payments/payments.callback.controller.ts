@@ -304,6 +304,16 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
   // 4. Server-to-server authoritative verification via SDK
   const provider = PaymentProviderFactory.getProvider('ZIBAL');
 
+  logger.info(
+    {
+      orderId: payment.reservationId || payment.id,
+      transactionId: payment.id,
+      expectedAmount: payment.amount,
+      trackId,
+    },
+    'Initiating authoritative Zibal verification'
+  );
+
   const verifyResult = await provider.verifyPayment({
     authority: trackId,
     amount: payment.amount,
@@ -312,6 +322,19 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
       reservationId: payment.reservationId,
     },
   });
+
+  logger.info(
+    {
+      orderId: payment.reservationId || payment.id,
+      transactionId: payment.id,
+      expectedAmount: payment.amount,
+      trackId,
+      verificationSuccess: verifyResult.success,
+      refId: verifyResult.refId,
+      failureReason: verifyResult.failureReason,
+    },
+    'Completed Zibal verification'
+  );
 
   // 5. Atomic database status update based strictly on verify result
   try {

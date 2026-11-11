@@ -153,7 +153,7 @@ describe('Zibal Callback Route (GET /api/v1/payments/zibal/callback)', () => {
     });
   });
 
-  it('6. should redirect to payment failed URL when verification fails (e.g. amount mismatch)', async () => {
+  it('6a. should redirect to payment failed URL when verification fails due to amount mismatch', async () => {
     (prisma.payment.findFirst as any).mockResolvedValueOnce({
       id: 'pay-1',
       reservationId: orderId,
@@ -168,7 +168,7 @@ describe('Zibal Callback Route (GET /api/v1/payments/zibal/callback)', () => {
       verifyPayment: (jest.fn() as any).mockResolvedValueOnce({
         success: false,
         status: PaymentStatus.FAILED,
-        failureReason: 'Payment integrity check failed: amount or orderId mismatch.',
+        failureReason: 'Payment integrity check failed: amount mismatch.',
       }),
     };
     jest.spyOn(PaymentProviderFactory, 'getProvider').mockReturnValue(mockProvider as any);
@@ -177,7 +177,7 @@ describe('Zibal Callback Route (GET /api/v1/payments/zibal/callback)', () => {
       id: 'pay-1',
       reservationId: orderId,
       status: PaymentStatus.FAILED,
-      failureReason: 'Payment integrity check failed: amount or orderId mismatch.',
+      failureReason: 'Payment integrity check failed: amount mismatch.',
     } as any);
 
     const res = await request(app).get(`/api/v1/payments/zibal/callback?trackId=${trackId}&status=1`);
@@ -185,6 +185,41 @@ describe('Zibal Callback Route (GET /api/v1/payments/zibal/callback)', () => {
     expect(res.status).toBe(302);
     expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/failed');
     expect(res.header.location).toContain('status=failed');
-    expect(res.header.location).toContain('Payment+integrity+check+failed');
+    expect(res.header.location).toContain('Payment+integrity+check+failed%3A+amount+mismatch.');
+  });
+
+  it('6b. should redirect to payment failed URL when verification fails due to orderId mismatch', async () => {
+    (prisma.payment.findFirst as any).mockResolvedValueOnce({
+      id: 'pay-1',
+      reservationId: orderId,
+      amount: 200000,
+      currency: 'IRR',
+      providerPaymentId: trackId,
+      status: PaymentStatus.INITIATED,
+    });
+
+    const mockProvider = {
+      name: 'ZIBAL',
+      verifyPayment: (jest.fn() as any).mockResolvedValueOnce({
+        success: false,
+        status: PaymentStatus.FAILED,
+        failureReason: 'Payment integrity check failed: orderId mismatch.',
+      }),
+    };
+    jest.spyOn(PaymentProviderFactory, 'getProvider').mockReturnValue(mockProvider as any);
+
+    jest.spyOn(PaymentsRepo, 'handleFailedPayment').mockResolvedValueOnce({
+      id: 'pay-1',
+      reservationId: orderId,
+      status: PaymentStatus.FAILED,
+      failureReason: 'Payment integrity check failed: orderId mismatch.',
+    } as any);
+
+    const res = await request(app).get(`/api/v1/payments/zibal/callback?trackId=${trackId}&status=1`);
+
+    expect(res.status).toBe(302);
+    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/failed');
+    expect(res.header.location).toContain('status=failed');
+    expect(res.header.location).toContain('Payment+integrity+check+failed%3A+orderId+mismatch.');
   });
 });

@@ -142,8 +142,12 @@ describe('ZibalProvider Unit Tests', () => {
       expect(result.refId).toBe('987654321');
     });
 
-    it('7. should handle ZibalIntegrityError when amount or orderId mismatches', async () => {
-      mockClient.verify.mockRejectedValueOnce(new ZibalIntegrityError('amount mismatch'));
+    it('7a. should handle ZibalIntegrityError specifically when amount mismatches', async () => {
+      const integrityError = new ZibalIntegrityError('Verified amount does not match the order', {
+        code: 'ERR_ZIBAL_INTEGRITY',
+        details: { expectedAmount: 200000, actualAmount: 100000 },
+      });
+      mockClient.verify.mockRejectedValueOnce(integrityError);
 
       const result = await provider.verifyPayment({
         authority: '12345678',
@@ -155,7 +159,27 @@ describe('ZibalProvider Unit Tests', () => {
 
       expect(result.success).toBe(false);
       expect(result.status).toBe(PaymentStatus.FAILED);
-      expect(result.failureReason).toContain('Payment integrity check failed');
+      expect(result.failureReason).toBe('Payment integrity check failed: amount mismatch.');
+    });
+
+    it('7b. should handle ZibalIntegrityError specifically when orderId mismatches', async () => {
+      const integrityError = new ZibalIntegrityError('Verified orderId does not match the order', {
+        code: 'ERR_ZIBAL_INTEGRITY',
+        details: { expectedOrderId: 'res-123', actualOrderId: 'res-999' },
+      });
+      mockClient.verify.mockRejectedValueOnce(integrityError);
+
+      const result = await provider.verifyPayment({
+        authority: '12345678',
+        amount: 200000,
+        metadata: {
+          orderId: 'res-123',
+        },
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.status).toBe(PaymentStatus.FAILED);
+      expect(result.failureReason).toBe('Payment integrity check failed: orderId mismatch.');
     });
 
     it('8. should handle ZibalApiError during verification', async () => {
