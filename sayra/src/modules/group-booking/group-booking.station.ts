@@ -316,7 +316,7 @@ export const GroupBookingStation = {
 
       for (const item of items) {
         const station = stationMap.get(item.stationId)!;
-        const itemBasePrice = totalHours * station.hourlyPrice;
+        const itemBasePrice = calculateBasePrice(totalHours, station.hourlyPrice);
 
         const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
           gamingCenter.id,

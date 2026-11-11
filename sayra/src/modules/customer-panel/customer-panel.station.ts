@@ -14,7 +14,6 @@ import { ReservationRepo } from '../reservation/reservation.repo';
 import { reservationStation } from '../reservation/reservation.station';
 import { RescheduleReservationInput } from '../reservation/reservation.dto';
 import { getZonedStartAndEnd } from '../../common/utils/date';
-import { discountsStation } from '../discounts/discounts.station';
 import { calculateBasePrice } from '../../common/utils/money';
 
 export const CustomerPanelStation = {
@@ -276,15 +275,16 @@ export const CustomerPanelStation = {
       const hourlyPrice = station?.hourlyPrice ?? ((reservation.stationSnapshot as Record<string, unknown>)?.hourlyPrice as number) ?? 0;
       const basePrice = calculateBasePrice(durationHours, hourlyPrice);
 
-      const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
+      const { calculateReservationFinancials } = await import('../reservation/reservation.station');
+      const financials = await calculateReservationFinancials(
         reservation.gamingCenterId,
         reservation.stationId,
         basePrice,
         proposal.proposedStartTime,
+        reservation.customerAccountId,
+        reservation.voucherCode,
         tx
       );
-
-      const finalPrice = Math.max(0, basePrice - discountAmount);
 
       const updatedReservation = await ReservationRepo.updateReservation(
         reservationId,
@@ -293,9 +293,15 @@ export const CustomerPanelStation = {
           startTime: proposal.proposedStartTime,
           endTime: proposal.proposedEndTime,
           totalHours: durationHours,
-          totalPrice: finalPrice,
-          discountAmount,
-          discountId: applicableDiscount?.id || null,
+          totalPrice: financials.customerPayableAmount,
+          discountAmount: financials.discountAmount,
+          originalAmount: financials.originalAmount,
+          customerPayableAmount: financials.customerPayableAmount,
+          platformFundedDiscount: financials.platformFundedDiscount,
+          merchantPayoutAmount: financials.merchantPayoutAmount,
+          discountFundingSource: financials.discountFundingSource,
+          campaignId: financials.campaignId,
+          discountId: financials.discountId,
         },
         tx
       );

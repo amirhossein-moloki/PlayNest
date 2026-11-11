@@ -68,3 +68,118 @@ export const calculateCommissionFromBps = (
   }
   return toMinorUnits((amount * percentBps) / 10000);
 };
+
+export interface StationPricing {
+  originalPrice: number;
+  discountPercentage: number;
+  discountAmount: number;
+  finalPrice: number;
+  hasDiscount: boolean;
+  durationHours?: number;
+}
+
+/**
+ * Calculates station pricing containing originalPrice, discountAmount, and finalPrice.
+ * Guaranteed:
+ * - finalPrice = max(0, originalPrice - discountAmount)
+ * - discountAmount clamped between 0 and originalPrice
+ * - No negative values
+ */
+export const calculateStationPricing = (
+  hourlyPrice: number,
+  discount?: {
+    valueType: DiscountValueType | 'PERCENTAGE' | 'FIXED_AMOUNT';
+    value: number;
+    isActive?: boolean;
+    startAt?: Date | string;
+    endAt?: Date | string;
+    maxDiscountAmount?: number | null;
+  } | null,
+  durationHours = 1,
+  now: Date = new Date()
+): StationPricing => {
+  const originalPrice = calculateBasePrice(durationHours, hourlyPrice);
+
+  if (originalPrice <= 0 || !discount) {
+    return {
+      originalPrice,
+      discountPercentage: 0,
+      discountAmount: 0,
+      finalPrice: originalPrice,
+      hasDiscount: false,
+      durationHours,
+    };
+  }
+
+  // Check validity
+  if (discount.isActive === false) {
+    return {
+      originalPrice,
+      discountPercentage: 0,
+      discountAmount: 0,
+      finalPrice: originalPrice,
+      hasDiscount: false,
+      durationHours,
+    };
+  }
+
+  if (discount.startAt && new Date(discount.startAt) > now) {
+    return {
+      originalPrice,
+      discountPercentage: 0,
+      discountAmount: 0,
+      finalPrice: originalPrice,
+      hasDiscount: false,
+      durationHours,
+    };
+  }
+
+  if (discount.endAt && new Date(discount.endAt) < now) {
+    return {
+      originalPrice,
+      discountPercentage: 0,
+      discountAmount: 0,
+      finalPrice: originalPrice,
+      hasDiscount: false,
+      durationHours,
+    };
+  }
+
+  if (discount.value <= 0) {
+    return {
+      originalPrice,
+      discountPercentage: 0,
+      discountAmount: 0,
+      finalPrice: originalPrice,
+      hasDiscount: false,
+      durationHours,
+    };
+  }
+
+  let discountAmount = 0;
+  let discountPercentage = 0;
+  const typeStr = String(discount.valueType);
+
+  if (typeStr === DiscountValueType.PERCENTAGE) {
+    discountPercentage = discount.value;
+    discountAmount = (originalPrice * discount.value) / 100;
+    if (discount.maxDiscountAmount !== undefined && discount.maxDiscountAmount !== null && discount.maxDiscountAmount > 0) {
+      discountAmount = Math.min(discountAmount, discount.maxDiscountAmount);
+    }
+  } else if (typeStr === DiscountValueType.FIXED_AMOUNT) {
+    discountAmount = discount.value;
+    discountPercentage = originalPrice > 0 ? Math.round((discountAmount / originalPrice) * 10000) / 100 : 0;
+  }
+
+  const roundedDiscount = Math.min(originalPrice, Math.max(0, toMinorUnits(discountAmount)));
+  const finalPrice = Math.max(0, originalPrice - roundedDiscount);
+
+  return {
+    originalPrice,
+    discountPercentage: Math.round(discountPercentage * 100) / 100,
+    discountAmount: roundedDiscount,
+    finalPrice,
+    hasDiscount: roundedDiscount > 0,
+    durationHours,
+  };
+};

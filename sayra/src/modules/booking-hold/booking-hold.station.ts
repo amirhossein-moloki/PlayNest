@@ -5,6 +5,7 @@ import AppError from '../../common/errors/AppError';
 import { BookingHoldRepo } from './booking-hold.repo';
 import { ReservationRepo } from '../reservation/reservation.repo';
 import { discountsStation } from '../discounts/discounts.station';
+import { calculateBasePrice } from '../../common/utils/money';
 import { normalizePhone } from '../../common/utils/phone';
 import { AuthRepository } from '../auth/auth.repository';
 import { validateLeadTime } from '../reservation/reservation.validation';
@@ -147,7 +148,7 @@ export const BookingHoldStation = {
 
       for (const item of items) {
         const station = stationMap.get(item.stationId)!;
-        const itemBasePrice = totalHours * station.hourlyPrice;
+        const itemBasePrice = calculateBasePrice(totalHours, station.hourlyPrice);
 
         const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
           gamingCenter.id,
