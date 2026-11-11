@@ -53,6 +53,27 @@ export const CustomerPanelRepo = {
             name: true,
           },
         },
+        walletTransactions: {
+          where: {
+            type: 'REFUND',
+          },
+          select: {
+            id: true,
+            amount: true,
+            createdAt: true,
+            note: true,
+          },
+        },
+        history: {
+          where: {
+            toStatus: 'EXPIRED',
+          },
+          select: {
+            reason: true,
+            createdAt: true,
+          },
+          take: 1,
+        },
       },
     });
   },
@@ -85,6 +106,27 @@ export const CustomerPanelRepo = {
             id: true,
             name: true,
           },
+        },
+        walletTransactions: {
+          where: {
+            type: 'REFUND',
+          },
+          select: {
+            id: true,
+            amount: true,
+            createdAt: true,
+            note: true,
+          },
+        },
+        history: {
+          where: {
+            toStatus: 'EXPIRED',
+          },
+          select: {
+            reason: true,
+            createdAt: true,
+          },
+          take: 1,
         },
       },
     });

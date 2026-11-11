@@ -27,6 +27,7 @@ export async function updateByGamingCenterId(gamingCenterId: string, data: Updat
     depositRequirementPercentage, // eslint-disable-line @typescript-eslint/no-unused-vars
     noShowPenaltyAmount,
     autoReleaseUnpaidMinutes,
+    reservationConfirmationTimeoutMinutes,
   } = data;
 
   const resolvedTimeZone = timeZone ?? timezone;
@@ -49,6 +50,9 @@ export async function updateByGamingCenterId(gamingCenterId: string, data: Updat
   if (resolvedCancellationHours !== undefined) updateData.cancellationHours = resolvedCancellationHours;
   if (noShowPenaltyAmount !== undefined) updateData.noShowPenaltyAmount = noShowPenaltyAmount;
   if (autoReleaseUnpaidMinutes !== undefined) updateData.autoReleaseUnpaidMinutes = autoReleaseUnpaidMinutes;
+  if (reservationConfirmationTimeoutMinutes !== undefined) {
+    updateData.reservationConfirmationTimeoutMinutes = reservationConfirmationTimeoutMinutes;
+  }
 
   const updatedSettings = await prisma.settings.upsert({
     where: { gamingCenterId },
@@ -67,6 +71,7 @@ export async function updateByGamingCenterId(gamingCenterId: string, data: Updat
       ...(resolvedCancellationHours !== undefined && { cancellationHours: resolvedCancellationHours }),
       ...(noShowPenaltyAmount !== undefined && { noShowPenaltyAmount }),
       ...(autoReleaseUnpaidMinutes !== undefined && { autoReleaseUnpaidMinutes }),
+      ...(reservationConfirmationTimeoutMinutes !== undefined && { reservationConfirmationTimeoutMinutes }),
     },
   });
 

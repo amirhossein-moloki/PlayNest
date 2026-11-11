@@ -139,6 +139,8 @@ export const getAvailableSlots = async (
   const openTime = gamingCenter.settings?.workStartTime || gamingCenter.openingTime || '09:00';
   const closeTime = gamingCenter.settings?.workEndTime || gamingCenter.closingTime || '23:00';
   const closedDays = gamingCenter.closedDays || [];
+  const schedules = gamingCenter.schedules || [];
+  const closures = gamingCenter.closures || [];
 
   // Determine query date range
   let startZonedDate: Date;
@@ -208,14 +210,30 @@ export const getAvailableSlots = async (
     const dayStr = formatInTimeZone(iterDate, timeZone, 'yyyy-MM-dd');
     const localDayDate = toZonedTime(iterDate, timeZone);
     const dayOfWeek = localDayDate.getDay(); // 0 = Sunday, ..., 6 = Saturday
-    const isClosedDay = closedDays.includes(dayOfWeek);
 
-    const is24h = (!openTime && !closeTime) || openTime === closeTime || (openTime === '00:00' && (closeTime === '24:00' || closeTime === '00:00'));
+    let dayOpen = openTime;
+    let dayClose = closeTime;
+    let isClosedDay = closedDays.includes(dayOfWeek);
+
+    if (schedules.length > 0) {
+      const daySchedule = schedules.find((s) => s.dayOfWeek === dayOfWeek);
+      if (daySchedule) {
+        if (daySchedule.isClosed) {
+          isClosedDay = true;
+        } else {
+          isClosedDay = false;
+          dayOpen = daySchedule.startTime || dayOpen;
+          dayClose = daySchedule.endTime || dayClose;
+        }
+      }
+    }
+
+    const is24h = (!dayOpen && !dayClose) || dayOpen === dayClose || (dayOpen === '00:00' && (dayClose === '24:00' || dayClose === '00:00'));
 
     const daySlots: TimeSlotItem[] = [];
 
     if (!isClosedDay) {
-      const workingIntervals = getWorkingIntervalsForDate(dayStr, openTime, closeTime, timeZone);
+      const workingIntervals = getWorkingIntervalsForDate(dayStr, dayOpen, dayClose, timeZone);
 
       for (const interval of workingIntervals) {
         let slotStart = new Date(interval.start);
@@ -226,6 +244,13 @@ export const getAvailableSlots = async (
 
           // Check if slot falls in the requested query range
           if (slotStart >= startZonedDate && slotEnd <= endZonedDate) {
+            // Check exceptional closures overlap
+            const isClosureConflict = closures.some((c) => {
+              const cStart = new Date(c.startDate);
+              const cEnd = new Date(c.endDate);
+              return slotStart < cEnd && slotEnd > cStart;
+            });
+
             // Check station maintenance overlap
             const isMaintenanceConflict = maintenances.some((m) => {
               const mStart = new Date(m.startTime);
@@ -260,7 +285,10 @@ export const getAvailableSlots = async (
             let isAvailable = true;
             let unavailableReason: TimeSlotItem['unavailableReason'];
 
-            if (isMaintenanceConflict) {
+            if (isClosureConflict) {
+              isAvailable = false;
+              unavailableReason = 'RESERVED';
+            } else if (isMaintenanceConflict) {
               isAvailable = false;
               unavailableReason = 'MAINTENANCE';
             } else if (isReservationConflict) {

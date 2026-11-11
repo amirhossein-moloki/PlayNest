@@ -12,6 +12,8 @@ export const AvailabilityRepo = {
         gamingCenter: {
           include: {
             settings: true,
+            schedules: true,
+            closures: true,
           },
         },
       },

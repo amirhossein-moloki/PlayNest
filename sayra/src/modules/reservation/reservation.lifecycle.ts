@@ -34,25 +34,85 @@ const findAndValidateReservation = async (
 
 export const reservationLifecycle = {
   async confirmReservation(reservationId: string, gamingCenterId: string) {
-    const reservation = await findAndValidateReservation(reservationId, gamingCenterId);
-
-    if (reservation.status === ReservationStatus.CONFIRMED) {
-      return reservation;
-    }
-
-    ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.CONFIRMED);
+    const now = new Date();
 
     const updatedReservation = await ReservationRepo.transaction(async (tx) => {
-      const result = await ReservationRepo.updateReservationWithInclude(
-        reservationId,
-        gamingCenterId,
-        { status: ReservationStatus.CONFIRMED },
-        {
+      const reservation = await ReservationRepo.findReservationById(reservationId, gamingCenterId, tx);
+      if (!reservation) {
+        throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
+      }
+
+      if (reservation.status === ReservationStatus.CONFIRMED) {
+        return reservation;
+      }
+
+      if (reservation.status === ReservationStatus.EXPIRED) {
+        throw new AppError('Reservation has expired and cannot be confirmed.', httpStatus.CONFLICT, {
+          code: 'RESERVATION_EXPIRED',
+        });
+      }
+
+      if (reservation.status !== ReservationStatus.PENDING) {
+        ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.CONFIRMED);
+      }
+
+      // Check confirmation deadline
+      const deadline = reservation.confirmationExpiresAt || reservation.expiresAt;
+      if (deadline && deadline <= now) {
+        // Mark as EXPIRED atomically
+        await ReservationRepo.updateReservation(
+          reservationId,
+          gamingCenterId,
+          { status: ReservationStatus.EXPIRED },
+          tx
+        );
+        await ReservationRepo.createHistory({
+          reservationId,
+          fromStatus: reservation.status,
+          toStatus: ReservationStatus.EXPIRED,
+          action: 'EXPIRE',
+          reason: 'عدم تأیید رزرو توسط صاحب گیمنت در مهلت تعیین‌شده',
+        }, tx);
+
+        throw new AppError('Confirmation deadline has expired.', httpStatus.CONFLICT, {
+          code: 'CONFIRMATION_EXPIRED',
+        });
+      }
+
+      // Atomic conditional update: only update if still PENDING
+      const updateResult = await tx.reservation.updateMany({
+        where: {
+          id: reservationId,
+          gamingCenterId,
+          status: ReservationStatus.PENDING,
+        },
+        data: {
+          status: ReservationStatus.CONFIRMED,
+          confirmationExpiresAt: null,
+          expiresAt: null,
+        },
+      });
+
+      if (updateResult.count === 0) {
+        // Concurrently modified by expiry worker or cancelled
+        const current = await ReservationRepo.findReservationById(reservationId, gamingCenterId, tx);
+        if (current?.status === ReservationStatus.EXPIRED) {
+          throw new AppError('Reservation has expired and cannot be confirmed.', httpStatus.CONFLICT, {
+            code: 'RESERVATION_EXPIRED',
+          });
+        }
+        throw new AppError('Invalid state transition or reservation no longer pending', httpStatus.CONFLICT, {
+          code: 'INVALID_TRANSITION',
+        });
+      }
+
+      const result = await tx.reservation.findUnique({
+        where: { id: reservationId },
+        include: {
           gamingCenter: { include: { settings: true } },
           customerAccount: true,
         },
-        tx
-      );
+      });
 
       if (!result) {
         throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
@@ -68,11 +128,13 @@ export const reservationLifecycle = {
       return result;
     });
 
-    eventEmitter.emit(AppEvents.RESERVATION_CONFIRMED, {
-      reservation: updatedReservation,
-      gamingCenter: updatedReservation.gamingCenter,
-      customerAccount: updatedReservation.customerAccount,
-    });
+    if ('gamingCenter' in updatedReservation && 'customerAccount' in updatedReservation) {
+      eventEmitter.emit(AppEvents.RESERVATION_CONFIRMED, {
+        reservation: updatedReservation,
+        gamingCenter: updatedReservation.gamingCenter,
+        customerAccount: updatedReservation.customerAccount,
+      });
+    }
 
     return updatedReservation;
   },
@@ -368,13 +430,14 @@ export const reservationLifecycle = {
         validateStationAvailability(station, maintenances);
 
         // 3. Global operating hours check
-        validateOperatingHours(
-          newStartTime,
-          newEndTime,
-          settings?.workStartTime || gamingCenter?.openingTime,
-          settings?.workEndTime || gamingCenter?.closingTime,
-          settings?.timeZone
-        );
+        validateOperatingHours(newStartTime, newEndTime, {
+          openingTime: settings?.workStartTime || gamingCenter?.openingTime,
+          closingTime: settings?.workEndTime || gamingCenter?.closingTime,
+          timeZone: settings?.timeZone || gamingCenter?.timezone,
+          closedDays: gamingCenter?.closedDays,
+          schedules: gamingCenter?.schedules,
+          closures: gamingCenter?.closures,
+        });
 
         // 4. Staff shift check
         const timeZone = settings?.timeZone || 'UTC';
@@ -511,13 +574,20 @@ export const reservationLifecycle = {
     for (const candidate of reservationCandidates) {
       try {
         const expired = await ReservationRepo.transaction(async (tx) => {
-          return ReservationRepo.expireReservationCandidate(candidate.id, now, tx);
+          const success = await ReservationRepo.expireReservationCandidate(candidate.id, now, tx);
+          if (success) {
+            // Trigger refund to wallet if paid
+            await walletService.refundReservationToWallet(candidate.id, tx);
+          }
+          return success;
         });
 
         if (expired) {
           result.expiredCount++;
+          const fullRes = await ReservationRepo.findReservationById(candidate.id, candidate.gamingCenterId);
           eventEmitter.emit(AppEvents.RESERVATION_EXPIRED, {
             reservationId: candidate.id,
+            reservation: fullRes,
             gamingCenterId: candidate.gamingCenterId,
           });
         } else {
@@ -540,7 +610,18 @@ export const reservationLifecycle = {
     for (const groupCandidate of groupCandidates) {
       try {
         const expired = await ReservationRepo.transaction(async (tx) => {
-          return ReservationRepo.expireGroupBookingCandidate(groupCandidate.id, now, tx);
+          const success = await ReservationRepo.expireGroupBookingCandidate(groupCandidate.id, now, tx);
+          if (success) {
+            // Trigger refund for group booking child reservations
+            const children = await tx.reservation.findMany({
+              where: { groupBookingId: groupCandidate.id },
+              select: { id: true },
+            });
+            for (const child of children) {
+              await walletService.refundReservationToWallet(child.id, tx);
+            }
+          }
+          return success;
         });
 
         if (expired) {

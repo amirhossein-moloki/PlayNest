@@ -1,22 +1,27 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { reservationStation } from '../../../../src/modules/reservation/reservation.station';
 import { ReservationRepo } from '../../../../src/modules/reservation/reservation.repo';
+import { Reservation } from '@prisma/client';
 
 jest.mock('../../../../src/modules/reservation/reservation.repo');
+jest.mock('../../../../src/modules/wallet/wallet.station');
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 const MockedReservationRepo = ReservationRepo as jest.Mocked<typeof ReservationRepo>;
 
 describe('Reservation Expiry - Integration & Concurrency Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    MockedReservationRepo.transaction.mockImplementation(async (cb: /* eslint-disable-line @typescript-eslint/no-explicit-any */ any) => cb({}));
+    MockedReservationRepo.transaction.mockImplementation(async (cb: any) => cb({}));
+    MockedReservationRepo.findReservationById.mockResolvedValue({ id: 'res-race-1' } as unknown as Reservation);
   });
 
   describe('Multi-Worker Concurrency', () => {
     it('should allow only one worker instance to transition an expired reservation', async () => {
       const now = new Date('2026-12-05T12:00:00Z');
       const candidates = [
-        { id: 'res-race-1', gamingCenterId: 'gc-1', expiresAt: new Date('2026-12-05T11:58:00Z') },
+        { id: 'res-race-1', gamingCenterId: 'gc-1', expiresAt: new Date('2026-12-05T11:58:00Z'), confirmationExpiresAt: new Date('2026-12-05T11:58:00Z') },
       ];
 
       MockedReservationRepo.findExpiryCandidateReservations.mockResolvedValue(candidates);
@@ -41,7 +46,7 @@ describe('Reservation Expiry - Integration & Concurrency Tests', () => {
     it('should skip expiry if payment succeeds concurrently before worker updates DB', async () => {
       const now = new Date('2026-12-05T12:00:00Z');
       const candidates = [
-        { id: 'res-paid-race', gamingCenterId: 'gc-1', expiresAt: new Date('2026-12-05T11:59:00Z') },
+        { id: 'res-paid-race', gamingCenterId: 'gc-1', expiresAt: new Date('2026-12-05T11:59:00Z'), confirmationExpiresAt: new Date('2026-12-05T11:59:00Z') },
       ];
 
       MockedReservationRepo.findExpiryCandidateReservations.mockResolvedValue(candidates);

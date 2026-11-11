@@ -22,14 +22,14 @@ router.patch(
   '/:id',
   authMiddleware,
   tenantGuard,
-  requireRole([UserRole.MANAGER]),
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
   asyncHandler(gamingCenterController.updateGamingCenter),
 );
 router.delete(
   '/:id',
   authMiddleware,
   tenantGuard,
-  requireRole([UserRole.MANAGER]),
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
   asyncHandler(gamingCenterController.deleteGamingCenter),
 );
 

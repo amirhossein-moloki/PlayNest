@@ -1,6 +1,7 @@
 import { Prisma, WalletTransactionType, ReservationPaymentState, PaymentStatus } from '@prisma/client';
 import { WalletRepo } from './wallet.repo';
 import { prisma } from '../../config/prisma';
+import logger from '../../config/logger';
 
 export const walletService = {
   async credit(
@@ -38,24 +39,54 @@ export const walletService = {
   async refundReservationToWallet(reservationId: string, tx?: Prisma.TransactionClient) {
     const execute = async (t: Prisma.TransactionClient) => {
       const reservation = await WalletRepo.findReservation(reservationId, t);
-      if (!reservation) return;
+      if (!reservation) {
+        logger.warn({ msg: 'Cannot refund: reservation not found', reservationId });
+        return;
+      }
 
-      const totalPaid = await WalletRepo.findTotalPaidForReservation(reservationId, t);
-      if (totalPaid <= 0) return;
-
-      // Check if already refunded to avoid double refund
+      // Check if already refunded to guarantee strict idempotency
       const existingRefund = await WalletRepo.findRefundTransaction(reservationId, t);
+      if (existingRefund) {
+        logger.info({ msg: 'Reservation already refunded to wallet', reservationId, refundId: existingRefund.id });
+        return;
+      }
 
-      if (existingRefund) return;
+      // 1. Calculate actual paid amount from verified PAID payment records
+      const totalGatewayPaid = await WalletRepo.findTotalPaidForReservation(reservationId, t);
+
+      // 2. Also check if reservation was paid via wallet debit
+      const walletDebit = await t.walletTransaction.findFirst({
+        where: {
+          reservationId,
+          type: WalletTransactionType.RESERVATION_PAYMENT,
+        },
+      });
+      const totalWalletPaid = walletDebit ? Math.abs(walletDebit.amount) : 0;
+
+      const totalActualPaid = totalGatewayPaid + totalWalletPaid;
+
+      // If no valid actual payment exists, do not issue an unbacked refund
+      if (totalActualPaid <= 0) {
+        logger.info({ msg: 'No paid amount found for reservation refund', reservationId });
+        return;
+      }
+
+      // Cap at customerPayableAmount if customerPayableAmount > 0 to guarantee discounted reservations
+      // only refund what was genuinely owed and paid
+      const refundAmount = reservation.customerPayableAmount > 0
+        ? Math.min(totalActualPaid, reservation.customerPayableAmount)
+        : totalActualPaid;
+
+      const currency = ((reservation.stationSnapshot as Record<string, unknown>)?.currency as string | undefined) || 'IRR';
 
       try {
         await walletService.credit(
           reservation.customerAccountId,
-          totalPaid,
+          refundAmount,
           WalletTransactionType.REFUND,
-          ((reservation.stationSnapshot as Record<string, unknown>)?.currency as string | undefined || 'USD'),
+          currency,
           reservationId,
-          `Refund for reservation ${reservationId}`,
+          `استرداد وجه رزرو ${reservationId} به دلیل عدم تأیید در مهلت مقرر`,
           t
         );
 
@@ -64,11 +95,22 @@ export const walletService = {
 
         // Mark successful payments as REFUNDED
         await WalletRepo.updatePaymentsStatus(reservationId, PaymentStatus.PAID, PaymentStatus.REFUNDED, t);
-      } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
-        if (error.code === 'P2002') {
-          // Unique constraint violation: already refunded concurrently
+
+        logger.info({
+          msg: 'Refunded reservation successfully to customer wallet',
+          reservationId,
+          customerAccountId: reservation.customerAccountId,
+          refundAmount,
+          currency,
+        });
+      } catch (error: unknown) {
+        if (typeof error === 'object' && error !== null && 'code' in error && (error as { code: string }).code === 'P2002') {
+          // Unique constraint violation (unique_reservation_transaction_type on [reservationId, type])
+          // Concurrently refunded by another process/worker
+          logger.info({ msg: 'Concurrent duplicate refund prevented by unique constraint', reservationId });
           return;
         }
+        logger.error({ msg: 'Failed to process wallet refund for reservation', reservationId, error });
         throw error;
       }
     };

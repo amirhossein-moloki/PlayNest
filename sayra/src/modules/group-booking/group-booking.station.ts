@@ -10,6 +10,7 @@ import { calculateBasePrice } from '../../common/utils/money';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { normalizePhone } from '../../common/utils/phone';
+import { validateOperatingHours } from '../reservation/reservation.validation';
 
 const OTP_POST_VERIFICATION_WINDOW_MINUTES = 5;
 
@@ -88,6 +89,21 @@ export const GroupBookingStation = {
     if (!gamingCenter) {
       throw new AppError('GamingCenter not found.', httpStatus.NOT_FOUND);
     }
+
+    if (gamingCenter.isActive === false) {
+      throw new AppError('GamingCenter is currently inactive.', httpStatus.FORBIDDEN, {
+        code: 'GAMING_CENTER_INACTIVE',
+      });
+    }
+
+    validateOperatingHours(startTime, endTime, {
+      openingTime: gamingCenter.settings?.workStartTime || gamingCenter.openingTime,
+      closingTime: gamingCenter.settings?.workEndTime || gamingCenter.closingTime,
+      timeZone: gamingCenter.settings?.timeZone || gamingCenter.timezone,
+      closedDays: gamingCenter.closedDays,
+      schedules: gamingCenter.schedules,
+      closures: gamingCenter.closures,
+    });
 
     return GroupBookingRepo.transaction(async (tx) => {
       // Resolve effective User record ID for createdByUserId
@@ -231,6 +247,12 @@ export const GroupBookingStation = {
       throw new AppError('GamingCenter not found.', httpStatus.NOT_FOUND);
     }
 
+    if (gamingCenter.isActive === false) {
+      throw new AppError('GamingCenter is currently inactive.', httpStatus.FORBIDDEN, {
+        code: 'GAMING_CENTER_INACTIVE',
+      });
+    }
+
     if (!gamingCenter.settings?.allowOnlineBooking) {
       throw new AppError('Online reservation is disabled.', httpStatus.FORBIDDEN, {
         code: 'ONLINE_RESERVATION_DISABLED',
@@ -267,6 +289,15 @@ export const GroupBookingStation = {
         code: 'DUPLICATE_STATIONS_SELECTED',
       });
     }
+
+    validateOperatingHours(startTime, endTime, {
+      openingTime: gamingCenter.settings?.workStartTime || gamingCenter.openingTime,
+      closingTime: gamingCenter.settings?.workEndTime || gamingCenter.closingTime,
+      timeZone: gamingCenter.settings?.timeZone || gamingCenter.timezone,
+      closedDays: gamingCenter.closedDays,
+      schedules: gamingCenter.schedules,
+      closures: gamingCenter.closures,
+    });
 
     return GroupBookingRepo.transaction(async (tx) => {
       await ReservationRepo.lockStationsForUpdate(stationIds, tx);
@@ -352,9 +383,11 @@ export const GroupBookingStation = {
         ? ReservationStatus.CONFIRMED
         : ReservationStatus.PENDING;
 
-      const expiresAt = status === ReservationStatus.PENDING
-        ? new Date(Date.now() + 60 * 1000)
+      const timeoutMinutes = gamingCenter.settings?.reservationConfirmationTimeoutMinutes ?? 30;
+      const confirmationExpiresAt = status === ReservationStatus.PENDING
+        ? new Date(Date.now() + timeoutMinutes * 60 * 1000)
         : null;
+      const expiresAt = confirmationExpiresAt;
 
       // Find staff/system user to assign as creator
       const systemUser = await tx.user.findFirst({ where: { gamingCenterId: gamingCenter.id } });
@@ -378,6 +411,7 @@ export const GroupBookingStation = {
           source: ReservationSource.ONLINE,
           note,
           expiresAt,
+          confirmationExpiresAt,
           items: preparedItems,
         },
         tx

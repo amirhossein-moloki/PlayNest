@@ -47,13 +47,14 @@ export const reservationProposals = {
       validateStationAvailability(station, maintenances);
     }
 
-    validateOperatingHours(
-      proposedStartTime,
-      proposedEndTime,
-      settings?.workStartTime || gamingCenter?.openingTime,
-      settings?.workEndTime || gamingCenter?.closingTime,
-      settings?.timeZone
-    );
+    validateOperatingHours(proposedStartTime, proposedEndTime, {
+      openingTime: settings?.workStartTime || gamingCenter?.openingTime,
+      closingTime: settings?.workEndTime || gamingCenter?.closingTime,
+      timeZone: settings?.timeZone || gamingCenter?.timezone,
+      closedDays: gamingCenter?.closedDays,
+      schedules: gamingCenter?.schedules,
+      closures: gamingCenter?.closures,
+    });
 
     const proposal = await ReservationRepo.transaction(async (tx) => {
       // Cancel any existing PENDING proposal for this reservation
