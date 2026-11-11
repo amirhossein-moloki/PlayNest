@@ -21,6 +21,12 @@ describe('AvailabilityStation 60-Minute Slots', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-11-01T00:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   describe('getWorkingIntervalsForDate', () => {
@@ -293,6 +299,68 @@ describe('AvailabilityStation 60-Minute Slots', () => {
       // 12:00-13:00 staff shift ended -> NO_STAFF
       expect(slots[2].isAvailable).toBe(false);
       expect(slots[2].unavailableReason).toBe('NO_STAFF');
+    });
+
+    it('should mark slots in the past as unavailable with reason PAST', async () => {
+      // Set current time to middle of day: 2026-11-10T11:30:00Z
+      jest.setSystemTime(new Date('2026-11-10T11:30:00.000Z'));
+
+      MockedAvailabilityRepo.findStationWithGamingCenter.mockResolvedValue(baseStation as any);
+      MockedAvailabilityRepo.findStaffList.mockResolvedValue([]);
+      MockedAvailabilityRepo.findShifts.mockResolvedValue([]);
+      MockedAvailabilityRepo.findReservation.mockResolvedValue([]);
+      MockedAvailabilityRepo.findMaintenances.mockResolvedValue([]);
+
+      const results = await getAvailableSlots({
+        gamingCenterSlug,
+        stationId,
+        date: '2026-11-10',
+      });
+
+      const slots = results[0].slots;
+      expect(slots).toHaveLength(4);
+
+      // Slot 1: 10:00-11:00 (in the past relative to 11:30)
+      expect(slots[0].isAvailable).toBe(false);
+      expect(slots[0].unavailableReason).toBe('PAST');
+
+      // Slot 2: 11:00-12:00 (slotStart 11:00 is before 11:30 -> PAST)
+      expect(slots[1].isAvailable).toBe(false);
+      expect(slots[1].unavailableReason).toBe('PAST');
+
+      // Slot 3: 12:00-13:00 (in the future -> available)
+      expect(slots[2].isAvailable).toBe(true);
+      expect(slots[2].unavailableReason).toBeUndefined();
+
+      // Slot 4: 13:00-14:00 (in the future -> available)
+      expect(slots[3].isAvailable).toBe(true);
+      expect(slots[3].unavailableReason).toBeUndefined();
+    });
+
+    it('should mark pending, confirmed, and in-progress reservations as RESERVED', async () => {
+      MockedAvailabilityRepo.findStationWithGamingCenter.mockResolvedValue(baseStation as any);
+      MockedAvailabilityRepo.findStaffList.mockResolvedValue([]);
+      MockedAvailabilityRepo.findShifts.mockResolvedValue([]);
+      MockedAvailabilityRepo.findMaintenances.mockResolvedValue([]);
+
+      MockedAvailabilityRepo.findReservation.mockResolvedValue([
+        {
+          id: 'res-pending',
+          startTime: new Date('2026-11-10T12:00:00.000Z'),
+          endTime: new Date('2026-11-10T13:00:00.000Z'),
+          status: 'PENDING',
+        } as any,
+      ]);
+
+      const results = await getAvailableSlots({
+        gamingCenterSlug,
+        stationId,
+        date: '2026-11-10',
+      });
+
+      const slots = results[0].slots;
+      expect(slots[2].isAvailable).toBe(false);
+      expect(slots[2].unavailableReason).toBe('RESERVED');
     });
   });
 });
