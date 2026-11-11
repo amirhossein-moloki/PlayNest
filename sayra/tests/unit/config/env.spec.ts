@@ -22,7 +22,7 @@ describe('Environment configuration', () => {
     expect(() => {
       // Re-require the env module unmocked
       jest.isolateModules(() => {
-        const { env } = jest.requireActual('../../../src/config/env') as any;
+        const { env } = jest.requireActual('../../../src/config/env') as { env: { ZIBAL_MERCHANT: string; NODE_ENV: string } };
         expect(env.ZIBAL_MERCHANT).toBe('zibal');
         expect(env.NODE_ENV).toBe('production');
       });
