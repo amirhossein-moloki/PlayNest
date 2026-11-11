@@ -701,6 +701,7 @@ model CustomerAccount {
   profiles           CustomerProfile[]
   reservations       Reservation[]
   ratings            Rating[]
+  walletCharges      WalletCharge[]
   walletTransactions WalletTransaction[]
   withdrawalRequests WithdrawalRequest[]
   notifications      CustomerNotification[]
@@ -2028,6 +2029,9 @@ model WalletTransaction {
   withdrawalRequestId String?
   withdrawalRequest   WithdrawalRequest? @relation(fields: [withdrawalRequestId], references: [id])
 
+  walletChargeId String?
+  walletCharge   WalletCharge? @relation(fields: [walletChargeId], references: [id])
+
   note String?
 
   createdAt DateTime @default(now())
@@ -2036,6 +2040,42 @@ model WalletTransaction {
   @@index([customerAccountId])
   @@index([reservationId])
   @@index([withdrawalRequestId])
+  @@index([walletChargeId])
+}
+
+enum WalletChargeStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
+}
+
+model WalletCharge {
+  id                String             @id @default(cuid())
+  customerAccountId String
+  customerAccount   CustomerAccount    @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+
+  amount            Int
+  currency          String             @default("IRR")
+  provider          PaymentProvider    @default(ZIBAL)
+  status            WalletChargeStatus @default(PENDING)
+
+  trackId           String?            @unique
+  refNumber         String?
+  failureReason     String?
+  idempotencyKey    String?
+  rawProviderPayload Json?
+
+  paidAt            DateTime?          @db.Timestamptz(6)
+  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
+
+  walletTransactions WalletTransaction[]
+
+  @@unique([customerAccountId, idempotencyKey], name: "customer_idempotency_key")
+  @@index([customerAccountId, createdAt])
+  @@index([status, createdAt])
 }
 
 model WithdrawalRequest {

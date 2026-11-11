@@ -20,6 +20,10 @@ jest.mock('../../../src/config/prisma', () => ({
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    walletCharge: {
+      findFirst: jest.fn().mockImplementation(() => Promise.resolve(null)),
+      findUnique: jest.fn().mockImplementation(() => Promise.resolve(null)),
+    },
     reservation: {
       findFirst: jest.fn(),
       findUnique: jest.fn(),

@@ -6,7 +6,7 @@ export interface InitiatePaymentParams {
   description: string;
   callbackUrl: string;
   reservationId: string;
-  gamingCenterId: string;
+  gamingCenterId?: string;
   metadata?: Record<string, unknown>;
 }
 
