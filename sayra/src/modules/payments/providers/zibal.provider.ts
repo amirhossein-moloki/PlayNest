@@ -82,7 +82,11 @@ export class ZibalProvider implements IPaymentProvider {
       }
 
       console.error('Zibal payment initiation unexpected error:', error);
-      throw new AppError('Internal error during payment initiation.', httpStatus.INTERNAL_SERVER_ERROR);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown gateway initiation error';
+      throw new AppError(`Failed to initiate payment with Zibal: ${errorMessage}`, httpStatus.BAD_GATEWAY, {
+        code: 'PAYMENT_GATEWAY_ERROR',
+        details: { provider: 'ZIBAL', originalMessage: errorMessage },
+      });
     }
   }
 

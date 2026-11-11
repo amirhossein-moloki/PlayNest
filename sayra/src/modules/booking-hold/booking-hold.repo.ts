@@ -114,6 +114,33 @@ export const BookingHoldRepo = {
     });
   },
 
+  async archiveInactiveHoldIdempotencyKey(
+    gamingCenterId: string,
+    idempotencyKey: string,
+    tx: Prisma.TransactionClient
+  ) {
+    // If a hold with this idempotency key was previously RELEASED or EXPIRED,
+    // clear or archive the key on the inactive record so the unique constraint
+    // does not block retrying checkout with the same key, without deleting any records.
+    const inactiveHolds = await tx.bookingHold.findMany({
+      where: {
+        gamingCenterId,
+        idempotencyKey,
+        status: { in: [BookingHoldStatus.RELEASED, BookingHoldStatus.EXPIRED] },
+      },
+      select: { id: true },
+    });
+
+    for (const hold of inactiveHolds) {
+      await tx.bookingHold.update({
+        where: { id: hold.id },
+        data: {
+          idempotencyKey: `archived_${hold.id}_${Date.now()}`,
+        },
+      });
+    }
+  },
+
   async findHoldForUpdate(id: string, tx: Prisma.TransactionClient) {
     try {
       await tx.$executeRaw`SELECT id FROM "BookingHold" WHERE id = ${id} FOR UPDATE`;

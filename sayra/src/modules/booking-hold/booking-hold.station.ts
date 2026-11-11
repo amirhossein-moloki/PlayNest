@@ -87,6 +87,11 @@ export const BookingHoldStation = {
     }
 
     return BookingHoldRepo.transaction(async (tx) => {
+      // 0. If previous hold with this idempotencyKey was RELEASED or EXPIRED, archive the key so retry succeeds
+      if (idempotencyKey) {
+        await BookingHoldRepo.archiveInactiveHoldIdempotencyKey(gamingCenter.id, idempotencyKey, tx);
+      }
+
       // 1. Pessimistic lock stations
       await BookingHoldRepo.lockStationsForUpdate(stationIds, tx);
 
@@ -374,15 +379,59 @@ export const BookingHoldStation = {
     gamingCenterSlug: string,
     input: CreateBookingHoldInput
   ) {
-    // 1. Create ACTIVE BookingHold (authoritative validation & pricing)
+    // 1. Check if active hold with initiated payment already exists for this idempotency key
+    if (input.idempotencyKey) {
+      const gamingCenter = await ReservationRepo.findGamingCenterBySlugWithSettings(gamingCenterSlug);
+      if (gamingCenter) {
+        const existingHold = await BookingHoldRepo.findHoldByIdempotencyKey(gamingCenter.id, input.idempotencyKey);
+        if (
+          existingHold &&
+          existingHold.status === BookingHoldStatus.ACTIVE &&
+          existingHold.expiresAt > new Date() &&
+          existingHold.payment &&
+          existingHold.payment.status === PaymentStatus.INITIATED &&
+          existingHold.payment.providerCheckoutId
+        ) {
+          return {
+            holdId: existingHold.id,
+            paymentId: existingHold.payment.id,
+            paymentStatus: existingHold.payment.status,
+            holdExpiresAt: existingHold.expiresAt,
+            paymentUrl: existingHold.payment.providerCheckoutId,
+            totalAmount: existingHold.totalAmount,
+            currency: existingHold.currency,
+          };
+        }
+      }
+    }
+
+    // 2. Create ACTIVE BookingHold (authoritative validation & pricing)
     const hold = await this.createBookingHold(gamingCenterSlug, input);
 
-    // 2. Resolve provider & initiate payment
+    // 3. Resolve provider & initiate payment
     const providerName = input.provider;
     const provider = PaymentProviderFactory.getProvider(providerName);
 
-    // 3. Create PENDING/INITIATED Payment record associated with BookingHold
+    // 4. Create PENDING/INITIATED Payment record associated with BookingHold
+    // If a payment with the same idempotency key already exists for this gaming center (e.g. from a failed attempt),
+    // archive/clear its idempotency key so the @@unique constraint on [gamingCenterId, idempotencyKey] is satisfied.
     const payment = await PaymentsRepo.transaction(async (tx) => {
+      if (input.idempotencyKey) {
+        const priorPayment = await tx.payment.findFirst({
+          where: {
+            gamingCenterId: hold.gamingCenterId,
+            idempotencyKey: input.idempotencyKey,
+            status: { in: [PaymentStatus.FAILED] },
+          },
+        });
+        if (priorPayment) {
+          await tx.payment.update({
+            where: { id: priorPayment.id },
+            data: { idempotencyKey: `archived_${priorPayment.id}_${Date.now()}` },
+          });
+        }
+      }
+
       return tx.payment.create({
         data: {
           gamingCenterId: hold.gamingCenterId,
@@ -442,7 +491,11 @@ export const BookingHoldStation = {
       });
 
       if (error instanceof AppError) throw error;
-      throw new AppError('Failed to initiate payment gateway request.', httpStatus.BAD_GATEWAY);
+      const gatewayReason = error instanceof Error ? error.message : 'Payment gateway request failed';
+      throw new AppError(`Failed to initiate payment gateway request: ${gatewayReason}`, httpStatus.BAD_GATEWAY, {
+        code: 'PAYMENT_GATEWAY_ERROR',
+        details: { holdId: hold.id, paymentId: payment.id, error: gatewayReason },
+      });
     }
   },
 };
