@@ -40,10 +40,15 @@ const initiatePayment = async ({
     throw new AppError('Reservation is canceled or expired and cannot be paid.', httpStatus.BAD_REQUEST);
   }
 
-  // 3. Trusted server-side price & currency calculation
-  const calculatedAmount = Math.round(reservation.customerPayableAmount > 0 ? reservation.customerPayableAmount : reservation.totalPrice);
+  // 3. Trusted server-side price & currency calculation (Backend Authority & Legacy Compatibility)
+  // Prefers validated customerPayableAmount, with graceful fallback to totalPrice for legacy reservations
+  const payableCandidate = typeof reservation.customerPayableAmount === 'number' && reservation.customerPayableAmount > 0
+    ? reservation.customerPayableAmount
+    : reservation.totalPrice;
+
+  const calculatedAmount = Math.round(payableCandidate);
   if (calculatedAmount <= 0) {
-    throw new AppError('Invalid reservation total price for payment.', httpStatus.BAD_REQUEST);
+    throw new AppError('Invalid reservation payable amount for payment.', httpStatus.BAD_REQUEST);
   }
 
   const snapshotCurrency = (reservation.stationSnapshot as Record<string, unknown>)?.currency as string | undefined;

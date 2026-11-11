@@ -10,6 +10,8 @@ import {
 import { ListStationsQuery } from './station.validator';
 import * as CatalogRepo from '../catalog/catalog.repo';
 import { prisma } from '../../config/prisma';
+import { discountsStation } from '../discounts/discounts.station';
+import { calculateStationPricing, StationPricing } from '../../common/utils/money';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 
@@ -165,17 +167,113 @@ export async function getStationById(stationId: string, gamingCenterId: string) 
   if (!station) {
     throw new AppError('GameStation not found', httpStatus.NOT_FOUND);
   }
-  return station;
+
+  const { applicableDiscount } = await discountsStation.calculateApplicableDiscount(
+    gamingCenterId,
+    station.id,
+    station.hourlyPrice
+  );
+
+  const pricing = calculateStationPricing(station.hourlyPrice, applicableDiscount, 1);
+
+  return {
+    ...station,
+    pricing,
+  };
 }
 
 /**
  * Business logic to get all stations for a gamingCenter.
  * @param gamingCenterId - The ID of the gamingCenter.
  * @param query - Filtering and pagination criteria.
- * @returns A list of stations.
+ * @returns A list of stations with enriched pricing details.
  */
 export async function getStationsForGamingCenter(gamingCenterId: string, query: ListStationsQuery) {
-  return StationRepo.findStationsByGamingCenterId(gamingCenterId, query);
+  const paginatedResult = await StationRepo.findStationsByGamingCenterId(gamingCenterId, query);
+  const now = new Date();
+
+  // Fetch all active discounts for this gaming center (center-level and station-level)
+  let activeDiscounts: Array<{
+    id: string;
+    targetType: string;
+    targetId: string;
+    valueType: 'PERCENTAGE' | 'FIXED_AMOUNT';
+    value: number;
+    startAt: Date;
+    endAt: Date;
+    isActive: boolean;
+  }> = [];
+
+  try {
+    if (prisma.discount?.findMany) {
+      activeDiscounts = await prisma.discount.findMany({
+        where: {
+          gamingCenterId,
+          isActive: true,
+          startAt: { lte: now },
+          endAt: { gte: now },
+        },
+      });
+    }
+  } catch {
+    activeDiscounts = [];
+  }
+
+  const enrichedData = (paginatedResult.data || []).map((station: { [key: string]: unknown }) => {
+    // If fields were selectively requested and hourlyPrice was omitted, return as is
+    if (typeof station.hourlyPrice !== 'number') {
+      return station;
+    }
+
+    const stationHourlyPrice = station.hourlyPrice;
+    const stationId = station.id as string;
+
+    const stationDiscounts = activeDiscounts.filter(
+      (d) =>
+        (d.targetType === 'STATION' && d.targetId === stationId) ||
+        (d.targetType === 'GAMING_CENTER' && d.targetId === gamingCenterId)
+    );
+
+    // Apply STATION > GAMING_CENTER precedence logic
+    const specificStationDiscounts = stationDiscounts.filter((d) => d.targetType === 'STATION');
+    const candidates = specificStationDiscounts.length > 0
+      ? specificStationDiscounts
+      : stationDiscounts.filter((d) => d.targetType === 'GAMING_CENTER');
+
+    let bestDiscount: (typeof activeDiscounts)[0] | null = null;
+    let maxDiscountAmount = -1;
+
+    for (const d of candidates) {
+      let amt = 0;
+      if (d.valueType === 'PERCENTAGE') {
+        amt = (stationHourlyPrice * d.value) / 100;
+      } else if (d.valueType === 'FIXED_AMOUNT') {
+        amt = d.value;
+      }
+      amt = Math.min(stationHourlyPrice, Math.max(0, amt));
+      if (amt > maxDiscountAmount) {
+        maxDiscountAmount = amt;
+        bestDiscount = d;
+      }
+    }
+
+    const pricing: StationPricing = calculateStationPricing(
+      stationHourlyPrice,
+      maxDiscountAmount > 0 ? bestDiscount : null,
+      1,
+      now
+    );
+
+    return {
+      ...station,
+      pricing,
+    };
+  });
+
+  return {
+    ...paginatedResult,
+    data: enrichedData,
+  };
 }
 
 /**

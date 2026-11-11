@@ -12,7 +12,6 @@ import { AppEvents, eventEmitter } from '../../common/events/event-emitter';
 import logger from '../../config/logger';
 import { env } from '../../config/env';
 import { ReservationStateMachine } from './reservation.state-machine';
-import { discountsStation } from '../discounts/discounts.station';
 import { calculateBasePrice } from '../../common/utils/money';
 import {
   validateLeadTime,
@@ -405,16 +404,18 @@ export const reservationLifecycle = {
           }
         }
 
-        // Recalculate prices and dynamic discounts
+        // Recalculate prices and dynamic discounts using centralized financials engine
         const basePrice = calculateBasePrice(durationHours, station.hourlyPrice);
-        const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
+        const { calculateReservationFinancials } = await import('./reservation.station');
+        const financials = await calculateReservationFinancials(
           gamingCenterId,
           effectiveStationId,
           basePrice,
           newStartTime,
+          reservation.customerAccountId,
+          reservation.voucherCode,
           tx
         );
-        const finalPrice = Math.max(0, basePrice - discountAmount);
 
         const updateData: Prisma.ReservationUncheckedUpdateInput = {
           startTime: newStartTime,
@@ -427,9 +428,15 @@ export const reservationLifecycle = {
             stationType: station.stationType,
           },
           totalHours: durationHours,
-          totalPrice: finalPrice,
-          discountAmount,
-          discountId: applicableDiscount?.id || null,
+          totalPrice: financials.customerPayableAmount,
+          discountAmount: financials.discountAmount,
+          originalAmount: financials.originalAmount,
+          customerPayableAmount: financials.customerPayableAmount,
+          platformFundedDiscount: financials.platformFundedDiscount,
+          merchantPayoutAmount: financials.merchantPayoutAmount,
+          discountFundingSource: financials.discountFundingSource,
+          campaignId: financials.campaignId,
+          discountId: financials.discountId,
         };
 
         if (data.reason) {
