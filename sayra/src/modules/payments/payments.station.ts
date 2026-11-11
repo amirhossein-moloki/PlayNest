@@ -177,8 +177,9 @@ const verifyPayment = async ({
     authority: providerAuthority,
     amount: payment.amount,
     metadata: {
-      orderId: payment.reservationId || payment.id,
+      orderId: payment.reservationId || payment.bookingHoldId || payment.id,
       reservationId: payment.reservationId,
+      paymentId: payment.id,
     },
   });
 

@@ -90,16 +90,18 @@ export async function handlePaymentCallback(req: Request, res: Response): Promis
     },
     include: {
       reservation: true,
+      bookingHold: true,
     },
   });
 
   if (!payment && orderId) {
     payment = await prisma.payment.findFirst({
       where: {
-        OR: [{ reservationId: orderId }, { id: orderId }],
+        OR: [{ reservationId: orderId }, { bookingHoldId: orderId }, { id: orderId }],
       },
       include: {
         reservation: true,
+        bookingHold: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -117,9 +119,10 @@ export async function handlePaymentCallback(req: Request, res: Response): Promis
   }
 
   // 2. Idempotency check: If already paid, redirect to success URL
+  const paymentInitialOrderId = payment.reservationId || payment.bookingHoldId || payment.id;
   if (payment.status === PaymentStatus.PAID) {
     const redirectUrl = getPaymentSuccessRedirectUrl({
-      orderId: payment.reservationId || payment.id,
+      orderId: paymentInitialOrderId,
       amount: payment.amount,
       currency: payment.currency,
       trackId: payment.providerPaymentId || authority,
@@ -144,7 +147,7 @@ export async function handlePaymentCallback(req: Request, res: Response): Promis
     });
 
     const redirectUrl = getPaymentFailedRedirectUrl({
-      orderId: payment.reservationId || payment.id,
+      orderId: paymentInitialOrderId,
       trackId: authority,
       failureReason: 'پرداخت در درگاه بانکی لغو شد یا با خطا متوقف گردید.',
     });
@@ -159,8 +162,9 @@ export async function handlePaymentCallback(req: Request, res: Response): Promis
     authority,
     amount: payment.amount,
     metadata: {
-      orderId: payment.reservationId || payment.id,
+      orderId: paymentInitialOrderId,
       reservationId: payment.reservationId,
+      paymentId: payment.id,
     },
   });
 
@@ -184,9 +188,10 @@ export async function handlePaymentCallback(req: Request, res: Response): Promis
       }
     });
 
+    const finalOrderId = finalPayment.reservationId || finalPayment.bookingHoldId || finalPayment.id;
     if (verifyResult.success) {
       const redirectUrl = getPaymentSuccessRedirectUrl({
-        orderId: finalPayment.reservationId || finalPayment.id,
+        orderId: finalOrderId,
         amount: finalPayment.amount,
         currency: finalPayment.currency,
         trackId: finalPayment.providerPaymentId || authority,
@@ -195,7 +200,7 @@ export async function handlePaymentCallback(req: Request, res: Response): Promis
       res.redirect(302, redirectUrl);
     } else {
       const redirectUrl = getPaymentFailedRedirectUrl({
-        orderId: finalPayment.reservationId || finalPayment.id,
+        orderId: finalOrderId,
         trackId: authority,
         failureReason: finalPayment.failureReason || 'تأییدیه نهایی توسط درگاه بانکی صادر نشد.',
       });
@@ -204,7 +209,7 @@ export async function handlePaymentCallback(req: Request, res: Response): Promis
   } catch (error) {
     logger.error({ error, paymentId: payment.id, authority }, 'Error processing verified payment transaction');
     const redirectUrl = getPaymentFailedRedirectUrl({
-      orderId: payment.reservationId || payment.id,
+      orderId: paymentInitialOrderId,
       trackId: authority,
       failureReason: 'خطای داخلی سرور در به‌روزرسانی وضعیت سفارش.',
     });
@@ -236,16 +241,18 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
     },
     include: {
       reservation: true,
+      bookingHold: true,
     },
   });
 
   if (!payment && orderId) {
     payment = await prisma.payment.findFirst({
       where: {
-        OR: [{ reservationId: orderId }, { id: orderId }],
+        OR: [{ reservationId: orderId }, { bookingHoldId: orderId }, { id: orderId }],
       },
       include: {
         reservation: true,
+        bookingHold: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -263,9 +270,10 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
   }
 
   // 2. Idempotency check: If already paid, redirect to success URL without repeating transactions/ledger/commissions
+  const paymentInitialOrderId = payment.reservationId || payment.bookingHoldId || payment.id;
   if (payment.status === PaymentStatus.PAID) {
     const redirectUrl = getPaymentSuccessRedirectUrl({
-      orderId: payment.reservationId || payment.id,
+      orderId: paymentInitialOrderId,
       amount: payment.amount,
       currency: payment.currency,
       trackId: payment.providerPaymentId || trackId,
@@ -293,7 +301,7 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
     });
 
     const redirectUrl = getPaymentFailedRedirectUrl({
-      orderId: payment.reservationId || payment.id,
+      orderId: paymentInitialOrderId,
       trackId,
       failureReason: 'پرداخت در درگاه بانکی لغو شد یا با خطا متوقف گردید.',
     });
@@ -308,8 +316,9 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
     authority: trackId,
     amount: payment.amount,
     metadata: {
-      orderId: payment.reservationId || payment.id,
+      orderId: paymentInitialOrderId,
       reservationId: payment.reservationId,
+      paymentId: payment.id,
     },
   });
 
@@ -333,9 +342,10 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
       }
     });
 
+    const finalOrderId = finalPayment.reservationId || finalPayment.bookingHoldId || finalPayment.id;
     if (verifyResult.success) {
       const redirectUrl = getPaymentSuccessRedirectUrl({
-        orderId: finalPayment.reservationId || finalPayment.id,
+        orderId: finalOrderId,
         amount: finalPayment.amount,
         currency: finalPayment.currency,
         trackId: finalPayment.providerPaymentId || trackId,
@@ -344,7 +354,7 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
       res.redirect(302, redirectUrl);
     } else {
       const redirectUrl = getPaymentFailedRedirectUrl({
-        orderId: finalPayment.reservationId || finalPayment.id,
+        orderId: finalOrderId,
         trackId,
         failureReason: finalPayment.failureReason || 'تأییدیه نهایی توسط زیبال صادر نشد.',
       });
@@ -353,7 +363,7 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
   } catch (error) {
     logger.error({ error, paymentId: payment.id, trackId }, 'Error processing verified payment transaction');
     const redirectUrl = getPaymentFailedRedirectUrl({
-      orderId: payment.reservationId || payment.id,
+      orderId: paymentInitialOrderId,
       trackId,
       failureReason: 'خطای داخلی سرور در به‌روزرسانی وضعیت سفارش.',
     });

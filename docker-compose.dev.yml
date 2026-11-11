@@ -11,9 +11,9 @@ services:
       - REDIS_URL=redis://redis:6379
       - ZIBAL_MERCHANT=${ZIBAL_MERCHANT:-zibal}
       - ZIBAL_CALLBACK_URL=${ZIBAL_CALLBACK_URL:-http://localhost:3000/api/v1/payments/zibal/callback}
-      - FRONTEND_URL=${FRONTEND_URL:-https://www.sayra-booking.ir}
-      - PAYMENT_SUCCESS_URL=${PAYMENT_SUCCESS_URL:-https://www.sayra-booking.ir/payment/success}
-      - PAYMENT_FAILED_URL=${PAYMENT_FAILED_URL:-https://www.sayra-booking.ir/payment/failed}
+      - FRONTEND_URL=${FRONTEND_URL:-https://sayra-booking.ir}
+      - PAYMENT_SUCCESS_URL=${PAYMENT_SUCCESS_URL:-https://sayra-booking.ir/payment/success}
+      - PAYMENT_FAILED_URL=${PAYMENT_FAILED_URL:-https://sayra-booking.ir/payment/failed}
       - SKIP_OTP=${SKIP_OTP:-false}
       - OTP_MAX_ATTEMPTS=${OTP_MAX_ATTEMPTS:-5}
       - OTP_EXPIRATION_MINUTES=${OTP_EXPIRATION_MINUTES:-2}

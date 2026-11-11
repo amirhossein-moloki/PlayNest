@@ -92,12 +92,23 @@ export class ZibalProvider implements IPaymentProvider {
 
   async verifyPayment(params: VerifyPaymentParams): Promise<VerifyPaymentResult> {
     const orderId = (params.metadata?.orderId || params.metadata?.reservationId) as string | number | undefined;
+    const paymentId = (params.metadata?.paymentId || params.metadata?.id) as string | undefined;
 
     try {
       const response = await this.client.verify({
         trackId: params.authority,
         expectedAmount: params.amount,
         expectedOrderId: orderId,
+      });
+
+      console.info('Zibal payment verification succeeded:', {
+        trackId: params.authority,
+        orderId,
+        paymentId,
+        expectedAmount: params.amount,
+        verifiedAmount: response.amount,
+        refNumber: response.refNumber,
+        result: response.result,
       });
 
       return {
@@ -108,16 +119,45 @@ export class ZibalProvider implements IPaymentProvider {
       };
     } catch (error) {
       if (error instanceof ZibalIntegrityError) {
-        console.error('Zibal integrity mismatch error:', error.message);
+        const details = (error as any).details || {};
+        const isAmountMismatch = details.expectedAmount !== undefined || (error.message && error.message.toLowerCase().includes('amount'));
+        const isOrderIdMismatch = details.expectedOrderId !== undefined || (error.message && error.message.toLowerCase().includes('orderid'));
+
+        let failureReason = 'Payment integrity check failed: amount or orderId mismatch.';
+        if (isAmountMismatch && !isOrderIdMismatch) {
+          failureReason = `Payment integrity check failed: amount mismatch (expected ${details.expectedAmount ?? params.amount}, actual ${details.actualAmount}).`;
+        } else if (isOrderIdMismatch && !isAmountMismatch) {
+          failureReason = `Payment integrity check failed: orderId mismatch (expected ${details.expectedOrderId ?? orderId}, actual ${details.actualOrderId}).`;
+        } else if (isAmountMismatch && isOrderIdMismatch) {
+          failureReason = `Payment integrity check failed: both amount and orderId mismatch.`;
+        }
+
+        console.error('Zibal integrity mismatch error:', {
+          message: error.message,
+          failureReason,
+          trackId: params.authority,
+          orderId,
+          paymentId,
+          expectedAmount: params.amount,
+          details,
+        });
+
         return {
           success: false,
           status: PaymentStatus.FAILED,
-          failureReason: 'Payment integrity check failed: amount or orderId mismatch.',
+          failureReason,
         };
       }
 
       if (error instanceof ZibalApiError) {
-        console.error('Zibal API verification error:', error.code, error.message);
+        console.error('Zibal API verification error:', {
+          code: error.code,
+          message: error.message,
+          trackId: params.authority,
+          orderId,
+          paymentId,
+          expectedAmount: params.amount,
+        });
         return {
           success: false,
           status: PaymentStatus.FAILED,
@@ -126,7 +166,12 @@ export class ZibalProvider implements IPaymentProvider {
       }
 
       if (error instanceof ZibalTimeoutError) {
-        console.error('Zibal verification timeout:', error.message);
+        console.error('Zibal verification timeout:', {
+          message: error.message,
+          trackId: params.authority,
+          orderId,
+          paymentId,
+        });
         return {
           success: false,
           status: PaymentStatus.FAILED,
@@ -135,7 +180,12 @@ export class ZibalProvider implements IPaymentProvider {
       }
 
       if (error instanceof ZibalNetworkError || error instanceof ZibalAbortError) {
-        console.error('Zibal verification network error:', error.message);
+        console.error('Zibal verification network error:', {
+          message: error.message,
+          trackId: params.authority,
+          orderId,
+          paymentId,
+        });
         return {
           success: false,
           status: PaymentStatus.FAILED,
@@ -143,7 +193,12 @@ export class ZibalProvider implements IPaymentProvider {
         };
       }
 
-      console.error('Zibal verification unexpected error:', error);
+      console.error('Zibal verification unexpected error:', {
+        error: error instanceof Error ? error.message : error,
+        trackId: params.authority,
+        orderId,
+        paymentId,
+      });
       return {
         success: false,
         status: PaymentStatus.FAILED,
