@@ -41,7 +41,7 @@ describe('Zibal Callback Route (GET /api/v1/payments/zibal/callback)', () => {
     const res = await request(app).get('/api/v1/payments/zibal/callback');
 
     expect(res.status).toBe(302);
-    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/failed');
+    expect(res.header.location).toContain('https://sayra-booking.ir/payment/failed');
     expect(res.header.location).toContain('status=failed');
   });
 
@@ -51,7 +51,7 @@ describe('Zibal Callback Route (GET /api/v1/payments/zibal/callback)', () => {
     const res = await request(app).get(`/api/v1/payments/zibal/callback?trackId=${trackId}&orderId=${orderId}`);
 
     expect(res.status).toBe(302);
-    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/failed');
+    expect(res.header.location).toContain('https://sayra-booking.ir/payment/failed');
     expect(res.header.location).toContain(`trackId=${trackId}`);
     expect(res.header.location).toContain(`orderId=${orderId}`);
     expect(res.header.location).toContain('status=failed');
@@ -71,7 +71,7 @@ describe('Zibal Callback Route (GET /api/v1/payments/zibal/callback)', () => {
     const res = await request(app).get(`/api/v1/payments/zibal/callback?trackId=${trackId}&status=1`);
 
     expect(res.status).toBe(302);
-    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/success');
+    expect(res.header.location).toContain('https://sayra-booking.ir/payment/success');
     expect(res.header.location).toContain('refNumber=REF-ALREADY-PAID');
     expect(res.header.location).toContain(`trackId=${trackId}`);
     expect(res.header.location).toContain('status=success');
@@ -95,7 +95,7 @@ describe('Zibal Callback Route (GET /api/v1/payments/zibal/callback)', () => {
     const res = await request(app).get(`/api/v1/payments/zibal/callback?trackId=${trackId}&status=3&success=0`);
 
     expect(res.status).toBe(302);
-    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/failed');
+    expect(res.header.location).toContain('https://sayra-booking.ir/payment/failed');
     expect(res.header.location).toContain(`trackId=${trackId}`);
     expect(res.header.location).toContain('status=failed');
     expect(handleFailedSpy).toHaveBeenCalled();
@@ -139,7 +139,7 @@ describe('Zibal Callback Route (GET /api/v1/payments/zibal/callback)', () => {
     const res = await request(app).get(`/api/v1/payments/zibal/callback?trackId=${trackId}&status=1&success=1`);
 
     expect(res.status).toBe(302);
-    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/success');
+    expect(res.header.location).toContain('https://sayra-booking.ir/payment/success');
     expect(res.header.location).toContain('refNumber=ZIBAL-REF-12345');
     expect(res.header.location).toContain(`orderId=${orderId}`);
     expect(res.header.location).toContain('status=success');
@@ -149,6 +149,7 @@ describe('Zibal Callback Route (GET /api/v1/payments/zibal/callback)', () => {
       metadata: {
         orderId,
         reservationId: orderId,
+        paymentId: 'pay-1',
       },
     });
   });
@@ -183,7 +184,7 @@ describe('Zibal Callback Route (GET /api/v1/payments/zibal/callback)', () => {
     const res = await request(app).get(`/api/v1/payments/zibal/callback?trackId=${trackId}&status=1`);
 
     expect(res.status).toBe(302);
-    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/failed');
+    expect(res.header.location).toContain('https://sayra-booking.ir/payment/failed');
     expect(res.header.location).toContain('status=failed');
     expect(res.header.location).toContain('Payment+integrity+check+failed');
   });

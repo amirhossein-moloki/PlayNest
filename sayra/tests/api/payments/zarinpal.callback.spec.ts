@@ -41,7 +41,7 @@ describe('Payment Callback Route (GET & POST /api/v1/payments/callback)', () => 
     const res = await request(app).get('/api/v1/payments/callback');
 
     expect(res.status).toBe(302);
-    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/failed');
+    expect(res.header.location).toContain('https://sayra-booking.ir/payment/failed');
     expect(res.header.location).toContain('status=failed');
   });
 
@@ -51,7 +51,7 @@ describe('Payment Callback Route (GET & POST /api/v1/payments/callback)', () => 
     const res = await request(app).get(`/api/v1/payments/callback?Authority=${authority}&orderId=${orderId}`);
 
     expect(res.status).toBe(302);
-    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/failed');
+    expect(res.header.location).toContain('https://sayra-booking.ir/payment/failed');
     expect(res.header.location).toContain(`trackId=${authority}`);
     expect(res.header.location).toContain(`orderId=${orderId}`);
     expect(res.header.location).toContain('status=failed');
@@ -75,7 +75,7 @@ describe('Payment Callback Route (GET & POST /api/v1/payments/callback)', () => 
     const res = await request(app).get(`/api/v1/payments/callback?Authority=${authority}&Status=NOK`);
 
     expect(res.status).toBe(302);
-    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/failed');
+    expect(res.header.location).toContain('https://sayra-booking.ir/payment/failed');
     expect(res.header.location).toContain(`trackId=${authority}`);
     expect(res.header.location).toContain(`orderId=${orderId}`);
     expect(res.header.location).toContain('status=failed');
@@ -101,7 +101,7 @@ describe('Payment Callback Route (GET & POST /api/v1/payments/callback)', () => 
     const res = await request(app).get(`/api/v1/payments/callback?Authority=${authority}&Status=OK`);
 
     expect(res.status).toBe(302);
-    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/success');
+    expect(res.header.location).toContain('https://sayra-booking.ir/payment/success');
     expect(res.header.location).toContain('refNumber=ZARINPAL-REF-999');
     expect(res.header.location).toContain(`trackId=${authority}`);
     expect(res.header.location).toContain('status=success');
@@ -146,7 +146,7 @@ describe('Payment Callback Route (GET & POST /api/v1/payments/callback)', () => 
     const res = await request(app).get(`/api/v1/payments/callback?Authority=${authority}&Status=OK`);
 
     expect(res.status).toBe(302);
-    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/success');
+    expect(res.header.location).toContain('https://sayra-booking.ir/payment/success');
     expect(res.header.location).toContain('refNumber=ZP-12345678');
     expect(res.header.location).toContain(`orderId=${orderId}`);
     expect(res.header.location).toContain('status=success');
@@ -156,6 +156,7 @@ describe('Payment Callback Route (GET & POST /api/v1/payments/callback)', () => 
       metadata: {
         orderId,
         reservationId: orderId,
+        paymentId: 'pay-zarinpal-1',
       },
     });
   });
@@ -191,7 +192,7 @@ describe('Payment Callback Route (GET & POST /api/v1/payments/callback)', () => 
     const res = await request(app).get(`/api/v1/payments/callback?Authority=${authority}&Status=OK`);
 
     expect(res.status).toBe(302);
-    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/failed');
+    expect(res.header.location).toContain('https://sayra-booking.ir/payment/failed');
     expect(res.header.location).toContain('status=failed');
     expect(res.header.location).toContain('Verification+code+invalid');
   });
@@ -216,6 +217,6 @@ describe('Payment Callback Route (GET & POST /api/v1/payments/callback)', () => 
       .send({ Authority: authority, Status: 'NOK' });
 
     expect(res.status).toBe(302);
-    expect(res.header.location).toContain('https://www.sayra-booking.ir/payment/failed');
+    expect(res.header.location).toContain('https://sayra-booking.ir/payment/failed');
   });
 });

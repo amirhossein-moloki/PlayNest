@@ -95,9 +95,9 @@ const EnvSchema = z.object({
   ZIBAL_CALLBACK_URL: z.string().min(1).default('https://api.sayra-booking.ir/api/v1/payments/zibal/callback'),
 
   // Frontend / Payment Redirect URLs
-  FRONTEND_URL: z.string().min(1).default('https://www.sayra-booking.ir'),
-  PAYMENT_SUCCESS_URL: z.string().min(1).default('https://www.sayra-booking.ir/payment/success'),
-  PAYMENT_FAILED_URL: z.string().min(1).default('https://www.sayra-booking.ir/payment/failed'),
+  FRONTEND_URL: z.string().min(1).default('https://sayra-booking.ir'),
+  PAYMENT_SUCCESS_URL: z.string().min(1).default('https://sayra-booking.ir/payment/success'),
+  PAYMENT_FAILED_URL: z.string().min(1).default('https://sayra-booking.ir/payment/failed'),
 
   // Media storage
   MEDIA_STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
