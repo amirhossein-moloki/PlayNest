@@ -304,6 +304,11 @@ export const BookingHoldRepo = {
 
     // 2. Create Reservations for each item
     for (const item of hold.items) {
+      const snapshot = (item.stationSnapshot || {}) as Record<string, unknown>;
+      const originalAmount = typeof snapshot.originalAmount === 'number'
+        ? snapshot.originalAmount
+        : item.price + item.discountAmount;
+
       const reservation = await tx.reservation.create({
         data: {
           gamingCenterId: hold.gamingCenterId,
@@ -318,6 +323,8 @@ export const BookingHoldRepo = {
           totalHours,
           totalPrice: item.price,
           discountAmount: item.discountAmount,
+          originalAmount,
+          customerPayableAmount: item.price,
           discountId: item.discountId,
           status: ReservationStatus.CONFIRMED,
           source: ReservationSource.ONLINE,

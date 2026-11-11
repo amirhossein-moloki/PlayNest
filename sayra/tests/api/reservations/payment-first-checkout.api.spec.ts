@@ -119,5 +119,56 @@ describe('Payment-First Group Reservation Checkout & Verification API', () => {
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
     });
+
+    it('should cleanly resolve slug kian and return checkout result without internal error', async () => {
+      const mockKianCenter = {
+        id: 'center_07',
+        name: 'عمارت بازی کیان',
+        slug: 'kiyan-game-palace',
+        isActive: true,
+      };
+
+      (prisma.gamingCenter.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.gamingCenter.findFirst as jest.Mock).mockResolvedValue(mockKianCenter);
+
+      const mockCheckoutResult = {
+        holdId: 'hold_kian_01',
+        paymentId: 'pay_kian_01',
+        paymentStatus: PaymentStatus.INITIATED,
+        holdExpiresAt: new Date('2026-11-10T13:10:00.000Z'),
+        paymentUrl: 'https://payment.example/gateway/pay_kian_01',
+        totalAmount: 400000,
+        currency: 'IRR',
+      };
+
+      (BookingHoldStation.checkoutGroupReservation as jest.Mock).mockResolvedValue(mockCheckoutResult);
+
+      const res = await request(app)
+        .post('/api/v1/public/gamingCenters/kian/group-reservations/checkout')
+        .set('idempotency-key', 'idemp_key_kian_12345678')
+        .send(validCheckoutPayload);
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.holdId).toBe('hold_kian_01');
+      expect(BookingHoldStation.checkoutGroupReservation).toHaveBeenCalledWith(
+        'kian',
+        expect.anything()
+      );
+    });
+
+    it('should return 404 when gaming center is not found', async () => {
+      (prisma.gamingCenter.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.gamingCenter.findFirst as jest.Mock).mockResolvedValue(null);
+
+      const res = await request(app)
+        .post('/api/v1/public/gamingCenters/unknown-center/group-reservations/checkout')
+        .set('idempotency-key', 'idemp_key_unknown_12345678')
+        .send(validCheckoutPayload);
+
+      expect(res.status).toBe(404);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.code).toBe('NOT_FOUND');
+    });
   });
 });

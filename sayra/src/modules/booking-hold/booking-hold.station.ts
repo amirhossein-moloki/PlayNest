@@ -1,11 +1,12 @@
 import { isBefore, addMinutes } from 'date-fns';
-import { BookingHoldStatus, PaymentStatus, Prisma, OtpPurpose } from '@prisma/client';
+import { BookingHoldStatus, PaymentProvider, PaymentStatus, Prisma, OtpPurpose } from '@prisma/client';
 import httpStatus from 'http-status';
 import AppError from '../../common/errors/AppError';
 import { BookingHoldRepo } from './booking-hold.repo';
 import { ReservationRepo } from '../reservation/reservation.repo';
 import { discountsStation } from '../discounts/discounts.station';
 import { normalizePhone } from '../../common/utils/phone';
+import { calculateBasePrice } from '../../common/utils/money';
 import { AuthRepository } from '../auth/auth.repository';
 import { validateLeadTime } from '../reservation/reservation.validation';
 import { PaymentsRepo } from '../payments/payments.repo';
@@ -13,6 +14,7 @@ import { PaymentProviderFactory } from '../payments/providers';
 import { LedgerRepo } from '../payments/ledger.repo';
 import { commissionsStation } from '../commissions/commissions.station';
 import { prisma } from '../../config/prisma';
+import { env } from '../../config/env';
 import logger from '../../config/logger';
 
 export const DEFAULT_HOLD_EXPIRATION_MINUTES = 10;
@@ -147,9 +149,9 @@ export const BookingHoldStation = {
 
       for (const item of items) {
         const station = stationMap.get(item.stationId)!;
-        const itemBasePrice = totalHours * station.hourlyPrice;
+        const itemBasePrice = calculateBasePrice(totalHours, station.hourlyPrice);
 
-        const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
+        const { applicableDiscount, discountAmount: rawDiscount } = await discountsStation.calculateApplicableDiscount(
           gamingCenter.id,
           station.id,
           itemBasePrice,
@@ -157,6 +159,7 @@ export const BookingHoldStation = {
           tx
         );
 
+        const discountAmount = Math.min(itemBasePrice, Math.max(0, Math.round(rawDiscount)));
         const itemFinalPrice = Math.max(0, itemBasePrice - discountAmount);
         aggregatePrice += itemFinalPrice;
         aggregateDiscount += discountAmount;
@@ -164,7 +167,7 @@ export const BookingHoldStation = {
         preparedItems.push({
           stationId: station.id,
           staffId: item.staffId,
-          price: itemFinalPrice,
+          price: Math.round(itemFinalPrice),
           discountAmount,
           discountId: applicableDiscount?.id,
           stationSnapshot: {
@@ -172,6 +175,7 @@ export const BookingHoldStation = {
             hourlyPrice: station.hourlyPrice,
             stationType: station.stationType,
             currency: 'IRR',
+            originalAmount: itemBasePrice,
           },
         });
       }
@@ -377,9 +381,20 @@ export const BookingHoldStation = {
     // 1. Create ACTIVE BookingHold (authoritative validation & pricing)
     const hold = await this.createBookingHold(gamingCenterSlug, input);
 
+    if (!hold.totalAmount || hold.totalAmount <= 0) {
+      throw new AppError('Invalid reservation total price for payment.', httpStatus.BAD_REQUEST);
+    }
+
     // 2. Resolve provider & initiate payment
     const providerName = input.provider;
     const provider = PaymentProviderFactory.getProvider(providerName);
+    const prismaProvider = provider.name === 'ZIBAL'
+      ? PaymentProvider.ZIBAL
+      : provider.name === 'ZARINPAL'
+        ? PaymentProvider.ZARINPAL
+        : provider.name === 'STRIPE'
+          ? PaymentProvider.STRIPE
+          : PaymentProvider.MANUAL;
 
     // 3. Create PENDING/INITIATED Payment record associated with BookingHold
     const payment = await PaymentsRepo.transaction(async (tx) => {
@@ -389,7 +404,7 @@ export const BookingHoldStation = {
           bookingHoldId: hold.id,
           amount: hold.totalAmount,
           currency: hold.currency,
-          provider: provider.name as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+          provider: prismaProvider,
           status: PaymentStatus.INITIATED,
           idempotencyKey: input.idempotencyKey,
         },
@@ -398,7 +413,7 @@ export const BookingHoldStation = {
 
     // 4. Generate payment gateway request
     try {
-      const callbackUrl = provider.name === 'ZIBAL' ? process.env.ZIBAL_CALLBACK_URL : process.env.ZARINPAL_CALLBACK_URL;
+      const callbackUrl = provider.name === 'ZIBAL' ? env.ZIBAL_CALLBACK_URL : env.ZARINPAL_CALLBACK_URL;
       const initiateResult = await provider.initiatePayment({
         amount: hold.totalAmount,
         currency: hold.currency,

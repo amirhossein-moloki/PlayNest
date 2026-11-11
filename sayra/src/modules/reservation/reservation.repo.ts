@@ -55,8 +55,20 @@ export const ReservationRepo = {
 
   async findGamingCenterBySlugWithSettings(slug: string, tx?: Prisma.TransactionClient) {
     const client = tx || prisma;
-    return client.gamingCenter.findUnique({
+    const center = await client.gamingCenter.findUnique({
       where: { slug },
+      include: { settings: true },
+    });
+    if (center) return center;
+
+    return client.gamingCenter.findFirst({
+      where: {
+        OR: [
+          { slug: { equals: slug, mode: 'insensitive' } },
+          { id: slug },
+        ],
+        isActive: true,
+      },
       include: { settings: true },
     });
   },
