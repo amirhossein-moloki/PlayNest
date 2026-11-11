@@ -119,7 +119,7 @@ export class ZibalProvider implements IPaymentProvider {
       };
     } catch (error) {
       if (error instanceof ZibalIntegrityError) {
-        const details = (error as any).details || {};
+        const details = (error as { details?: { expectedAmount?: number; actualAmount?: number; expectedOrderId?: string | number; actualOrderId?: string | number } }).details || {};
         const isAmountMismatch = details.expectedAmount !== undefined || (error.message && error.message.toLowerCase().includes('amount'));
         const isOrderIdMismatch = details.expectedOrderId !== undefined || (error.message && error.message.toLowerCase().includes('orderid'));
 
@@ -129,7 +129,7 @@ export class ZibalProvider implements IPaymentProvider {
         } else if (isOrderIdMismatch && !isAmountMismatch) {
           failureReason = `Payment integrity check failed: orderId mismatch (expected ${details.expectedOrderId ?? orderId}, actual ${details.actualOrderId}).`;
         } else if (isAmountMismatch && isOrderIdMismatch) {
-          failureReason = `Payment integrity check failed: both amount and orderId mismatch.`;
+          failureReason = 'Payment integrity check failed: both amount and orderId mismatch.';
         }
 
         console.error('Zibal integrity mismatch error:', {
