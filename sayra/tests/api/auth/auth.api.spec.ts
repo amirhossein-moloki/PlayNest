@@ -363,5 +363,178 @@ describe('Authentication API', () => {
       expect(res.status).toBe(200);
       expect(MockedAuthRepository.revokeSession).toHaveBeenCalledWith('s1');
     });
+
+    describe('PATCH /auth/me (User Profile Update)', () => {
+      const existingUser = {
+        id: userId,
+        phone: '09123456789',
+        fullName: 'Ali Rezaei',
+        role: 'MANAGER',
+        gamingCenterId,
+        username: 'old_username',
+        email: 'old@example.com',
+        bio: 'Old bio',
+        avatarUrl: null,
+        publicName: null,
+        isPublic: false,
+        passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$secret_hash',
+      };
+
+      it('should return 401 Unauthorized if no authorization header is provided', async () => {
+        const res = await request(app).patch('/api/v1/auth/me').send({ username: 'new_name' });
+        expect(res.status).toBe(401);
+      });
+
+      it('should return 404 Not Found if authenticated user no longer exists', async () => {
+        MockedAuthRepository.findUserById.mockResolvedValue(null);
+        const res = await request(app)
+          .patch('/api/v1/auth/me')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ username: 'new_name' });
+        expect(res.status).toBe(404);
+        expect(res.body.error.message).toBe('User not found');
+      });
+
+      it('should reject invalid input with 400 Bad Request', async () => {
+        const res = await request(app)
+          .patch('/api/v1/auth/me')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ username: 'ab' }); // less than 3 chars
+        expect(res.status).toBe(400);
+        expect(res.body.success).toBe(false);
+      });
+
+      it('should reject invalid email with 400 Bad Request', async () => {
+        const res = await request(app)
+          .patch('/api/v1/auth/me')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ email: 'not-an-email' });
+        expect(res.status).toBe(400);
+      });
+
+      it('should reject duplicate username with 409 Conflict', async () => {
+        MockedAuthRepository.findUserById.mockResolvedValue(existingUser as any);
+        MockedAuthRepository.findUserByUsername.mockResolvedValue({ id: 'other-user', username: 'taken_user' } as any);
+
+        const res = await request(app)
+          .patch('/api/v1/auth/me')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ username: 'taken_user' });
+
+        expect(res.status).toBe(409);
+        expect(res.body.error.message).toBe('Username is already taken.');
+      });
+
+      it('should successfully update username only (partial update)', async () => {
+        MockedAuthRepository.findUserById.mockResolvedValue(existingUser as any);
+        MockedAuthRepository.findUserByUsername.mockResolvedValue(null);
+        MockedAuthRepository.updateUser.mockResolvedValue({
+          ...existingUser,
+          username: 'ali_pro',
+        } as any);
+
+        const res = await request(app)
+          .patch('/api/v1/auth/me')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ username: 'ali_pro' });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.username).toBe('ali_pro');
+        expect(res.body.data.fullName).toBe('Ali Rezaei');
+        expect(res.body.data.firstName).toBe('Ali');
+        expect(res.body.data.lastName).toBe('Rezaei');
+        expect(MockedAuthRepository.updateUser).toHaveBeenCalledWith(
+          userId,
+          expect.objectContaining({ username: 'ali_pro' })
+        );
+      });
+
+      it('should successfully update firstName and lastName', async () => {
+        MockedAuthRepository.findUserById.mockResolvedValue(existingUser as any);
+        MockedAuthRepository.updateUser.mockResolvedValue({
+          ...existingUser,
+          fullName: 'Mohammad Karimi',
+        } as any);
+
+        const res = await request(app)
+          .patch('/api/v1/auth/me')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ firstName: 'Mohammad', lastName: 'Karimi' });
+
+        expect(res.status).toBe(200);
+        expect(res.body.data.fullName).toBe('Mohammad Karimi');
+        expect(res.body.data.firstName).toBe('Mohammad');
+        expect(res.body.data.lastName).toBe('Karimi');
+        expect(MockedAuthRepository.updateUser).toHaveBeenCalledWith(
+          userId,
+          expect.objectContaining({ fullName: 'Mohammad Karimi' })
+        );
+      });
+
+      it('should successfully update multiple fields simultaneously', async () => {
+        MockedAuthRepository.findUserById.mockResolvedValue(existingUser as any);
+        MockedAuthRepository.findUserByUsername.mockResolvedValue(null);
+        MockedAuthRepository.updateUser.mockResolvedValue({
+          ...existingUser,
+          username: 'ali_gamer',
+          fullName: 'Ali Ahmadi',
+          email: 'ali@example.com',
+          bio: 'Competitive gamer',
+        } as any);
+
+        const res = await request(app)
+          .patch('/api/v1/auth/me')
+          .set('Authorization', `Bearer ${token}`)
+          .send({
+            username: 'ali_gamer',
+            firstName: 'Ali',
+            lastName: 'Ahmadi',
+            email: 'ali@example.com',
+            bio: 'Competitive gamer',
+          });
+
+        expect(res.status).toBe(200);
+        expect(res.body.data.id).toBe(userId);
+        expect(res.body.data.username).toBe('ali_gamer');
+        expect(res.body.data.fullName).toBe('Ali Ahmadi');
+        expect(res.body.data.firstName).toBe('Ali');
+        expect(res.body.data.lastName).toBe('Ahmadi');
+        expect(res.body.data.email).toBe('ali@example.com');
+        expect(res.body.data.bio).toBe('Competitive gamer');
+      });
+
+      it('should protect against modifying protected fields and never expose passwordHash', async () => {
+        MockedAuthRepository.findUserById.mockResolvedValue(existingUser as any);
+        MockedAuthRepository.findUserByUsername.mockResolvedValue(null);
+        MockedAuthRepository.updateUser.mockResolvedValue({
+          ...existingUser,
+          username: 'safe_user',
+        } as any);
+
+        const res = await request(app)
+          .patch('/api/v1/auth/me')
+          .set('Authorization', `Bearer ${token}`)
+          .send({
+            id: 'hacker-id',
+            role: 'ADMIN',
+            gamingCenterId: 'gc-hacked',
+            passwordHash: 'injected_hash',
+            username: 'safe_user',
+          });
+
+        expect(res.status).toBe(200);
+        expect(res.body.data.id).toBe(userId);
+        expect(res.body.data.role).toBe('MANAGER');
+        expect(res.body.data.gamingCenterId).toBe(gamingCenterId);
+        expect(res.body.data.passwordHash).toBeUndefined();
+
+        // Verify update call did NOT receive protected fields
+        expect(MockedAuthRepository.updateUser).toHaveBeenCalledWith(
+          userId, // Must be caller's authenticated user ID
+          { username: 'safe_user' }
+        );
+      });
+    });
   });
 });

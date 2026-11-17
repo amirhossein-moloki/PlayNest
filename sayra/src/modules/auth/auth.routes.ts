@@ -5,6 +5,7 @@ import {
   refresh,
   logout,
   me,
+  updateMe,
   requestOtp,
   loginWithOtp,
   requestUserOtp,
@@ -21,7 +22,8 @@ import {
   requestOtpSchema,
   verifyOtpSchema,
   otpLoginSchema,
-  loginWithOtpSchema
+  loginWithOtpSchema,
+  updateProfileSchema
 } from './auth.validators';
 import { authMiddleware } from '../../common/middleware/auth';
 import { publicApiRateLimiter } from '../../common/middleware/rateLimit';
@@ -63,5 +65,6 @@ router.post('/refresh', validate(refreshSchema), asyncHandler(refresh));
 // --- Protected ---
 router.post('/logout', authMiddleware, asyncHandler(logout));
 router.get('/me', authMiddleware, asyncHandler(me));
+router.patch('/me', authMiddleware, validate(updateProfileSchema), asyncHandler(updateMe));
 
 export default router;

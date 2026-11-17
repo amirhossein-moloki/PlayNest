@@ -25,6 +25,61 @@ describe('AuthRepository', () => {
     });
   });
 
+  describe('findUserByUsername', () => {
+    it('should find user by username case-insensitively excluding specified user id', async () => {
+      const mockUser = { id: 'u-2', username: 'newuser' };
+      userMock.findFirst.mockResolvedValue(mockUser);
+
+      const result = await AuthRepository.findUserByUsername('NewUser', 'u-1');
+      expect(result).toEqual(mockUser);
+      expect(userMock.findFirst).toHaveBeenCalledWith({
+        where: {
+          username: { equals: 'NewUser', mode: 'insensitive' },
+          NOT: { id: 'u-1' },
+        },
+      });
+    });
+  });
+
+  describe('updateUser', () => {
+    it('should update user fields in database', async () => {
+      const updatedMock = { id: 'u-1', username: 'updated_user', fullName: 'Ali Rezaei' };
+      userMock.update.mockResolvedValue(updatedMock);
+
+      const result = await AuthRepository.updateUser('u-1', { username: 'updated_user' });
+      expect(result).toEqual(updatedMock);
+      expect(userMock.update).toHaveBeenCalledWith({
+        where: { id: 'u-1' },
+        data: { username: 'updated_user' },
+      });
+    });
+  });
+
+  describe('findCustomerById', () => {
+    it('should find customer by id', async () => {
+      const mockCustomer = { id: 'c-1', phone };
+      customerMock.findUnique.mockResolvedValue(mockCustomer);
+
+      const result = await AuthRepository.findCustomerById('c-1');
+      expect(result).toEqual(mockCustomer);
+      expect(customerMock.findUnique).toHaveBeenCalledWith({ where: { id: 'c-1' } });
+    });
+  });
+
+  describe('updateCustomerAccount', () => {
+    it('should update customer account in database', async () => {
+      const updatedCustomer = { id: 'c-1', fullName: 'Customer One' };
+      customerMock.update.mockResolvedValue(updatedCustomer);
+
+      const result = await AuthRepository.updateCustomerAccount('c-1', { fullName: 'Customer One' });
+      expect(result).toEqual(updatedCustomer);
+      expect(customerMock.update).toHaveBeenCalledWith({
+        where: { id: 'c-1' },
+        data: { fullName: 'Customer One' },
+      });
+    });
+  });
+
   describe('findUserByPhone', () => {
     it('should find a user by phone and gamingCenterId', async () => {
       const mockUser = { id: 'u-1', phone, gamingCenterId };

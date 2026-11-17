@@ -42,6 +42,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+    ConflictError:
+      description: Conflict or unique constraint violation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     InternalServerError:
       description: Unexpected server error
       content:
@@ -1021,13 +1027,181 @@ components:
           type: string
         fullName:
           type: string
+        firstName:
+          type: string
+          nullable: true
+        lastName:
+          type: string
+          nullable: true
+        username:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
         role:
           type: string
           enum:
           - MANAGER
           - ADMIN
+          - STAFF
+          - CUSTOMER
         isActive:
           type: boolean
+        bio:
+          type: string
+          nullable: true
+        publicName:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        isPublic:
+          type: boolean
+    UpdateUserProfileInput:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[a-zA-Z0-9_-]+$'
+          description: Unique username (letters, digits, underscores, hyphens)
+          example: new_username
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: User first name
+          example: Ali
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: User last name
+          example: Ahmadi
+        fullName:
+          type: string
+          minLength: 2
+          maxLength: 100
+          description: User full display name
+          example: Ali Ahmadi
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: User email address
+          example: ali@example.com
+        bio:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: User short biography
+          example: Pro gamer and tournament player
+        publicName:
+          type: string
+          maxLength: 50
+          nullable: true
+          description: Public name for author/team display
+          example: Ali
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: Avatar profile image URL
+          example: https://example.com/avatar.jpg
+        isPublic:
+          type: boolean
+          description: Whether profile is publicly visible on team page
+          example: false
+    UserProfile:
+      type: object
+      required:
+      - id
+      properties:
+        id:
+          type: string
+          example: user_07_mgr
+        actorId:
+          type: string
+          example: user_07_mgr
+        username:
+          type: string
+          nullable: true
+          example: new_username
+        fullName:
+          type: string
+          nullable: true
+          example: Ali Ahmadi
+        firstName:
+          type: string
+          nullable: true
+          example: Ali
+        lastName:
+          type: string
+          nullable: true
+          example: Ahmadi
+        email:
+          type: string
+          nullable: true
+          format: email
+          example: ali@example.com
+        phone:
+          type: string
+          example: "09123456789"
+        role:
+          type: string
+          enum:
+          - MANAGER
+          - ADMIN
+          - STAFF
+          - CUSTOMER
+          example: MANAGER
+        gamingCenterId:
+          type: string
+          nullable: true
+          example: center_07
+        actorType:
+          type: string
+          enum:
+          - USER
+          - CUSTOMER
+          - PLATFORM_ADMIN
+          example: USER
+        isPublic:
+          type: boolean
+          example: false
+        publicName:
+          type: string
+          nullable: true
+          example: Ali
+        bio:
+          type: string
+          nullable: true
+          example: Pro gamer
+        avatarUrl:
+          type: string
+          nullable: true
+          format: uri
+          example: https://example.com/avatar.jpg
+    UserProfileResponse:
+      type: object
+      required:
+      - success
+      - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/UserProfile'
+        meta:
+          type: object
+          properties:
+            requestId:
+              type: string
+              example: req-123456789
     Ticket:
       type: object
       properties:
@@ -6800,20 +6974,113 @@ paths:
       description: Create a new gamingCenter
   /auth/me:
     get:
-      summary: Get current user info
+      summary: Get current authenticated user profile
+      description: Returns the profile and session context of the currently authenticated actor. For users with a username, the username is returned as a string; otherwise username is null.
       tags:
       - Auth
       security:
       - bearerAuth: []
       responses:
         '200':
-          description: User info
+          description: Authenticated user profile retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                $ref: '#/components/schemas/UserProfileResponse'
+              examples:
+                withUsername:
+                  summary: User with username
+                  value:
+                    success: true
+                    data:
+                      id: user_123
+                      actorId: user_123
+                      username: example_user
+                      fullName: Ali Ahmadi
+                      firstName: Ali
+                      lastName: Ahmadi
+                      email: ali@example.com
+                      role: MANAGER
+                      gamingCenterId: center_07
+                      actorType: USER
+                withoutUsername:
+                  summary: User without username
+                  value:
+                    success: true
+                    data:
+                      id: user_123
+                      actorId: user_123
+                      username: null
+                      fullName: Ali Ahmadi
+                      firstName: Ali
+                      lastName: Ahmadi
+                      email: ali@example.com
+                      role: MANAGER
+                      gamingCenterId: center_07
+                      actorType: USER
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
       operationId: get_auth_me
       description: Get current user info
+    patch:
+      summary: Update authenticated user profile
+      description: Allows the currently authenticated user to update their own profile information such as username, firstName, lastName, fullName, email, bio, publicName, avatarUrl, and isPublic. The user ID is strictly derived from the authentication context. Protected fields like role, ID, or password cannot be modified.
+      tags:
+      - Auth
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        description: Profile fields to update
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserProfileInput'
+            examples:
+              partialUpdate:
+                summary: Update username and name
+                value:
+                  username: new_username
+                  firstName: Ali
+                  lastName: Ahmadi
+      responses:
+        '200':
+          description: User profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+              examples:
+                updatedProfile:
+                  summary: Updated profile response
+                  value:
+                    success: true
+                    data:
+                      id: user_123
+                      actorId: user_123
+                      username: new_username
+                      fullName: Ali Ahmadi
+                      firstName: Ali
+                      lastName: Ahmadi
+                      email: ali@example.com
+                      role: MANAGER
+                      gamingCenterId: center_07
+                      actorType: USER
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      operationId: patch_auth_me
   /auth/otp/request:
     post:
       summary: Request OTP for all users and customers

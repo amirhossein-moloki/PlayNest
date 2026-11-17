@@ -1,9 +1,35 @@
-import { SessionActorType } from '@prisma/client';
+import { Prisma, SessionActorType } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
 export const AuthRepository = {
   async findUserById(id: string) {
     return prisma.user.findUnique({ where: { id } });
+  },
+
+  async findUserByUsername(username: string, excludeUserId?: string) {
+    return prisma.user.findFirst({
+      where: {
+        username: {
+          equals: username,
+          mode: 'insensitive',
+        },
+        ...(excludeUserId ? { NOT: { id: excludeUserId } } : {}),
+      },
+    });
+  },
+
+  async updateUser(id: string, data: Prisma.UserUpdateInput) {
+    return prisma.user.update({
+      where: { id },
+      data,
+    });
+  },
+
+  async updateCustomerAccount(id: string, data: Prisma.CustomerAccountUpdateInput) {
+    return prisma.customerAccount.update({
+      where: { id },
+      data,
+    });
   },
 
   async findUserByPhone(phone: string, gamingCenterId: string) {
@@ -27,6 +53,10 @@ export const AuthRepository = {
 
   async findCustomerByPhone(phone: string) {
     return prisma.customerAccount.findFirst({ where: { phone } });
+  },
+
+  async findCustomerById(id: string) {
+    return prisma.customerAccount.findUnique({ where: { id } });
   },
 
   async createCustomer(phone: string, phoneVerifiedAt?: Date) {
