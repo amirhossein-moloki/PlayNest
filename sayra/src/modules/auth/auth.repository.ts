@@ -2,6 +2,10 @@ import { SessionActorType } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
 export const AuthRepository = {
+  async findUserById(id: string) {
+    return prisma.user.findUnique({ where: { id } });
+  },
+
   async findUserByPhone(phone: string, gamingCenterId: string) {
     return prisma.user.findFirst({ where: { phone, gamingCenterId } });
   },

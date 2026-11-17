@@ -91,17 +91,45 @@ export const logout = async (req: Request, res: Response) => {
 };
 
 export const me = async (req: Request, res: Response) => {
-  if (req.actor?.actorType === 'PLATFORM_ADMIN') {
+  if (!req.actor) {
+    throw new AppError('Unauthorized', httpStatus.UNAUTHORIZED);
+  }
+
+  if (req.actor.actorType === 'PLATFORM_ADMIN') {
     const adminId = req.actor.id || req.actor.actorId || '';
     const admin = await AuthRepository.findPlatformAdminById(adminId);
     if (admin) {
       const { passwordHash: _passwordHash, ...safeAdmin } = admin; void _passwordHash;
       return res.ok({
         ...req.actor,
+        username: null,
         profile: safeAdmin,
       });
     }
+    return res.ok({
+      ...req.actor,
+      username: null,
+    });
   }
-  // The user/customer object should be attached to the request by the auth middleware
-  res.ok(req.actor);
+
+  if (req.actor.actorType === 'USER') {
+    const userId = req.actor.id || req.actor.actorId || '';
+    let username: string | null = null;
+    if (userId) {
+      const user = await AuthRepository.findUserById(userId);
+      if (user && typeof user.username === 'string' && user.username.trim() !== '') {
+        username = user.username;
+      }
+    }
+    return res.ok({
+      ...req.actor,
+      username,
+    });
+  }
+
+  // CUSTOMER or any other actor type
+  res.ok({
+    ...req.actor,
+    username: null,
+  });
 };

@@ -14,6 +14,17 @@ describe('AuthRepository', () => {
   const otpMock = prismaMock.phoneOtp /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
   const sessionMock = prismaMock.session /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
 
+  describe('findUserById', () => {
+    it('should find a user by id including username', async () => {
+      const mockUser = { id: 'u-1', phone, gamingCenterId, username: 'testuser' };
+      userMock.findUnique.mockResolvedValue(mockUser);
+
+      const result = await AuthRepository.findUserById('u-1');
+      expect(result).toEqual(mockUser);
+      expect(userMock.findUnique).toHaveBeenCalledWith({ where: { id: 'u-1' } });
+    });
+  });
+
   describe('findUserByPhone', () => {
     it('should find a user by phone and gamingCenterId', async () => {
       const mockUser = { id: 'u-1', phone, gamingCenterId };

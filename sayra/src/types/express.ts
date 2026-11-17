@@ -12,6 +12,7 @@ export interface RequestActor {
   actorType: SessionActorType;
   sessionId?: string;
   isSuperuser?: boolean;
+  username?: string | null;
 }
 
 export interface RequestTenant {

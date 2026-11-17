@@ -314,6 +314,47 @@ describe('Authentication API', () => {
       const res = await request(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${token}`);
       expect(res.status).toBe(200);
       expect(res.body.data.id).toBe(userId);
+      expect(res.body.data.username).toBeNull();
+    });
+
+    it('GET /auth/me should return username when user has a username', async () => {
+      MockedAuthRepository.findUserById.mockResolvedValue({
+        id: userId,
+        gamingCenterId,
+        role: 'MANAGER',
+        username: 'example_user',
+      } as any);
+
+      const res = await request(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(200);
+      expect(res.body.data.id).toBe(userId);
+      expect(res.body.data.role).toBe('MANAGER');
+      expect(res.body.data.gamingCenterId).toBe(gamingCenterId);
+      expect(res.body.data.username).toBe('example_user');
+    });
+
+    it('GET /auth/me should return username as null when user does not have a username', async () => {
+      MockedAuthRepository.findUserById.mockResolvedValue({
+        id: userId,
+        gamingCenterId,
+        role: 'MANAGER',
+        username: null,
+      } as any);
+
+      const res = await request(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(200);
+      expect(res.body.data.id).toBe(userId);
+      expect(res.body.data.username).toBeNull();
+    });
+
+    it('GET /auth/me should return username as null for customer actor', async () => {
+      const customerToken = generateAccessToken({ sessionId: 's2', actorId: 'cust-1', actorType: 'CUSTOMER' });
+      (prisma.customerAccount.findUnique as any).mockResolvedValue({ id: 'cust-1' });
+
+      const res = await request(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${customerToken}`);
+      expect(res.status).toBe(200);
+      expect(res.body.data.id).toBe('cust-1');
+      expect(res.body.data.username).toBeNull();
     });
 
     it('POST /auth/logout should revoke session', async () => {
