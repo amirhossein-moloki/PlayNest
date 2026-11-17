@@ -613,13 +613,16 @@ describe('Unified OTP Authentication & Security Hardening Test Suite', () => {
     expect(result.message).toBe('Logged out successfully');
   });
 
-  // 19. SKIP_OTP works in production when enabled as per requirements
-  it('19. SKIP_OTP works in production when enabled as per requirements', async () => {
+  // 19. Production safety: SKIP_OTP is strictly blocked / inactive when NODE_ENV=production
+  it('19. Production safety: SKIP_OTP is never active when NODE_ENV=production', async () => {
     const origEnv = env.NODE_ENV;
     const origSkip = env.SKIP_OTP;
     try {
       (env as any).NODE_ENV = 'production';
       (env as any).SKIP_OTP = true;
+
+      const { isSkipOtp } = await import('../../../src/modules/auth/otp-security');
+      expect(isSkipOtp()).toBe(false);
 
       const { OtpService } = await import('../../../src/modules/auth/otp.service');
       (prisma.phoneOtp.updateMany as any).mockResolvedValue({ count: 1 });
@@ -629,7 +632,7 @@ describe('Unified OTP Authentication & Security Hardening Test Suite', () => {
 
       const createCall = (prisma.phoneOtp.create as any).mock.calls[0][0];
       const is000000 = await argon2.verify(createCall.data.codeHash, '000000');
-      expect(is000000).toBe(true);
+      expect(is000000).toBe(false);
     } finally {
       (env as any).NODE_ENV = origEnv;
       (env as any).SKIP_OTP = origSkip;

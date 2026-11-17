@@ -5,7 +5,7 @@ import { env } from '../../config/env';
 import { queueSms } from '../../jobs/producers/sms.producer';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
-import { generateSecureNumericOtp, enforceRateLimit, progressiveDelay } from './otp-security';
+import { enforceRateLimit, progressiveDelay, isSkipOtp, getEffectiveOtpCode, verifyOtpCode } from './otp-security';
 import logger from '../../config/logger';
 
 const getOtpTemplateId = (): number => {
@@ -54,8 +54,7 @@ export const OtpService = {
       },
     });
 
-    const isSkipOtp = Boolean(env.SKIP_OTP);
-    const code = isSkipOtp ? '000000' : generateSecureNumericOtp(6);
+    const code = getEffectiveOtpCode(6);
     const codeHash = await argon2.hash(code);
     const expiresAt = new Date(Date.now() + env.OTP_EXPIRATION_MINUTES * 60 * 1000);
 
@@ -71,7 +70,7 @@ export const OtpService = {
       },
     });
 
-    if (!isSkipOtp) {
+    if (!isSkipOtp()) {
       await queueSms({
         mobile: normalizedPhone,
         templateId: getOtpTemplateId(),
@@ -142,17 +141,8 @@ export const OtpService = {
       throw new AppError('Too many failed attempts. OTP has been invalidated.', httpStatus.UNAUTHORIZED);
     }
 
-    const isSkipOtp = Boolean(env.SKIP_OTP);
-
-    // Check code validity
-    let isValid = false;
-    if (isSkipOtp && code === '000000') {
-      isValid = true;
-    } else if (isSkipOtp && code !== '000000') {
-      isValid = false;
-    } else {
-      isValid = await argon2.verify(otp.codeHash, code);
-    }
+    // Check code validity via unified OTP verification
+    const isValid = await verifyOtpCode(code, otp.codeHash);
 
     if (!isValid) {
       const newAttempts = otp.attempts + 1;

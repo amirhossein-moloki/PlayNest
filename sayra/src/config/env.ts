@@ -46,7 +46,7 @@ const EnvSchema = z.object({
   // Redis
   REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
 
-  // OTP / Auth Features
+  // OTP / Auth Features (Development/Testing bypass only; strictly forbidden in production)
   SKIP_OTP: z.preprocess(toBool, z.boolean()).default(false),
   OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   OTP_EXPIRATION_MINUTES: z.coerce.number().int().positive().default(2),
@@ -163,6 +163,11 @@ if (parsed.success) {
   }
 
   if (parsed.data.NODE_ENV === 'production') {
+    if (parsed.data.SKIP_OTP) {
+      throw new Error(
+        'FATAL: SKIP_OTP cannot be enabled in production (NODE_ENV=production). This bypass is for development and testing only.'
+      );
+    }
     if (parsed.data.JWT_ACCESS_SECRET === 'generate_at_least_32_chars_long_random_string') {
       throw new Error(
         'JWT_ACCESS_SECRET must be changed from the default placeholder value in production.'

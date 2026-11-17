@@ -10,21 +10,13 @@ import { queueSms } from '../../jobs/producers/sms.producer';
 import { env } from '../../config/env';
 import AppError from '../../common/errors/AppError';
 import { normalizePhone } from '../../common/utils/phone';
+import { isSkipOtp, getEffectiveOtpCode, verifyOtpCode, STATIC_OTP_CODE } from '../auth/otp-security';
 
 const OTP_LENGTH = 6;
 const OTP_EXPIRATION_MINUTES = 2;
 
 const hashToken = (token: string) => {
   return crypto.createHash('sha256').update(token).digest('hex');
-};
-
-const generateNumericOtp = (length: number): string => {
-  const digits = '0123456789';
-  let otp = '';
-  for (let i = 0; i < length; i++) {
-    otp += digits[Math.floor(Math.random() * 10)];
-  }
-  return otp;
 };
 
 const getOtpTemplateId = (): number => {
@@ -63,7 +55,7 @@ export const OnboardingStation = {
     }
 
     // Generate & save OTP
-    const code = generateNumericOtp(OTP_LENGTH);
+    const code = getEffectiveOtpCode(OTP_LENGTH);
     const codeHash = await argon2.hash(code);
     const expiresAt = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
 
@@ -74,14 +66,16 @@ export const OnboardingStation = {
       expiresAt,
     });
 
-    try {
-      await queueSms({
-        mobile: normalizedPhone,
-        templateId: getOtpTemplateId(),
-        parameters: [{ name: 'CODE', value: code }],
-      });
-    } catch {
-      // In tests or offline environments, allow graceful continuation
+    if (!isSkipOtp()) {
+      try {
+        await queueSms({
+          mobile: normalizedPhone,
+          templateId: getOtpTemplateId(),
+          parameters: [{ name: 'CODE', value: code }],
+        });
+      } catch {
+        // In tests or offline environments, allow graceful continuation
+      }
     }
 
     return {
@@ -102,12 +96,16 @@ export const OnboardingStation = {
       throw new AppError('Onboarding session not found', httpStatus.NOT_FOUND);
     }
 
+    if (isSkipOtp() && code !== STATIC_OTP_CODE) {
+      throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
+    }
+
     const otp = await AuthRepository.findRecentOtp(draft.managerPhone, OtpPurpose.SIGNUP);
     if (!otp) {
       throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
     }
 
-    const isCodeValid = await argon2.verify(otp.codeHash, code);
+    const isCodeValid = await verifyOtpCode(code, otp.codeHash);
     if (!isCodeValid) {
       throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
     }

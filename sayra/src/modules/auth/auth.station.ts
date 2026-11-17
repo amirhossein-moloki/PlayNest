@@ -8,6 +8,7 @@ import httpStatus from 'http-status';
 import { env } from '../../config/env';
 import { queueSms } from '../../jobs/producers/sms.producer';
 import { normalizePhone } from '../../common/utils/phone';
+import { isSkipOtp, getEffectiveOtpCode, verifyOtpCode, STATIC_OTP_CODE } from './otp-security';
 
 const hashToken = (token: string) => {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -17,15 +18,6 @@ const hashToken = (token: string) => {
 const OTP_EXPIRATION_MINUTES = 2;
 const OTP_LENGTH = 6;
 const OTP_POST_VERIFICATION_WINDOW_MINUTES = 5; // How long a user has to login after verifying OTP
-
-const generateNumericOtp = (length: number): string => {
-  const digits = '0123456789';
-  let otp = '';
-  for (let i = 0; i < length; i++) {
-    otp += digits[Math.floor(Math.random() * 10)];
-  }
-  return otp;
-};
 
 const getOtpTemplateId = (): number => {
   const templateId = env.MELIPAYAMAK_OTP_BODY_ID || env.SMSIR_OTP_TEMPLATE_ID;
@@ -108,7 +100,7 @@ export const authService = {
     const normalizedPhone = normalizePhone(phone);
 
     // If SKIP_OTP is enabled, use static code '000000' and skip sending real SMS
-    const code = env.SKIP_OTP ? '000000' : generateNumericOtp(OTP_LENGTH);
+    const code = getEffectiveOtpCode(OTP_LENGTH);
     const codeHash = await argon2.hash(code);
     const expiresAt = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
 
@@ -120,7 +112,7 @@ export const authService = {
       targetActorType: SessionActorType.USER,
     });
 
-    if (!env.SKIP_OTP) {
+    if (!isSkipOtp()) {
       await queueSms({ mobile: normalizedPhone, templateId: getOtpTemplateId(), parameters: [{ name: 'CODE', value: code }] });
     }
 
@@ -131,18 +123,17 @@ export const authService = {
     const normalizedPhone = normalizePhone(phone);
 
     // If SKIP_OTP is enabled, strictly require '000000'
-    if (env.SKIP_OTP && code !== '000000') {
+    if (isSkipOtp() && code !== STATIC_OTP_CODE) {
       throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
     }
 
-    // If SKIP_OTP is disabled, reject '000000' static code if generated code was different
     const otp = await AuthRepository.findRecentOtp(normalizedPhone, OtpPurpose.LOGIN, SessionActorType.USER);
 
     if (!otp) {
       throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
     }
 
-    const isCodeValid = await argon2.verify(otp.codeHash, code);
+    const isCodeValid = await verifyOtpCode(code, otp.codeHash);
 
     if (!isCodeValid) {
       throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
@@ -165,7 +156,7 @@ export const authService = {
     const normalizedPhone = normalizePhone(phone);
 
     // If SKIP_OTP is enabled, use static code '000000' and skip sending real SMS
-    const code = env.SKIP_OTP ? '000000' : generateNumericOtp(OTP_LENGTH);
+    const code = getEffectiveOtpCode(OTP_LENGTH);
     const codeHash = await argon2.hash(code);
     const expiresAt = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
 
@@ -177,7 +168,7 @@ export const authService = {
       targetActorType: SessionActorType.CUSTOMER,
     });
 
-    if (!env.SKIP_OTP) {
+    if (!isSkipOtp()) {
       await queueSms({ mobile: normalizedPhone, templateId: getOtpTemplateId(), parameters: [{ name: 'CODE', value: code }] });
     }
 
@@ -188,7 +179,7 @@ export const authService = {
     const normalizedPhone = normalizePhone(phone);
 
     // If SKIP_OTP is enabled, strictly require '000000'
-    if (env.SKIP_OTP && code !== '000000') {
+    if (isSkipOtp() && code !== STATIC_OTP_CODE) {
       throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
     }
 
@@ -198,7 +189,7 @@ export const authService = {
       throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
     }
 
-    const isCodeValid = await argon2.verify(otp.codeHash, code);
+    const isCodeValid = await verifyOtpCode(code, otp.codeHash);
 
     if (!isCodeValid) {
       throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);

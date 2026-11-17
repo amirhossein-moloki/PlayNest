@@ -1,3 +1,4 @@
+import argon2 from 'argon2';
 import crypto from 'crypto';
 import redis from '../../config/redis';
 import logger from '../../config/logger';
@@ -84,4 +85,38 @@ export async function progressiveDelay(failedAttempts: number): Promise<void> {
   }
   const delayMs = Math.min(1000, Math.pow(2, failedAttempts) * 50);
   await new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
+export const STATIC_OTP_CODE = '000000';
+
+/**
+ * Checks whether SKIP_OTP bypass is active.
+ * Strict safety rule: NEVER active in production mode.
+ */
+export function isSkipOtp(): boolean {
+  if (env.NODE_ENV === 'production') {
+    return false;
+  }
+  return Boolean(env.SKIP_OTP);
+}
+
+/**
+ * Returns the effective OTP code:
+ * Returns static '000000' if SKIP_OTP is enabled (and not in production),
+ * otherwise generates a cryptographically secure random numeric OTP.
+ */
+export function getEffectiveOtpCode(digits = 6): string {
+  return isSkipOtp() ? STATIC_OTP_CODE : generateSecureNumericOtp(digits);
+}
+
+/**
+ * Unified OTP code verification.
+ * When SKIP_OTP is active, strictly requires '000000'.
+ * When SKIP_OTP is inactive, verifies input against argon2 codeHash.
+ */
+export async function verifyOtpCode(inputCode: string, codeHash: string): Promise<boolean> {
+  if (isSkipOtp()) {
+    return inputCode === STATIC_OTP_CODE;
+  }
+  return argon2.verify(codeHash, inputCode);
 }

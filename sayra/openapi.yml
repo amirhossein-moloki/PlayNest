@@ -7084,7 +7084,7 @@ paths:
   /auth/otp/request:
     post:
       summary: Request OTP for all users and customers
-      description: Request a one-time password sent to any user or customer phone number
+      description: Request a one-time password sent to any user or customer phone number. In development/testing environments configured with SKIP_OTP=true, the static code 000000 is used and SMS sending is bypassed.
       tags:
       - Auth
       operationId: post_auth_otp_request
@@ -7119,7 +7119,7 @@ paths:
   /auth/otp/login:
     post:
       summary: Verify OTP and login for all users and customers
-      description: Verifies OTP, detects user/customer actor type and roles, and issues session tokens
+      description: Verifies OTP, detects user/customer actor type and roles, and issues session tokens. In development/testing environments configured with SKIP_OTP=true, the static code 000000 is accepted.
       tags:
       - Auth
       operationId: post_auth_otp_login
