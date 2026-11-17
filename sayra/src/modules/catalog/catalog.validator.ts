@@ -1,13 +1,14 @@
 import { z } from 'zod';
 import { GameStationType } from '@prisma/client';
 import { baseFilterSchema } from '../../common/validators/query.validators';
+import { idSchema } from '../../common/validators/common.validators';
 
 // Device Catalog Schemas
 export const createDeviceCatalogSchema = z.object({
   body: z.object({
     name: z.string().min(1, 'Name is required'),
     deviceType: z.nativeEnum(GameStationType).default(GameStationType.PC),
-    deviceTypeId: z.string().cuid('Invalid deviceTypeId format').optional().nullable(),
+    deviceTypeId: idSchema('Invalid deviceTypeId format').optional().nullable(),
     coverImageUrl: z.string().url('Cover image URL must be a valid URL').optional(),
     description: z.string().optional(),
     isActive: z.preprocess((val) => {
@@ -22,12 +23,12 @@ export const createDeviceCatalogSchema = z.object({
 
 export const updateDeviceCatalogSchema = z.object({
   params: z.object({
-    id: z.string().cuid('Invalid device ID format'),
+    id: idSchema('Invalid device ID format'),
   }),
   body: z.object({
     name: z.string().min(1, 'Name cannot be empty').optional(),
     deviceType: z.nativeEnum(GameStationType).optional(),
-    deviceTypeId: z.string().cuid('Invalid deviceTypeId format').optional().nullable(),
+    deviceTypeId: idSchema('Invalid deviceTypeId format').optional().nullable(),
     coverImageUrl: z.string().url('Cover image URL must be a valid URL').optional(),
     description: z.string().optional().nullable(),
     isActive: z.boolean().optional(),
@@ -77,7 +78,7 @@ export const createGameCatalogSchema = z.object({
 
 export const updateGameCatalogSchema = z.object({
   params: z.object({
-    id: z.string().cuid('Invalid game ID format'),
+    id: idSchema('Invalid game ID format'),
   }),
   body: z.object({
     title: z.string().min(1, 'Title cannot be empty').optional(),
@@ -121,7 +122,7 @@ export const createDeviceTypeSchema = z.object({
 
 export const updateDeviceTypeSchema = z.object({
   params: z.object({
-    id: z.string().cuid('Invalid device type ID format'),
+    id: idSchema('Invalid device type ID format'),
   }),
   body: z.object({
     name: z.string().min(1, 'Name cannot be empty').optional(),
@@ -146,7 +147,7 @@ export const listDeviceTypeSchema = baseFilterSchema.extend({
 
 export const catalogIdParamSchema = z.object({
   params: z.object({
-    id: z.string().cuid('Invalid ID format'),
+    id: idSchema('Invalid ID format'),
   }),
 });
 

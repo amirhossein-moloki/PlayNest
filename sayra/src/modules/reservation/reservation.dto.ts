@@ -1,8 +1,7 @@
 
 import { z } from 'zod';
 import { ReservationStatus, CancellationCategory, CancellationActor } from '@prisma/client';
-
-const CUID_MESSAGE = 'Invalid CUID';
+import { idSchema, CUID_MESSAGE } from '../../common/validators/common.validators';
 
 // =================================
 // Panel Schemas
@@ -10,8 +9,8 @@ const CUID_MESSAGE = 'Invalid CUID';
 
 export const createReservationSchema = z.object({
   body: z.object({
-    stationId: z.string().cuid(CUID_MESSAGE),
-    staffId: z.string().cuid(CUID_MESSAGE),
+    stationId: idSchema(CUID_MESSAGE),
+    staffId: idSchema(CUID_MESSAGE),
     startTime: z.string().datetime(),
     durationHours: z.number().int().positive().max(24).optional(),
     customer: z.object({
@@ -26,11 +25,11 @@ export const createReservationSchema = z.object({
 
 export const updateReservationSchema = z.object({
   params: z.object({
-    reservationId: z.string().cuid(CUID_MESSAGE),
+    reservationId: idSchema(CUID_MESSAGE),
   }),
   body: z.object({
-    stationId: z.string().cuid(CUID_MESSAGE).optional(),
-    staffId: z.string().cuid(CUID_MESSAGE).optional(),
+    stationId: idSchema(CUID_MESSAGE).optional(),
+    staffId: idSchema(CUID_MESSAGE).optional(),
     startTime: z.string().datetime().optional(),
     note: z.string().optional(),
   }).refine(data => Object.keys(data).length > 0, {
@@ -40,7 +39,7 @@ export const updateReservationSchema = z.object({
 
 export const cancelReservationSchema = z.object({
   params: z.object({
-    reservationId: z.string().cuid(CUID_MESSAGE),
+    reservationId: idSchema(CUID_MESSAGE),
   }),
   body: z.object({
     reason: z.string().optional(),
@@ -51,19 +50,19 @@ export const cancelReservationSchema = z.object({
 
 export const rescheduleReservationSchema = z.object({
   params: z.object({
-    reservationId: z.string().cuid(CUID_MESSAGE),
+    reservationId: idSchema(CUID_MESSAGE),
   }),
   body: z.object({
     startTime: z.string().datetime(),
-    stationId: z.string().cuid(CUID_MESSAGE).optional(),
-    staffId: z.string().cuid(CUID_MESSAGE).optional(),
+    stationId: idSchema(CUID_MESSAGE).optional(),
+    staffId: idSchema(CUID_MESSAGE).optional(),
     reason: z.string().max(500).optional(),
   }),
 });
 
 export const proposeTimeSchema = z.object({
   params: z.object({
-    reservationId: z.string().cuid(CUID_MESSAGE),
+    reservationId: idSchema(CUID_MESSAGE),
   }),
   body: z.object({
     startTime: z.string().datetime(),
@@ -77,14 +76,14 @@ export const proposeTimeSchema = z.object({
 
 export const proposalActionParamsSchema = z.object({
   params: z.object({
-    reservationId: z.string().cuid(CUID_MESSAGE),
-    proposalId: z.string().cuid(CUID_MESSAGE),
+    reservationId: idSchema(CUID_MESSAGE),
+    proposalId: idSchema(CUID_MESSAGE),
   }),
 });
 
 export const listProposalsParamsSchema = z.object({
   params: z.object({
-    reservationId: z.string().cuid(CUID_MESSAGE),
+    reservationId: idSchema(CUID_MESSAGE),
   }),
 });
 
@@ -95,8 +94,8 @@ export const listReservationQuerySchema = z.object({
     sortBy: z.enum(['startTime', 'createdAt', 'status']).optional(),
     sortOrder: z.enum(['asc', 'desc']).optional(),
     status: z.nativeEnum(ReservationStatus).optional(),
-    staffId: z.string().cuid(CUID_MESSAGE).optional(),
-    customerProfileId: z.string().cuid(CUID_MESSAGE).optional(),
+    staffId: idSchema(CUID_MESSAGE).optional(),
+    customerProfileId: idSchema(CUID_MESSAGE).optional(),
     dateFrom: z.string().datetime().optional(),
     dateTo: z.string().datetime().optional(),
   }),
@@ -115,8 +114,8 @@ export const createPublicReservationSchema = z.object({
     gamingCenterSlug: z.string(),
   }),
   body: z.object({
-    stationId: z.string().cuid(CUID_MESSAGE),
-    staffId: z.string().cuid(CUID_MESSAGE),
+    stationId: idSchema(CUID_MESSAGE),
+    staffId: idSchema(CUID_MESSAGE),
     startTime: z.string().datetime(),
     durationHours: z.number().int().positive().max(24).optional(),
     customer: z.object({

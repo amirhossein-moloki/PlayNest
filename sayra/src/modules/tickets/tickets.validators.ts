@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { TicketStatus, TicketPriority, TicketCategory } from '@prisma/client';
 import { baseFilterSchema } from '../../common/validators/query.validators';
+import { idSchema } from '../../common/validators/common.validators';
 
 export const createTicketSchema = z.object({
   body: z.object({
@@ -17,7 +18,7 @@ export const addMessageSchema = z.object({
     attachment: z.string().optional(),
   }),
   params: z.object({
-    ticketId: z.string().cuid(),
+    ticketId: idSchema('Invalid ticketId format'),
   }),
 });
 
@@ -26,16 +27,16 @@ export const updateStatusSchema = z.object({
     status: z.nativeEnum(TicketStatus),
   }),
   params: z.object({
-    ticketId: z.string().cuid(),
+    ticketId: idSchema('Invalid ticketId format'),
   }),
 });
 
 export const assignTicketSchema = z.object({
   body: z.object({
-    assignedToUserId: z.string().cuid(),
+    assignedToUserId: idSchema('Invalid assignedToUserId format'),
   }),
   params: z.object({
-    ticketId: z.string().cuid(),
+    ticketId: idSchema('Invalid ticketId format'),
   }),
 });
 

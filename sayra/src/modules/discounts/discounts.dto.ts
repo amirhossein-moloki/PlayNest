@@ -1,11 +1,10 @@
 import { z } from 'zod';
 import { DiscountTargetType, DiscountValueType, DiscountFundingSource, DiscountCodeType } from '@prisma/client';
-
-const CUID_MESSAGE = 'Invalid CUID';
+import { idSchema, CUID_MESSAGE } from '../../common/validators/common.validators';
 
 export const createCampaignSchema = z.object({
   params: z.object({
-    gamingCenterId: z.string().cuid(CUID_MESSAGE).optional(),
+    gamingCenterId: idSchema(CUID_MESSAGE).optional(),
   }),
   body: z
     .object({
@@ -48,7 +47,7 @@ export const createCampaignSchema = z.object({
 
 export const updateCampaignSchema = z.object({
   params: z.object({
-    id: z.string().cuid(CUID_MESSAGE),
+    id: idSchema(CUID_MESSAGE),
   }),
   body: z
     .object({
@@ -94,7 +93,7 @@ export const updateCampaignSchema = z.object({
 
 export const validatePromoCodeSchema = z.object({
   params: z.object({
-    gamingCenterId: z.string().cuid(CUID_MESSAGE),
+    gamingCenterId: idSchema(CUID_MESSAGE),
   }),
   body: z.object({
     code: z.string().trim().min(1, 'Code is required'),
@@ -110,7 +109,7 @@ export type ValidatePromoCodeInput = z.infer<typeof validatePromoCodeSchema>['bo
 
 export const createDiscountSchema = z.object({
   params: z.object({
-    gamingCenterId: z.string().cuid(CUID_MESSAGE),
+    gamingCenterId: idSchema(CUID_MESSAGE),
   }),
   body: z
     .object({
@@ -143,8 +142,8 @@ export const createDiscountSchema = z.object({
 
 export const updateDiscountSchema = z.object({
   params: z.object({
-    gamingCenterId: z.string().cuid(CUID_MESSAGE),
-    id: z.string().cuid(CUID_MESSAGE),
+    gamingCenterId: idSchema(CUID_MESSAGE),
+    id: idSchema(CUID_MESSAGE),
   }),
   body: z
     .object({
@@ -180,8 +179,8 @@ export const updateDiscountSchema = z.object({
 
 export const updateDiscountStatusSchema = z.object({
   params: z.object({
-    gamingCenterId: z.string().cuid(CUID_MESSAGE),
-    id: z.string().cuid(CUID_MESSAGE),
+    gamingCenterId: idSchema(CUID_MESSAGE),
+    id: idSchema(CUID_MESSAGE),
   }),
   body: z.object({
     isActive: z.boolean(),
@@ -190,7 +189,7 @@ export const updateDiscountStatusSchema = z.object({
 
 export const listDiscountQuerySchema = z.object({
   params: z.object({
-    gamingCenterId: z.string().cuid(CUID_MESSAGE),
+    gamingCenterId: idSchema(CUID_MESSAGE),
   }),
   query: z.object({
     page: z.preprocess((val) => Number(val), z.number().int().min(1)).optional(),
@@ -203,8 +202,8 @@ export const listDiscountQuerySchema = z.object({
 
 export const discountParamSchema = z.object({
   params: z.object({
-    gamingCenterId: z.string().cuid(CUID_MESSAGE),
-    id: z.string().cuid(CUID_MESSAGE),
+    gamingCenterId: idSchema(CUID_MESSAGE),
+    id: idSchema(CUID_MESSAGE),
   }),
 });
 

@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { MediaPurpose, MediaType } from '@prisma/client';
-
-const CUID_MESSAGE = 'Invalid CUID';
+import { idSchema, CUID_MESSAGE } from '../../common/validators/common.validators';
 const ALT_TEXT_REQUIRED_PURPOSES = new Set<MediaPurpose>([
   MediaPurpose.LOGO,
   MediaPurpose.COVER,
@@ -60,7 +59,7 @@ export const uploadMediaSchema = z.object({
 
 export const updateMediaSchema = z.object({
   params: z.object({
-    mediaId: z.string().cuid(CUID_MESSAGE),
+    mediaId: idSchema(CUID_MESSAGE),
   }),
   body: z
     .object({

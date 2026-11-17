@@ -1,8 +1,7 @@
 
 import { z } from 'zod';
 import { CommissionType, CommissionStatus, CommissionPaymentStatus, CommissionPaymentMethod } from '@prisma/client';
-
-const CUID_MESSAGE = 'Invalid CUID';
+import { idSchema, CUID_MESSAGE } from '../../common/validators/common.validators';
 
 export const upsertPolicySchema = z.object({
   body: z.object({
@@ -50,7 +49,7 @@ export const listEarningsQuerySchema = z.object({
 
 export const recordCommissionPaymentSchema = z.object({
   params: z.object({
-    earningId: z.string().cuid(CUID_MESSAGE),
+    earningId: idSchema(CUID_MESSAGE),
   }),
   body: z.object({
     amount: z.number().int().positive(),

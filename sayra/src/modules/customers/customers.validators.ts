@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { idSchema } from '../../common/validators/common.validators';
 
 export const createCustomerSchema = z.object({
   body: z.object({
@@ -15,8 +16,8 @@ export const updateCustomerSchema = z.object({
     note: z.string().optional(),
   }),
   params: z.object({
-    gamingCenterId: z.string().cuid(),
-    customerId: z.string().cuid(),
+    gamingCenterId: idSchema('Invalid gamingCenterId format'),
+    customerId: idSchema('Invalid customerId format'),
   }),
 });
 
@@ -27,13 +28,13 @@ export const getCustomersSchema = z.object({
     limit: z.string().regex(/^\d+$/).transform(Number).optional(),
   }),
   params: z.object({
-    gamingCenterId: z.string().cuid(),
+    gamingCenterId: idSchema('Invalid gamingCenterId format'),
   }),
 });
 
 export const customerIdParamSchema = z.object({
   params: z.object({
-    gamingCenterId: z.string().cuid(),
-    customerId: z.string().cuid(),
+    gamingCenterId: idSchema('Invalid gamingCenterId format'),
+    customerId: idSchema('Invalid customerId format'),
   }),
 });

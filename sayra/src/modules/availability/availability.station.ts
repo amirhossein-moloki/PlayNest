@@ -292,7 +292,7 @@ export const getAvailableSlots = async (
               unavailableReason = 'PAST';
             } else if (isClosureConflict) {
               isAvailable = false;
-              unavailableReason = 'RESERVED';
+              unavailableReason = 'CLOSED';
             } else if (isMaintenanceConflict) {
               isAvailable = false;
               unavailableReason = 'MAINTENANCE';

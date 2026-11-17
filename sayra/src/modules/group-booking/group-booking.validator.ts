@@ -1,11 +1,10 @@
 import { z } from 'zod';
 import { ReservationSource, ReservationStatus } from '@prisma/client';
-
-const CUID_MESSAGE = 'Invalid CUID format';
+import { idSchema, CUID_MESSAGE } from '../../common/validators/common.validators';
 
 export const groupBookingItemSchema = z.object({
-  stationId: z.string().cuid(CUID_MESSAGE),
-  staffId: z.string().cuid(CUID_MESSAGE).optional(),
+  stationId: idSchema(CUID_MESSAGE),
+  staffId: idSchema(CUID_MESSAGE).optional(),
 });
 
 export const customerSchema = z.object({
@@ -69,8 +68,8 @@ export const listGroupBookingQuerySchema = z.object({
     page: z.coerce.number().int().positive().optional().default(1),
     pageSize: z.coerce.number().int().positive().max(100).optional().default(20),
     status: z.nativeEnum(ReservationStatus).optional(),
-    customerProfileId: z.string().cuid(CUID_MESSAGE).optional(),
-    customerAccountId: z.string().cuid(CUID_MESSAGE).optional(),
+    customerProfileId: idSchema(CUID_MESSAGE).optional(),
+    customerAccountId: idSchema(CUID_MESSAGE).optional(),
     dateFrom: z.string().datetime().optional(),
     dateTo: z.string().datetime().optional(),
   }),
@@ -79,14 +78,14 @@ export const listGroupBookingQuerySchema = z.object({
 export const groupBookingIdParamSchema = z.object({
   params: z.object({
     gamingCenterId: z.string(),
-    id: z.string().cuid(CUID_MESSAGE),
+    id: idSchema(CUID_MESSAGE),
   }),
 });
 
 export const cancelGroupBookingSchema = z.object({
   params: z.object({
     gamingCenterId: z.string(),
-    id: z.string().cuid(CUID_MESSAGE),
+    id: idSchema(CUID_MESSAGE),
   }),
   body: z.object({
     reason: z.string().max(500).optional(),

@@ -50,6 +50,13 @@ function normalizeError(err: any): NormalizedError { // eslint-disable-line @typ
         message: 'The requested record was not found.',
         details: err.meta,
       };
+    case 'P2003':
+      return {
+        status: 404,
+        code: 'NOT_FOUND',
+        message: 'Referenced entity was not found.',
+        details: err.meta,
+      };
     default:
       return {
         status: 400,
@@ -58,6 +65,16 @@ function normalizeError(err: any): NormalizedError { // eslint-disable-line @typ
         details: { prismaCode: err.code, meta: err.meta },
       };
     }
+  }
+
+  // 2.1 Prisma Validation Error
+  if (err instanceof Prisma.PrismaClientValidationError) {
+    return {
+      status: 400,
+      code: 'VALIDATION_ERROR',
+      message: 'Invalid database operation payload.',
+      details: err.message,
+    };
   }
 
   // 3. PostgreSQL Exclusion Constraint Violation (via Prisma Raw Query Error)

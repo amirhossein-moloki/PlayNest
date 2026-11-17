@@ -57,6 +57,16 @@ export async function seedFromDataset(
   const dataset = JSON.parse(rawJson);
   const commonPasswordHash = await argon2.hash(defaultPassword);
 
+  // Maps to hold external seed IDs -> DB primary keys (CUID)
+  const adminIdMap = new Map<string, string>();
+  const centerIdMap = new Map<string, string>();
+  const userIdMap = new Map<string, string>();
+  const stationIdMap = new Map<string, string>();
+  const customerAccountIdMap = new Map<string, string>();
+  const profileIdMap = new Map<string, string>();
+  const reservationIdMap = new Map<string, string>();
+  const sessionIdMap = new Map<string, string>();
+
   // 1. Platform Admin
   if (Array.isArray(dataset.platformAdmin)) {
     for (const adminData of dataset.platformAdmin) {
@@ -64,17 +74,16 @@ export async function seedFromDataset(
         const existing = await prisma.platformAdmin.findFirst({
           where: {
             OR: [
-              ...(adminData.id ? [{ id: adminData.id }] : []),
               ...(adminData.phone ? [{ phone: adminData.phone }] : []),
               ...(adminData.email ? [{ email: adminData.email }] : []),
+              ...(adminData.id ? [{ id: adminData.id }] : []),
             ],
           },
         });
 
         if (!existing) {
-          await prisma.platformAdmin.create({
+          const created = await prisma.platformAdmin.create({
             data: {
-              ...(adminData.id ? { id: adminData.id } : {}),
               fullName: adminData.fullName || 'مدیر کل سامانه پلی‌نست',
               phone: adminData.phone,
               email: adminData.email || 'superadmin@example.test',
@@ -83,8 +92,10 @@ export async function seedFromDataset(
               isSuperuser: adminData.isSuperuser ?? true,
             },
           });
+          if (adminData.id) adminIdMap.set(adminData.id, created.id);
           metrics.dependentRecordsCreated++;
         } else {
+          if (adminData.id) adminIdMap.set(adminData.id, existing.id);
           metrics.duplicateRecordsIdentified++;
         }
       } catch (err) {
@@ -94,9 +105,6 @@ export async function seedFromDataset(
     }
   }
 
-  // Map to hold center and related entity IDs
-  const centerIdMap = new Map<string, string>(); // dataset center ID -> DB center ID
-
   // 2. Gaming Centers
   if (Array.isArray(dataset.gamingCenters)) {
     for (const c of dataset.gamingCenters) {
@@ -104,8 +112,8 @@ export async function seedFromDataset(
         const existing = await prisma.gamingCenter.findFirst({
           where: {
             OR: [
+              { slug: c.slug },
               ...(c.id ? [{ id: c.id }] : []),
-              ...(c.slug ? [{ slug: c.slug }] : []),
             ],
           },
         });
@@ -113,7 +121,6 @@ export async function seedFromDataset(
         if (!existing) {
           const created = await prisma.gamingCenter.create({
             data: {
-              ...(c.id ? { id: c.id } : {}),
               name: c.name,
               slug: c.slug,
               isActive: c.isActive ?? true,
@@ -132,7 +139,6 @@ export async function seedFromDataset(
           metrics.newCentersCreated++;
         } else {
           centerIdMap.set(c.id, existing.id);
-          // Only update non-destructive metadata if center was originally seeded
           if (c.id === existing.id || c.slug === existing.slug) {
             await prisma.gamingCenter.update({
               where: { id: existing.id },
@@ -157,7 +163,13 @@ export async function seedFromDataset(
   // 3. Settings & SiteSettings per Center
   if (Array.isArray(dataset.settings)) {
     for (const s of dataset.settings) {
-      const realCenterId = centerIdMap.get(s.gamingCenterId) || s.gamingCenterId;
+      const realCenterId = centerIdMap.get(s.gamingCenterId);
+      if (!realCenterId) {
+        metrics.failedOperationsCount++;
+        console.error(`⚠️ Cannot seed Settings: missing parent center mapping for external seed ID "${s.gamingCenterId}"`);
+        continue;
+      }
+
       try {
         const existingSettings = await prisma.settings.findUnique({
           where: { gamingCenterId: realCenterId },
@@ -212,7 +224,13 @@ export async function seedFromDataset(
   // 4. Commission Policies
   if (Array.isArray(dataset.commissionPolicies)) {
     for (const cp of dataset.commissionPolicies) {
-      const realCenterId = centerIdMap.get(cp.gamingCenterId) || cp.gamingCenterId;
+      const realCenterId = centerIdMap.get(cp.gamingCenterId);
+      if (!realCenterId) {
+        metrics.failedOperationsCount++;
+        console.error(`⚠️ Cannot seed CommissionPolicy: missing parent center mapping for external seed ID "${cp.gamingCenterId}"`);
+        continue;
+      }
+
       try {
         const existing = await prisma.commissionPolicy.findUnique({
           where: { gamingCenterId: realCenterId },
@@ -241,7 +259,13 @@ export async function seedFromDataset(
   // 5. Addresses
   if (Array.isArray(dataset.addresses)) {
     for (const a of dataset.addresses) {
-      const realCenterId = centerIdMap.get(a.gamingCenterId) || a.gamingCenterId;
+      const realCenterId = centerIdMap.get(a.gamingCenterId);
+      if (!realCenterId) {
+        metrics.failedOperationsCount++;
+        console.error(`⚠️ Cannot seed Address: missing parent center mapping for external seed ID "${a.gamingCenterId}"`);
+        continue;
+      }
+
       try {
         const existing = await prisma.address.findFirst({
           where: {
@@ -254,7 +278,6 @@ export async function seedFromDataset(
         if (!existing) {
           await prisma.address.create({
             data: {
-              ...(a.id ? { id: a.id } : {}),
               gamingCenterId: realCenterId,
               city: a.city || 'تبریز',
               province: a.province || 'آذربایجان شرقی',
@@ -279,7 +302,13 @@ export async function seedFromDataset(
   // 6. Social Links
   if (Array.isArray(dataset.socialLinks)) {
     for (const sl of dataset.socialLinks) {
-      const realCenterId = centerIdMap.get(sl.gamingCenterId) || sl.gamingCenterId;
+      const realCenterId = centerIdMap.get(sl.gamingCenterId);
+      if (!realCenterId) {
+        metrics.failedOperationsCount++;
+        console.error(`⚠️ Cannot seed SocialLink: missing parent center mapping for external seed ID "${sl.gamingCenterId}"`);
+        continue;
+      }
+
       try {
         const linkType = sl.type === 'INSTAGRAM' ? LinkType.INSTAGRAM : LinkType.PHONE;
         const existing = await prisma.socialLink.findFirst({
@@ -293,7 +322,6 @@ export async function seedFromDataset(
         if (!existing) {
           await prisma.socialLink.create({
             data: {
-              ...(sl.id ? { id: sl.id } : {}),
               gamingCenterId: realCenterId,
               type: linkType,
               label: linkType === LinkType.INSTAGRAM ? 'اینستاگرام' : 'تلفن تماس',
@@ -314,10 +342,15 @@ export async function seedFromDataset(
   }
 
   // 7. Users
-  const userIdMap = new Map<string, string>(); // dataset user id -> db user id
   if (Array.isArray(dataset.users)) {
     for (const u of dataset.users) {
-      const realCenterId = centerIdMap.get(u.gamingCenterId) || u.gamingCenterId;
+      const realCenterId = centerIdMap.get(u.gamingCenterId);
+      if (!realCenterId) {
+        metrics.failedOperationsCount++;
+        console.error(`⚠️ Cannot seed User ${u.fullName}: missing parent center mapping for external seed ID "${u.gamingCenterId}"`);
+        continue;
+      }
+
       try {
         const existing = await prisma.user.findFirst({
           where: {
@@ -332,7 +365,6 @@ export async function seedFromDataset(
           const role = u.role === 'ADMIN' ? UserRole.ADMIN : UserRole.MANAGER;
           const created = await prisma.user.create({
             data: {
-              ...(u.id ? { id: u.id } : {}),
               gamingCenterId: realCenterId,
               fullName: u.fullName,
               phone: u.phone,
@@ -374,8 +406,14 @@ export async function seedFromDataset(
   // 8. Staff Shifts
   if (Array.isArray(dataset.staffShifts)) {
     for (const sh of dataset.staffShifts) {
-      const realCenterId = centerIdMap.get(sh.gamingCenterId) || sh.gamingCenterId;
-      const realUserId = userIdMap.get(sh.userId) || sh.userId;
+      const realCenterId = centerIdMap.get(sh.gamingCenterId);
+      const realUserId = userIdMap.get(sh.userId);
+      if (!realCenterId || !realUserId) {
+        metrics.failedOperationsCount++;
+        console.error(`⚠️ Cannot seed StaffShift: missing parent mapping (center: ${sh.gamingCenterId} -> ${realCenterId}, user: ${sh.userId} -> ${realUserId})`);
+        continue;
+      }
+
       try {
         const existing = await prisma.staffShift.findUnique({
           where: {
@@ -391,7 +429,6 @@ export async function seedFromDataset(
           const shiftRole = sh.shiftRole === 'HOST' ? ShiftRole.HOST : ShiftRole.CASHIER;
           await prisma.staffShift.create({
             data: {
-              ...(sh.id ? { id: sh.id } : {}),
               gamingCenterId: realCenterId,
               userId: realUserId,
               dayOfWeek: sh.dayOfWeek,
@@ -413,10 +450,15 @@ export async function seedFromDataset(
   }
 
   // 9. Game Stations
-  const stationIdMap = new Map<string, string>(); // dataset station id -> db station id
   if (Array.isArray(dataset.gameStations)) {
     for (const st of dataset.gameStations) {
-      const realCenterId = centerIdMap.get(st.gamingCenterId) || st.gamingCenterId;
+      const realCenterId = centerIdMap.get(st.gamingCenterId);
+      if (!realCenterId) {
+        metrics.failedOperationsCount++;
+        console.error(`⚠️ Cannot seed GameStation ${st.name}: missing parent center mapping for external seed ID "${st.gamingCenterId}"`);
+        continue;
+      }
+
       try {
         const existing = await prisma.gameStation.findFirst({
           where: {
@@ -434,7 +476,6 @@ export async function seedFromDataset(
         if (!existing) {
           const created = await prisma.gameStation.create({
             data: {
-              ...(st.id ? { id: st.id } : {}),
               gamingCenterId: realCenterId,
               name: st.name,
               stationType,
@@ -449,7 +490,6 @@ export async function seedFromDataset(
           metrics.newStationsCreated++;
         } else {
           stationIdMap.set(st.id, existing.id);
-          // Only update non-breaking fields if owned
           if (st.id === existing.id || st.name === existing.name) {
             await prisma.gameStation.update({
               where: { id: existing.id },
@@ -470,7 +510,6 @@ export async function seedFromDataset(
   }
 
   // 10. Customer Accounts
-  const customerAccountIdMap = new Map<string, string>();
   if (Array.isArray(dataset.customerAccounts)) {
     for (const ca of dataset.customerAccounts) {
       try {
@@ -486,7 +525,6 @@ export async function seedFromDataset(
         if (!existing) {
           const created = await prisma.customerAccount.create({
             data: {
-              ...(ca.id ? { id: ca.id } : {}),
               phone: ca.phone,
               fullName: ca.fullName || null,
               walletBalance: ca.walletBalance || 0,
@@ -507,11 +545,16 @@ export async function seedFromDataset(
   }
 
   // 11. Customer Profiles
-  const profileIdMap = new Map<string, string>();
   if (Array.isArray(dataset.customerProfiles)) {
     for (const cp of dataset.customerProfiles) {
-      const realCenterId = centerIdMap.get(cp.gamingCenterId) || cp.gamingCenterId;
-      const realAccountId = customerAccountIdMap.get(cp.customerAccountId) || cp.customerAccountId;
+      const realCenterId = centerIdMap.get(cp.gamingCenterId);
+      const realAccountId = customerAccountIdMap.get(cp.customerAccountId);
+      if (!realCenterId || !realAccountId) {
+        metrics.failedOperationsCount++;
+        console.error(`⚠️ Cannot seed CustomerProfile: missing parent mapping (center: ${cp.gamingCenterId} -> ${realCenterId}, account: ${cp.customerAccountId} -> ${realAccountId})`);
+        continue;
+      }
+
       try {
         const existing = await prisma.customerProfile.findUnique({
           where: {
@@ -525,7 +568,6 @@ export async function seedFromDataset(
         if (!existing) {
           const profile = await prisma.customerProfile.create({
             data: {
-              ...(cp.id ? { id: cp.id } : {}),
               gamingCenterId: realCenterId,
               customerAccountId: realAccountId,
               displayName: cp.displayName || 'مشتری',
@@ -545,15 +587,20 @@ export async function seedFromDataset(
   }
 
   // 12. Reservations
-  const reservationIdMap = new Map<string, string>();
   if (Array.isArray(dataset.reservations)) {
     for (const r of dataset.reservations) {
-      const realCenterId = centerIdMap.get(r.gamingCenterId) || r.gamingCenterId;
-      const realStationId = stationIdMap.get(r.stationId) || r.stationId;
-      const realAccountId = customerAccountIdMap.get(r.customerAccountId) || r.customerAccountId;
-      const realProfileId = profileIdMap.get(r.customerProfileId) || r.customerProfileId;
-      const realStaffId = userIdMap.get(r.staffId) || r.staffId;
-      const realCreatedBy = userIdMap.get(r.createdByUserId) || r.createdByUserId;
+      const realCenterId = centerIdMap.get(r.gamingCenterId);
+      const realStationId = stationIdMap.get(r.stationId);
+      const realAccountId = customerAccountIdMap.get(r.customerAccountId);
+      if (!realCenterId || !realStationId || !realAccountId) {
+        metrics.failedOperationsCount++;
+        console.error(`⚠️ Cannot seed Reservation ${r.id}: missing parent mapping (center: ${r.gamingCenterId} -> ${realCenterId}, station: ${r.stationId} -> ${realStationId}, account: ${r.customerAccountId} -> ${realAccountId})`);
+        continue;
+      }
+
+      const realProfileId = r.customerProfileId ? profileIdMap.get(r.customerProfileId) : undefined;
+      const realStaffId = r.staffId ? userIdMap.get(r.staffId) : undefined;
+      const realCreatedBy = r.createdByUserId ? userIdMap.get(r.createdByUserId) : undefined;
 
       try {
         const existing = await prisma.reservation.findFirst({
@@ -584,7 +631,6 @@ export async function seedFromDataset(
         if (!existing) {
           const created = await prisma.reservation.create({
             data: {
-              ...(r.id ? { id: r.id } : {}),
               gamingCenterId: realCenterId,
               stationId: realStationId,
               customerAccountId: realAccountId,
@@ -620,8 +666,14 @@ export async function seedFromDataset(
   // 13. Gaming Sessions
   if (Array.isArray(dataset.gamingSessions)) {
     for (const gs of dataset.gamingSessions) {
-      const realReservationId = reservationIdMap.get(gs.reservationId) || gs.reservationId;
-      const realStationId = stationIdMap.get(gs.stationId) || gs.stationId;
+      const realReservationId = reservationIdMap.get(gs.reservationId);
+      const realStationId = stationIdMap.get(gs.stationId);
+      if (!realReservationId || !realStationId) {
+        metrics.failedOperationsCount++;
+        console.error(`⚠️ Cannot seed GamingSession ${gs.id}: missing parent mapping (reservation: ${gs.reservationId} -> ${realReservationId}, station: ${gs.stationId} -> ${realStationId})`);
+        continue;
+      }
+
       try {
         const existing = await prisma.gamingSession.findFirst({
           where: {
@@ -633,9 +685,8 @@ export async function seedFromDataset(
         });
 
         if (!existing) {
-          await prisma.gamingSession.create({
+          const created = await prisma.gamingSession.create({
             data: {
-              ...(gs.id ? { id: gs.id } : {}),
               reservationId: realReservationId,
               stationId: realStationId,
               startTime: new Date(gs.startTime),
@@ -644,8 +695,10 @@ export async function seedFromDataset(
               status: GamingSessionStatus.COMPLETED,
             },
           });
+          sessionIdMap.set(gs.id, created.id);
           metrics.dependentRecordsCreated++;
         } else {
+          sessionIdMap.set(gs.id, existing.id);
           metrics.duplicateRecordsIdentified++;
         }
       } catch (err) {
@@ -658,14 +711,19 @@ export async function seedFromDataset(
   // 14. Payments, Earnings & Ledger Entries
   if (Array.isArray(dataset.payments)) {
     for (const p of dataset.payments) {
-      const realCenterId = centerIdMap.get(p.gamingCenterId) || p.gamingCenterId;
-      const realReservationId = reservationIdMap.get(p.reservationId) || p.reservationId;
+      const realCenterId = centerIdMap.get(p.gamingCenterId);
+      const realReservationId = reservationIdMap.get(p.reservationId);
+      if (!realCenterId || !realReservationId) {
+        metrics.failedOperationsCount++;
+        console.error(`⚠️ Cannot seed Payment: missing parent mapping (center: ${p.gamingCenterId} -> ${realCenterId}, reservation: ${p.reservationId} -> ${realReservationId})`);
+        continue;
+      }
 
       try {
         const existing = await prisma.payment.findFirst({
           where: {
             OR: [
-              ...(p.id ? [{ id: p.id }] : []),
+              ...(p.id ? [{ id: p.id }, { referenceCode: `SEED-PAY-${p.id}` }] : []),
               { reservationId: realReservationId },
             ],
           },
@@ -684,7 +742,6 @@ export async function seedFromDataset(
         if (!existing) {
           const payment = await prisma.payment.create({
             data: {
-              ...(p.id ? { id: p.id } : {}),
               gamingCenterId: realCenterId,
               reservationId: realReservationId,
               amount: p.amount,
@@ -741,9 +798,14 @@ export async function seedFromDataset(
   // 15. Ratings
   if (Array.isArray(dataset.ratings)) {
     for (const r of dataset.ratings) {
-      const realCenterId = centerIdMap.get(r.gamingCenterId) || r.gamingCenterId;
-      const realAccountId = customerAccountIdMap.get(r.customerAccountId) || r.customerAccountId;
-      const realReservationId = reservationIdMap.get(r.reservationId) || r.reservationId;
+      const realCenterId = centerIdMap.get(r.gamingCenterId);
+      const realAccountId = customerAccountIdMap.get(r.customerAccountId);
+      const realReservationId = reservationIdMap.get(r.reservationId);
+      if (!realCenterId || !realAccountId || !realReservationId) {
+        metrics.failedOperationsCount++;
+        console.error(`⚠️ Cannot seed Rating: missing parent mapping (center: ${r.gamingCenterId} -> ${realCenterId}, account: ${r.customerAccountId} -> ${realAccountId}, reservation: ${r.reservationId} -> ${realReservationId})`);
+        continue;
+      }
 
       try {
         const res = await prisma.reservation.findUnique({
@@ -768,7 +830,6 @@ export async function seedFromDataset(
           const score = typeof r.score === 'number' ? r.score : 5;
           await prisma.rating.create({
             data: {
-              ...(r.id ? { id: r.id } : {}),
               gamingCenterId: realCenterId,
               customerAccountId: realAccountId,
               reservationId: realReservationId,
@@ -796,7 +857,13 @@ export async function seedFromDataset(
   // 16. Tournaments
   if (Array.isArray(dataset.tournaments)) {
     for (const t of dataset.tournaments) {
-      const realCenterId = centerIdMap.get(t.gamingCenterId) || t.gamingCenterId;
+      const realCenterId = centerIdMap.get(t.gamingCenterId);
+      if (!realCenterId) {
+        metrics.failedOperationsCount++;
+        console.error(`⚠️ Cannot seed Tournament ${t.name}: missing parent center mapping for external seed ID "${t.gamingCenterId}"`);
+        continue;
+      }
+
       try {
         const existing = await prisma.tournament.findFirst({
           where: {
@@ -811,7 +878,6 @@ export async function seedFromDataset(
           const startsAt = t.startsAt ? new Date(t.startsAt) : new Date();
           await prisma.tournament.create({
             data: {
-              ...(t.id ? { id: t.id } : {}),
               gamingCenterId: realCenterId,
               title: t.name,
               gameName: t.game || 'FC 25',
@@ -835,7 +901,13 @@ export async function seedFromDataset(
   // 17. Pages
   if (Array.isArray(dataset.pages)) {
     for (const p of dataset.pages) {
-      const realCenterId = centerIdMap.get(p.gamingCenterId) || p.gamingCenterId;
+      const realCenterId = centerIdMap.get(p.gamingCenterId);
+      if (!realCenterId) {
+        metrics.failedOperationsCount++;
+        console.error(`⚠️ Cannot seed Page ${p.slug}: missing parent center mapping for external seed ID "${p.gamingCenterId}"`);
+        continue;
+      }
+
       try {
         const centerObj = dataset.gamingCenters?.find((gc: { id: string }) => gc.id === p.gamingCenterId);
         const centerSlug = centerObj?.slug || 'center';
@@ -852,7 +924,6 @@ export async function seedFromDataset(
         if (!existing) {
           await prisma.page.create({
             data: {
-              ...(p.id ? { id: p.id } : {}),
               gamingCenterId: realCenterId,
               slug: p.slug,
               fullPath: `/${centerSlug}/${p.slug}`,

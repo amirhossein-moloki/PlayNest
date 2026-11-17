@@ -362,5 +362,43 @@ describe('AvailabilityStation 60-Minute Slots', () => {
       expect(slots[2].isAvailable).toBe(false);
       expect(slots[2].unavailableReason).toBe('RESERVED');
     });
+
+    it('should mark overlapping closures as unavailable with reason CLOSED', async () => {
+      const stationWithClosure = {
+        ...baseStation,
+        gamingCenter: {
+          ...baseStation.gamingCenter,
+          closures: [
+            {
+              id: 'closure-1',
+              startDate: new Date('2026-11-10T11:00:00.000Z'),
+              endDate: new Date('2026-11-10T13:00:00.000Z'),
+              reason: 'Renovation',
+            },
+          ],
+        },
+      };
+
+      MockedAvailabilityRepo.findStationWithGamingCenter.mockResolvedValue(stationWithClosure as any);
+      MockedAvailabilityRepo.findStaffList.mockResolvedValue([]);
+      MockedAvailabilityRepo.findShifts.mockResolvedValue([]);
+      MockedAvailabilityRepo.findReservation.mockResolvedValue([]);
+      MockedAvailabilityRepo.findMaintenances.mockResolvedValue([]);
+
+      const results = await getAvailableSlots({
+        gamingCenterSlug,
+        stationId,
+        date: '2026-11-10',
+      });
+
+      const slots = results[0].slots;
+      expect(slots).toHaveLength(4);
+      expect(slots[0].isAvailable).toBe(true); // 10:00-11:00 available
+      expect(slots[1].isAvailable).toBe(false); // 11:00-12:00 closed
+      expect(slots[1].unavailableReason).toBe('CLOSED');
+      expect(slots[2].isAvailable).toBe(false); // 12:00-13:00 closed
+      expect(slots[2].unavailableReason).toBe('CLOSED');
+      expect(slots[3].isAvailable).toBe(true); // 13:00-14:00 available
+    });
   });
 });

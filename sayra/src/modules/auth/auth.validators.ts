@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { idSchema } from '../../common/validators/common.validators';
 
 export const loginSchema = z.object({
   body: z.object({
@@ -37,7 +38,7 @@ export const otpLoginSchema = z.object({
 export const loginWithOtpSchema = z.object({
   body: z.object({
     phone: z.string().min(10, 'Phone number must be at least 10 digits'),
-    gamingCenterId: z.string().cuid('Invalid GamingCenter ID format'),
+    gamingCenterId: idSchema('Invalid GamingCenter ID format'),
   }),
 });
 

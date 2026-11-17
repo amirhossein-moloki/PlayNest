@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { RatingStatus } from '@prisma/client';
+import { idSchema } from '../../common/validators/common.validators';
 
 export const submitReviewSchema = z.object({
   body: z.object({
-    reservationId: z.string().cuid(),
-    stationId: z.string().cuid().optional(),
+    reservationId: idSchema('Invalid reservationId format'),
+    stationId: idSchema('Invalid stationId format').optional(),
     rating: z.number().min(1).max(5),
     comment: z.string().optional(),
   }),
@@ -18,8 +19,8 @@ export const moderateReviewSchema = z.object({
     status: z.nativeEnum(RatingStatus),
   }),
   params: z.object({
-    gamingCenterId: z.string().cuid(),
-    id: z.string().cuid(),
+    gamingCenterId: idSchema('Invalid gamingCenterId format'),
+    id: idSchema('Invalid review ID format'),
   }),
 });
 

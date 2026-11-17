@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { idSchema } from '../../common/validators/common.validators';
 
 export const getAvailabilitySchema = z.object({
   params: z.object({
@@ -6,8 +7,8 @@ export const getAvailabilitySchema = z.object({
   }),
   query: z
     .object({
-      stationId: z.string().cuid({ message: 'Invalid station ID format' }),
-      staffId: z.string().cuid({ message: 'Invalid staff ID format' }).optional(),
+      stationId: idSchema('Invalid station ID format'),
+      staffId: idSchema('Invalid staff ID format').optional(),
       date: z
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Date must be formatted as YYYY-MM-DD' })

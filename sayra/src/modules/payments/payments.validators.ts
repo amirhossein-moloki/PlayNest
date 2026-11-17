@@ -1,14 +1,10 @@
 import { z } from 'zod';
-import { isCuid } from '@paralleldrive/cuid2';
+import { idSchema } from '../../common/validators/common.validators';
 
 export const InitPaymentValidators = z.object({
   params: z.object({
-    gamingCenterId: z.string().refine((val) => isCuid(val), {
-      message: 'Invalid gamingCenterId',
-    }),
-    reservationId: z.string().refine((val) => isCuid(val), {
-      message: 'Invalid reservationId',
-    }),
+    gamingCenterId: idSchema('Invalid gamingCenterId'),
+    reservationId: idSchema('Invalid reservationId'),
   }),
   body: z
     .object({
@@ -19,30 +15,22 @@ export const InitPaymentValidators = z.object({
 
 export const VerifyPaymentValidators = z.object({
   params: z.object({
-    gamingCenterId: z.string().refine((val) => isCuid(val), {
-      message: 'Invalid gamingCenterId',
-    }),
-    reservationId: z.string().refine((val) => isCuid(val), {
-      message: 'Invalid reservationId',
-    }),
+    gamingCenterId: idSchema('Invalid gamingCenterId'),
+    reservationId: idSchema('Invalid reservationId'),
   }),
 });
 
 export const GetPaymentStatusValidators = z.object({
   params: z.object({
-    gamingCenterId: z.string().refine((val) => isCuid(val), {
-      message: 'Invalid gamingCenterId',
-    }),
-    reservationId: z.string().refine((val) => isCuid(val), {
-      message: 'Invalid reservationId',
-    }),
+    gamingCenterId: idSchema('Invalid gamingCenterId'),
+    reservationId: idSchema('Invalid reservationId'),
   }),
 });
 
 export const RequestRefundValidators = z.object({
   params: z.object({
-    gamingCenterId: z.string().refine((val) => isCuid(val), { message: 'Invalid gamingCenterId' }),
-    paymentId: z.string().refine((val) => isCuid(val), { message: 'Invalid paymentId' }),
+    gamingCenterId: idSchema('Invalid gamingCenterId'),
+    paymentId: idSchema('Invalid paymentId'),
   }),
   body: z.object({
     amount: z.number().int().positive('Amount must be a positive integer'),
@@ -54,22 +42,22 @@ export const RequestRefundValidators = z.object({
 
 export const GetRefundValidators = z.object({
   params: z.object({
-    gamingCenterId: z.string().refine((val) => isCuid(val), { message: 'Invalid gamingCenterId' }),
-    paymentId: z.string().refine((val) => isCuid(val), { message: 'Invalid paymentId' }),
-    refundId: z.string().refine((val) => isCuid(val), { message: 'Invalid refundId' }),
+    gamingCenterId: idSchema('Invalid gamingCenterId'),
+    paymentId: idSchema('Invalid paymentId'),
+    refundId: idSchema('Invalid refundId'),
   }),
 });
 
 export const ListRefundsValidators = z.object({
   params: z.object({
-    gamingCenterId: z.string().refine((val) => isCuid(val), { message: 'Invalid gamingCenterId' }),
-    paymentId: z.string().refine((val) => isCuid(val), { message: 'Invalid paymentId' }),
+    gamingCenterId: idSchema('Invalid gamingCenterId'),
+    paymentId: idSchema('Invalid paymentId'),
   }),
 });
 
 export const GetLedgerValidators = z.object({
   params: z.object({
-    gamingCenterId: z.string().refine((val) => isCuid(val), { message: 'Invalid gamingCenterId' }),
+    gamingCenterId: idSchema('Invalid gamingCenterId'),
   }),
   query: z.object({
     page: z.string().optional(),
@@ -82,7 +70,7 @@ export const GetLedgerValidators = z.object({
 
 export const ReconcileValidators = z.object({
   params: z.object({
-    gamingCenterId: z.string().refine((val) => isCuid(val), { message: 'Invalid gamingCenterId' }),
+    gamingCenterId: idSchema('Invalid gamingCenterId'),
   }),
   body: z.object({
     paymentId: z.string().optional(),

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { UserRole } from '@prisma/client';
 import { baseFilterSchema } from '../../common/validators/query.validators';
+import { idSchema } from '../../common/validators/common.validators';
 
 export const createUserSchema = z.object({
   body: z.object({
@@ -25,7 +26,7 @@ export const updateUserSchema = z.object({
     avatarUrl: z.string().url().optional(),
   }),
   params: z.object({
-    userId: z.string().cuid('Invalid user ID format'),
+    userId: idSchema('Invalid user ID format'),
   })
 });
 

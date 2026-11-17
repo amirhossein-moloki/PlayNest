@@ -1,20 +1,19 @@
 import { z } from 'zod';
 import { ReservationStatus } from '@prisma/client';
-
-const CUID_MESSAGE = 'Invalid CUID';
+import { idSchema, CUID_MESSAGE } from '../../common/validators/common.validators';
 
 export const getCustomerReservationSchema = z.object({
   query: z.object({
     page: z.preprocess((val) => Number(val), z.number().int().min(1)).optional(),
     pageSize: z.preprocess((val) => Number(val), z.number().int().min(1).max(100)).optional(),
     status: z.nativeEnum(ReservationStatus).optional(),
-    gamingCenterId: z.string().cuid(CUID_MESSAGE).optional(),
+    gamingCenterId: idSchema(CUID_MESSAGE).optional(),
   }),
 });
 
 export const customerCancelReservationSchema = z.object({
   params: z.object({
-    reservationId: z.string().cuid(CUID_MESSAGE),
+    reservationId: idSchema(CUID_MESSAGE),
   }),
   body: z.object({
     reason: z.string().max(500).optional(),
@@ -23,22 +22,22 @@ export const customerCancelReservationSchema = z.object({
 
 export const customerRescheduleReservationSchema = z.object({
   params: z.object({
-    reservationId: z.string().cuid(CUID_MESSAGE),
+    reservationId: idSchema(CUID_MESSAGE),
   }),
   body: z.object({
     startTime: z.string().datetime(),
-    stationId: z.string().cuid(CUID_MESSAGE).optional(),
-    staffId: z.string().cuid(CUID_MESSAGE).optional(),
+    stationId: idSchema(CUID_MESSAGE).optional(),
+    staffId: idSchema(CUID_MESSAGE).optional(),
     reason: z.string().max(500).optional(),
   }),
 });
 
 export const customerSubmitReviewSchema = z.object({
   params: z.object({
-    reservationId: z.string().cuid(CUID_MESSAGE),
+    reservationId: idSchema(CUID_MESSAGE),
   }),
   body: z.object({
-    stationId: z.string().cuid(CUID_MESSAGE).optional(),
+    stationId: idSchema(CUID_MESSAGE).optional(),
     rating: z.number().min(1).max(5),
     comment: z.string().max(1000).optional(),
   }),
@@ -46,14 +45,14 @@ export const customerSubmitReviewSchema = z.object({
 
 export const proposalActionParamsSchema = z.object({
   params: z.object({
-    reservationId: z.string().cuid(CUID_MESSAGE),
-    proposalId: z.string().cuid(CUID_MESSAGE),
+    reservationId: idSchema(CUID_MESSAGE),
+    proposalId: idSchema(CUID_MESSAGE),
   }),
 });
 
 export const listProposalsParamsSchema = z.object({
   params: z.object({
-    reservationId: z.string().cuid(CUID_MESSAGE),
+    reservationId: idSchema(CUID_MESSAGE),
   }),
 });
 

@@ -7,8 +7,7 @@ import {
   RobotsIndex,
 } from '@prisma/client';
 import { validateSectionData } from './page-section-registry';
-
-const CUID_MESSAGE = 'Invalid CUID';
+import { idSchema, CUID_MESSAGE } from '../../common/validators/common.validators';
 
 const slugSchema = z
   .string()
@@ -42,7 +41,7 @@ const pageBaseSchema = {
 };
 
 const pageSectionSchema = z.object({
-  id: z.string().cuid(CUID_MESSAGE).optional(),
+  id: idSchema(CUID_MESSAGE).optional(),
   type: z.nativeEnum(PageSectionType),
   dataJson: z.string().min(1, 'Section data is required'),
   sortOrder: z.number().int().min(0).optional(),
@@ -93,7 +92,7 @@ export const createPageSchema = z.object({
 
 export const updatePageSchema = z.object({
   params: z.object({
-    pageId: z.string().cuid(CUID_MESSAGE),
+    pageId: idSchema(CUID_MESSAGE),
   }),
   body: z
     .object({
@@ -129,7 +128,7 @@ export const listPagesSchema = z.object({
 
 export const getPageSchema = z.object({
   params: z.object({
-    pageId: z.string().cuid(CUID_MESSAGE),
+    pageId: idSchema(CUID_MESSAGE),
   }),
 });
 

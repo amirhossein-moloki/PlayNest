@@ -1,12 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
-import { isCuid } from '@paralleldrive/cuid2';
 import AppError from '../errors/AppError';
 import httpStatus from 'http-status';
+import { idSchema } from '../validators/common.validators';
 
-const GamingCenterIdSchema = z.string().refine((val) => isCuid(val), {
-  message: 'Invalid gamingCenterId format',
-});
+const GamingCenterIdSchema = idSchema('Invalid gamingCenterId format');
 
 export const gamingCenterIdMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const result = GamingCenterIdSchema.safeParse(req.params.gamingCenterId);
