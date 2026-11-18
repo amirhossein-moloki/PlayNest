@@ -232,6 +232,7 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
       <button class="tab-btn" onclick="switchTab('users')"><i class="fa-solid fa-users"></i> Staff & Users</button>
       <button class="tab-btn" onclick="switchTab('customers')"><i class="fa-solid fa-user-tag"></i> Customers</button>
       <button class="tab-btn" onclick="switchTab('settings')"><i class="fa-solid fa-sliders"></i> Platform Settings</button>
+      <button class="tab-btn" onclick="switchTab('device-types')"><i class="fa-solid fa-gamepad"></i> Device Types</button>
       <button class="tab-btn" onclick="switchTab('audit')"><i class="fa-solid fa-list-check"></i> Audit Logs</button>
     </div>
 
@@ -440,6 +441,53 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
     </div>
 
     <!-- Tab 9: System Audit Trail -->
+    <!-- Tab: Dynamic Device Types -->
+    <div id="tab-device-types" class="card" style="display:none;">
+      <div class="section-header">
+        <div class="section-title"><i class="fa-solid fa-gamepad"></i> Device Types Management</div>
+        <button class="btn btn-secondary btn-sm" onclick="loadDeviceTypes()"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:flex-end;">
+        <div>
+          <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Name</label>
+          <input id="dt-name" type="text" placeholder="e.g. PS5 Pro" style="padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:white;">
+        </div>
+        <div>
+          <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Slug (optional)</label>
+          <input id="dt-slug" type="text" placeholder="e.g. ps5-pro" style="padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:white;">
+        </div>
+        <div>
+          <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Category</label>
+          <select id="dt-category" style="padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:white;">
+            <option value="PC">PC</option>
+            <option value="PLAYSTATION">PLAYSTATION</option>
+            <option value="XBOX">XBOX</option>
+            <option value="SWITCH">SWITCH</option>
+            <option value="VR">VR</option>
+          </select>
+        </div>
+        <label style="display:inline-flex; align-items:center; gap:6px; font-size:13px; padding-bottom:8px; cursor:pointer;">
+          <input id="dt-extra-controller" type="checkbox"> Extra Controller Enabled
+        </label>
+        <button class="btn btn-primary btn-sm" onclick="createDeviceType()"><i class="fa-solid fa-plus"></i> Add Device Type</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Slug</th>
+            <th>Category</th>
+            <th>Extra Controller</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="device-types-table-body">
+          <tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
     <div id="tab-audit" class="card" style="display:none;">
       <div class="section-header">
         <div class="section-title"><i class="fa-solid fa-list-check"></i> System Audit Trail</div>
@@ -641,7 +689,7 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
       }
     }
 
-    var tabList = ['centers', 'verifications', 'ads', 'campaigns', 'reservations', 'users', 'customers', 'settings', 'audit'];
+    var tabList = ['centers', 'verifications', 'ads', 'campaigns', 'reservations', 'users', 'customers', 'settings', 'device-types', 'audit'];
 
     function switchTab(targetTab) {
       tabList.forEach(function(tab) {
@@ -661,6 +709,7 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
       if (targetTab === 'users') loadUsers();
       if (targetTab === 'customers') loadCustomers();
       if (targetTab === 'settings') loadSettings();
+      if (targetTab === 'device-types') loadDeviceTypes();
       if (targetTab === 'audit') loadAudit();
     }
 
@@ -1144,6 +1193,75 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
           alert(err.message || 'Failed to update settings');
         }
       } catch (err) { alert('Network error'); }
+    }
+
+    async function loadDeviceTypes() {
+      var tbody = document.getElementById('device-types-table-body');
+      try {
+        var res = await fetch('/api/v1/platform-admin/device-types?limit=100', { headers: headers() });
+        var json = await res.json();
+        var items = (json.data && (json.data.items || json.data.data || json.data)) || [];
+        if (!Array.isArray(items) || items.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">No device types found.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = items.map(function(dt) {
+          return '<tr>' +
+            '<td><strong>' + escapeHtml(dt.name) + '</strong></td>' +
+            '<td><code>' + escapeHtml(dt.slug) + '</code></td>' +
+            '<td>' + escapeHtml(dt.category) + '</td>' +
+            '<td><button class="btn btn-sm ' + (dt.extraControllerEnabled ? 'btn-primary' : 'btn-secondary') + '" onclick="toggleDeviceTypeField(\'' + dt.id + '\', \'extraControllerEnabled\', ' + (!dt.extraControllerEnabled) + ')">' + (dt.extraControllerEnabled ? 'Enabled' : 'Disabled') + '</button></td>' +
+            '<td><button class="btn btn-sm ' + (dt.isActive ? 'btn-primary' : 'btn-secondary') + '" onclick="toggleDeviceTypeField(\'' + dt.id + '\', \'isActive\', ' + (!dt.isActive) + ')">' + (dt.isActive ? 'Active' : 'Inactive') + '</button></td>' +
+            '<td><button class="btn btn-danger btn-sm" onclick="deleteDeviceType(\'' + dt.id + '\')"><i class="fa-solid fa-trash"></i></button></td>' +
+          '</tr>';
+        }).join('');
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--danger);">Failed to load device types</td></tr>';
+      }
+    }
+
+    async function createDeviceType() {
+      var name = document.getElementById('dt-name').value.trim();
+      var slug = document.getElementById('dt-slug').value.trim();
+      var category = document.getElementById('dt-category').value;
+      var extraControllerEnabled = document.getElementById('dt-extra-controller').checked;
+      if (!name) { alert('Device type name is required.'); return; }
+      var payload = { name: name, category: category, extraControllerEnabled: extraControllerEnabled };
+      if (slug) payload.slug = slug;
+      var res = await fetch('/api/v1/platform-admin/device-types', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        var err = await res.json().catch(function() { return {}; });
+        alert(err.message || 'Failed to create device type');
+        return;
+      }
+      document.getElementById('dt-name').value = '';
+      document.getElementById('dt-slug').value = '';
+      document.getElementById('dt-extra-controller').checked = false;
+      loadDeviceTypes();
+    }
+
+    async function toggleDeviceTypeField(id, field, value) {
+      var payload = {};
+      payload[field] = value;
+      var res = await fetch('/api/v1/platform-admin/device-types/' + id, {
+        method: 'PATCH',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) loadDeviceTypes();
+    }
+
+    async function deleteDeviceType(id) {
+      if (!confirm('Delete this device type?')) return;
+      var res = await fetch('/api/v1/platform-admin/device-types/' + id, {
+        method: 'DELETE',
+        headers: headers()
+      });
+      if (res.ok) loadDeviceTypes();
     }
 
     async function loadAudit() {

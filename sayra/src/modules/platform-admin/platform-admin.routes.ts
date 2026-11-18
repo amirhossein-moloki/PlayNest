@@ -13,6 +13,12 @@ import { PlatformAdRequestsController } from './ad-requests.controller';
 import { PlatformMediaController } from './media.controller';
 import { PlatformWithdrawalsController } from './withdrawals.controller';
 import { validate } from '../../common/middleware/validate';
+import * as CatalogController from '../catalog/catalog.controller';
+import {
+  createDeviceTypeSchema,
+  updateDeviceTypeSchema,
+  catalogIdParamSchema,
+} from '../catalog/catalog.validator';
 import {
   listPlatformWithdrawalsSchema,
   getPlatformWithdrawalDetailsSchema,
@@ -148,5 +154,12 @@ router.get('/financials/export', asyncHandler(PlatformAdminController.exportFina
 
 // System-wide Audit Logs
 router.get('/audit-logs', asyncHandler(PlatformAdminController.listAuditLogs));
+
+// Dynamic Device Types Management (also accessible at /platform-admin/catalog/device-types)
+router.get('/device-types', asyncHandler(CatalogController.getDeviceTypes));
+router.post('/device-types', validate(createDeviceTypeSchema), asyncHandler(CatalogController.createDeviceType));
+router.get('/device-types/:id', validate(catalogIdParamSchema), asyncHandler(CatalogController.getDeviceTypeById));
+router.patch('/device-types/:id', validate(updateDeviceTypeSchema), asyncHandler(CatalogController.updateDeviceType));
+router.delete('/device-types/:id', validate(catalogIdParamSchema), asyncHandler(CatalogController.deleteDeviceType));
 
 export default router;
