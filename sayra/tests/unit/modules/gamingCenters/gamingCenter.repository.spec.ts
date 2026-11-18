@@ -77,6 +77,8 @@ describe('GamingCenterRepository', () => {
       expect(result?.hasDiscount).toBe(false);
       expect(result?.coverImages).toEqual([]);
       expect(result?.coverImageUrl).toBeNull();
+      expect(result?.allowOnlineBooking).toBe(false);
+      expect(typeof result?.allowOnlineBooking).toBe('boolean');
     });
 
     it('should find by slug and isActive and transform', async () => {
@@ -299,6 +301,49 @@ describe('GamingCenterRepository', () => {
       expect(transformed.coverImages).toEqual([]);
       expect(transformed.coverImageUrl).toBeNull();
       expect(transformed.cancellationHours).toBe(2);
+      expect(transformed.allowOnlineBooking).toBe(false);
+      expect(typeof transformed.allowOnlineBooking).toBe('boolean');
+    });
+
+    it('should expose allowOnlineBooking as a boolean from settings and default to false', () => {
+      const baseCenter = {
+        id: 'gc-booking',
+        name: 'Booking Center',
+        isActive: true,
+        slug: 'booking-center',
+        description: null,
+        pcCount: 2,
+        consoleCount: 2,
+        hourlyRate: 50000,
+        openingTime: null,
+        closingTime: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        addresses: [],
+        stations: [],
+        ratings: [],
+      };
+
+      const enabled = transformGamingCenter({
+        ...baseCenter,
+        settings: { allowOnlineBooking: true },
+      } as any);
+      expect(enabled.allowOnlineBooking).toBe(true);
+      expect(typeof enabled.allowOnlineBooking).toBe('boolean');
+
+      const disabled = transformGamingCenter({
+        ...baseCenter,
+        settings: { allowOnlineBooking: false },
+      } as any);
+      expect(disabled.allowOnlineBooking).toBe(false);
+      expect(typeof disabled.allowOnlineBooking).toBe('boolean');
+
+      const undefinedSetting = transformGamingCenter({
+        ...baseCenter,
+        settings: { allowOnlineBooking: undefined },
+      } as any);
+      expect(undefinedSetting.allowOnlineBooking).toBe(false);
+      expect(typeof undefinedSetting.allowOnlineBooking).toBe('boolean');
     });
 
     it('should expose custom cancellationHours from settings', () => {

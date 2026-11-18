@@ -1350,6 +1350,10 @@ components:
           type: integer
           example: 2
           description: Hours before reservation start time within which cancellation is permitted
+        allowOnlineBooking:
+          type: boolean
+          example: true
+          description: Indicates whether customers can make online reservations for the gaming center
         hourlyRate:
           type: number
           description: Lowest hourly rate among registered active stations (or fallback default hourly rate)

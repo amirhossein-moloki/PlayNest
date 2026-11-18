@@ -386,6 +386,7 @@ export function transformGamingCenter(
 
   const effectiveHasDiscount = pricing.hasDiscount || hasDiscount;
   const cancellationHours = settings?.cancellationHours ?? 2;
+  const allowOnlineBooking = settings?.allowOnlineBooking === true;
 
   return {
     id: gc.id,
@@ -413,6 +414,7 @@ export function transformGamingCenter(
     banner: resolvedBanner,
     pricing,
     cancellationHours,
+    allowOnlineBooking,
     ...(manager
       ? {
         owner: {

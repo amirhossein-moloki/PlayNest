@@ -122,6 +122,8 @@ describe('Gaming Centers API - Retrieval by ID and Slug', () => {
         finalPrice: 40000,
         hasDiscount: true,
       });
+      expect(res.body.data.allowOnlineBooking).toBe(false);
+      expect(typeof res.body.data.allowOnlineBooking).toBe('boolean');
       expect(prisma.gamingCenter.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
@@ -158,6 +160,30 @@ describe('Gaming Centers API - Retrieval by ID and Slug', () => {
 
       expect(res.status).toBe(404);
       expect(res.body.success).toBe(false);
+    });
+
+    it('should return allowOnlineBooking as true when enabled in settings and false when disabled', async () => {
+      (prisma.gamingCenter.findFirst as jest.Mock).mockResolvedValue({
+        ...mockCenterData,
+        settings: { allowOnlineBooking: true },
+      });
+
+      const enabledRes = await request(app).get('/api/v1/gamingCenters/center_01');
+      expect(enabledRes.status).toBe(200);
+      expect(enabledRes.body.data.allowOnlineBooking).toBe(true);
+      expect(typeof enabledRes.body.data.allowOnlineBooking).toBe('boolean');
+      expect(enabledRes.body.data.id).toBe('center_01');
+      expect(enabledRes.body.data.name).toBe('Rematch Game Net');
+
+      (prisma.gamingCenter.findFirst as jest.Mock).mockResolvedValue({
+        ...mockCenterData,
+        settings: { allowOnlineBooking: false },
+      });
+
+      const disabledRes = await request(app).get('/api/v1/gamingCenters/center_01');
+      expect(disabledRes.status).toBe(200);
+      expect(disabledRes.body.data.allowOnlineBooking).toBe(false);
+      expect(typeof disabledRes.body.data.allowOnlineBooking).toBe('boolean');
     });
   });
 
@@ -249,6 +275,41 @@ describe('Gaming Centers API - Retrieval by ID and Slug', () => {
         finalPrice: 40000,
         hasDiscount: true,
       });
+      expect(res.body.data.allowOnlineBooking).toBe(false);
+      expect(typeof res.body.data.allowOnlineBooking).toBe('boolean');
+    });
+
+    it('should expose allowOnlineBooking as true/false on the public GameNet details endpoint', async () => {
+      (prisma.gamingCenter.findUnique as jest.Mock).mockResolvedValue({
+        id: 'center_01',
+        slug: 'rematch-game-net',
+        isActive: true,
+      });
+      (prisma.gamingCenter.findFirst as jest.Mock).mockResolvedValue({
+        ...mockCenterData,
+        settings: { allowOnlineBooking: true },
+      });
+
+      const enabledRes = await request(app)
+        .get('/api/v1/public/gamingCenters/rematch-game-net')
+        .set('Accept', 'application/json');
+
+      expect(enabledRes.status).toBe(200);
+      expect(enabledRes.body.data.allowOnlineBooking).toBe(true);
+      expect(typeof enabledRes.body.data.allowOnlineBooking).toBe('boolean');
+
+      (prisma.gamingCenter.findFirst as jest.Mock).mockResolvedValue({
+        ...mockCenterData,
+        settings: { allowOnlineBooking: false },
+      });
+
+      const disabledRes = await request(app)
+        .get('/api/v1/public/gamingCenters/rematch-game-net')
+        .set('Accept', 'application/json');
+
+      expect(disabledRes.status).toBe(200);
+      expect(disabledRes.body.data.allowOnlineBooking).toBe(false);
+      expect(typeof disabledRes.body.data.allowOnlineBooking).toBe('boolean');
     });
 
     it('should return 404 for non-existent public gaming center slug', async () => {
