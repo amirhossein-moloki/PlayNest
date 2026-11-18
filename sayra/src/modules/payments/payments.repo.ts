@@ -6,6 +6,7 @@ import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { commissionsStation } from '../commissions/commissions.station';
 import { LedgerRepo } from './ledger.repo';
+import { walletService } from '../wallet/wallet.station';
 
 type Tx = Prisma.TransactionClient;
 
@@ -63,6 +64,23 @@ const createPaymentAndUpdateReservation = ({
 };
 
 const handleSuccessfulPayment = async (tx: Tx, paymentId: string, refId?: string) => {
+  // Lock Reservation (first) and Payment (second) to serialize with concurrent cancellations/expirations
+  if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
+    const initialPayment = await tx.payment.findUnique({
+      where: { id: paymentId },
+      select: { id: true, reservationId: true },
+    });
+
+    if (!initialPayment) {
+      throw new AppError('Payment not found.', httpStatus.NOT_FOUND);
+    }
+
+    if (initialPayment.reservationId) {
+      await tx.$executeRaw`SELECT id FROM "Reservation" WHERE id = ${initialPayment.reservationId} FOR UPDATE`;
+    }
+    await tx.$executeRaw`SELECT id FROM "Payment" WHERE id = ${paymentId} FOR UPDATE`;
+  }
+
   const payment = await tx.payment.findUnique({
     where: { id: paymentId },
     include: { reservation: true, bookingHold: true, groupBooking: true },
@@ -72,9 +90,30 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string, refId?: string
     throw new AppError('Payment not found.', httpStatus.NOT_FOUND);
   }
 
-  // Idempotency check: If already paid, do nothing.
-  if (payment.status === PaymentStatus.PAID && payment.reservation?.paymentState === ReservationPaymentState.PAID) {
+  // Idempotency check: If already refunded, do nothing.
+  if (payment.status === PaymentStatus.REFUNDED) {
     return payment;
+  }
+
+  // Idempotency check: If already paid
+  if (payment.status === PaymentStatus.PAID) {
+    if (
+      payment.reservationId &&
+      payment.reservation &&
+      (payment.reservation.status === ReservationStatus.CANCELED ||
+        payment.reservation.status === ReservationStatus.EXPIRED)
+    ) {
+      await walletService.refundReservationToWallet(payment.reservationId, tx);
+      const refreshed = await tx.payment.findUnique({
+        where: { id: paymentId },
+        include: { reservation: true, bookingHold: true, groupBooking: true },
+      });
+      return refreshed || payment;
+    }
+
+    if (!payment.reservation || payment.reservation.paymentState === ReservationPaymentState.PAID) {
+      return payment;
+    }
   }
 
   // Validate state transitions for Payment
@@ -104,7 +143,7 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string, refId?: string
   ) {
     logger.warn(
       { paymentId, reservationId: payment.reservationId, reservationStatus: payment.reservation.status },
-      `Payment succeeded for ${payment.reservation.status} reservation. Payment marked PAID for reconciliation without resurrecting reservation.`
+      `Payment succeeded for ${payment.reservation.status} reservation. Payment marked PAID and refunding to customer wallet.`
     );
 
     const updatedPayment = await tx.payment.update({
@@ -113,7 +152,7 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string, refId?: string
         status: PaymentStatus.PAID,
         paidAt: new Date(),
         referenceCode: refId || payment.referenceCode,
-        failureReason: `Paid after reservation ${payment.reservation.status.toLowerCase()}; logged for reconciliation`,
+        failureReason: `Paid after reservation ${payment.reservation.status.toLowerCase()}; refunded to wallet`,
       },
     });
 
@@ -125,11 +164,20 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string, refId?: string
       description: `Payment collection for ${payment.id} (Reservation ${payment.reservation.status.toLowerCase()})`,
     });
 
-    return updatedPayment;
+    await walletService.refundReservationToWallet(payment.reservationId!, tx);
+
+    const refreshedPayment = await tx.payment.findUnique({
+      where: { id: paymentId },
+      include: { reservation: true, bookingHold: true, groupBooking: true },
+    });
+
+    return refreshedPayment || updatedPayment;
   }
 
   // Active reservation path: Validate state transition for Reservation
-  validateReservationTransition(payment.reservation.paymentState, ReservationPaymentState.PAID);
+  if (payment.reservation.paymentState !== ReservationPaymentState.PAID) {
+    validateReservationTransition(payment.reservation.paymentState, ReservationPaymentState.PAID);
+  }
 
   const updatedPayment = await tx.payment.update({
     where: { id: paymentId },

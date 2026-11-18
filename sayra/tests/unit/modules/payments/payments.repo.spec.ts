@@ -1,6 +1,7 @@
 import { describe, it, expect, jest } from '@jest/globals';
 import { prismaMock } from '../../../mocks/prisma';
 import { PaymentsRepo } from '../../../../src/modules/payments/payments.repo';
+import { walletService } from '../../../../src/modules/wallet/wallet.station';
 import { PaymentStatus, ReservationPaymentState, ReservationStatus } from '@prisma/client';
 import AppError from '../../../../src/common/errors/AppError';
 import httpStatus from 'http-status';
@@ -64,7 +65,8 @@ describe('PaymentsRepo', () => {
       }));
     });
 
-    it('should mark payment as PAID for reconciliation without resurrecting CANCELED reservation', async () => {
+    it('should mark payment as PAID and trigger wallet refund without resurrecting CANCELED reservation', async () => {
+      const refundSpy = jest.spyOn(walletService, 'refundReservationToWallet').mockResolvedValue(undefined);
       const mockPayment = {
         id: paymentId,
         reservationId,
@@ -90,7 +92,61 @@ describe('PaymentsRepo', () => {
           }),
         })
       );
+      expect(refundSpy).toHaveBeenCalledWith(reservationId, prismaMock as any);
       expect(reservationMock.update).not.toHaveBeenCalled();
+      refundSpy.mockRestore();
+    });
+
+    it('should mark payment as PAID and trigger wallet refund for EXPIRED reservation', async () => {
+      const refundSpy = jest.spyOn(walletService, 'refundReservationToWallet').mockResolvedValue(undefined);
+      const mockPayment = {
+        id: paymentId,
+        reservationId,
+        status: PaymentStatus.PENDING,
+        reservation: {
+          id: reservationId,
+          status: ReservationStatus.EXPIRED,
+          paymentState: ReservationPaymentState.PENDING,
+        },
+      };
+
+      paymentMock.findUnique.mockResolvedValue(mockPayment);
+      paymentMock.update.mockResolvedValue({ ...mockPayment, status: PaymentStatus.PAID });
+
+      await PaymentsRepo.handleSuccessfulPayment(prismaMock as any, paymentId, 'ref-exp');
+
+      expect(paymentMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: paymentId },
+          data: expect.objectContaining({
+            status: PaymentStatus.PAID,
+            referenceCode: 'ref-exp',
+          }),
+        })
+      );
+      expect(refundSpy).toHaveBeenCalledWith(reservationId, prismaMock as any);
+      expect(reservationMock.update).not.toHaveBeenCalled();
+      refundSpy.mockRestore();
+    });
+
+    it('should return early idempotently if payment is already REFUNDED', async () => {
+      const refundSpy = jest.spyOn(walletService, 'refundReservationToWallet').mockResolvedValue(undefined);
+      const mockPayment = {
+        id: paymentId,
+        reservationId,
+        status: PaymentStatus.REFUNDED,
+        reservation: {
+          id: reservationId,
+          status: ReservationStatus.CANCELED,
+          paymentState: ReservationPaymentState.REFUNDED,
+        },
+      };
+      paymentMock.findUnique.mockResolvedValue(mockPayment);
+      const res = await PaymentsRepo.handleSuccessfulPayment(prismaMock as any, paymentId);
+      expect(res.status).toBe(PaymentStatus.REFUNDED);
+      expect(paymentMock.update).not.toHaveBeenCalled();
+      expect(refundSpy).not.toHaveBeenCalled();
+      refundSpy.mockRestore();
     });
 
     it('should throw if payment not found', async () => {

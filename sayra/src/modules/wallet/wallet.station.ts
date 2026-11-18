@@ -38,6 +38,11 @@ export const walletService = {
 
   async refundReservationToWallet(reservationId: string, tx?: Prisma.TransactionClient) {
     const execute = async (t: Prisma.TransactionClient) => {
+      // Lock the reservation row to serialize concurrent refund/cancellation/payment-callback operations
+      if (typeof (t as { $executeRaw?: unknown }).$executeRaw === 'function') {
+        await t.$executeRaw`SELECT id FROM "Reservation" WHERE id = ${reservationId} FOR UPDATE`;
+      }
+
       const reservation = await WalletRepo.findReservation(reservationId, t);
       if (!reservation) {
         logger.warn({ msg: 'Cannot refund: reservation not found', reservationId });
