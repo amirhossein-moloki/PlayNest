@@ -2979,27 +2979,36 @@ enum AdvertisementRequestStatus {
   DELETED
 }
 
+enum AdvertisementType {
+  GAMING_CENTER
+  GLOBAL_PROMOTION
+  CATEGORY
+  CUSTOM_LINK
+}
+
 model AdvertisementRequest {
   id String @id @default(cuid())
 
   // Main ad information
   title                String
-  description          String?   @db.Text
+  description          String?           @db.Text
   bannerUrl            String
-  mediaType            MediaType @default(IMAGE)
+  mediaType            MediaType         @default(IMAGE)
+  adType               AdvertisementType @default(GAMING_CENTER)
+  category             String?
   destinationUrl       String?
-  proposedDurationDays Int       @default(30)
-  durationDays         Int       @default(30)
-  priority             Int       @default(0)
+  proposedDurationDays Int               @default(30)
+  durationDays         Int               @default(30)
+  priority             Int               @default(0)
   startDate            DateTime?
   endDate              DateTime?
 
-  // Relations
-  gamingCenterId String
-  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+  // Relations (nullable to support platform-wide / independent ads without a gaming center)
+  gamingCenterId String?
+  gamingCenter   GamingCenter? @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
 
-  ownerId String
-  owner   User   @relation("AdRequestOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId String?
+  owner   User?   @relation("AdRequestOwner", fields: [ownerId], references: [id], onDelete: Cascade)
 
   mediaId String?
   media   Media?  @relation(fields: [mediaId], references: [id], onDelete: SetNull)
@@ -3019,6 +3028,7 @@ model AdvertisementRequest {
 
   @@index([gamingCenterId])
   @@index([ownerId])
+  @@index([adType])
   @@index([status])
   @@index([startDate, endDate])
   @@index([priority])

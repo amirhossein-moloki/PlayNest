@@ -2,11 +2,29 @@ import { Response, NextFunction } from 'express';
 import { AppRequest } from '../../types/express';
 import { PlatformAdRequestsStation } from './ad-requests.station';
 import {
+  createPlatformAdRequestSchema,
   listPlatformAdRequestsQuerySchema,
   updatePlatformAdRequestStatusSchema,
 } from './ad-requests.validators';
 
 export const PlatformAdRequestsController = {
+  /**
+   * POST /platform-admin/ad-requests
+   */
+  async createAdRequest(req: AppRequest, res: Response, next: NextFunction) {
+    try {
+      const parsed = createPlatformAdRequestSchema.parse(req);
+      const result = await PlatformAdRequestsStation.createAdRequest(
+        parsed.body as Parameters<typeof PlatformAdRequestsStation.createAdRequest>[0],
+        req.actor as { id: string; actorType?: string },
+        { ip: req.ip, userAgent: req.headers['user-agent'] as string }
+      );
+      res.created(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+
   /**
    * GET /platform-admin/ad-requests
    */
@@ -18,6 +36,7 @@ export const PlatformAdRequestsController = {
         limit: query.limit ?? 20,
         search: query.search,
         status: query.status,
+        adType: query.adType,
         gamingCenterId: query.gamingCenterId,
         ownerId: query.ownerId,
         city: query.city,

@@ -2093,6 +2093,12 @@ components:
         mediaType:
           type: string
           enum: [IMAGE, VIDEO, AUDIO, DOCUMENT, FILE]
+        adType:
+          type: string
+          enum: [GAMING_CENTER, GLOBAL_PROMOTION, CATEGORY, CUSTOM_LINK]
+        category:
+          type: string
+          nullable: true
         destinationUrl:
           type: string
           nullable: true
@@ -2124,8 +2130,10 @@ components:
           nullable: true
         gamingCenterId:
           type: string
+          nullable: true
         ownerId:
           type: string
+          nullable: true
         remainingDays:
           type: integer
           nullable: true
@@ -2161,6 +2169,66 @@ components:
           type: integer
           default: 30
           example: 30
+    CreatePlatformAdRequestInput:
+      type: object
+      required:
+      - title
+      - bannerUrl
+      properties:
+        title:
+          type: string
+          example: Summer Global Discount 20%
+        description:
+          type: string
+          nullable: true
+          example: Platform-wide 20% discount on all PS5 bookings
+        bannerUrl:
+          type: string
+          example: https://cdn.playnest.ir/banners/summer-sale.png
+        mediaType:
+          type: string
+          enum: [IMAGE, VIDEO, AUDIO, DOCUMENT, FILE]
+          default: IMAGE
+        adType:
+          type: string
+          enum: [GAMING_CENTER, GLOBAL_PROMOTION, CATEGORY, CUSTOM_LINK]
+          example: GLOBAL_PROMOTION
+        category:
+          type: string
+          nullable: true
+          example: PS5
+        destinationUrl:
+          type: string
+          nullable: true
+          example: https://playnest.ir/promotions/summer
+        gamingCenterId:
+          type: string
+          nullable: true
+        ownerId:
+          type: string
+          nullable: true
+        mediaId:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [APPROVED, PENDING]
+          default: APPROVED
+        durationDays:
+          type: integer
+          default: 30
+        priority:
+          type: integer
+          default: 0
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        adminNote:
+          type: string
+          nullable: true
     UpdatePlatformAdStatusInput:
       type: object
       required:
@@ -2584,6 +2652,40 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/AdvertisementRequest'
+    post:
+      operationId: createPlatformAdRequest
+      summary: Create advertisement directly as Platform Admin
+      description: Allows authenticated Platform Admins to create advertisements directly with APPROVED status, with or without a Gaming Center.
+      tags:
+      - PlatformAdmin
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlatformAdRequestInput'
+      responses:
+        '201':
+          description: Advertisement created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/AdvertisementRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
   /platform-admin/ad-requests/{id}:
     get:
       operationId: getPlatformAdRequestById

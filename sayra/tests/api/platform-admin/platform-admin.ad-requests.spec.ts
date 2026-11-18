@@ -18,7 +18,14 @@ jest.mock('../../../src/config/prisma', () => ({
     user: {
       findUnique: jest.fn(),
     },
+    gamingCenter: {
+      findUnique: jest.fn(),
+    },
+    media: {
+      findUnique: jest.fn(),
+    },
     advertisementRequest: {
+      create: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
       count: jest.fn(),
@@ -470,6 +477,240 @@ describe('Platform Admin Advertisement Management API', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.data.status).toBe('EXPIRED');
+    });
+  });
+
+  describe('POST /api/v1/platform-admin/ad-requests (Direct Platform Admin Creation)', () => {
+    it('16. Rejects unauthorized / non-PlatformAdmin users (401 & 403)', async () => {
+      const unauthRes = await request(app)
+        .post('/api/v1/platform-admin/ad-requests')
+        .send({
+          title: 'Global Promo',
+          bannerUrl: 'https://cdn.playnest.ir/promo.png',
+        });
+      expect(unauthRes.status).toBe(401);
+
+      ((prisma as any).user.findUnique as jest.Mock).mockResolvedValue({
+        id: 'usr_mgr_ad',
+        role: 'MANAGER',
+        isActive: true,
+        gamingCenterId: 'gc_1',
+      });
+      const mgrRes = await request(app)
+        .post('/api/v1/platform-admin/ad-requests')
+        .set('Authorization', `Bearer ${tenantManagerToken}`)
+        .send({
+          title: 'Global Promo',
+          bannerUrl: 'https://cdn.playnest.ir/promo.png',
+        });
+      expect(mgrRes.status).toBe(403);
+    });
+
+    it('17. Creates an advertisement linked to a Gaming Center directly with APPROVED/ACTIVE status', async () => {
+      setupAdminAuth();
+      ((prisma as any).gamingCenter.findUnique as jest.Mock).mockResolvedValue({ id: 'gc_1' });
+      ((prisma as any).user.findUnique as jest.Mock).mockResolvedValue({ id: 'usr_mgr_ad' });
+      ((prisma as any).advertisementRequest.create as jest.Mock).mockImplementation(({ data }: any) =>
+        Promise.resolve({
+          id: 'ad_gc_1',
+          ...data,
+          gamingCenter: { id: 'gc_1', name: 'Cyber Arena', slug: 'cyber-arena', addresses: [] },
+          owner: { id: 'usr_mgr_ad', fullName: 'Ali Rezaei', phone: '09120000000', email: 'ali@example.com' },
+          reviewedBy: { id: 'pa_ad_1', fullName: 'Super Admin', email: 'admin@playnest.ir' },
+          media: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+      );
+
+      const res = await request(app)
+        .post('/api/v1/platform-admin/ad-requests')
+        .set('Authorization', `Bearer ${platformAdminToken}`)
+        .send({
+          title: 'Cyber Arena Weekend Discount',
+          bannerUrl: 'https://cdn.playnest.ir/banners/cyber.png',
+          adType: 'GAMING_CENTER',
+          gamingCenterId: 'gc_1',
+          ownerId: 'usr_mgr_ad',
+          priority: 10,
+          durationDays: 14,
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.adType).toBe('GAMING_CENTER');
+      expect(res.body.data.gamingCenter.id).toBe('gc_1');
+      expect(res.body.data.owner.id).toBe('usr_mgr_ad');
+      expect(['APPROVED', 'ACTIVE']).toContain(res.body.data.status);
+    });
+
+    it('18. Creates a Global Promotion advertisement without a Gaming Center or Owner', async () => {
+      setupAdminAuth();
+      ((prisma as any).advertisementRequest.create as jest.Mock).mockImplementation(({ data }: any) =>
+        Promise.resolve({
+          id: 'ad_global_1',
+          ...data,
+          gamingCenter: null,
+          owner: null,
+          reviewedBy: { id: 'pa_ad_1', fullName: 'Super Admin', email: 'admin@playnest.ir' },
+          media: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+      );
+
+      const res = await request(app)
+        .post('/api/v1/platform-admin/ad-requests')
+        .set('Authorization', `Bearer ${platformAdminToken}`)
+        .send({
+          title: 'Summer Global Discount 25%',
+          description: '25% off on all online bookings platform-wide',
+          bannerUrl: 'https://cdn.playnest.ir/banners/summer-25.png',
+          adType: 'GLOBAL_PROMOTION',
+          priority: 100,
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.adType).toBe('GLOBAL_PROMOTION');
+      expect(res.body.data.gamingCenter).toBeNull();
+      expect(res.body.data.owner).toBeNull();
+      expect(['APPROVED', 'ACTIVE']).toContain(res.body.data.status);
+      expect((prisma as any).advertisementRequest.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            gamingCenterId: null,
+            ownerId: null,
+            adType: 'GLOBAL_PROMOTION',
+            status: 'APPROVED',
+          }),
+        })
+      );
+    });
+
+    it('19. Creates a Category-based advertisement without a Gaming Center', async () => {
+      setupAdminAuth();
+      ((prisma as any).advertisementRequest.create as jest.Mock).mockImplementation(({ data }: any) =>
+        Promise.resolve({
+          id: 'ad_cat_1',
+          ...data,
+          gamingCenter: null,
+          owner: null,
+          reviewedBy: { id: 'pa_ad_1', fullName: 'Super Admin', email: 'admin@playnest.ir' },
+          media: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+      );
+
+      const res = await request(app)
+        .post('/api/v1/platform-admin/ad-requests')
+        .set('Authorization', `Bearer ${platformAdminToken}`)
+        .send({
+          title: 'PS5 Pro Stations Festival',
+          bannerUrl: 'https://cdn.playnest.ir/banners/ps5.png',
+          adType: 'CATEGORY',
+          category: 'PS5',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.adType).toBe('CATEGORY');
+      expect(res.body.data.category).toBe('PS5');
+      expect(res.body.data.gamingCenter).toBeNull();
+    });
+
+    it('20. Creates a Custom Link advertisement and validates destinationUrl', async () => {
+      setupAdminAuth();
+
+      // Missing destinationUrl for CUSTOM_LINK should fail with 400
+      const invalidRes = await request(app)
+        .post('/api/v1/platform-admin/ad-requests')
+        .set('Authorization', `Bearer ${platformAdminToken}`)
+        .send({
+          title: 'External Sponsor',
+          bannerUrl: 'https://cdn.playnest.ir/banners/sponsor.png',
+          adType: 'CUSTOM_LINK',
+        });
+      expect(invalidRes.status).toBe(400);
+
+      // Valid CUSTOM_LINK
+      ((prisma as any).advertisementRequest.create as jest.Mock).mockImplementation(({ data }: any) =>
+        Promise.resolve({
+          id: 'ad_link_1',
+          ...data,
+          gamingCenter: null,
+          owner: null,
+          reviewedBy: { id: 'pa_ad_1', fullName: 'Super Admin', email: 'admin@playnest.ir' },
+          media: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+      );
+
+      const validRes = await request(app)
+        .post('/api/v1/platform-admin/ad-requests')
+        .set('Authorization', `Bearer ${platformAdminToken}`)
+        .send({
+          title: 'Esports Partner Event',
+          bannerUrl: 'https://cdn.playnest.ir/banners/partner.png',
+          adType: 'CUSTOM_LINK',
+          destinationUrl: 'https://esports.example.com/register',
+        });
+
+      expect(validRes.status).toBe(201);
+      expect(validRes.body.data.adType).toBe('CUSTOM_LINK');
+      expect(validRes.body.data.destinationUrl).toBe('https://esports.example.com/register');
+      expect(validRes.body.data.gamingCenter).toBeNull();
+    });
+
+    it('21. Public slider returns both Gaming Center and independent advertisements', async () => {
+      ((prisma as any).advertisementRequest.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 'ad_global_1',
+          title: 'Global Sale',
+          description: null,
+          bannerUrl: 'https://cdn.playnest.ir/global.png',
+          mediaType: 'IMAGE',
+          adType: 'GLOBAL_PROMOTION',
+          category: null,
+          destinationUrl: null,
+          priority: 100,
+          startDate: new Date(),
+          endDate: null,
+          gamingCenter: null,
+        },
+        {
+          id: 'ad_gc_1',
+          title: 'Cyber Arena Promo',
+          description: null,
+          bannerUrl: 'https://cdn.playnest.ir/gc.png',
+          mediaType: 'IMAGE',
+          adType: 'GAMING_CENTER',
+          category: null,
+          destinationUrl: null,
+          priority: 10,
+          startDate: new Date(),
+          endDate: null,
+          gamingCenter: { id: 'gc_1', name: 'Cyber Arena', slug: 'cyber-arena' },
+        },
+      ]);
+
+      const res = await request(app).get('/api/v1/public/advertisements/slider');
+
+      expect(res.status).toBe(200);
+      expect(res.body.data).toHaveLength(2);
+      expect(res.body.data[0]).toMatchObject({
+        id: 'ad_global_1',
+        adType: 'GLOBAL_PROMOTION',
+        gamingCenterName: null,
+        gamingCenterSlug: null,
+      });
+      expect(res.body.data[1]).toMatchObject({
+        id: 'ad_gc_1',
+        adType: 'GAMING_CENTER',
+        gamingCenterName: 'Cyber Arena',
+        gamingCenterSlug: 'cyber-arena',
+      });
     });
   });
 });

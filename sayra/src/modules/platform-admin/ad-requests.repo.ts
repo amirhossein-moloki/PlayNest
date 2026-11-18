@@ -112,6 +112,53 @@ export const PlatformAdRequestsRepo = {
     });
   },
 
+  async createAdRequest(data: Prisma.AdvertisementRequestUncheckedCreateInput) {
+    return (prisma as any).advertisementRequest.create({
+      data,
+      include: {
+        gamingCenter: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            addresses: {
+              select: {
+                city: true,
+                addressLine: true,
+                isPrimary: true,
+              },
+            },
+          },
+        },
+        owner: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+            email: true,
+          },
+        },
+        reviewedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
+        media: {
+          select: {
+            id: true,
+            url: true,
+            thumbUrl: true,
+            type: true,
+            mime: true,
+            sizeBytes: true,
+          },
+        },
+      },
+    });
+  },
+
   async transaction<T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
     return (prisma as any).$transaction(callback);
   },

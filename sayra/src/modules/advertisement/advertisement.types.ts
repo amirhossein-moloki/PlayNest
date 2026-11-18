@@ -1,4 +1,4 @@
-import { AdvertisementRequestStatus, MediaType } from '@prisma/client';
+import { AdvertisementRequestStatus, AdvertisementType, MediaType } from '@prisma/client';
 
 export interface CreateAdvertisementDto {
   title: string;
@@ -26,6 +26,8 @@ export interface AdvertisementResponse {
   description: string | null;
   bannerUrl: string;
   mediaType: MediaType;
+  adType?: AdvertisementType;
+  category?: string | null;
   destinationUrl: string | null;
   proposedDurationDays: number;
   durationDays: number;
@@ -35,8 +37,8 @@ export interface AdvertisementResponse {
   status: AdvertisementRequestStatus;
   decisionReason: string | null;
   adminNote: string | null;
-  gamingCenterId: string;
-  ownerId: string;
+  gamingCenterId: string | null;
+  ownerId: string | null;
   remainingDays: number | null;
   createdAt: Date;
   updatedAt: Date;

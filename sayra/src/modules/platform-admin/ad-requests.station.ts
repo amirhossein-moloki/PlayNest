@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import httpStatus from 'http-status';
-import { Prisma, AdvertisementRequestStatus } from '@prisma/client';
+import { Prisma, AdvertisementRequestStatus, AdvertisementType, MediaType } from '@prisma/client';
 import { PlatformAdRequestsRepo } from './ad-requests.repo';
+import { prisma } from '../../config/prisma';
 import AppError from '../../common/errors/AppError';
 import { auditService } from '../audit/audit.station';
 
@@ -45,6 +46,8 @@ export const PlatformAdRequestsStation = {
       description: item.description,
       bannerUrl: item.bannerUrl,
       mediaType: item.mediaType,
+      adType: item.adType ?? AdvertisementType.GAMING_CENTER,
+      category: item.category ?? null,
       destinationUrl: item.destinationUrl,
       proposedDurationDays: item.proposedDurationDays ?? 30,
       durationDays: item.durationDays,
@@ -106,6 +109,7 @@ export const PlatformAdRequestsStation = {
     limit: number;
     search?: string;
     status?: string;
+    adType?: string;
     gamingCenterId?: string;
     ownerId?: string;
     city?: string;
@@ -127,6 +131,10 @@ export const PlatformAdRequestsStation = {
 
     if (query.status) {
       where.status = query.status as AdvertisementRequestStatus;
+    }
+
+    if (query.adType) {
+      where.adType = query.adType as AdvertisementType;
     }
 
     if (query.city) {
@@ -435,5 +443,142 @@ export const PlatformAdRequestsStation = {
     });
 
     return this.formatAdRequest(updated);
+  },
+
+  /**
+   * Direct advertisement creation by Platform Admin (with or without a GamingCenter)
+   */
+  async createAdRequest(
+    input: {
+      title: string;
+      description?: string | null;
+      bannerUrl: string;
+      mediaType?: MediaType;
+      adType?: 'GAMING_CENTER' | 'GLOBAL_PROMOTION' | 'CATEGORY' | 'CUSTOM_LINK';
+      category?: string | null;
+      destinationUrl?: string | null;
+      gamingCenterId?: string | null;
+      ownerId?: string | null;
+      mediaId?: string | null;
+      status?: 'APPROVED' | 'PENDING';
+      durationDays?: number;
+      priority?: number;
+      startDate?: string;
+      endDate?: string;
+      adminNote?: string | null;
+    },
+    actor: { id: string; actorType?: string },
+    context?: { ip?: string; userAgent?: string }
+  ) {
+    const adminId = actor?.id;
+    if (!adminId) {
+      throw new AppError('Unauthorized platform admin actor', httpStatus.UNAUTHORIZED);
+    }
+
+    const gamingCenterId = input.gamingCenterId || null;
+    const ownerId = input.ownerId || null;
+    const mediaId = input.mediaId || null;
+
+    if (gamingCenterId) {
+      const center = await prisma.gamingCenter.findUnique({
+        where: { id: gamingCenterId },
+        select: { id: true },
+      });
+      if (!center) {
+        throw new AppError('Gaming center not found', httpStatus.NOT_FOUND);
+      }
+    }
+
+    if (ownerId) {
+      const owner = await prisma.user.findUnique({
+        where: { id: ownerId },
+        select: { id: true },
+      });
+      if (!owner) {
+        throw new AppError('Owner user not found', httpStatus.NOT_FOUND);
+      }
+    }
+
+    if (mediaId) {
+      const media = await prisma.media.findUnique({
+        where: { id: mediaId },
+        select: { id: true },
+      });
+      if (!media) {
+        throw new AppError('Media not found', httpStatus.NOT_FOUND);
+      }
+    }
+
+    // Resolve adType automatically if not explicitly provided
+    let resolvedAdType: AdvertisementType;
+    if (input.adType) {
+      resolvedAdType = input.adType as AdvertisementType;
+    } else if (gamingCenterId) {
+      resolvedAdType = AdvertisementType.GAMING_CENTER;
+    } else if (input.category) {
+      resolvedAdType = AdvertisementType.CATEGORY;
+    } else if (input.destinationUrl) {
+      resolvedAdType = AdvertisementType.CUSTOM_LINK;
+    } else {
+      resolvedAdType = AdvertisementType.GLOBAL_PROMOTION;
+    }
+
+    const status = (input.status || 'APPROVED') as AdvertisementRequestStatus;
+    const durationDays = input.durationDays ?? 30;
+    const now = new Date();
+
+    let startDate: Date | null = input.startDate ? new Date(input.startDate) : null;
+    let endDate: Date | null = input.endDate ? new Date(input.endDate) : null;
+
+    if (status === AdvertisementRequestStatus.APPROVED) {
+      if (!startDate) {
+        startDate = now;
+      }
+      if (!endDate) {
+        endDate = new Date(startDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+      }
+    }
+
+    const created = await PlatformAdRequestsRepo.createAdRequest({
+      title: input.title,
+      description: input.description ?? null,
+      bannerUrl: input.bannerUrl,
+      mediaType: input.mediaType ?? MediaType.IMAGE,
+      adType: resolvedAdType,
+      category: input.category ?? null,
+      destinationUrl: input.destinationUrl || null,
+      proposedDurationDays: durationDays,
+      durationDays,
+      priority: input.priority ?? 0,
+      startDate,
+      endDate,
+      gamingCenterId,
+      ownerId,
+      mediaId,
+      status,
+      reviewedById: status === AdvertisementRequestStatus.APPROVED ? adminId : null,
+      reviewedAt: status === AdvertisementRequestStatus.APPROVED ? now : null,
+      adminNote: input.adminNote ?? null,
+    });
+
+    await auditService.recordLog({
+      gamingCenterId: gamingCenterId ?? undefined,
+      platformAdminId: adminId,
+      action: 'ADVERTISEMENT_CREATED_BY_PLATFORM_ADMIN',
+      entity: 'AdvertisementRequest',
+      entityId: created.id,
+      oldData: undefined,
+      newData: {
+        title: created.title,
+        adType: resolvedAdType,
+        status,
+        gamingCenterId,
+        ownerId,
+      },
+      ipAddress: context?.ip,
+      userAgent: context?.userAgent,
+    });
+
+    return this.formatAdRequest(created);
   },
 };

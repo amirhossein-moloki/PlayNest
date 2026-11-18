@@ -70,6 +70,7 @@ router.patch('/gaming-centers/:id/status', asyncHandler(PlatformAdminController.
 
 // Advertisements Management across all centers
 router.get('/ad-requests', asyncHandler(PlatformAdRequestsController.listAdRequests));
+router.post('/ad-requests', asyncHandler(PlatformAdRequestsController.createAdRequest));
 router.get('/ad-requests/:id', asyncHandler(PlatformAdRequestsController.getAdRequestById));
 router.patch('/ad-requests/:id/status', asyncHandler(PlatformAdRequestsController.updateAdRequestStatus));
 router.delete('/ad-requests/:id', asyncHandler(PlatformAdRequestsController.deleteAdRequest));
