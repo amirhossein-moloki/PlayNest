@@ -10,6 +10,7 @@ import { discountsStation } from '../discounts/discounts.station';
 import { calculateBasePrice } from '../../common/utils/money';
 import { auditService } from '../audit/audit.station';
 import { NotificationStation } from '../notifications/notifications.station';
+import { getRecipientPreferredLanguage } from '../notifications/notification-i18n';
 import { CreateWaitlistEntryInput, ListWaitlistQuery, ListWaitlistOffersQuery } from './waitlist.dto';
 
 const DEFAULT_OFFER_EXPIRATION_MINUTES = 15;
@@ -264,8 +265,9 @@ export const waitlistStation = {
             await NotificationStation.notifyUser({
               userId: custAccount.id,
               type: NotificationType.WAITLIST_OFFER_CREATED,
-              title: 'Waitlist Opportunity Available!',
-              message: `A slot on ${station.name} is now available for your requested time. Accept your offer before it expires!`,
+              templateKey: 'WAITLIST_OFFER_CREATED',
+              templateParams: { stationName: station.name },
+              language: getRecipientPreferredLanguage(custAccount),
               metadata: { offerId: offer.id, entryId: candidate.id, expiresAt },
               sendSms: true,
               mobile: custAccount.phone,

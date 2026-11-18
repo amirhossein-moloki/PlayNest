@@ -4,6 +4,11 @@ import { prisma } from '../../config/prisma';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import logger from '../../config/logger';
+import {
+  formatCurrencyAmount,
+  getRecipientPreferredLanguage,
+  renderLocalizedNotification,
+} from '../notifications/notification-i18n';
 
 export interface RequestWithdrawalInput {
   customerAccountId: string;
@@ -148,13 +153,26 @@ export const WithdrawalStation = {
       );
 
       // 7. Dispatch in-app notification to customer
+      const submittedLang = getRecipientPreferredLanguage(account);
+      const submittedNotif = renderLocalizedNotification(
+        'WITHDRAWAL_SUBMITTED',
+        { formattedAmount: formatCurrencyAmount(amount, 'IRR', submittedLang) },
+        submittedLang
+      );
+
       await WithdrawalRepo.createCustomerNotification(
         {
           customerAccountId,
-          title: 'درخواست برداشت ثبت شد',
-          message: `درخواست برداشت وجه به مبلغ ${amount.toLocaleString('fa-IR')} ریال با موفقیت ثبت شد و در انتظار بررسی مدیر است.`,
+          title: submittedNotif.title,
+          message: submittedNotif.message,
           type: 'WITHDRAWAL_SUBMITTED',
-          metadata: { withdrawalId: withdrawal.id, amount },
+          metadata: {
+            withdrawalId: withdrawal.id,
+            amount,
+            language: submittedNotif.language,
+            direction: submittedNotif.direction,
+            actionLabel: submittedNotif.actionLabel,
+          },
         },
         tx
       );
@@ -199,13 +217,27 @@ export const WithdrawalStation = {
         tx
       );
 
+      const approvedLang = getRecipientPreferredLanguage((withdrawal as { customerAccount?: unknown }).customerAccount);
+      const approvedNotif = renderLocalizedNotification(
+        'WITHDRAWAL_APPROVED',
+        { formattedAmount: formatCurrencyAmount(withdrawal.amount, withdrawal.currency || 'IRR', approvedLang) },
+        approvedLang
+      );
+
       await WithdrawalRepo.createCustomerNotification(
         {
           customerAccountId: withdrawal.customerAccountId,
-          title: 'تأیید درخواست برداشت',
-          message: `درخواست برداشت وجه به مبلغ ${withdrawal.amount.toLocaleString('fa-IR')} ریال توسط مدیر تأیید شد و وارد مرحله پرداخت گردید.`,
+          title: approvedNotif.title,
+          message: approvedNotif.message,
           type: 'WITHDRAWAL_APPROVED',
-          metadata: { withdrawalId, amount: withdrawal.amount, approvedAt: now.toISOString() },
+          metadata: {
+            withdrawalId,
+            amount: withdrawal.amount,
+            approvedAt: now.toISOString(),
+            language: approvedNotif.language,
+            direction: approvedNotif.direction,
+            actionLabel: approvedNotif.actionLabel,
+          },
         },
         tx
       );
@@ -281,13 +313,30 @@ export const WithdrawalStation = {
         tx
       );
 
+      const rejectedLang = getRecipientPreferredLanguage((withdrawal as { customerAccount?: unknown }).customerAccount);
+      const rejectedNotif = renderLocalizedNotification(
+        'WITHDRAWAL_REJECTED',
+        {
+          formattedAmount: formatCurrencyAmount(withdrawal.amount, withdrawal.currency || 'IRR', rejectedLang),
+          reason: reason.trim(),
+        },
+        rejectedLang
+      );
+
       await WithdrawalRepo.createCustomerNotification(
         {
           customerAccountId: withdrawal.customerAccountId,
-          title: 'رد درخواست برداشت',
-          message: `درخواست برداشت وجه شما رد شد و مبلغ ${withdrawal.amount.toLocaleString('fa-IR')} ریال به موجودی قابل برداشت شما بازگردانده شد. دلیل: ${reason.trim()}`,
+          title: rejectedNotif.title,
+          message: rejectedNotif.message,
           type: 'WITHDRAWAL_REJECTED',
-          metadata: { withdrawalId, amount: withdrawal.amount, reason: reason.trim() },
+          metadata: {
+            withdrawalId,
+            amount: withdrawal.amount,
+            reason: reason.trim(),
+            language: rejectedNotif.language,
+            direction: rejectedNotif.direction,
+            actionLabel: rejectedNotif.actionLabel,
+          },
         },
         tx
       );
@@ -344,13 +393,26 @@ export const WithdrawalStation = {
           tx
         );
 
+        const processingLang = getRecipientPreferredLanguage((withdrawal as { customerAccount?: unknown }).customerAccount);
+        const processingNotif = renderLocalizedNotification(
+          'WITHDRAWAL_PROCESSING',
+          { formattedAmount: formatCurrencyAmount(withdrawal.amount, withdrawal.currency || 'IRR', processingLang) },
+          processingLang
+        );
+
         await WithdrawalRepo.createCustomerNotification(
           {
             customerAccountId: withdrawal.customerAccountId,
-            title: 'پرداخت در حال انجام است',
-            message: `فرایند واریز مبلغ ${withdrawal.amount.toLocaleString('fa-IR')} ریال در حال انجام است.`,
+            title: processingNotif.title,
+            message: processingNotif.message,
             type: 'WITHDRAWAL_PROCESSING',
-            metadata: { withdrawalId, amount: withdrawal.amount },
+            metadata: {
+              withdrawalId,
+              amount: withdrawal.amount,
+              language: processingNotif.language,
+              direction: processingNotif.direction,
+              actionLabel: processingNotif.actionLabel,
+            },
           },
           tx
         );
@@ -407,13 +469,30 @@ export const WithdrawalStation = {
           tx
         );
 
+        const paidLang = getRecipientPreferredLanguage((withdrawal as { customerAccount?: unknown }).customerAccount);
+        const paidNotif = renderLocalizedNotification(
+          'WITHDRAWAL_PAID',
+          {
+            formattedAmount: formatCurrencyAmount(withdrawal.amount, withdrawal.currency || 'IRR', paidLang),
+            paymentReference: paymentReference || (paidLang === 'en' ? 'Not recorded' : 'ثبت‌نشده'),
+          },
+          paidLang
+        );
+
         await WithdrawalRepo.createCustomerNotification(
           {
             customerAccountId: withdrawal.customerAccountId,
-            title: 'پرداخت با موفقیت انجام شد',
-            message: `مبلغ ${withdrawal.amount.toLocaleString('fa-IR')} ریال با موفقیت به حساب شما واریز گردید. شناسه پیگیری: ${paymentReference || 'ثبت‌نشده'}`,
+            title: paidNotif.title,
+            message: paidNotif.message,
             type: 'WITHDRAWAL_PAID',
-            metadata: { withdrawalId, amount: withdrawal.amount, paymentReference },
+            metadata: {
+              withdrawalId,
+              amount: withdrawal.amount,
+              paymentReference,
+              language: paidNotif.language,
+              direction: paidNotif.direction,
+              actionLabel: paidNotif.actionLabel,
+            },
           },
           tx
         );
@@ -473,13 +552,26 @@ export const WithdrawalStation = {
           tx
         );
 
+        const failedLang = getRecipientPreferredLanguage((withdrawal as { customerAccount?: unknown }).customerAccount);
+        const failedNotif = renderLocalizedNotification(
+          'WITHDRAWAL_FAILED',
+          { formattedAmount: formatCurrencyAmount(withdrawal.amount, withdrawal.currency || 'IRR', failedLang) },
+          failedLang
+        );
+
         await WithdrawalRepo.createCustomerNotification(
           {
             customerAccountId: withdrawal.customerAccountId,
-            title: 'پرداخت ناموفق بود',
-            message: `پرداخت مبلغ ${withdrawal.amount.toLocaleString('fa-IR')} ریال ناموفق بود و مبلغ به موجودی قابل برداشت شما بازگردانده شد.`,
+            title: failedNotif.title,
+            message: failedNotif.message,
             type: 'WITHDRAWAL_FAILED',
-            metadata: { withdrawalId, amount: withdrawal.amount },
+            metadata: {
+              withdrawalId,
+              amount: withdrawal.amount,
+              language: failedNotif.language,
+              direction: failedNotif.direction,
+              actionLabel: failedNotif.actionLabel,
+            },
           },
           tx
         );

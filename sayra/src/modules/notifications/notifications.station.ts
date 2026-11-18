@@ -5,13 +5,17 @@ import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import logger from '../../config/logger';
 import { prisma } from '../../config/prisma';
+import { NotificationTemplateKey, renderLocalizedNotification } from './notification-i18n';
 
 export interface NotifyUserInput {
   gamingCenterId?: string;
   userId: string;
   type: NotificationType;
-  title: string;
-  message: string;
+  title?: string;
+  message?: string;
+  templateKey?: NotificationTemplateKey;
+  templateParams?: Record<string, string | number | undefined | null>;
+  language?: string | null;
   metadata?: Prisma.InputJsonValue;
   sendSms?: boolean;
   mobile?: string;
@@ -29,7 +33,10 @@ export interface EnqueueNotificationInput {
   channel?: string;
   type: NotificationType;
   title?: string;
-  message: string;
+  message?: string;
+  templateKey?: NotificationTemplateKey;
+  templateParams?: Record<string, string | number | undefined | null>;
+  language?: string | null;
   templateId?: number;
   parameters?: Array<{ name: string; value: string }>;
   metadata?: Prisma.InputJsonValue;
@@ -69,12 +76,33 @@ export const NotificationStation = {
   },
 
   async notifyUser(input: NotifyUserInput) {
+    let resolvedTitle = input.title || '';
+    let resolvedMessage = input.message || '';
+    let resolvedMetadata = input.metadata;
+
+    if (input.templateKey) {
+      const localized = renderLocalizedNotification(input.templateKey, input.templateParams, input.language);
+      resolvedTitle = localized.title;
+      resolvedMessage = localized.message;
+      const baseMeta =
+        input.metadata && typeof input.metadata === 'object' && !Array.isArray(input.metadata)
+          ? (input.metadata as Record<string, unknown>)
+          : {};
+      resolvedMetadata = {
+        ...baseMeta,
+        language: localized.language,
+        direction: localized.direction,
+        ...(localized.description ? { description: localized.description } : {}),
+        ...(localized.actionLabel ? { actionLabel: localized.actionLabel } : {}),
+      } as Prisma.InputJsonValue;
+    }
+
     const notification = await notificationsRepo.createNotification({
       userId: input.userId,
       type: input.type,
-      title: input.title,
-      message: input.message,
-      metadata: input.metadata,
+      title: resolvedTitle,
+      message: resolvedMessage,
+      metadata: resolvedMetadata,
     });
 
     if (input.sendSms && input.mobile) {
@@ -88,11 +116,11 @@ export const NotificationStation = {
         recipient: input.mobile,
         channel: 'SMS',
         type: input.type,
-        title: input.title,
-        message: input.message,
+        title: resolvedTitle,
+        message: resolvedMessage,
         templateId: input.templateId,
         parameters: input.parameters,
-        metadata: input.metadata,
+        metadata: resolvedMetadata,
         idempotencyKey: key,
         entityType: input.entityType || 'Notification',
         entityId: input.entityId || notification.id,
@@ -103,17 +131,38 @@ export const NotificationStation = {
   },
 
   async enqueueNotificationLog(input: EnqueueNotificationInput) {
+    let resolvedTitle = input.title;
+    let resolvedMessage = input.message || '';
+    let resolvedMetadata = input.metadata;
+
+    if (input.templateKey) {
+      const localized = renderLocalizedNotification(input.templateKey, input.templateParams, input.language);
+      resolvedTitle = localized.title;
+      resolvedMessage = localized.message;
+      const baseMeta =
+        input.metadata && typeof input.metadata === 'object' && !Array.isArray(input.metadata)
+          ? (input.metadata as Record<string, unknown>)
+          : {};
+      resolvedMetadata = {
+        ...baseMeta,
+        language: localized.language,
+        direction: localized.direction,
+        ...(localized.description ? { description: localized.description } : {}),
+        ...(localized.actionLabel ? { actionLabel: localized.actionLabel } : {}),
+      } as Prisma.InputJsonValue;
+    }
+
     const log = (await notificationsRepo.createNotificationLog({
       gamingCenterId: input.gamingCenterId,
       userId: input.userId,
       recipient: input.recipient,
       channel: input.channel ?? 'SMS',
       type: input.type,
-      title: input.title,
-      message: input.message,
+      title: resolvedTitle,
+      message: resolvedMessage,
       templateId: input.templateId,
       parameters: input.parameters as Prisma.InputJsonValue,
-      metadata: input.metadata,
+      metadata: resolvedMetadata,
       status: 'PENDING',
       scheduledAt: input.scheduledAt || new Date(),
       idempotencyKey: input.idempotencyKey,

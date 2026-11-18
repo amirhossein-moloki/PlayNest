@@ -1,5 +1,10 @@
 import { Prisma, WalletChargeStatus, WalletTransactionType } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import {
+  formatCurrencyAmount,
+  getRecipientPreferredLanguage,
+  renderLocalizedNotification,
+} from '../notifications/notification-i18n';
 
 export const WalletChargeRepo = {
   async createCharge(data: Prisma.WalletChargeUncheckedCreateInput, tx?: Prisma.TransactionClient) {
@@ -121,17 +126,27 @@ export const WalletChargeRepo = {
       });
 
       // 6. Create in-app customer notification
+      const chargeLang = getRecipientPreferredLanguage((charge as { customerAccount?: unknown }).customerAccount);
+      const localized = renderLocalizedNotification(
+        'WALLET_CHARGED',
+        { formattedAmount: formatCurrencyAmount(charge.amount, charge.currency, chargeLang) },
+        chargeLang
+      );
+
       await tx.customerNotification.create({
         data: {
           customerAccountId: charge.customerAccountId,
-          title: 'کیف پول شارژ شد',
-          message: `کیف پول شما به مبلغ ${charge.amount.toLocaleString('fa-IR')} ریال با موفقیت شارژ شد.`,
+          title: localized.title,
+          message: localized.message,
           type: 'WALLET_CHARGED',
           metadata: {
             chargeId: charge.id,
             amount: charge.amount,
             trackId: charge.trackId,
             refNumber: verifiedRefNumber,
+            language: localized.language,
+            direction: localized.direction,
+            actionLabel: localized.actionLabel,
           },
         },
       });

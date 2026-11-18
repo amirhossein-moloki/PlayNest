@@ -4,6 +4,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { env } from '../../config/env';
 import { NotificationStation } from '../notifications/notifications.station';
 import { notificationsRepo } from '../notifications/notifications.repo';
+import { getRecipientPreferredLanguage } from '../notifications/notification-i18n';
 import logger from '../../config/logger';
 
 export interface ProcessRemindersOptions {
@@ -87,7 +88,7 @@ export const processReservationRemindersBatch = async (options: ProcessReminders
       { name: 'SALON_NAME', value: gamingCenter.name },
     ];
 
-    const message = `Reminder: Your reservation for ${stationName} at ${gamingCenter.name} is on ${dateStr} at ${timeStr}.`;
+    const customerLang = getRecipientPreferredLanguage(customerAccount);
 
     try {
       await NotificationStation.enqueueNotificationLog({
@@ -95,8 +96,14 @@ export const processReservationRemindersBatch = async (options: ProcessReminders
         recipient: customerAccount.phone,
         channel: NotificationChannel.SMS,
         type: NotificationType.RESERVATION_REMINDER,
-        title: 'Upcoming Reservation Reminder',
-        message,
+        templateKey: 'RESERVATION_REMINDER_CUSTOMER',
+        templateParams: {
+          stationName,
+          gamingCenterName: gamingCenter.name,
+          dateStr,
+          timeStr,
+        },
+        language: customerLang,
         templateId,
         parameters,
         idempotencyKey,
@@ -117,8 +124,13 @@ export const processReservationRemindersBatch = async (options: ProcessReminders
           gamingCenterId: gamingCenter.id,
           userId: staff.id,
           type: NotificationType.RESERVATION_REMINDER,
-          title: 'Upcoming Reservation Reminder',
-          message: `Upcoming reservation ${reservation.id} (${stationName}) starts at ${timeStr}.`,
+          templateKey: 'RESERVATION_REMINDER_STAFF',
+          templateParams: {
+            reservationId: reservation.id,
+            stationName,
+            timeStr,
+          },
+          language: getRecipientPreferredLanguage(staff),
           metadata: { reservationId: reservation.id },
         });
       }

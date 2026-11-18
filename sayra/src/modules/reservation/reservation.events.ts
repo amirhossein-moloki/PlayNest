@@ -13,6 +13,11 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { env } from '../../config/env';
 import { prisma } from '../../config/prisma';
 import { NotificationStation } from '../notifications/notifications.station';
+import {
+  NotificationTemplateKey,
+  formatCurrencyAmount,
+  getRecipientPreferredLanguage,
+} from '../notifications/notification-i18n';
 import { invalidateObsoleteReminders } from './reservation.reminders';
 import { waitlistStation } from '../waitlist/waitlist.station';
 
@@ -21,8 +26,8 @@ type GamingCenterWithSettings = GamingCenter & { settings?: Settings | null };
 const notifyOwnerAndStaff = async (
   gamingCenterId: string,
   type: NotificationType,
-  title: string,
-  message: string,
+  templateKey: NotificationTemplateKey,
+  templateParams: Record<string, string | number | undefined | null>,
   metadata?: Prisma.InputJsonValue,
   smsTemplateId?: number,
   smsParams?: Array<{ name: string; value: string }>
@@ -37,12 +42,14 @@ const notifyOwnerAndStaff = async (
     });
 
     for (const manager of managers) {
+      const language = getRecipientPreferredLanguage(manager);
       await NotificationStation.notifyUser({
         gamingCenterId,
         userId: manager.id,
         type,
-        title,
-        message,
+        templateKey,
+        templateParams,
+        language,
         metadata,
         sendSms: Boolean(smsTemplateId && manager.phone),
         mobile: manager.phone,
@@ -62,16 +69,21 @@ const sendReservationStatusSms = async (
   reservation: Reservation,
   gamingCenter: GamingCenterWithSettings,
   customerPhone: string,
-  customerName: string
+  customerName: string,
+  customerLanguage?: string | null
 ) => {
   let templateId: number | undefined;
+  let templateKey: NotificationTemplateKey = 'RESERVATION_STATUS_PENDING_CUSTOMER';
 
   if (reservation.status === ReservationStatus.CONFIRMED) {
     templateId = env.MELIPAYAMAK_RESERVATION_BODY_ID || env.SMSIR_RESERVATION_CONFIRMED_TEMPLATE_ID;
+    templateKey = 'RESERVATION_STATUS_CONFIRMED_CUSTOMER';
   } else if (reservation.status === ReservationStatus.PENDING) {
     templateId = env.MELIPAYAMAK_RESERVATION_BODY_ID || env.SMSIR_RESERVATION_PENDING_TEMPLATE_ID;
+    templateKey = 'RESERVATION_STATUS_PENDING_CUSTOMER';
   } else if (reservation.status === ReservationStatus.CANCELED) {
     templateId = env.MELIPAYAMAK_RESERVATION_BODY_ID || env.SMSIR_RESERVATION_CANCELED_TEMPLATE_ID;
+    templateKey = 'RESERVATION_STATUS_CANCELED_CUSTOMER';
   }
 
   if (!templateId) return;
@@ -103,8 +115,9 @@ const sendReservationStatusSms = async (
           : reservation.status === ReservationStatus.CANCELED
             ? NotificationType.RESERVATION_CANCELLED
             : NotificationType.RESERVATION_CREATED,
-      title: `Reservation ${reservation.status}`,
-      message: `Reservation ${reservation.id} status changed to ${reservation.status}`,
+      templateKey,
+      templateParams: { reservationId: reservation.id },
+      language: customerLanguage,
       templateId,
       parameters,
       idempotencyKey,
@@ -120,7 +133,8 @@ export const initReservationEvents = () => {
   eventEmitter.on(AppEvents.RESERVATION_CREATED, async ({ reservation, gamingCenter, customerAccount }) => {
     queueAnalyticsSync({ type: 'RESERVATION', entityId: reservation.id }).catch(console.error);
 
-    await sendReservationStatusSms(reservation, gamingCenter, customerAccount.phone, customerAccount.fullName || '');
+    const customerLang = getRecipientPreferredLanguage(customerAccount);
+    await sendReservationStatusSms(reservation, gamingCenter, customerAccount.phone, customerAccount.fullName || '', customerLang);
 
     const timeZone = gamingCenter.settings?.timeZone || 'UTC';
     const dateStr = formatInTimeZone(reservation.startTime, timeZone, 'yyyy/MM/dd');
@@ -138,8 +152,8 @@ export const initReservationEvents = () => {
     await notifyOwnerAndStaff(
       gamingCenter.id,
       NotificationType.RESERVATION_CREATED,
-      'New Reservation Created',
-      `A new reservation request has been created for your gaming center (${stationName} on ${dateStr} at ${timeStr}).`,
+      'RESERVATION_CREATED_STAFF',
+      { stationName, dateStr, timeStr },
       { reservationId: reservation.id, gamingCenterId: gamingCenter.id, customerAccountId: customerAccount.id },
       env.SMSIR_OWNER_RESERVATION_CREATED_TEMPLATE_ID,
       ownerSmsParams
@@ -160,13 +174,14 @@ export const initReservationEvents = () => {
 
   eventEmitter.on(AppEvents.RESERVATION_CONFIRMED, async ({ reservation, gamingCenter, customerAccount }) => {
     queueAnalyticsSync({ type: 'RESERVATION', entityId: reservation.id }).catch(console.error);
-    await sendReservationStatusSms(reservation, gamingCenter, customerAccount.phone, customerAccount.fullName || '');
+    const customerLang = getRecipientPreferredLanguage(customerAccount);
+    await sendReservationStatusSms(reservation, gamingCenter, customerAccount.phone, customerAccount.fullName || '', customerLang);
 
     await notifyOwnerAndStaff(
       gamingCenter.id,
       NotificationType.RESERVATION_CONFIRMED,
-      'Reservation Confirmed',
-      `Reservation ${reservation.id} has been confirmed.`,
+      'RESERVATION_CONFIRMED_STAFF',
+      { reservationId: reservation.id },
       { reservationId: reservation.id, gamingCenterId: gamingCenter.id }
     );
   });
@@ -177,13 +192,14 @@ export const initReservationEvents = () => {
     // Invalidate obsolete reminders
     await invalidateObsoleteReminders(reservation.id);
 
-    await sendReservationStatusSms(reservation, gamingCenter, customerAccount.phone, customerAccount.fullName || '');
+    const customerLang = getRecipientPreferredLanguage(customerAccount);
+    await sendReservationStatusSms(reservation, gamingCenter, customerAccount.phone, customerAccount.fullName || '', customerLang);
 
     await notifyOwnerAndStaff(
       gamingCenter.id,
       NotificationType.RESERVATION_CANCELLED,
-      'Reservation Cancelled',
-      `Reservation ${reservation.id} was cancelled.`,
+      'RESERVATION_CANCELLED_STAFF',
+      { reservationId: reservation.id },
       { reservationId: reservation.id, gamingCenterId: gamingCenter.id }
     );
 
@@ -226,8 +242,8 @@ export const initReservationEvents = () => {
       await notifyOwnerAndStaff(
         gamingCenterId,
         NotificationType.RESERVATION_TIME_PROPOSED,
-        'Reservation Reschedule Proposed',
-        `A new time proposal was made for reservation ${reservationId}.`,
+        'RESERVATION_TIME_PROPOSED_STAFF',
+        { reservationId },
         { reservationId, proposalId: proposal?.id }
       );
     }
@@ -245,6 +261,8 @@ export const initReservationEvents = () => {
         : null;
 
       if (reservation && reservation.customerAccount?.phone) {
+        const customerLang = getRecipientPreferredLanguage(reservation.customerAccount);
+        const formattedAmount = formatCurrencyAmount(payment.amount, payment.currency, customerLang);
         const templateId = env.SMSIR_PAYMENT_SUCCESS_TEMPLATE_ID;
         const parameters = [
           { name: 'CUSTOMER_NAME', value: reservation.customerAccount.fullName || 'Customer' },
@@ -257,8 +275,12 @@ export const initReservationEvents = () => {
           recipient: reservation.customerAccount.phone,
           channel: 'SMS',
           type: NotificationType.PAYMENT_SUCCESS,
-          title: 'Payment Successful',
-          message: `Payment of ${payment.amount} ${payment.currency} succeeded. Ref: ${payment.referenceCode || payment.id}`,
+          templateKey: 'PAYMENT_SUCCESS_CUSTOMER',
+          templateParams: {
+            formattedAmount,
+            refCode: payment.referenceCode || payment.id,
+          },
+          language: customerLang,
           templateId,
           parameters,
           idempotencyKey: `pay_success_sms:${payment.id}`,
@@ -283,11 +305,13 @@ export const initReservationEvents = () => {
         : null;
 
       if (reservation && reservation.customerAccount?.phone) {
+        const customerLang = getRecipientPreferredLanguage(reservation.customerAccount);
+        const formattedAmount = formatCurrencyAmount(payment.amount, payment.currency, customerLang);
         const templateId = env.SMSIR_PAYMENT_FAILED_TEMPLATE_ID;
         const parameters = [
           { name: 'CUSTOMER_NAME', value: reservation.customerAccount.fullName || 'Customer' },
           { name: 'AMOUNT', value: String(payment.amount) },
-          { name: 'REASON', value: failureReason || 'Payment failed' },
+          { name: 'REASON', value: failureReason || (customerLang === 'en' ? 'Payment failed' : 'پرداخت ناموفق') },
         ];
 
         await NotificationStation.enqueueNotificationLog({
@@ -295,8 +319,12 @@ export const initReservationEvents = () => {
           recipient: reservation.customerAccount.phone,
           channel: 'SMS',
           type: NotificationType.PAYMENT_FAILED,
-          title: 'Payment Failed',
-          message: `Payment of ${payment.amount} ${payment.currency} failed. Reason: ${failureReason || 'Declined'}`,
+          templateKey: 'PAYMENT_FAILED_CUSTOMER',
+          templateParams: {
+            formattedAmount,
+            reason: failureReason || (customerLang === 'en' ? 'Declined' : 'تراکنش ناموفق'),
+          },
+          language: customerLang,
           templateId,
           parameters,
           idempotencyKey: `pay_failed_sms:${payment.id}`,
