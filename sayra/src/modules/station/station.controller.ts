@@ -26,8 +26,12 @@ export async function createStation(
   next: NextFunction
 ) {
   try {
-    const { gamingCenterId } = req.params;
-    const newStation = await stationLogic.createStation(gamingCenterId, req.body);
+    const targetGamingCenterId =
+      req.params.gamingCenterId ||
+      req.tenant?.gamingCenterId ||
+      (req as any).gamingCenter?.id ||
+      req.gamingCenterId;
+    const newStation = await stationLogic.createStation(targetGamingCenterId, req.body);
     res.created(newStation);
   } catch (error) {
     next(error);
@@ -43,9 +47,13 @@ export async function createStationsFromCatalog(
   next: NextFunction
 ) {
   try {
-    const { gamingCenterId } = req.params;
+    const targetGamingCenterId =
+      req.params.gamingCenterId ||
+      req.tenant?.gamingCenterId ||
+      (req as any).gamingCenter?.id ||
+      req.gamingCenterId;
     const stations = await stationLogic.createStationsFromCatalog(
-      gamingCenterId,
+      targetGamingCenterId,
       req.body,
       (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
       { ip: req.ip, userAgent: req.headers['user-agent'] }
@@ -65,9 +73,13 @@ export async function addGamesFromCatalog(
   next: NextFunction
 ) {
   try {
-    const { gamingCenterId } = req.params;
+    const targetGamingCenterId =
+      req.params.gamingCenterId ||
+      req.tenant?.gamingCenterId ||
+      (req as any).gamingCenter?.id ||
+      req.gamingCenterId;
     const result = await stationLogic.addGamesFromCatalog(
-      gamingCenterId,
+      targetGamingCenterId,
       req.body,
       (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
       { ip: req.ip, userAgent: req.headers['user-agent'] }
@@ -90,7 +102,7 @@ export async function getGamingCenterGames(
     const targetGamingCenterId =
       req.tenant?.gamingCenterId ||
       req.params.gamingCenterId ||
-      req.gamingCenter?.id ||
+      (req as any).gamingCenter?.id ||
       req.gamingCenterId;
 
     if (!targetGamingCenterId) {
@@ -113,9 +125,14 @@ export async function removeGameFromGamingCenter(
   next: NextFunction
 ) {
   try {
-    const { gamingCenterId, gameId } = req.params;
+    const targetGamingCenterId =
+      req.params.gamingCenterId ||
+      req.tenant?.gamingCenterId ||
+      (req as any).gamingCenter?.id ||
+      req.gamingCenterId;
+    const { gameId } = req.params;
     const result = await stationLogic.removeGameFromGamingCenter(
-      gamingCenterId,
+      targetGamingCenterId,
       gameId,
       (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
       { ip: req.ip, userAgent: req.headers['user-agent'] }
@@ -140,7 +157,7 @@ export async function getStations(
     const targetGamingCenterId =
       req.tenant?.gamingCenterId ||
       gamingCenterId ||
-      req.gamingCenter?.id ||
+      (req as any).gamingCenter?.id ||
       req.gamingCenterId;
 
     if (!targetGamingCenterId) {
@@ -176,7 +193,7 @@ export async function getDeviceCategories(
     const targetGamingCenterId =
       req.tenant?.gamingCenterId ||
       gamingCenterId ||
-      req.gamingCenter?.id ||
+      (req as any).gamingCenter?.id ||
       req.gamingCenterId;
 
     if (!targetGamingCenterId) {
@@ -198,8 +215,13 @@ export async function getStationById(
   next: NextFunction
 ) {
   try {
-    const { gamingCenterId, stationId } = req.params;
-    const station = await stationLogic.getStationById(stationId, gamingCenterId);
+    const { stationId } = req.params;
+    const targetGamingCenterId =
+      req.params.gamingCenterId ||
+      req.tenant?.gamingCenterId ||
+      (req as any).gamingCenter?.id ||
+      req.gamingCenterId;
+    const station = await stationLogic.getStationById(stationId, targetGamingCenterId);
     res.ok(station);
   } catch (error) {
     next(error);
@@ -215,10 +237,15 @@ export async function updateStation(
   next: NextFunction
 ) {
   try {
-    const { gamingCenterId, stationId } = req.params;
+    const { stationId } = req.params;
+    const targetGamingCenterId =
+      req.params.gamingCenterId ||
+      req.tenant?.gamingCenterId ||
+      (req as any).gamingCenter?.id ||
+      req.gamingCenterId;
     const updatedStation = await stationLogic.updateStation(
       stationId,
-      gamingCenterId,
+      targetGamingCenterId,
       req.body,
       (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
       { ip: req.ip, userAgent: req.headers['user-agent'] }
@@ -238,10 +265,15 @@ export async function deleteStation(
   next: NextFunction
 ) {
   try {
-    const { gamingCenterId, stationId } = req.params;
+    const { stationId } = req.params;
+    const targetGamingCenterId =
+      req.params.gamingCenterId ||
+      req.tenant?.gamingCenterId ||
+      (req as any).gamingCenter?.id ||
+      req.gamingCenterId;
     await stationLogic.deactivateStation(
       stationId,
-      gamingCenterId,
+      targetGamingCenterId,
       (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
       { ip: req.ip, userAgent: req.headers['user-agent'] }
     );
@@ -257,9 +289,16 @@ export async function getExtraControllers(
   next: NextFunction
 ) {
   try {
-    const { gamingCenterId, stationId } = req.params;
+    const { stationId } = req.params;
+    const targetGamingCenterId =
+      req.params.gamingCenterId ||
+      req.tenant?.gamingCenterId ||
+      (req as any).gamingCenter?.id ||
+      req.gamingCenterId;
     const supported = await extraControllerService.isExtraControllerSupportedForStation(stationId);
-    const items = await extraControllerService.getStationExtraControllers(stationId, { gamingCenterId });
+    const items = await extraControllerService.getStationExtraControllers(stationId, {
+      gamingCenterId: targetGamingCenterId,
+    });
     res.ok({ extraControllerEnabled: supported, extraControllers: items });
   } catch (error) {
     next(error);
@@ -295,10 +334,15 @@ export async function replaceExtraControllers(
   next: NextFunction
 ) {
   try {
-    const { gamingCenterId, stationId } = req.params;
+    const { stationId } = req.params;
+    const targetGamingCenterId =
+      req.params.gamingCenterId ||
+      req.tenant?.gamingCenterId ||
+      (req as any).gamingCenter?.id ||
+      req.gamingCenterId;
     const items = await extraControllerService.replaceStationExtraControllers(
       stationId,
-      gamingCenterId,
+      targetGamingCenterId,
       req.body.extraControllers
     );
     res.ok(items);
@@ -313,8 +357,17 @@ export async function addExtraController(
   next: NextFunction
 ) {
   try {
-    const { gamingCenterId, stationId } = req.params;
-    const created = await extraControllerService.addStationExtraController(stationId, gamingCenterId, req.body);
+    const { stationId } = req.params;
+    const targetGamingCenterId =
+      req.params.gamingCenterId ||
+      req.tenant?.gamingCenterId ||
+      (req as any).gamingCenter?.id ||
+      req.gamingCenterId;
+    const created = await extraControllerService.addStationExtraController(
+      stationId,
+      targetGamingCenterId,
+      req.body
+    );
     res.created(created);
   } catch (error) {
     next(error);
@@ -331,10 +384,15 @@ export async function updateExtraController(
   next: NextFunction
 ) {
   try {
-    const { gamingCenterId, stationId, extraControllerId } = req.params;
+    const { stationId, extraControllerId } = req.params;
+    const targetGamingCenterId =
+      req.params.gamingCenterId ||
+      req.tenant?.gamingCenterId ||
+      (req as any).gamingCenter?.id ||
+      req.gamingCenterId;
     const updated = await extraControllerService.updateStationExtraController(
       stationId,
-      gamingCenterId,
+      targetGamingCenterId,
       extraControllerId,
       req.body
     );
@@ -350,8 +408,17 @@ export async function deleteExtraController(
   next: NextFunction
 ) {
   try {
-    const { gamingCenterId, stationId, extraControllerId } = req.params;
-    await extraControllerService.deleteStationExtraController(stationId, gamingCenterId, extraControllerId);
+    const { stationId, extraControllerId } = req.params;
+    const targetGamingCenterId =
+      req.params.gamingCenterId ||
+      req.tenant?.gamingCenterId ||
+      (req as any).gamingCenter?.id ||
+      req.gamingCenterId;
+    await extraControllerService.deleteStationExtraController(
+      stationId,
+      targetGamingCenterId,
+      extraControllerId
+    );
     res.noContent();
   } catch (error) {
     next(error);

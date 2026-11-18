@@ -267,7 +267,8 @@ export async function createStation(gamingCenterId: string, data: CreateStationI
   };
   const created = await StationRepo.createStation(gamingCenterId, stationData);
   if (extraControllers && extraControllers.length > 0) {
-    await replaceStationExtraControllers(created.id, gamingCenterId, extraControllers);
+    const controllers = await replaceStationExtraControllers(created.id, gamingCenterId, extraControllers);
+    return { ...created, extraControllers: controllers };
   }
   return created;
 }

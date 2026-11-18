@@ -277,14 +277,20 @@ export async function validateAndPriceExtraControllers(
 /**
  * Asserts that a station belongs to the gaming center and its DeviceType supports extra controllers.
  */
+/**
+ * Asserts that a station belongs to the gaming center and its DeviceType supports extra controllers.
+ */
 async function assertManagerStationSupportsExtraControllers(
   stationId: string,
-  gamingCenterId: string,
+  gamingCenterId?: string,
   client: DbClient = prisma
-) {
+): Promise<{ id: string; gamingCenterId?: string }> {
   const station = await client.gameStation.findFirst({
-    where: { id: stationId, gamingCenterId },
-    select: { id: true },
+    where: {
+      id: stationId,
+      ...(gamingCenterId ? { gamingCenterId } : {}),
+    },
+    select: { id: true, gamingCenterId: true },
   });
 
   if (!station) {
@@ -299,29 +305,49 @@ async function assertManagerStationSupportsExtraControllers(
       { code: 'EXTRA_CONTROLLER_NOT_SUPPORTED' }
     );
   }
+
+  return station;
 }
 
 export async function replaceStationExtraControllers(
   stationId: string,
-  gamingCenterId: string,
-  configs: ExtraControllerConfigInput[],
+  gamingCenterId?: string,
+  configs: ExtraControllerConfigInput[] = [],
   client: DbClient = prisma
 ) {
+  let resolvedGamingCenterId = gamingCenterId;
+
   if (configs.length > 0) {
-    await assertManagerStationSupportsExtraControllers(stationId, gamingCenterId, client);
+    const station = await assertManagerStationSupportsExtraControllers(stationId, resolvedGamingCenterId, client);
+    resolvedGamingCenterId = resolvedGamingCenterId || station.gamingCenterId;
   } else {
     const station = await client.gameStation.findFirst({
-      where: { id: stationId, gamingCenterId },
-      select: { id: true },
+      where: {
+        id: stationId,
+        ...(resolvedGamingCenterId ? { gamingCenterId: resolvedGamingCenterId } : {}),
+      },
+      select: { id: true, gamingCenterId: true },
     });
     if (!station) {
       throw new AppError('GameStation not found.', httpStatus.NOT_FOUND);
     }
+    resolvedGamingCenterId = resolvedGamingCenterId || station.gamingCenterId;
+  }
+
+  if (!resolvedGamingCenterId) {
+    const station = await client.gameStation.findUnique({
+      where: { id: stationId },
+      select: { gamingCenterId: true },
+    });
+    resolvedGamingCenterId = station?.gamingCenterId;
   }
 
   const run = async (tx: Prisma.TransactionClient) => {
     await tx.stationExtraController.deleteMany({
-      where: { stationId, gamingCenterId },
+      where: {
+        stationId,
+        ...(resolvedGamingCenterId ? { gamingCenterId: resolvedGamingCenterId } : {}),
+      },
     });
 
     if (configs.length === 0) return [];
@@ -331,7 +357,7 @@ export async function replaceStationExtraControllers(
       const row = await tx.stationExtraController.create({
         data: {
           stationId,
-          gamingCenterId,
+          gamingCenterId: resolvedGamingCenterId!,
           controllerType: cfg.controllerType.trim(),
           quantity: cfg.quantity,
           hourlyPrice: cfg.hourlyPrice,
@@ -351,15 +377,16 @@ export async function replaceStationExtraControllers(
 
 export async function addStationExtraController(
   stationId: string,
-  gamingCenterId: string,
+  gamingCenterId: string | undefined,
   data: ExtraControllerConfigInput
 ) {
-  await assertManagerStationSupportsExtraControllers(stationId, gamingCenterId);
+  const station = await assertManagerStationSupportsExtraControllers(stationId, gamingCenterId);
+  const resolvedGamingCenterId = gamingCenterId || station.gamingCenterId;
 
   return prisma.stationExtraController.create({
     data: {
       stationId,
-      gamingCenterId,
+      gamingCenterId: resolvedGamingCenterId!,
       controllerType: data.controllerType.trim(),
       quantity: data.quantity,
       hourlyPrice: data.hourlyPrice,
@@ -370,14 +397,19 @@ export async function addStationExtraController(
 
 export async function updateStationExtraController(
   stationId: string,
-  gamingCenterId: string,
+  gamingCenterId: string | undefined,
   extraControllerId: string,
   data: Partial<ExtraControllerConfigInput>
 ) {
-  await assertManagerStationSupportsExtraControllers(stationId, gamingCenterId);
+  const station = await assertManagerStationSupportsExtraControllers(stationId, gamingCenterId);
+  const resolvedGamingCenterId = gamingCenterId || station.gamingCenterId;
 
   const existing = await prisma.stationExtraController.findFirst({
-    where: { id: extraControllerId, stationId, gamingCenterId },
+    where: {
+      id: extraControllerId,
+      stationId,
+      ...(resolvedGamingCenterId ? { gamingCenterId: resolvedGamingCenterId } : {}),
+    },
   });
   if (!existing) {
     throw new AppError('Extra controller configuration not found.', httpStatus.NOT_FOUND);
@@ -396,11 +428,15 @@ export async function updateStationExtraController(
 
 export async function deleteStationExtraController(
   stationId: string,
-  gamingCenterId: string,
+  gamingCenterId: string | undefined,
   extraControllerId: string
 ) {
   const existing = await prisma.stationExtraController.findFirst({
-    where: { id: extraControllerId, stationId, gamingCenterId },
+    where: {
+      id: extraControllerId,
+      stationId,
+      ...(gamingCenterId ? { gamingCenterId } : {}),
+    },
   });
   if (!existing) {
     throw new AppError('Extra controller configuration not found.', httpStatus.NOT_FOUND);

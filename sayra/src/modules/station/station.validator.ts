@@ -13,6 +13,7 @@ export const extraControllerConfigItemSchema = z.object({
 
 export const replaceExtraControllersSchema = z.object({
   params: z.object({
+    gamingCenterId: idSchema('Invalid gaming center ID format').optional(),
     stationId: idSchema('Invalid station ID format'),
   }),
   body: z.object({
@@ -22,6 +23,7 @@ export const replaceExtraControllersSchema = z.object({
 
 export const createExtraControllerSchema = z.object({
   params: z.object({
+    gamingCenterId: idSchema('Invalid gaming center ID format').optional(),
     stationId: idSchema('Invalid station ID format'),
   }),
   body: extraControllerConfigItemSchema,
@@ -29,6 +31,7 @@ export const createExtraControllerSchema = z.object({
 
 export const updateExtraControllerSchema = z.object({
   params: z.object({
+    gamingCenterId: idSchema('Invalid gaming center ID format').optional(),
     stationId: idSchema('Invalid station ID format'),
     extraControllerId: idSchema('Invalid extra controller ID format'),
   }),
@@ -40,6 +43,7 @@ export const updateExtraControllerSchema = z.object({
 
 export const extraControllerIdParamSchema = z.object({
   params: z.object({
+    gamingCenterId: idSchema('Invalid gaming center ID format').optional(),
     stationId: idSchema('Invalid station ID format'),
     extraControllerId: idSchema('Invalid extra controller ID format'),
   }),
@@ -47,6 +51,7 @@ export const extraControllerIdParamSchema = z.object({
 
 export const publicExtraControllersQuerySchema = z.object({
   params: z.object({
+    gamingCenterSlug: z.string().optional(),
     stationId: idSchema('Invalid station ID format'),
   }),
   query: z.object({
@@ -120,6 +125,7 @@ export const updateStationSchema = z.object({
     extraControllers: stationBaseSchema.extraControllers.optional(),
   }),
   params: z.object({
+    gamingCenterId: idSchema('Invalid gaming center ID format').optional(),
     stationId: idSchema('Invalid station ID format'),
   }),
 });
@@ -210,6 +216,7 @@ export type ListStationsQuery = z.infer<typeof listStationsSchema>;
 // Schema for URL parameters that include a stationId
 export const stationIdParamSchema = z.object({
   params: z.object({
+    gamingCenterId: idSchema('Invalid gaming center ID format').optional(),
     stationId: idSchema('Invalid station ID format'),
   }),
 });

@@ -1,6 +1,8 @@
 import request from 'supertest';
 import app from '../../../src/app';
 import { prisma } from '../../../src/config/prisma';
+import jwt from 'jsonwebtoken';
+import { env } from '../../../src/config/env';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -11,9 +13,22 @@ jest.mock('../../../src/config/prisma', () => ({
       findUnique: jest.fn(),
     },
     gameStation: {
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
       create: jest.fn(),
+    },
+    stationExtraController: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      deleteMany: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+    deviceType: {
+      findFirst: jest.fn(),
     },
     user: {
       findUnique: jest.fn(),
@@ -24,6 +39,9 @@ jest.mock('../../../src/config/prisma', () => ({
     auditLog: {
       create: jest.fn(),
     },
+    $transaction: jest.fn((callback: any) =>
+      typeof callback === 'function' ? callback(prisma) : Promise.all(callback)
+    ),
   },
 }));
 
@@ -119,6 +137,189 @@ describe('Gaming Centers Stations API - Public and Protected Endpoints', () => {
         });
 
       expect(res.status).toBe(401);
+    });
+
+    it('should create station with extraControllers and include correct gamingCenterId', async () => {
+      const managerUserId = 'cluser123456789012345678';
+      const centerId = 'cmwlxvn5r0014137pppik07te';
+      const stationId = 'cmwlxy27x001g137pfqfrb3uo';
+      const managerToken = jwt.sign(
+        { sessionId: 'sess_1', actorId: managerUserId, actorType: 'USER' },
+        env.JWT_ACCESS_SECRET || 'test-access-secret',
+        { expiresIn: '1h' }
+      );
+
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: managerUserId,
+        isActive: true,
+        role: 'MANAGER',
+        gamingCenterId: centerId,
+      });
+      (prisma.gamingCenter.findUnique as jest.Mock).mockResolvedValue({
+        id: centerId,
+        slug: 'center-slug',
+        isActive: true,
+      });
+
+      const createdStation = {
+        id: stationId,
+        gamingCenterId: centerId,
+        name: 'PS5-01',
+        stationType: 'PLAYSTATION',
+        hourlyPrice: 100000,
+        isActive: true,
+        deviceTypeRef: { extraControllerEnabled: true },
+        catalogDevice: null,
+      };
+
+      (prisma.gameStation.create as jest.Mock).mockResolvedValue(createdStation);
+      (prisma.gameStation.findFirst as jest.Mock).mockResolvedValue(createdStation);
+      (prisma.gameStation.findUnique as jest.Mock).mockResolvedValue(createdStation);
+      (prisma.stationExtraController.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
+      (prisma.stationExtraController.create as jest.Mock).mockImplementation(async ({ data }: any) => ({
+        id: 'ec_123',
+        ...data,
+      }));
+
+      const res = await request(app)
+        .post(`/api/v1/gamingCenters/${centerId}/stations`)
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          name: 'PS5-01',
+          stationType: 'PLAYSTATION',
+          hourlyPrice: 100000,
+          extraControllers: [
+            {
+              controllerType: 'دسته PS5',
+              quantity: 2,
+              hourlyPrice: 35000,
+              isActive: true,
+            },
+          ],
+        });
+
+      expect(res.status).toBe(201);
+      expect(prisma.stationExtraController.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            stationId,
+            gamingCenterId: centerId,
+            controllerType: 'دسته PS5',
+            quantity: 2,
+            hourlyPrice: 35000,
+          }),
+        })
+      );
+    });
+  });
+
+  describe('Station Extra Controllers Endpoints (PUT & POST)', () => {
+    const managerUserId = 'cluser123456789012345678';
+    const centerId = 'cmwlxvn5r0014137pppik07te';
+    const stationId = 'cmwlxy27x001g137pfqfrb3uo';
+    let managerToken: string;
+
+    beforeEach(() => {
+      managerToken = jwt.sign(
+        { sessionId: 'sess_1', actorId: managerUserId, actorType: 'USER' },
+        env.JWT_ACCESS_SECRET || 'test-access-secret',
+        { expiresIn: '1h' }
+      );
+
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: managerUserId,
+        isActive: true,
+        role: 'MANAGER',
+        gamingCenterId: centerId,
+      });
+      (prisma.gamingCenter.findUnique as jest.Mock).mockResolvedValue({
+        id: centerId,
+        slug: 'center-slug',
+        isActive: true,
+      });
+
+      const stationData = {
+        id: stationId,
+        gamingCenterId: centerId,
+        name: 'PS5-VIP',
+        stationType: 'PLAYSTATION',
+        hourlyPrice: 150000,
+        isActive: true,
+        deviceTypeRef: { extraControllerEnabled: true },
+        catalogDevice: null,
+      };
+
+      (prisma.gameStation.findFirst as jest.Mock).mockResolvedValue(stationData);
+      (prisma.gameStation.findUnique as jest.Mock).mockResolvedValue(stationData);
+      (prisma.stationExtraController.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
+      (prisma.stationExtraController.create as jest.Mock).mockImplementation(async ({ data }: any) => ({
+        id: 'ec_row_1',
+        ...data,
+      }));
+    });
+
+    it('PUT /api/v1/gamingCenters/:gamingCenterId/stations/:stationId/extra-controllers should replace extra controllers with correct gamingCenterId and not undefined', async () => {
+      const res = await request(app)
+        .put(`/api/v1/gamingCenters/${centerId}/stations/${stationId}/extra-controllers`)
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          extraControllers: [
+            {
+              controllerType: 'دسته PS5',
+              quantity: 3,
+              hourlyPrice: 35000,
+              isActive: true,
+            },
+          ],
+        });
+
+      expect(res.status).toBe(200);
+      expect(prisma.stationExtraController.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            stationId,
+            gamingCenterId: centerId,
+            controllerType: 'دسته PS5',
+            quantity: 3,
+            hourlyPrice: 35000,
+            isActive: true,
+          }),
+        })
+      );
+
+      // Verify gamingCenterId is NOT undefined
+      const createCall = (prisma.stationExtraController.create as jest.Mock).mock.calls[0][0];
+      expect(createCall.data.gamingCenterId).toBe(centerId);
+      expect(createCall.data.gamingCenterId).not.toBeUndefined();
+    });
+
+    it('POST /api/v1/gamingCenters/:gamingCenterId/stations/:stationId/extra-controllers should add extra controller with correct gamingCenterId', async () => {
+      const res = await request(app)
+        .post(`/api/v1/gamingCenters/${centerId}/stations/${stationId}/extra-controllers`)
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          controllerType: 'دسته DualSense Edge',
+          quantity: 2,
+          hourlyPrice: 50000,
+          isActive: true,
+        });
+
+      expect(res.status).toBe(201);
+      expect(prisma.stationExtraController.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            stationId,
+            gamingCenterId: centerId,
+            controllerType: 'دسته DualSense Edge',
+            quantity: 2,
+            hourlyPrice: 50000,
+          }),
+        })
+      );
+
+      const createCall = (prisma.stationExtraController.create as jest.Mock).mock.calls[0][0];
+      expect(createCall.data.gamingCenterId).toBe(centerId);
+      expect(createCall.data.gamingCenterId).not.toBeUndefined();
     });
   });
 });
