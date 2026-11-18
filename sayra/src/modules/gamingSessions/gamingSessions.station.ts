@@ -11,6 +11,8 @@ import { GamingSessionsRepo } from './gamingSessions.repo';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { GamingSessionStateMachine } from './gamingSessions.state-machine';
+import { AppEvents, eventEmitter } from '../../common/events/event-emitter';
+import { commissionsStation } from '../commissions/commissions.station';
 
 export const gamingSessionsStation = {
   async startSession(
@@ -25,7 +27,7 @@ export const gamingSessionsStation = {
     const gamingCenterId = isTx ? undefined : (gamingCenterIdOrTx as string | undefined);
     const tx = isTx ? (gamingCenterIdOrTx as Prisma.TransactionClient) : passedTx;
 
-    const execute = async (client: Prisma.TransactionClient): Promise<GamingSession> => {
+    const execute = async (client: Prisma.TransactionClient) => {
       // 1. Fetch reservation
       const reservation = await client.reservation.findUnique({
         where: { id: reservationId },
@@ -126,7 +128,7 @@ export const gamingSessionsStation = {
     const gamingCenterId = isTx ? undefined : (gamingCenterIdOrTx as string | undefined);
     const tx = isTx ? (gamingCenterIdOrTx as Prisma.TransactionClient) : passedTx;
 
-    const execute = async (client: Prisma.TransactionClient): Promise<GamingSession> => {
+    const execute = async (client: Prisma.TransactionClient) => {
       if (gamingCenterId) {
         const reservation = await client.reservation.findUnique({
           where: { id: reservationId },
@@ -166,7 +168,7 @@ export const gamingSessionsStation = {
     const gamingCenterId = isTx ? undefined : (gamingCenterIdOrTx as string | undefined);
     const tx = isTx ? (gamingCenterIdOrTx as Prisma.TransactionClient) : passedTx;
 
-    const execute = async (client: Prisma.TransactionClient): Promise<GamingSession> => {
+    const execute = async (client: Prisma.TransactionClient) => {
       if (gamingCenterId) {
         const reservation = await client.reservation.findUnique({
           where: { id: reservationId },
@@ -212,7 +214,7 @@ export const gamingSessionsStation = {
     const gamingCenterId = isTx ? undefined : (gamingCenterIdOrTx as string | undefined);
     const tx = isTx ? (gamingCenterIdOrTx as Prisma.TransactionClient) : passedTx;
 
-    const execute = async (client: Prisma.TransactionClient): Promise<GamingSession> => {
+    const execute = async (client: Prisma.TransactionClient) => {
       // 1. Fetch reservation
       const reservation = await client.reservation.findUnique({
         where: { id: reservationId },
@@ -252,8 +254,9 @@ export const gamingSessionsStation = {
       }, client);
 
       // 3. Atomically transition reservation to COMPLETED if currently IN_PROGRESS
+      let completedReservation = null;
       if (reservation.status === ReservationStatus.IN_PROGRESS) {
-        await client.reservation.update({
+        completedReservation = await client.reservation.update({
           where: { id: reservationId },
           data: {
             status: ReservationStatus.COMPLETED,
@@ -273,12 +276,19 @@ export const gamingSessionsStation = {
         });
       }
 
-      return completedSession;
+      return { completedSession, completedReservation };
     };
 
     if (tx) {
-      return execute(tx);
+      const { completedSession } = await execute(tx);
+      return completedSession;
     }
-    return prisma.$transaction(execute);
+
+    const { completedSession, completedReservation } = await prisma.$transaction(execute);
+    if (completedReservation) {
+      eventEmitter.emit(AppEvents.RESERVATION_COMPLETED, { reservation: completedReservation });
+      await commissionsStation.calculateCommission(reservationId).catch(() => {});
+    }
+    return completedSession;
   },
 };

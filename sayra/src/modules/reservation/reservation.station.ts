@@ -896,4 +896,8 @@ export const reservationStation = {
   expireStaleReservations(now?: Date) {
     return reservationLifecycle.expireStaleReservations(now);
   },
+
+  processAutoLifecycleBatch(options?: { batchSize?: number; now?: Date }) {
+    return reservationLifecycle.processAutoLifecycleBatch(options);
+  },
 };

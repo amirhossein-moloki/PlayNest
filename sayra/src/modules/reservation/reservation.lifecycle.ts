@@ -1,10 +1,20 @@
 import { addMinutes } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { Reservation, ReservationStatus, Prisma, SessionActorType, UserRole, CancellationCategory, CancellationActor } from '@prisma/client';
+import {
+  Reservation,
+  ReservationStatus,
+  GamingSessionStatus,
+  Prisma,
+  SessionActorType,
+  UserRole,
+  CancellationCategory,
+  CancellationActor,
+} from '@prisma/client';
 import { ReservationRepo } from './reservation.repo';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { gamingSessionsStation } from '../gamingSessions/gamingSessions.station';
+import { GamingSessionsRepo } from '../gamingSessions/gamingSessions.repo';
 import { commissionsStation } from '../commissions/commissions.station';
 import { walletService } from '../wallet/wallet.station';
 import { auditService } from '../audit/audit.station';
@@ -59,8 +69,8 @@ export const reservationLifecycle = {
       // Check confirmation deadline
       const deadline = reservation.confirmationExpiresAt || reservation.expiresAt;
       if (deadline && deadline <= now) {
-        // Mark as EXPIRED atomically
-        await ReservationRepo.updateReservation(
+        // Mark as EXPIRED atomically and refund paid amount before throwing
+        const expiredRes = await ReservationRepo.updateReservation(
           reservationId,
           gamingCenterId,
           { status: ReservationStatus.EXPIRED },
@@ -73,10 +83,9 @@ export const reservationLifecycle = {
           action: 'EXPIRE',
           reason: 'عدم تأیید رزرو توسط صاحب گیمنت در مهلت تعیین‌شده',
         }, tx);
+        await walletService.refundReservationToWallet(reservationId, tx);
 
-        throw new AppError('Confirmation deadline has expired.', httpStatus.CONFLICT, {
-          code: 'CONFIRMATION_EXPIRED',
-        });
+        return { expiredOnConfirm: true as const, reservation: expiredRes || reservation };
       }
 
       // Atomic conditional update: only update if still PENDING
@@ -127,6 +136,22 @@ export const reservationLifecycle = {
 
       return result;
     });
+
+    if (
+      updatedReservation &&
+      typeof updatedReservation === 'object' &&
+      'expiredOnConfirm' in updatedReservation &&
+      updatedReservation.expiredOnConfirm
+    ) {
+      eventEmitter.emit(AppEvents.RESERVATION_EXPIRED, {
+        reservationId,
+        reservation: updatedReservation.reservation,
+        gamingCenterId,
+      });
+      throw new AppError('Confirmation deadline has expired.', httpStatus.CONFLICT, {
+        code: 'CONFIRMATION_EXPIRED',
+      });
+    }
 
     if ('gamingCenter' in updatedReservation && 'customerAccount' in updatedReservation) {
       eventEmitter.emit(AppEvents.RESERVATION_CONFIRMED, {
@@ -186,6 +211,28 @@ export const reservationLifecycle = {
         actorType: actor.actorType,
         reason: data.reason,
       }, tx);
+
+      // Cancel any pending time proposals for this reservation
+      if (typeof ReservationRepo.cancelPendingProposals === 'function') {
+        await ReservationRepo.cancelPendingProposals(reservationId, tx);
+      }
+
+      // Close any active or paused gaming session if canceling an in-progress reservation
+      if (reservation.status === ReservationStatus.IN_PROGRESS) {
+        const activeSession = await GamingSessionsRepo.findActiveOrPausedSessionByReservationId?.(reservationId, tx);
+        if (activeSession) {
+          await GamingSessionsRepo.updateSession(
+            activeSession.id,
+            {
+              status: GamingSessionStatus.INTERRUPTED,
+              endTime: new Date(),
+              pausedAt: null,
+              interruptionReason: data.reason || 'Reservation canceled',
+            },
+            tx
+          );
+        }
+      }
 
       // Trigger refund if there are successful payments
       await walletService.refundReservationToWallet(reservationId, tx);
@@ -295,7 +342,10 @@ export const reservationLifecycle = {
       }, tx);
 
       if (reservation.status === ReservationStatus.IN_PROGRESS) {
-        await gamingSessionsStation.endSession(reservationId, tx);
+        const activeSession = await GamingSessionsRepo.findActiveOrPausedSessionByReservationId?.(reservationId, tx);
+        if (activeSession) {
+          await gamingSessionsStation.endSession(reservationId, tx);
+        }
       }
 
       return updated;
@@ -653,5 +703,134 @@ export const reservationLifecycle = {
   async expireStaleReservations(now?: Date) {
     const batchResult = await this.processExpiryBatch({ now });
     return batchResult.expiredCount;
+  },
+
+  /**
+   * Automatically completes IN_PROGRESS reservations whose endTime has passed
+   * and marks CONFIRMED reservations whose endTime has passed without starting as NO_SHOW.
+   */
+  async processAutoLifecycleBatch(options?: { batchSize?: number; now?: Date }) {
+    const batchSize = options?.batchSize ?? env.RESERVATION_EXPIRY_BATCH_SIZE;
+    const now = options?.now ?? new Date();
+
+    const result = {
+      autoCompletedCount: 0,
+      autoNoShowCount: 0,
+      failedCount: 0,
+    };
+
+    const { prisma } = await import('../../config/prisma');
+
+    // 1. Auto-complete IN_PROGRESS reservations whose endTime <= now
+    const dueToComplete = await prisma.reservation.findMany({
+      where: {
+        status: ReservationStatus.IN_PROGRESS,
+        endTime: { lte: now },
+      },
+      select: { id: true, gamingCenterId: true },
+      take: batchSize,
+      orderBy: { endTime: 'asc' },
+    });
+
+    for (const candidate of dueToComplete) {
+      try {
+        const completed = await ReservationRepo.transaction(async (tx) => {
+          const updated = await tx.reservation.updateMany({
+            where: {
+              id: candidate.id,
+              status: ReservationStatus.IN_PROGRESS,
+              endTime: { lte: now },
+            },
+            data: {
+              status: ReservationStatus.COMPLETED,
+              completedAt: now,
+            },
+          });
+
+          if (updated.count === 0) return null;
+
+          await ReservationRepo.createHistory(
+            {
+              reservationId: candidate.id,
+              fromStatus: ReservationStatus.IN_PROGRESS,
+              toStatus: ReservationStatus.COMPLETED,
+              action: 'AUTO_COMPLETE',
+              reason: 'اتمام خودکار سشن پس از پایان زمان رزرو',
+            },
+            tx
+          );
+
+          const activeSession = await GamingSessionsRepo.findActiveOrPausedSessionByReservationId?.(candidate.id, tx);
+          if (activeSession) {
+            await gamingSessionsStation.endSession(candidate.id, tx);
+          }
+
+          return tx.reservation.findUnique({ where: { id: candidate.id } });
+        });
+
+        if (completed) {
+          result.autoCompletedCount++;
+          eventEmitter.emit(AppEvents.RESERVATION_COMPLETED, { reservation: completed });
+          await commissionsStation.calculateCommission(candidate.id).catch(() => {});
+        }
+      } catch (error) {
+        result.failedCount++;
+        logger.error({ msg: 'Failed to auto-complete reservation', reservationId: candidate.id, error });
+      }
+    }
+
+    // 2. Auto-mark CONFIRMED reservations whose endTime <= now (never started) as NO_SHOW
+    const dueToNoShow = await prisma.reservation.findMany({
+      where: {
+        status: ReservationStatus.CONFIRMED,
+        endTime: { lte: now },
+      },
+      select: { id: true, gamingCenterId: true },
+      take: batchSize,
+      orderBy: { endTime: 'asc' },
+    });
+
+    for (const candidate of dueToNoShow) {
+      try {
+        const marked = await ReservationRepo.transaction(async (tx) => {
+          const updated = await tx.reservation.updateMany({
+            where: {
+              id: candidate.id,
+              status: ReservationStatus.CONFIRMED,
+              endTime: { lte: now },
+            },
+            data: {
+              status: ReservationStatus.NO_SHOW,
+              noShowAt: now,
+            },
+          });
+
+          if (updated.count === 0) return null;
+
+          await ReservationRepo.createHistory(
+            {
+              reservationId: candidate.id,
+              fromStatus: ReservationStatus.CONFIRMED,
+              toStatus: ReservationStatus.NO_SHOW,
+              action: 'AUTO_NO_SHOW',
+              reason: 'عدم حضور کاربر تا پایان زمان رزرو',
+            },
+            tx
+          );
+
+          return tx.reservation.findUnique({ where: { id: candidate.id } });
+        });
+
+        if (marked) {
+          result.autoNoShowCount++;
+          eventEmitter.emit(AppEvents.RESERVATION_NOSHOW, { reservation: marked });
+        }
+      } catch (error) {
+        result.failedCount++;
+        logger.error({ msg: 'Failed to auto-mark reservation as no-show', reservationId: candidate.id, error });
+      }
+    }
+
+    return result;
   },
 };

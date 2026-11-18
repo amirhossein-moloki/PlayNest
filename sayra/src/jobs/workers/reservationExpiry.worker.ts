@@ -66,6 +66,11 @@ export class ReservationExpiryWorker {
           now,
         });
 
+        const lifecycleResult = await reservationStation.processAutoLifecycleBatch?.({
+          batchSize: this.batchSize,
+          now,
+        });
+
         if (result.candidatesFound > 0) {
           logger.info({
             msg: 'Reservation expiry tick completed',
@@ -73,6 +78,15 @@ export class ReservationExpiryWorker {
             expiredCount: result.expiredCount,
             skippedCount: result.skippedCount,
             failedCount: result.failedCount,
+          });
+        }
+
+        if (lifecycleResult && (lifecycleResult.autoCompletedCount > 0 || lifecycleResult.autoNoShowCount > 0)) {
+          logger.info({
+            msg: 'Reservation auto-lifecycle tick completed',
+            autoCompletedCount: lifecycleResult.autoCompletedCount,
+            autoNoShowCount: lifecycleResult.autoNoShowCount,
+            failedCount: lifecycleResult.failedCount,
           });
         }
         return result;
