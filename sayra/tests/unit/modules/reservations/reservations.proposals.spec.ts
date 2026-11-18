@@ -124,6 +124,119 @@ describe('Reservation Proposals Workflow', () => {
       ).rejects.toThrow(AppError);
     });
 
+    it('should allow proposal creation on PENDING reservation (before confirmation)', async () => {
+      const pendingReservation = { ...mockReservation, status: ReservationStatus.PENDING };
+      MockedReservationRepo.findReservationById.mockResolvedValue(pendingReservation as any);
+      MockedReservationRepo.findGamingCenterWithSettings.mockResolvedValue(null);
+      MockedReservationRepo.findOverlappingReservation.mockResolvedValue(null);
+      MockedReservationRepo.cancelPendingProposals.mockResolvedValue({ count: 0 } as any);
+      MockedReservationRepo.createTimeProposal.mockResolvedValue(mockProposal as any);
+
+      const result = await reservationStation.proposeTime(
+        reservationId,
+        gamingCenterId,
+        staffUserId,
+        proposeInput,
+        actor
+      );
+
+      expect(result).toEqual(mockProposal);
+    });
+
+    it('should prevent proposal creation on IN_PROGRESS reservation', async () => {
+      const inProgressReservation = { ...mockReservation, status: ReservationStatus.IN_PROGRESS };
+      MockedReservationRepo.findReservationById.mockResolvedValue(inProgressReservation as any);
+
+      await expect(
+        reservationStation.proposeTime(reservationId, gamingCenterId, staffUserId, proposeInput, actor)
+      ).rejects.toThrow(AppError);
+    });
+
+    it('should accept date and slotTime in gaming center timezone', async () => {
+      MockedReservationRepo.findReservationById.mockResolvedValue(mockReservation as any);
+      MockedReservationRepo.findGamingCenterWithSettings.mockResolvedValue({
+        id: gamingCenterId,
+        openingTime: '09:00',
+        closingTime: '23:00',
+        timezone: 'UTC',
+        closedDays: [],
+        schedules: [],
+        closures: [],
+        settings: { timeZone: 'UTC', workStartTime: '09:00', workEndTime: '23:00' },
+      } as any);
+      MockedReservationRepo.findOverlappingReservation.mockResolvedValue(null);
+      MockedReservationRepo.cancelPendingProposals.mockResolvedValue({ count: 0 } as any);
+      MockedReservationRepo.createTimeProposal.mockResolvedValue(mockProposal as any);
+
+      await reservationStation.proposeTime(
+        reservationId,
+        gamingCenterId,
+        staffUserId,
+        { date: '2028-06-16', slotTime: '14:00', durationHours: 1, note: 'Afternoon slot' },
+        actor
+      );
+
+      expect(MockedReservationRepo.createTimeProposal).toHaveBeenCalledWith(
+        expect.objectContaining({
+          proposedStartTime: new Date('2028-06-16T14:00:00.000Z'),
+          proposedEndTime: new Date('2028-06-16T15:00:00.000Z'),
+        }),
+        expect.anything()
+      );
+    });
+
+    it('should reject proposed time that is not aligned to 60-minute slot grid', async () => {
+      MockedReservationRepo.findReservationById.mockResolvedValue(mockReservation as any);
+      MockedReservationRepo.findGamingCenterWithSettings.mockResolvedValue({
+        id: gamingCenterId,
+        openingTime: '09:00',
+        closingTime: '23:00',
+        timezone: 'UTC',
+        closedDays: [],
+        schedules: [],
+        closures: [],
+        settings: { timeZone: 'UTC', workStartTime: '09:00', workEndTime: '23:00' },
+      } as any);
+
+      await expect(
+        reservationStation.proposeTime(
+          reservationId,
+          gamingCenterId,
+          staffUserId,
+          {
+            startTime: '2028-06-16T14:15:00.000Z',
+            endTime: '2028-06-16T15:15:00.000Z',
+          },
+          actor
+        )
+      ).rejects.toThrow(AppError);
+    });
+
+    it('should reject proposed slot if it overlaps another reservation on the station', async () => {
+      MockedReservationRepo.findReservationById.mockResolvedValue(mockReservation as any);
+      MockedReservationRepo.findGamingCenterWithSettings.mockResolvedValue({
+        id: gamingCenterId,
+        openingTime: '09:00',
+        closingTime: '23:00',
+        timezone: 'UTC',
+        closedDays: [],
+        schedules: [],
+        closures: [],
+        settings: { timeZone: 'UTC', workStartTime: '09:00', workEndTime: '23:00' },
+      } as any);
+      MockedReservationRepo.findOverlappingReservation.mockResolvedValue({ id: 'other-res' } as any);
+
+      await expect(
+        reservationStation.proposeTime(
+          reservationId,
+          gamingCenterId,
+          staffUserId,
+          { date: '2028-06-16', slotTime: '14:00', durationHours: 1 },
+          actor
+        )
+      ).rejects.toThrow(AppError);
+    });
+
   });
 
   describe('Customer acceptProposal', () => {

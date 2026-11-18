@@ -64,14 +64,29 @@ export const proposeTimeSchema = z.object({
   params: z.object({
     reservationId: idSchema(CUID_MESSAGE),
   }),
-  body: z.object({
-    startTime: z.string().datetime(),
-    endTime: z.string().datetime(),
-    note: z.string().max(500).optional(),
-  }).refine((data) => new Date(data.endTime) > new Date(data.startTime), {
-    message: 'endTime must be after startTime',
-    path: ['endTime'],
-  }),
+  body: z
+    .object({
+      startTime: z.string().datetime().optional(),
+      endTime: z.string().datetime().optional(),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD').optional(),
+      slotTime: z.string().regex(/^\d{2}:\d{2}$/, 'slotTime must be HH:mm').optional(),
+      durationHours: z.number().int().positive().max(24).optional(),
+      note: z.string().max(500).optional(),
+    })
+    .refine(
+      (data) => Boolean(data.startTime) || Boolean(data.date && data.slotTime),
+      {
+        message: 'Either startTime or both date and slotTime must be provided',
+        path: ['startTime'],
+      }
+    )
+    .refine(
+      (data) => !data.startTime || !data.endTime || new Date(data.endTime) > new Date(data.startTime),
+      {
+        message: 'endTime must be after startTime',
+        path: ['endTime'],
+      }
+    ),
 });
 
 export const proposalActionParamsSchema = z.object({
