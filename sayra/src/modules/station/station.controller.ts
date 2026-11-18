@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import * as stationLogic from './station.station';
+import * as extraControllerService from './extra-controller.service';
 import {
   CreateStationInput,
   UpdateStationInput,
@@ -196,6 +197,113 @@ export async function deleteStation(
       (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
       { ip: req.ip, userAgent: req.headers['user-agent'] }
     );
+    res.noContent();
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getExtraControllers(
+  req: Request<{ gamingCenterId: string; stationId: string }>,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { gamingCenterId, stationId } = req.params;
+    const supported = await extraControllerService.isExtraControllerSupportedForStation(stationId);
+    const items = await extraControllerService.getStationExtraControllers(stationId, { gamingCenterId });
+    res.ok({ extraControllerEnabled: supported, extraControllers: items });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getPublicExtraControllers(
+  req: RequestWithGamingCenter,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { stationId } = req.params;
+    const targetGamingCenterId = req.tenant?.gamingCenterId || req.gamingCenter?.id || req.gamingCenterId;
+    const startTime = typeof req.query.startTime === 'string' ? new Date(req.query.startTime) : undefined;
+    const endTime = typeof req.query.endTime === 'string' ? new Date(req.query.endTime) : undefined;
+
+    const items = await extraControllerService.getStationExtraControllers(stationId, {
+      gamingCenterId: targetGamingCenterId,
+      startTime,
+      endTime,
+      activeOnly: true,
+    });
+    res.ok(items);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function replaceExtraControllers(
+  req: Request<{ gamingCenterId: string; stationId: string }, unknown, { extraControllers: extraControllerService.ExtraControllerConfigInput[] }>,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { gamingCenterId, stationId } = req.params;
+    const items = await extraControllerService.replaceStationExtraControllers(
+      stationId,
+      gamingCenterId,
+      req.body.extraControllers
+    );
+    res.ok(items);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function addExtraController(
+  req: Request<{ gamingCenterId: string; stationId: string }, unknown, extraControllerService.ExtraControllerConfigInput>,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { gamingCenterId, stationId } = req.params;
+    const created = await extraControllerService.addStationExtraController(stationId, gamingCenterId, req.body);
+    res.created(created);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateExtraController(
+  req: Request<
+    { gamingCenterId: string; stationId: string; extraControllerId: string },
+    unknown,
+    Partial<extraControllerService.ExtraControllerConfigInput>
+  >,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { gamingCenterId, stationId, extraControllerId } = req.params;
+    const updated = await extraControllerService.updateStationExtraController(
+      stationId,
+      gamingCenterId,
+      extraControllerId,
+      req.body
+    );
+    res.ok(updated);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteExtraController(
+  req: Request<{ gamingCenterId: string; stationId: string; extraControllerId: string }>,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { gamingCenterId, stationId, extraControllerId } = req.params;
+    await extraControllerService.deleteStationExtraController(stationId, gamingCenterId, extraControllerId);
     res.noContent();
   } catch (error) {
     next(error);

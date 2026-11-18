@@ -27,6 +27,7 @@ export async function createDeviceType(data: CreateDeviceTypeInput) {
       icon: data.icon,
       category: data.category,
       isActive: data.isActive ?? true,
+      extraControllerEnabled: data.extraControllerEnabled ?? false,
     },
   });
 }
@@ -46,13 +47,17 @@ export async function findDeviceTypeById(id: string) {
 }
 
 export async function findDeviceTypes(query: ListDeviceTypeQuery) {
-  const { page, limit, search, isActive, sortBy, sortOrder, category } = query;
+  const { page, limit, search, isActive, sortBy, sortOrder, category, extraControllerEnabled } = query;
   const { skip, take } = getPaginationParams(page, limit);
 
   const where: Prisma.DeviceTypeWhereInput = {};
 
   if (isActive !== undefined) {
     where.isActive = isActive;
+  }
+
+  if (extraControllerEnabled !== undefined) {
+    where.extraControllerEnabled = extraControllerEnabled;
   }
 
   if (category) {

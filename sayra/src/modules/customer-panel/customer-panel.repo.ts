@@ -53,6 +53,7 @@ export const CustomerPanelRepo = {
             name: true,
           },
         },
+        extraControllers: true,
         walletTransactions: {
           where: {
             type: 'REFUND',
@@ -107,6 +108,7 @@ export const CustomerPanelRepo = {
             name: true,
           },
         },
+        extraControllers: true,
         walletTransactions: {
           where: {
             type: 'REFUND',

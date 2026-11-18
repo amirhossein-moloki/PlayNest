@@ -117,6 +117,13 @@ export const createDeviceTypeSchema = z.object({
       }
       return val;
     }, z.boolean().optional().default(true)),
+    extraControllerEnabled: z.preprocess((val) => {
+      if (typeof val === 'string') {
+        if (val.toLowerCase() === 'true') return true;
+        if (val.toLowerCase() === 'false') return false;
+      }
+      return val;
+    }, z.boolean().optional().default(false)),
   }),
 });
 
@@ -131,12 +138,20 @@ export const updateDeviceTypeSchema = z.object({
     icon: z.string().optional().nullable(),
     category: z.nativeEnum(GameStationType).optional(),
     isActive: z.boolean().optional(),
+    extraControllerEnabled: z.boolean().optional(),
   }),
 });
 
 export const listDeviceTypeSchema = baseFilterSchema.extend({
   category: z.nativeEnum(GameStationType).optional(),
   isActive: z.preprocess((val) => {
+    if (typeof val === 'string') {
+      if (val.toLowerCase() === 'true') return true;
+      if (val.toLowerCase() === 'false') return false;
+    }
+    return val;
+  }, z.boolean().optional()),
+  extraControllerEnabled: z.preprocess((val) => {
     if (typeof val === 'string') {
       if (val.toLowerCase() === 'true') return true;
       if (val.toLowerCase() === 'false') return false;

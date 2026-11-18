@@ -3,10 +3,63 @@ import { GameStationType } from '@prisma/client';
 import { baseFilterSchema } from '../../common/validators/query.validators';
 import { idSchema } from '../../common/validators/common.validators';
 
+// Extra Controller config item schema
+export const extraControllerConfigItemSchema = z.object({
+  controllerType: z.string().trim().min(1, 'Controller type is required').max(100),
+  quantity: z.number().int().min(0, 'Quantity cannot be negative').max(100),
+  hourlyPrice: z.number().min(0, 'Hourly price cannot be negative'),
+  isActive: z.boolean().optional().default(true),
+});
+
+export const replaceExtraControllersSchema = z.object({
+  params: z.object({
+    stationId: idSchema('Invalid station ID format'),
+  }),
+  body: z.object({
+    extraControllers: z.array(extraControllerConfigItemSchema),
+  }),
+});
+
+export const createExtraControllerSchema = z.object({
+  params: z.object({
+    stationId: idSchema('Invalid station ID format'),
+  }),
+  body: extraControllerConfigItemSchema,
+});
+
+export const updateExtraControllerSchema = z.object({
+  params: z.object({
+    stationId: idSchema('Invalid station ID format'),
+    extraControllerId: idSchema('Invalid extra controller ID format'),
+  }),
+  body: extraControllerConfigItemSchema.partial().refine(
+    (data) => Object.keys(data).length > 0,
+    { message: 'At least one field must be provided to update' }
+  ),
+});
+
+export const extraControllerIdParamSchema = z.object({
+  params: z.object({
+    stationId: idSchema('Invalid station ID format'),
+    extraControllerId: idSchema('Invalid extra controller ID format'),
+  }),
+});
+
+export const publicExtraControllersQuerySchema = z.object({
+  params: z.object({
+    stationId: idSchema('Invalid station ID format'),
+  }),
+  query: z.object({
+    startTime: z.string().datetime().optional(),
+    endTime: z.string().datetime().optional(),
+  }),
+});
+
 // Base schema for common fields
 const stationBaseSchema = {
   name: z.string().min(1, 'Name is required'),
   stationType: z.nativeEnum(GameStationType).default(GameStationType.PC),
+  deviceTypeId: idSchema('Invalid deviceTypeId format').optional(),
   catalogDeviceId: idSchema('Invalid catalog device ID format').optional(),
   coverImageUrl: z.string().url('Invalid cover image URL').optional(),
   hourlyPrice: z.number().min(0, 'Hourly price cannot be negative'),
@@ -16,6 +69,7 @@ const stationBaseSchema = {
   incrementMinutes: z.number().int().positive().default(30),
   isVip: z.boolean().optional(),
   isActive: z.boolean().optional(),
+  extraControllers: z.array(extraControllerConfigItemSchema).optional(),
 };
 
 // Schema for creating a new station
@@ -37,6 +91,7 @@ export const createStationsFromCatalogSchema = z.object({
     maxRentHours: z.number().int().positive().optional().default(8),
     defaultDurationHours: z.number().int().positive().optional().default(1),
     incrementMinutes: z.number().int().positive().optional().default(30),
+    extraControllers: z.array(extraControllerConfigItemSchema).optional(),
   }),
 });
 
@@ -52,6 +107,7 @@ export const updateStationSchema = z.object({
   body: z.object({
     name: stationBaseSchema.name.optional(),
     stationType: z.nativeEnum(GameStationType).optional(),
+    deviceTypeId: stationBaseSchema.deviceTypeId.optional(),
     catalogDeviceId: stationBaseSchema.catalogDeviceId.optional(),
     coverImageUrl: stationBaseSchema.coverImageUrl.optional(),
     hourlyPrice: stationBaseSchema.hourlyPrice.optional(),
@@ -61,6 +117,7 @@ export const updateStationSchema = z.object({
     incrementMinutes: stationBaseSchema.incrementMinutes.optional(),
     isVip: stationBaseSchema.isVip.optional(),
     isActive: stationBaseSchema.isActive.optional(),
+    extraControllers: stationBaseSchema.extraControllers.optional(),
   }),
   params: z.object({
     stationId: idSchema('Invalid station ID format'),

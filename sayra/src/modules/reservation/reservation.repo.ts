@@ -412,6 +412,9 @@ export const ReservationRepo = {
     const client = tx || prisma;
     return client.reservation.findFirst({
       where: { id, gamingCenterId },
+      include: {
+        extraControllers: true,
+      },
     });
   },
 

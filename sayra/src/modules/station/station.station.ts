@@ -14,6 +14,12 @@ import { discountsStation } from '../discounts/discounts.station';
 import { calculateStationPricing, StationPricing } from '../../common/utils/money';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
+import {
+  ExtraControllerConfigInput,
+  getStationExtraControllers,
+  isExtraControllerSupportedForStation,
+  replaceStationExtraControllers,
+} from './extra-controller.service';
 
 /**
  * Business logic to create stations from a DeviceCatalog entry.
@@ -45,6 +51,7 @@ export async function createStationsFromCatalog(
     stationsToCreate.push({
       name: `${basePrefix} #${stationNumber}`,
       stationType: catalogDevice.deviceType,
+      deviceTypeId: catalogDevice.deviceTypeId ?? undefined,
       catalogDeviceId: catalogDevice.id,
       coverImageUrl: catalogDevice.coverImageUrl,
       hourlyPrice: input.hourlyPrice,
@@ -54,10 +61,17 @@ export async function createStationsFromCatalog(
       defaultDurationHours: input.defaultDurationHours ?? 1,
       incrementMinutes: input.incrementMinutes ?? 30,
       isActive: true,
-    });
+    } as CreateStationInput);
   }
 
   const createdStations = await StationRepo.createManyStations(gamingCenterId, stationsToCreate);
+
+  const extraControllers = (input as CreateStationsFromCatalogInput & { extraControllers?: ExtraControllerConfigInput[] }).extraControllers;
+  if (extraControllers && extraControllers.length > 0) {
+    for (const st of createdStations) {
+      await replaceStationExtraControllers(st.id, gamingCenterId, extraControllers);
+    }
+  }
 
   // Update gaming center PC/Console counts accordingly
   if (catalogDevice.deviceType === 'PC') {
@@ -150,9 +164,14 @@ export async function addGamesFromCatalog(
  * @returns The newly created station.
  */
 export async function createStation(gamingCenterId: string, data: CreateStationInput) {
-  // In a real app, you might have more complex logic here,
-  // e.g., checking for duplicate station names within the same gamingCenter.
-  return StationRepo.createStation(gamingCenterId, data);
+  const { extraControllers, ...stationData } = data as CreateStationInput & {
+    extraControllers?: ExtraControllerConfigInput[];
+  };
+  const created = await StationRepo.createStation(gamingCenterId, stationData);
+  if (extraControllers && extraControllers.length > 0) {
+    await replaceStationExtraControllers(created.id, gamingCenterId, extraControllers);
+  }
+  return created;
 }
 
 /**
@@ -175,10 +194,16 @@ export async function getStationById(stationId: string, gamingCenterId: string) 
   );
 
   const pricing = calculateStationPricing(station.hourlyPrice, applicableDiscount, 1);
+  const [extraControllerEnabled, extraControllers] = await Promise.all([
+    isExtraControllerSupportedForStation(station.id),
+    getStationExtraControllers(station.id, { gamingCenterId }),
+  ]);
 
   return {
     ...station,
     pricing,
+    extraControllerEnabled,
+    extraControllers,
   };
 }
 
@@ -356,7 +381,17 @@ export async function updateStation(
 ) {
   // First, ensure the station exists within this gamingCenter before updating.
   const oldStation = await getStationById(stationId, gamingCenterId);
-  const updatedStation = await StationRepo.updateStation(stationId, gamingCenterId, data);
+  const { extraControllers, ...stationData } = data as UpdateStationInput & {
+    extraControllers?: ExtraControllerConfigInput[];
+  };
+  const updatedStation =
+    Object.keys(stationData).length > 0
+      ? await StationRepo.updateStation(stationId, gamingCenterId, stationData)
+      : oldStation;
+
+  if (extraControllers !== undefined) {
+    await replaceStationExtraControllers(stationId, gamingCenterId, extraControllers);
+  }
 
   // Log if price changed
   if (data.hourlyPrice !== undefined && data.hourlyPrice !== oldStation.hourlyPrice) {

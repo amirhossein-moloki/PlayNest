@@ -15,6 +15,10 @@ import { LedgerRepo } from '../payments/ledger.repo';
 import { commissionsStation } from '../commissions/commissions.station';
 import { prisma } from '../../config/prisma';
 import logger from '../../config/logger';
+import {
+  ExtraControllerSelectionInput,
+  validateAndPriceExtraControllers,
+} from '../station/extra-controller.service';
 
 export const DEFAULT_HOLD_EXPIRATION_MINUTES = 10;
 export const OTP_POST_VERIFICATION_WINDOW_MINUTES = 15;
@@ -22,7 +26,11 @@ export const OTP_POST_VERIFICATION_WINDOW_MINUTES = 15;
 export interface CreateBookingHoldInput {
   startTime: string;
   durationMinutes?: number;
-  items: Array<{ stationId: string; staffId?: string }>;
+  items: Array<{
+    stationId: string;
+    staffId?: string;
+    extraControllers?: ExtraControllerSelectionInput[];
+  }>;
   customer: { fullName: string; phone: string; email?: string };
   note?: string;
   provider?: string;
@@ -145,25 +153,38 @@ export const BookingHoldStation = {
         });
       }
 
-      // 4. Calculate prices & dynamic discounts server-side
+      // 4. Calculate prices, extra controllers & dynamic discounts server-side
       let aggregatePrice = 0;
       let aggregateDiscount = 0;
+      let aggregateExtraControllersCost = 0;
       void aggregateDiscount;
       const preparedItems = [];
 
       for (const item of items) {
         const station = stationMap.get(item.stationId)!;
-        const itemBasePrice = calculateBasePrice(totalHours, station.hourlyPrice);
+        const stationBasePrice = calculateBasePrice(totalHours, station.hourlyPrice);
+
+        const pricedExtras = await validateAndPriceExtraControllers(
+          station.id,
+          startTime,
+          endTime,
+          totalHours,
+          item.extraControllers,
+          tx
+        );
+        aggregateExtraControllersCost += pricedExtras.totalCost;
+
+        const itemGrossPrice = stationBasePrice + pricedExtras.totalCost;
 
         const { applicableDiscount, discountAmount } = await discountsStation.calculateApplicableDiscount(
           gamingCenter.id,
           station.id,
-          itemBasePrice,
+          itemGrossPrice,
           startTime,
           tx
         );
 
-        const itemFinalPrice = Math.max(0, itemBasePrice - discountAmount);
+        const itemFinalPrice = Math.max(0, itemGrossPrice - discountAmount);
         aggregatePrice += itemFinalPrice;
         aggregateDiscount += discountAmount;
 
@@ -171,13 +192,16 @@ export const BookingHoldStation = {
           stationId: station.id,
           staffId: item.staffId,
           price: itemFinalPrice,
+          extraControllersTotalCost: pricedExtras.totalCost,
           discountAmount,
           discountId: applicableDiscount?.id,
+          extraControllers: pricedExtras.items,
           stationSnapshot: {
             name: station.name,
             hourlyPrice: station.hourlyPrice,
             stationType: station.stationType,
             currency: 'IRR',
+            extraControllers: pricedExtras.items,
           },
         });
       }
@@ -230,6 +254,7 @@ export const BookingHoldStation = {
           durationMinutes,
           playerCount: items.length,
           totalAmount: Math.round(aggregatePrice),
+          extraControllersTotalCost: aggregateExtraControllersCost,
           currency: 'IRR',
           status: BookingHoldStatus.ACTIVE,
           expiresAt,

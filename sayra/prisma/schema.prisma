@@ -542,7 +542,8 @@ model GamingCenter {
   manager   User?   @relation("GamingCenterManager", fields: [managerId], references: [id], onDelete: SetNull)
 
   users        User[]
-  stations     GameStation[]
+  stations                GameStation[]
+  stationExtraControllers StationExtraController[]
   reservations Reservation[]
   shifts       StaffShift[]
   settings     Settings?
@@ -1401,8 +1402,9 @@ model DeviceType {
   slug        String          @unique
   description String?
   icon        String?
-  category    GameStationType @default(PC)
-  isActive    Boolean         @default(true)
+  category               GameStationType @default(PC)
+  isActive               Boolean         @default(true)
+  extraControllerEnabled Boolean         @default(false)
 
   deviceCatalogs DeviceCatalog[]
   stations       GameStation[]
@@ -1482,6 +1484,7 @@ model GameStation {
   bookingHoldItems  BookingHoldItem[]
   waitlistEntries   WaitlistEntry[]
   waitlistOffers    WaitlistOffer[]
+  extraControllers  StationExtraController[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1554,9 +1557,10 @@ model Reservation {
   // Snapshot
   stationSnapshot Json
 
-  totalHours             Float
-  totalPrice             Float
-  discountAmount         Float                   @default(0)
+  totalHours                Float
+  totalPrice                Float
+  extraControllersTotalCost Float                   @default(0)
+  discountAmount            Float                   @default(0)
   originalAmount         Float                   @default(0)
   customerPayableAmount  Float                   @default(0)
   platformFundedDiscount Float                   @default(0)
@@ -1599,6 +1603,7 @@ model Reservation {
   gamingSessions     GamingSession[]
   proposals          ReservationTimeProposal[]
   history            ReservationHistory[]
+  extraControllers   ReservationExtraController[]
 
   groupBookingId String?
   groupBooking   GroupBooking? @relation(fields: [groupBookingId], references: [id], onDelete: SetNull)
@@ -1640,9 +1645,10 @@ model GroupBooking {
   startTime DateTime @db.Timestamptz(6)
   endTime   DateTime @db.Timestamptz(6)
 
-  totalHours     Float
-  totalPrice     Float
-  discountAmount Float                   @default(0)
+  totalHours                Float
+  totalPrice                Float
+  extraControllersTotalCost Float                   @default(0)
+  discountAmount            Float                   @default(0)
   paymentState   ReservationPaymentState @default(UNPAID)
   status         ReservationStatus       @default(CONFIRMED)
   note           String?
@@ -1711,8 +1717,9 @@ model BookingHold {
   durationMinutes Int      @default(60)
   playerCount     Int      @default(1)
 
-  totalAmount Int
-  currency    String            @default("IRR")
+  totalAmount               Int
+  extraControllersTotalCost Float             @default(0)
+  currency                  String            @default("IRR")
   status      BookingHoldStatus @default(ACTIVE)
 
   expiresAt DateTime @db.Timestamptz(6)
@@ -1747,17 +1754,84 @@ model BookingHoldItem {
 
   staffId String?
 
-  price          Float
-  discountAmount Float   @default(0)
-  discountId     String?
+  price                     Float
+  extraControllersTotalCost Float   @default(0)
+  discountAmount            Float   @default(0)
+  discountId                String?
 
-  stationSnapshot Json
+  stationSnapshot  Json
+  extraControllers BookingHoldExtraController[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([bookingHoldId])
   @@index([stationId])
+}
+
+model StationExtraController {
+  id String @id @default(cuid())
+
+  stationId String
+  station   GameStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  gamingCenterId String
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+
+  controllerType String
+  quantity       Int
+  hourlyPrice    Float
+  isActive       Boolean @default(true)
+
+  bookingHoldExtras BookingHoldExtraController[]
+  reservationExtras ReservationExtraController[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([stationId, controllerType])
+  @@index([stationId, isActive])
+  @@index([gamingCenterId])
+}
+
+model BookingHoldExtraController {
+  id String @id @default(cuid())
+
+  bookingHoldItemId String
+  bookingHoldItem   BookingHoldItem @relation(fields: [bookingHoldItemId], references: [id], onDelete: Cascade)
+
+  extraControllerId String?
+  extraController   StationExtraController? @relation(fields: [extraControllerId], references: [id], onDelete: SetNull)
+
+  controllerType String
+  quantity       Int
+  hourlyPrice    Float
+  totalCost      Float
+
+  createdAt DateTime @default(now())
+
+  @@index([bookingHoldItemId])
+  @@index([extraControllerId])
+}
+
+model ReservationExtraController {
+  id String @id @default(cuid())
+
+  reservationId String
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  extraControllerId String?
+  extraController   StationExtraController? @relation(fields: [extraControllerId], references: [id], onDelete: SetNull)
+
+  controllerType String
+  quantity       Int
+  hourlyPrice    Float
+  totalCost      Float
+
+  createdAt DateTime @default(now())
+
+  @@index([reservationId])
+  @@index([extraControllerId])
 }
 
 model ReservationTimeProposal {
@@ -2877,9 +2951,10 @@ model AnalyticsReservation {
   stationId              String
   startTime              DateTime                @db.Timestamptz(6)
   endTime                DateTime                @db.Timestamptz(6)
-  totalHours             Float
-  totalPrice             Float
-  discountAmount         Float                   @default(0)
+  totalHours                Float
+  totalPrice                Float
+  extraControllersTotalCost Float                   @default(0)
+  discountAmount            Float                   @default(0)
   originalAmount         Float                   @default(0)
   customerPayableAmount  Float                   @default(0)
   platformFundedDiscount Float                   @default(0)

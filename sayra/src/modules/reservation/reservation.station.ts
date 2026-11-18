@@ -32,6 +32,10 @@ import {
 
 import { reservationProposals } from './reservation.proposals';
 import { reservationLifecycle } from './reservation.lifecycle';
+import {
+  ExtraControllerSelectionInput,
+  validateAndPriceExtraControllers,
+} from '../station/extra-controller.service';
 
 const OTP_POST_VERIFICATION_WINDOW_MINUTES = 5;
 
@@ -238,8 +242,17 @@ export const reservationStation = {
 
       await ReservationRepo.assertActiveReservationLimitNotExceeded(customerAccount.id, tx);
 
-      // 2. Calculate base price and applicable discount & financials
-      const basePrice = calculateBasePrice(durationHours, station.hourlyPrice);
+      // 2. Calculate base price, extra controllers, and applicable discount & financials
+      const stationBasePrice = calculateBasePrice(durationHours, station.hourlyPrice);
+      const pricedExtras = await validateAndPriceExtraControllers(
+        stationId,
+        startTime,
+        endTime,
+        durationHours,
+        input.extraControllers as ExtraControllerSelectionInput[] | undefined,
+        tx
+      );
+      const basePrice = stationBasePrice + pricedExtras.totalCost;
 
       const financials = await calculateReservationFinancials(
         gamingCenterId,
@@ -266,9 +279,11 @@ export const reservationStation = {
           name: station.name,
           hourlyPrice: station.hourlyPrice,
           stationType: station.stationType,
-        },
+          ...(pricedExtras.items.length > 0 ? { extraControllers: pricedExtras.items } : {}),
+        } as unknown as Prisma.InputJsonValue,
         totalHours: durationHours,
         totalPrice: financials.customerPayableAmount,
+        ...(pricedExtras.totalCost > 0 ? { extraControllersTotalCost: pricedExtras.totalCost } : {}),
         discountAmount: financials.discountAmount,
         originalAmount: financials.originalAmount,
         customerPayableAmount: financials.customerPayableAmount,
@@ -278,6 +293,19 @@ export const reservationStation = {
         campaignId: financials.campaignId,
         voucherCode: financials.voucherCode,
         discountId: financials.discountId,
+        ...(pricedExtras.items.length > 0
+          ? {
+              extraControllers: {
+                create: pricedExtras.items.map((ec) => ({
+                  extraControllerId: ec.extraControllerId,
+                  controllerType: ec.controllerType,
+                  quantity: ec.quantity,
+                  hourlyPrice: ec.hourlyPrice,
+                  totalCost: ec.totalCost,
+                })),
+              },
+            }
+          : {}),
       }, tx);
 
       if (financials.campaignId) {
@@ -415,7 +443,16 @@ export const reservationStation = {
           ? ReservationStatus.CONFIRMED
           : ReservationStatus.PENDING;
 
-        const basePrice = calculateBasePrice(durationHours, station.hourlyPrice);
+        const stationBasePrice = calculateBasePrice(durationHours, station.hourlyPrice);
+        const pricedExtras = await validateAndPriceExtraControllers(
+          station.id,
+          startTime,
+          endTime,
+          durationHours,
+          input.extraControllers as ExtraControllerSelectionInput[] | undefined,
+          tx
+        );
+        const basePrice = stationBasePrice + pricedExtras.totalCost;
 
         const financials = await calculateReservationFinancials(
           gamingCenter.id,
@@ -451,9 +488,11 @@ export const reservationStation = {
             name: station.name,
             hourlyPrice: station.hourlyPrice,
             stationType: station.stationType,
-          },
+            ...(pricedExtras.items.length > 0 ? { extraControllers: pricedExtras.items } : {}),
+          } as unknown as Prisma.InputJsonValue,
           totalHours: durationHours,
           totalPrice: financials.customerPayableAmount,
+          ...(pricedExtras.totalCost > 0 ? { extraControllersTotalCost: pricedExtras.totalCost } : {}),
           discountAmount: financials.discountAmount,
           originalAmount: financials.originalAmount,
           customerPayableAmount: financials.customerPayableAmount,
@@ -463,6 +502,19 @@ export const reservationStation = {
           campaignId: financials.campaignId,
           voucherCode: financials.voucherCode,
           discountId: financials.discountId,
+          ...(pricedExtras.items.length > 0
+            ? {
+                extraControllers: {
+                  create: pricedExtras.items.map((ec) => ({
+                    extraControllerId: ec.extraControllerId,
+                    controllerType: ec.controllerType,
+                    quantity: ec.quantity,
+                    hourlyPrice: ec.hourlyPrice,
+                    totalCost: ec.totalCost,
+                  })),
+                },
+              }
+            : {}),
         }, tx);
 
         if (financials.campaignId) {

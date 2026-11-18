@@ -101,6 +101,7 @@ export const BookingHoldRepo = {
         items: {
           include: {
             station: true,
+            extraControllers: true,
           },
         },
         payment: true,
@@ -154,6 +155,7 @@ export const BookingHoldRepo = {
         items: {
           include: {
             station: true,
+            extraControllers: true,
           },
         },
         payment: true,
@@ -181,6 +183,7 @@ export const BookingHoldRepo = {
         items: {
           include: {
             station: true,
+            extraControllers: true,
           },
         },
         payment: true,
@@ -198,6 +201,7 @@ export const BookingHoldRepo = {
       durationMinutes: number;
       playerCount: number;
       totalAmount: number;
+      extraControllersTotalCost?: number;
       currency: string;
       status: BookingHoldStatus;
       expiresAt: Date;
@@ -207,9 +211,17 @@ export const BookingHoldRepo = {
         stationId: string;
         staffId?: string;
         price: number;
+        extraControllersTotalCost?: number;
         discountAmount: number;
         discountId?: string;
         stationSnapshot: Prisma.InputJsonValue;
+        extraControllers?: Array<{
+          extraControllerId: string;
+          controllerType: string;
+          quantity: number;
+          hourlyPrice: number;
+          totalCost: number;
+        }>;
       }>;
     },
     tx: Prisma.TransactionClient
@@ -224,6 +236,7 @@ export const BookingHoldRepo = {
         durationMinutes: data.durationMinutes,
         playerCount: data.playerCount,
         totalAmount: data.totalAmount,
+        extraControllersTotalCost: data.extraControllersTotalCost ?? 0,
         currency: data.currency,
         status: data.status,
         expiresAt: data.expiresAt,
@@ -234,9 +247,23 @@ export const BookingHoldRepo = {
             stationId: item.stationId,
             staffId: item.staffId,
             price: item.price,
+            extraControllersTotalCost: item.extraControllersTotalCost ?? 0,
             discountAmount: item.discountAmount,
             discountId: item.discountId,
             stationSnapshot: item.stationSnapshot,
+            ...(item.extraControllers && item.extraControllers.length > 0
+              ? {
+                  extraControllers: {
+                    create: item.extraControllers.map((ec) => ({
+                      extraControllerId: ec.extraControllerId,
+                      controllerType: ec.controllerType,
+                      quantity: ec.quantity,
+                      hourlyPrice: ec.hourlyPrice,
+                      totalCost: ec.totalCost,
+                    })),
+                  },
+                }
+              : {}),
           })),
         },
       },
@@ -244,6 +271,7 @@ export const BookingHoldRepo = {
         items: {
           include: {
             station: true,
+            extraControllers: true,
           },
         },
         payment: true,
@@ -312,6 +340,7 @@ export const BookingHoldRepo = {
         endTime: hold.endTime,
         totalHours,
         totalPrice: hold.totalAmount,
+        extraControllersTotalCost: hold.extraControllersTotalCost ?? 0,
         discountAmount: aggregateDiscount,
         status: ReservationStatus.CONFIRMED,
         paymentState: ReservationPaymentState.PAID,
@@ -347,6 +376,7 @@ export const BookingHoldRepo = {
           endTime: hold.endTime,
           totalHours,
           totalPrice: item.price,
+          extraControllersTotalCost: item.extraControllersTotalCost ?? 0,
           discountAmount: item.discountAmount,
           discountId: item.discountId,
           status: ReservationStatus.CONFIRMED,
@@ -355,6 +385,19 @@ export const BookingHoldRepo = {
           note: hold.note,
           paymentState: ReservationPaymentState.PAID,
           stationSnapshot: item.stationSnapshot as Prisma.InputJsonValue,
+          ...(item.extraControllers && item.extraControllers.length > 0
+            ? {
+                extraControllers: {
+                  create: item.extraControllers.map((ec) => ({
+                    extraControllerId: ec.extraControllerId,
+                    controllerType: ec.controllerType,
+                    quantity: ec.quantity,
+                    hourlyPrice: ec.hourlyPrice,
+                    totalCost: ec.totalCost,
+                  })),
+                },
+              }
+            : {}),
         },
       });
       createdReservationIds.push(reservation.id);

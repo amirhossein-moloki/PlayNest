@@ -7,6 +7,11 @@ import {
   stationIdParamSchema,
   createStationsFromCatalogSchema,
   addGamesFromCatalogSchema,
+  replaceExtraControllersSchema,
+  createExtraControllerSchema,
+  updateExtraControllerSchema,
+  extraControllerIdParamSchema,
+  publicExtraControllersQuerySchema,
 } from './station.validator';
 import { authMiddleware } from '../../common/middleware/auth';
 import { requireRole } from '../../common/middleware/requireRole';
@@ -118,6 +123,57 @@ privateStationRouter.delete(
   asyncHandler(StationController.deleteStation)
 );
 
+// Extra Controller Management (Manager)
+privateStationRouter.get(
+  '/:stationId/extra-controllers',
+  privateApiRateLimiter,
+  authMiddleware,
+  tenantGuard,
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
+  validate(stationIdParamSchema),
+  asyncHandler(StationController.getExtraControllers)
+);
+
+privateStationRouter.put(
+  '/:stationId/extra-controllers',
+  privateApiRateLimiter,
+  authMiddleware,
+  tenantGuard,
+  requireRole([UserRole.MANAGER]),
+  validate(replaceExtraControllersSchema),
+  asyncHandler(StationController.replaceExtraControllers)
+);
+
+privateStationRouter.post(
+  '/:stationId/extra-controllers',
+  privateApiRateLimiter,
+  authMiddleware,
+  tenantGuard,
+  requireRole([UserRole.MANAGER]),
+  validate(createExtraControllerSchema),
+  asyncHandler(StationController.addExtraController)
+);
+
+privateStationRouter.patch(
+  '/:stationId/extra-controllers/:extraControllerId',
+  privateApiRateLimiter,
+  authMiddleware,
+  tenantGuard,
+  requireRole([UserRole.MANAGER]),
+  validate(updateExtraControllerSchema),
+  asyncHandler(StationController.updateExtraController)
+);
+
+privateStationRouter.delete(
+  '/:stationId/extra-controllers/:extraControllerId',
+  privateApiRateLimiter,
+  authMiddleware,
+  tenantGuard,
+  requireRole([UserRole.MANAGER]),
+  validate(extraControllerIdParamSchema),
+  asyncHandler(StationController.deleteExtraController)
+);
+
 // --- Public Router (to be mounted under /api/v1/public/gamingCenters/:gamingCenterSlug/stations) ---
 export const publicStationRouter = Router({ mergeParams: true });
 
@@ -131,4 +187,12 @@ publicStationRouter.get(
     next();
   },
   asyncHandler(StationController.getStations)
+);
+
+publicStationRouter.get(
+  '/:stationId/extra-controllers',
+  publicApiRateLimiter,
+  resolveGamingCenterBySlug,
+  validate(publicExtraControllersQuerySchema),
+  asyncHandler(StationController.getPublicExtraControllers)
 );

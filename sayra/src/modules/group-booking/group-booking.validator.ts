@@ -2,9 +2,15 @@ import { z } from 'zod';
 import { ReservationSource, ReservationStatus } from '@prisma/client';
 import { idSchema, CUID_MESSAGE } from '../../common/validators/common.validators';
 
+export const extraControllerSelectionSchema = z.object({
+  extraControllerId: idSchema(CUID_MESSAGE),
+  quantity: z.number().int().positive('Extra controller quantity must be at least 1').max(100),
+});
+
 export const groupBookingItemSchema = z.object({
   stationId: idSchema(CUID_MESSAGE),
   staffId: idSchema(CUID_MESSAGE).optional(),
+  extraControllers: z.array(extraControllerSelectionSchema).optional(),
 });
 
 export const customerSchema = z.object({

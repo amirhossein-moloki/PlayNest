@@ -7,6 +7,11 @@ import { idSchema, CUID_MESSAGE } from '../../common/validators/common.validator
 // Panel Schemas
 // =================================
 
+const extraControllerSelectionSchema = z.object({
+  extraControllerId: idSchema(CUID_MESSAGE),
+  quantity: z.number().int().positive('Extra controller quantity must be at least 1').max(100),
+});
+
 export const createReservationSchema = z.object({
   body: z.object({
     stationId: idSchema(CUID_MESSAGE),
@@ -20,6 +25,7 @@ export const createReservationSchema = z.object({
     }),
     note: z.string().max(500).optional(),
     voucherCode: z.string().trim().optional(),
+    extraControllers: z.array(extraControllerSelectionSchema).optional(),
   }),
 });
 
@@ -142,6 +148,7 @@ export const createPublicReservationSchema = z.object({
     }),
     note: z.string().max(500).optional(),
     voucherCode: z.string().trim().optional(),
+    extraControllers: z.array(extraControllerSelectionSchema).optional(),
   }),
 });
 
