@@ -18,7 +18,8 @@ import { getPaginationParams, formatPaginatedResult } from '../../common/utils/p
 // ==========================================
 
 export async function createDeviceType(data: CreateDeviceTypeInput) {
-  const slug = data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+  const generatedSlug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+  const slug = data.slug || generatedSlug || `device-type-${Date.now()}`;
   return prisma.deviceType.create({
     data: {
       name: data.name,
