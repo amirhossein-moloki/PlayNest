@@ -96,6 +96,8 @@ export const listReservationQuerySchema = z.object({
     status: z.nativeEnum(ReservationStatus).optional(),
     staffId: idSchema(CUID_MESSAGE).optional(),
     customerProfileId: idSchema(CUID_MESSAGE).optional(),
+    checkInCode: z.string().trim().min(1).max(10).optional(),
+    search: z.string().trim().min(1).max(100).optional(),
     dateFrom: z.string().datetime().optional(),
     dateTo: z.string().datetime().optional(),
   }),

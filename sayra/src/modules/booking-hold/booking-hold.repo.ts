@@ -1,5 +1,6 @@
 import { Prisma, BookingHoldStatus, ReservationStatus, PaymentStatus, ReservationPaymentState, ReservationSource } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { generateUniqueCheckInCode } from '../reservation/reservation.code';
 
 export const BookingHoldRepo = {
   async lockStationsForUpdate(stationIds: string[], tx: Prisma.TransactionClient): Promise<void> {
@@ -331,6 +332,7 @@ export const BookingHoldRepo = {
 
     // 2. Create Reservations for each item
     for (const item of hold.items) {
+      const checkInCode = await generateUniqueCheckInCode(hold.gamingCenterId, tx);
       const reservation = await tx.reservation.create({
         data: {
           gamingCenterId: hold.gamingCenterId,
@@ -348,6 +350,7 @@ export const BookingHoldRepo = {
           discountId: item.discountId,
           status: ReservationStatus.CONFIRMED,
           source: ReservationSource.ONLINE,
+          checkInCode,
           note: hold.note,
           paymentState: ReservationPaymentState.PAID,
           stationSnapshot: item.stationSnapshot as Prisma.InputJsonValue,

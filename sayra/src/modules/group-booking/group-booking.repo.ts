@@ -1,5 +1,6 @@
 import { Prisma, ReservationStatus, ReservationPaymentState, ReservationSource } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { generateUniqueCheckInCode } from '../reservation/reservation.code';
 
 export const GroupBookingRepo = {
   async findStationsBatch(stationIds: string[], gamingCenterId: string, isActive?: boolean, tx?: Prisma.TransactionClient) {
@@ -151,6 +152,7 @@ export const GroupBookingRepo = {
 
     // 2. For each item, create Reservation & GroupBookingItem
     for (const item of data.items) {
+      const checkInCode = await generateUniqueCheckInCode(data.gamingCenterId, tx);
       const reservation = await tx.reservation.create({
         data: {
           gamingCenterId: data.gamingCenterId,
@@ -168,6 +170,7 @@ export const GroupBookingRepo = {
           discountId: item.discountId,
           status: data.status,
           source: data.source || ReservationSource.WALK_IN,
+          checkInCode,
           note: data.note,
           paymentState: data.paymentState,
           expiresAt: data.expiresAt,

@@ -2,6 +2,7 @@ import { Prisma, ReservationPaymentState, ReservationProposalStatus, Reservation
 import { prisma } from '../../config/prisma';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
+import { generateUniqueCheckInCode } from './reservation.code';
 
 export const ReservationRepo = {
   async lockStationForUpdate(stationId: string, tx: Prisma.TransactionClient): Promise<void> {
@@ -397,7 +398,14 @@ export const ReservationRepo = {
 
   async createReservation(data: Prisma.ReservationUncheckedCreateInput, tx?: Prisma.TransactionClient) {
     const client = tx || prisma;
-    return client.reservation.create({ data });
+    const checkInCode =
+      data.checkInCode ?? (await generateUniqueCheckInCode(data.gamingCenterId, client));
+    return client.reservation.create({
+      data: {
+        ...data,
+        checkInCode,
+      },
+    });
   },
 
   async findReservationById(id: string, gamingCenterId: string, tx?: Prisma.TransactionClient) {

@@ -511,12 +511,36 @@ export const reservationStation = {
 
   /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
   async getReservation(gamingCenterId: string, query: ListReservationQuery, actor: { id: string, role: UserRole }) {
-    const { page = 1, pageSize = 20, sortBy = 'startTime', sortOrder = 'asc', status, staffId, customerProfileId, dateFrom, dateTo } = query;
+    const {
+      page = 1,
+      pageSize = 20,
+      sortBy = 'startTime',
+      sortOrder = 'asc',
+      status,
+      staffId,
+      customerProfileId,
+      checkInCode,
+      search,
+      dateFrom,
+      dateTo,
+    } = query;
     const where: Prisma.ReservationWhereInput = {
       gamingCenterId,
       status,
       staffId,
       customerProfileId,
+      ...(checkInCode ? { checkInCode } : {}),
+      ...(search
+        ? {
+            OR: [
+              { checkInCode: { contains: search, mode: 'insensitive' } },
+              { customerProfile: { displayName: { contains: search, mode: 'insensitive' } } },
+              { customerAccount: { fullName: { contains: search, mode: 'insensitive' } } },
+              { customerAccount: { phone: { contains: search } } },
+              { id: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
       startTime: {
         gte: dateFrom ? new Date(dateFrom) : undefined,
         lt: dateTo ? new Date(dateTo) : undefined,
