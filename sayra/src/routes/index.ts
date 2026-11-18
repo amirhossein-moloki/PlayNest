@@ -42,6 +42,7 @@ import {
   publicMediaRouter,
   publicPagesRouter,
   publicGamingCenterRouter,
+  publicGamingCentersRouter,
   publicAdvertisementsRouter,
 } from '../modules/public/public.routes';
 import { advertisementRouter } from '../modules/advertisement/advertisement.routes';
@@ -173,6 +174,7 @@ router.use('/gamingCenters/:gamingCenterId/customers', customersRouter);
 router.use('/gamingCenters/:gamingCenterId/ratings', privateReviewsRouter);
 
 // Public GamingCenter Root & Reviews
+router.use('/public/gaming-centers', publicGamingCentersRouter);
 router.use('/public/gamingCenters/:gamingCenterSlug', publicGamingCenterRouter);
 router.use('/public/gamingCenters/:gamingCenterSlug', publicReviewsRouter);
 

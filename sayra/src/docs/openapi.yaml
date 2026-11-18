@@ -5798,6 +5798,40 @@ paths:
                 $ref: '#/components/schemas/Success'
       operationId: patch_gamingCenters_gamingCenterId_ratings_id_status
       description: Moderate a review (status update)
+  /public/gaming-centers/cities:
+    get:
+      summary: List cities with registered active gaming centers
+      description: Returns unique cities that have at least one active registered gaming center, along with the count of active centers per city.
+      tags:
+      - Public
+      operationId: get_public_gaming_centers_cities
+      responses:
+        '200':
+          description: List of registered gaming center cities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - city
+                      - gamingCenterCount
+                      properties:
+                        city:
+                          type: string
+                          example: Tehran
+                        gamingCenterCount:
+                          type: integer
+                          example: 12
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /public/gamingCenters/{gamingCenterSlug}:
     get:
       summary: Get public gaming center info

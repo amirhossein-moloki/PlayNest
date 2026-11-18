@@ -9,8 +9,10 @@ import {
   getPublicGamingCenterHome,
 } from './pages.public.controller';
 import { PublicAdvertisementsController } from './advertisements.public.controller';
+import { PublicGamingCentersController } from './gamingCenters.public.controller';
 
 export const publicGamingCenterRouter = Router({ mergeParams: true });
+export const publicGamingCentersRouter = Router();
 export const publicAdvertisementsRouter = Router({ mergeParams: true });
 export const publicPagesRouter = Router({ mergeParams: true });
 export const publicMediaRouter = Router({ mergeParams: true });
@@ -65,4 +67,11 @@ publicGamingCenterRouter.get(
   publicApiRateLimiter,
   resolveGamingCenterBySlug,
   PublicAdvertisementsController.getSliderAdvertisements
+);
+
+// Public Registered Cities
+publicGamingCentersRouter.get(
+  '/cities',
+  publicApiRateLimiter,
+  PublicGamingCentersController.getRegisteredCities
 );
