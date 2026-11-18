@@ -400,5 +400,105 @@ describe('AvailabilityStation 60-Minute Slots', () => {
       expect(slots[2].unavailableReason).toBe('CLOSED');
       expect(slots[3].isAvailable).toBe(true); // 13:00-14:00 available
     });
+
+    it('should mark slots within 15-minute minimum lead time as unavailable with reason PAST', async () => {
+      const extendedStation = {
+        ...baseStation,
+        gamingCenter: {
+          ...baseStation.gamingCenter,
+          openingTime: '12:00',
+          closingTime: '16:00',
+          settings: {
+            ...baseStation.gamingCenter.settings,
+            workStartTime: '12:00',
+            workEndTime: '16:00',
+          },
+        },
+      };
+
+      // Current time is 13:47 -> 14:00 slot is only 13 minutes away (< 15 min)
+      jest.setSystemTime(new Date('2026-11-10T13:47:00.000Z'));
+
+      MockedAvailabilityRepo.findStationWithGamingCenter.mockResolvedValue(extendedStation as any);
+      MockedAvailabilityRepo.findStaffList.mockResolvedValue([]);
+      MockedAvailabilityRepo.findShifts.mockResolvedValue([]);
+      MockedAvailabilityRepo.findReservation.mockResolvedValue([]);
+      MockedAvailabilityRepo.findMaintenances.mockResolvedValue([]);
+
+      const results = await getAvailableSlots({
+        gamingCenterSlug,
+        stationId,
+        date: '2026-11-10',
+      });
+
+      const slots = results[0].slots;
+      expect(slots).toHaveLength(4);
+      // 12:00-13:00 -> PAST
+      expect(slots[0].isAvailable).toBe(false);
+      expect(slots[0].unavailableReason).toBe('PAST');
+      // 13:00-14:00 -> PAST
+      expect(slots[1].isAvailable).toBe(false);
+      expect(slots[1].unavailableReason).toBe('PAST');
+      // 14:00-15:00 -> unavailable because 13:47 to 14:00 is < 15 minutes
+      expect(slots[2].isAvailable).toBe(false);
+      expect(slots[2].unavailableReason).toBe('PAST');
+      // 15:00-16:00 -> available (>= 15 minutes away)
+      expect(slots[3].isAvailable).toBe(true);
+      expect(slots[3].unavailableReason).toBeUndefined();
+    });
+
+    it('should mark slot as available when exactly 15 minutes away', async () => {
+      // Current time is 12:45 -> 13:00 slot is exactly 15 minutes away
+      jest.setSystemTime(new Date('2026-11-10T12:45:00.000Z'));
+
+      MockedAvailabilityRepo.findStationWithGamingCenter.mockResolvedValue(baseStation as any);
+      MockedAvailabilityRepo.findStaffList.mockResolvedValue([]);
+      MockedAvailabilityRepo.findShifts.mockResolvedValue([]);
+      MockedAvailabilityRepo.findReservation.mockResolvedValue([]);
+      MockedAvailabilityRepo.findMaintenances.mockResolvedValue([]);
+
+      const results = await getAvailableSlots({
+        gamingCenterSlug,
+        stationId,
+        date: '2026-11-10',
+      });
+
+      const slots = results[0].slots;
+      expect(slots[2].isAvailable).toBe(false); // 12:00-13:00
+      expect(slots[3].isAvailable).toBe(true);  // 13:00-14:00 (exactly 15 min away)
+      expect(slots[3].unavailableReason).toBeUndefined();
+    });
+
+    it('should respect configured settings.minAdvanceBookingMinutes when set', async () => {
+      const stationWith30MinLead = {
+        ...baseStation,
+        gamingCenter: {
+          ...baseStation.gamingCenter,
+          settings: {
+            ...baseStation.gamingCenter.settings,
+            minAdvanceBookingMinutes: 30,
+          },
+        },
+      };
+
+      // Current time is 12:40 -> 13:00 slot is 20 minutes away (< 30 min)
+      jest.setSystemTime(new Date('2026-11-10T12:40:00.000Z'));
+
+      MockedAvailabilityRepo.findStationWithGamingCenter.mockResolvedValue(stationWith30MinLead as any);
+      MockedAvailabilityRepo.findStaffList.mockResolvedValue([]);
+      MockedAvailabilityRepo.findShifts.mockResolvedValue([]);
+      MockedAvailabilityRepo.findReservation.mockResolvedValue([]);
+      MockedAvailabilityRepo.findMaintenances.mockResolvedValue([]);
+
+      const results = await getAvailableSlots({
+        gamingCenterSlug,
+        stationId,
+        date: '2026-11-10',
+      });
+
+      const slots = results[0].slots;
+      expect(slots[3].isAvailable).toBe(false); // 13:00-14:00 is < 30 min away
+      expect(slots[3].unavailableReason).toBe('PAST');
+    });
   });
 });

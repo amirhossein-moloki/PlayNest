@@ -45,6 +45,7 @@ export interface DayAvailabilitySlots {
 }
 
 export const SLOT_DURATION_MINUTES = 60;
+export const DEFAULT_MIN_LEAD_TIME_MINUTES = 15;
 
 /**
  * Parses "HH:mm" to minutes from 00:00.
@@ -202,6 +203,8 @@ export const getAvailableSlots = async (
   // 4. Generate 24-hour slices and 60-minute slots
   const daysResults: DayAvailabilitySlots[] = [];
   const now = queryNow ? new Date(queryNow) : new Date();
+  const minLeadTimeMinutes = gamingCenter.settings?.minAdvanceBookingMinutes ?? DEFAULT_MIN_LEAD_TIME_MINUTES;
+  const minAllowedSlotStart = addMinutes(now, minLeadTimeMinutes);
 
   // Ensure cursor starts at beginning of the day in local timezone
   const cursorDateStr = formatInTimeZone(startZonedDate, timeZone, 'yyyy-MM-dd');
@@ -286,8 +289,8 @@ export const getAvailableSlots = async (
             let isAvailable = true;
             let unavailableReason: TimeSlotItem['unavailableReason'];
 
-            if (slotStart < now) {
-              // Slot is in the past
+            if (slotStart < minAllowedSlotStart) {
+              // Slot is in the past or within the minimum advance booking lead time
               isAvailable = false;
               unavailableReason = 'PAST';
             } else if (isClosureConflict) {
