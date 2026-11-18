@@ -331,6 +331,7 @@ export const BookingHoldRepo = {
     });
 
     // 2. Create Reservations for each item
+    const createdReservationIds: string[] = [];
     for (const item of hold.items) {
       const checkInCode = await generateUniqueCheckInCode(hold.gamingCenterId, tx);
       const reservation = await tx.reservation.create({
@@ -356,6 +357,7 @@ export const BookingHoldRepo = {
           stationSnapshot: item.stationSnapshot as Prisma.InputJsonValue,
         },
       });
+      createdReservationIds.push(reservation.id);
 
       // Link groupBookingItem to reservation
       const matchingItem = groupBooking.items.find((gi) => gi.stationId === item.stationId);
@@ -376,12 +378,13 @@ export const BookingHoldRepo = {
       },
     });
 
-    // 4. Update Payment to associate with groupBookingId if present
+    // 4. Update Payment to associate with groupBookingId (and reservationId for single-station bookings) if present
     if (hold.payment) {
       await tx.payment.update({
         where: { id: hold.payment.id },
         data: {
           groupBookingId: groupBooking.id,
+          ...(createdReservationIds.length === 1 ? { reservationId: createdReservationIds[0] } : {}),
           status: PaymentStatus.PAID,
           paidAt: hold.payment.paidAt || new Date(),
         },

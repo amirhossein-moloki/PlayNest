@@ -39,9 +39,38 @@ export const WalletRepo = {
       },
     });
 
-    if (payments.length === 0) return 0;
+    if (payments.length > 0) {
+      return payments.reduce((acc, p) => acc + p.amount, 0);
+    }
 
-    return payments.reduce((acc, p) => acc + p.amount, 0);
+    // Fallback: check if this reservation was paid via a GroupBooking / BookingHold payment
+    const reservation = await client.reservation.findUnique({
+      where: { id: reservationId },
+      select: {
+        groupBookingId: true,
+        customerPayableAmount: true,
+        totalPrice: true,
+      },
+    });
+
+    if (!reservation?.groupBookingId) return 0;
+
+    const groupPayments = await client.payment.findMany({
+      where: {
+        groupBookingId: reservation.groupBookingId,
+        status: PaymentStatus.PAID,
+      },
+    });
+
+    if (groupPayments.length === 0) return 0;
+
+    const totalGroupPaid = groupPayments.reduce((acc, p) => acc + p.amount, 0);
+    const reservationShare =
+      reservation.customerPayableAmount > 0
+        ? reservation.customerPayableAmount
+        : reservation.totalPrice;
+
+    return reservationShare > 0 ? Math.min(totalGroupPaid, reservationShare) : totalGroupPaid;
   },
 
   async findReservation(reservationId: string, tx?: Prisma.TransactionClient) {
