@@ -3145,6 +3145,97 @@ paths:
           $ref: '#/components/responses/NotFoundError'
       operationId: post_gamingCenters_gamingCenterId_stations_from_catalog
 
+  /gamingCenters/{gamingCenterId}/stations/games:
+    get:
+      summary: List games selected for a gaming center (Manager/Admin)
+      description: Returns the games selected by the gaming center manager, enriched with GameCatalog metadata (coverImageUrl, supportedPlatforms, genre, description).
+      tags:
+      - Stations
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: List of games for this gaming center
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_gamingCenters_gamingCenterId_stations_games
+  /gamingCenters/{gamingCenterId}/stations/games/{gameId}:
+    delete:
+      summary: Remove a game from a gaming center (Manager)
+      description: Removes a game (by GameCatalog ID or title) from the gaming center's selected games list.
+      tags:
+      - Stations
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: gameId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Game removed from gaming center
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: delete_gamingCenters_gamingCenterId_stations_games_gameId
+  /public/gamingCenters/{gamingCenterSlug}/stations/games:
+    get:
+      summary: List games available at a gaming center (Public)
+      description: Returns the games selected by the gaming center, enriched with GameCatalog metadata.
+      tags:
+      - Stations
+      security: []
+      parameters:
+      - name: gamingCenterSlug
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: List of games for this gaming center
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_public_gamingCenters_gamingCenterSlug_stations_games
+  /public/gamingCenters/{gamingCenterSlug}/games:
+    get:
+      summary: List games available at a gaming center (Public alias)
+      description: Returns the games selected by the gaming center, enriched with GameCatalog metadata.
+      tags:
+      - Stations
+      security: []
+      parameters:
+      - name: gamingCenterSlug
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: List of games for this gaming center
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_public_gamingCenters_gamingCenterSlug_games
   /gamingCenters/{gamingCenterId}/stations/games/from-catalog:
     post:
       summary: Add games to gaming center from game catalog

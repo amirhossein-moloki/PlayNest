@@ -10,6 +10,8 @@ import {
 } from './pages.public.controller';
 import { PublicAdvertisementsController } from './advertisements.public.controller';
 import { PublicGamingCentersController } from './gamingCenters.public.controller';
+import { getGamingCenterGames } from '../station/station.controller';
+import { asyncHandler } from '../../common/middleware/asyncHandler';
 
 export const publicGamingCenterRouter = Router({ mergeParams: true });
 export const publicGamingCentersRouter = Router();
@@ -67,6 +69,14 @@ publicGamingCenterRouter.get(
   publicApiRateLimiter,
   resolveGamingCenterBySlug,
   PublicAdvertisementsController.getSliderAdvertisements
+);
+
+// Center-specific Selected Games (from GameCatalog)
+publicGamingCenterRouter.get(
+  '/games',
+  publicApiRateLimiter,
+  resolveGamingCenterBySlug,
+  asyncHandler(getGamingCenterGames)
 );
 
 // Public Registered Cities

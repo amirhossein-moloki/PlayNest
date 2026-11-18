@@ -82,6 +82,16 @@ privateStationRouter.post(
   asyncHandler(StationController.createStationsFromCatalog)
 );
 
+// List games selected for this gaming center (Manager/Admin)
+privateStationRouter.get(
+  '/games',
+  privateApiRateLimiter,
+  authMiddleware,
+  tenantGuard,
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
+  asyncHandler(StationController.getGamingCenterGames)
+);
+
 // Add games to gaming center from game catalog
 privateStationRouter.post(
   '/games/from-catalog',
@@ -91,6 +101,16 @@ privateStationRouter.post(
   requireRole([UserRole.MANAGER]),
   validate(addGamesFromCatalogSchema),
   asyncHandler(StationController.addGamesFromCatalog)
+);
+
+// Remove a game from gaming center
+privateStationRouter.delete(
+  '/games/:gameId',
+  privateApiRateLimiter,
+  authMiddleware,
+  tenantGuard,
+  requireRole([UserRole.MANAGER]),
+  asyncHandler(StationController.removeGameFromGamingCenter)
 );
 
 privateStationRouter.get(
@@ -187,6 +207,13 @@ publicStationRouter.get(
     next();
   },
   asyncHandler(StationController.getStations)
+);
+
+publicStationRouter.get(
+  '/games',
+  publicApiRateLimiter,
+  resolveGamingCenterBySlug,
+  asyncHandler(StationController.getGamingCenterGames)
 );
 
 publicStationRouter.get(

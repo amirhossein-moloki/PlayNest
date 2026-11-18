@@ -79,6 +79,54 @@ export async function addGamesFromCatalog(
 }
 
 /**
+ * Handle request to get games selected by a gaming center (enriched with catalog metadata).
+ */
+export async function getGamingCenterGames(
+  req: RequestWithGamingCenter,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const targetGamingCenterId =
+      req.tenant?.gamingCenterId ||
+      req.params.gamingCenterId ||
+      req.gamingCenter?.id ||
+      req.gamingCenterId;
+
+    if (!targetGamingCenterId) {
+      return next(new AppError('GamingCenter ID or slug is required.', httpStatus.BAD_REQUEST));
+    }
+
+    const games = await stationLogic.getGamesForGamingCenter(targetGamingCenterId);
+    res.ok(games);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Handle request to remove a game from a gaming center's games list.
+ */
+export async function removeGameFromGamingCenter(
+  req: Request<{ gamingCenterId: string; gameId: string }>,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { gamingCenterId, gameId } = req.params;
+    const result = await stationLogic.removeGameFromGamingCenter(
+      gamingCenterId,
+      gameId,
+      (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
+      { ip: req.ip, userAgent: req.headers['user-agent'] }
+    );
+    res.ok(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
  * Handle request to get all stations for a gamingCenter.
  */
 export async function getStations(

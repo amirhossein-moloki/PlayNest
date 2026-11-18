@@ -158,6 +158,104 @@ export async function addGamesFromCatalog(
 }
 
 /**
+ * Returns the games selected by a gaming center, enriched with GameCatalog metadata.
+ */
+export async function getGamesForGamingCenter(gamingCenterId: string) {
+  const center = await prisma.gamingCenter.findUnique({
+    where: { id: gamingCenterId },
+    select: { id: true, games: true },
+  });
+
+  if (!center) {
+    throw new AppError('Gaming center not found', httpStatus.NOT_FOUND);
+  }
+
+  const gameTitles = center.games || [];
+  if (gameTitles.length === 0) {
+    return [];
+  }
+
+  const catalogGames = await prisma.gameCatalog.findMany({
+    where: {
+      title: { in: gameTitles },
+    },
+  });
+
+  const catalogByTitle = new Map(catalogGames.map((g) => [g.title, g]));
+
+  return gameTitles.map((title) => {
+    const match = catalogByTitle.get(title);
+    if (match) {
+      return match;
+    }
+    return {
+      id: null,
+      title,
+      coverImageUrl: null,
+      supportedPlatforms: [],
+      genre: null,
+      description: null,
+      isActive: true,
+    };
+  });
+}
+
+/**
+ * Removes a game (by GameCatalog ID or title) from a gaming center's games list.
+ */
+export async function removeGameFromGamingCenter(
+  gamingCenterId: string,
+  gameIdOrTitle: string,
+  actor?: { id: string; actorType: SessionActorType },
+  context?: { ip?: string; userAgent?: string }
+) {
+  const center = await prisma.gamingCenter.findUnique({
+    where: { id: gamingCenterId },
+    select: { id: true, games: true },
+  });
+
+  if (!center) {
+    throw new AppError('Gaming center not found', httpStatus.NOT_FOUND);
+  }
+
+  const catalogGame = await prisma.gameCatalog.findUnique({
+    where: { id: gameIdOrTitle },
+    select: { title: true },
+  });
+
+  const targetTitle = catalogGame?.title ?? gameIdOrTitle;
+  const currentGames = center.games || [];
+
+  if (!currentGames.includes(targetTitle)) {
+    throw new AppError('Game not found in this gaming center', httpStatus.NOT_FOUND);
+  }
+
+  const updatedGames = currentGames.filter((t) => t !== targetTitle);
+
+  await prisma.gamingCenter.update({
+    where: { id: gamingCenterId },
+    data: { games: updatedGames },
+  });
+
+  if (actor) {
+    await auditService.log(
+      gamingCenterId,
+      actor,
+      'GAMING_CENTER_REMOVE_GAME',
+      { name: 'GamingCenter', id: gamingCenterId },
+      { old: { games: currentGames }, new: { games: updatedGames, removed: targetTitle } },
+      context
+    );
+  }
+
+  return {
+    gamingCenterId,
+    removedGame: targetTitle,
+    allGames: updatedGames,
+  };
+}
+
+/**
  * Business logic to create a new station.
  * @param gamingCenterId - The ID of the gamingCenter.
  * @param data - The data for the new station.
