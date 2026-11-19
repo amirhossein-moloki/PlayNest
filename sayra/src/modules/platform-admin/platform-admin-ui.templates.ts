@@ -956,7 +956,7 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
         var items = Array.isArray(data) ? data : ((data && data.items) || []);
         var tbody = document.getElementById('ads-table-body');
         if (items.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7">No advertisement requests found.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8">No advertisement requests found.</td></tr>';
           return;
         }
         tbody.innerHTML = items.map(function(a) {
@@ -968,7 +968,11 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
           else if (a.status === 'EXPIRED') badgeCls = 'badge-secondary';
           else if (a.status === 'DELETED') badgeCls = 'badge-danger';
 
-          var centerName = a.gamingCenter && a.gamingCenter.name ? a.gamingCenter.name : '-';
+          var adTypeBadge = '<span class="badge badge-info">' + (a.adType || 'GAMING_CENTER') + '</span>';
+          var centerDisplay = (a.gamingCenter && a.gamingCenter.name)
+            ? '<strong>' + a.gamingCenter.name + '</strong>'
+            : '<span class="badge badge-secondary" style="font-size:11px;"><i class="fa-solid fa-globe"></i> مستقل (بدون گیم‌نت)</span>';
+
           var actionsHtml = '<div style="display:flex; gap:6px;">';
           if (a.status === 'PENDING') {
             actionsHtml += '<button class="btn btn-sm btn-success" onclick="openApproveAdModal(\'' + a.id + '\', ' + (a.durationDays || 30) + ')">Approve</button>' +
@@ -986,7 +990,8 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
 
           return '<tr>' +
             '<td>' + bannerImg + '<strong>' + a.title + '</strong></td>' +
-            '<td>' + centerName + '</td>' +
+            '<td>' + adTypeBadge + '</td>' +
+            '<td>' + centerDisplay + '</td>' +
             '<td><span class="badge badge-info">' + (a.priority || 0) + '</span></td>' +
             '<td style="direction:ltr; font-size:12px;">' + start + ' ~ ' + end + '</td>' +
             '<td>' + (a.durationDays || 30) + ' days</td>' +
@@ -995,6 +1000,120 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
           '</tr>';
         }).join('');
       } catch (e) { console.error(e); }
+    }
+
+    function openCreateAdModal() {
+      var gcSelect = document.getElementById('adNewGamingCenterId');
+      if (gcSelect && gcSelect.options.length <= 1) {
+        fetch('/api/v1/platform-admin/gaming-centers?limit=100', { headers: headers() })
+          .then(function(r) { return r.json(); })
+          .then(function(res) {
+            var items = (res && res.data && res.data.items) || (Array.isArray(res && res.data) ? res.data : []);
+            items.forEach(function(gc) {
+              var opt = document.createElement('option');
+              opt.value = gc.id;
+              opt.textContent = gc.name + ' (' + gc.id + ')';
+              gcSelect.appendChild(opt);
+            });
+          })
+          .catch(function(e) { console.error('Failed to load centers for ad dropdown', e); });
+      }
+      document.getElementById('adNewType').value = 'GLOBAL_PROMOTION';
+      toggleAdTypeFields();
+      document.getElementById('createAdModal').style.display = 'flex';
+    }
+
+    function closeCreateAdModal() {
+      document.getElementById('createAdModal').style.display = 'none';
+      document.getElementById('createAdForm').reset();
+      document.getElementById('adBannerUploadMsg').textContent = '';
+    }
+
+    function toggleAdTypeFields() {
+      var type = document.getElementById('adNewType').value;
+      var destGroup = document.getElementById('adDestinationUrlGroup');
+      var catGroup = document.getElementById('adCategoryGroup');
+      var gcGroup = document.getElementById('adGamingCenterGroup');
+
+      if (destGroup) destGroup.style.display = (type === 'CUSTOM_LINK' || type === 'GLOBAL_PROMOTION') ? 'block' : 'none';
+      if (catGroup) catGroup.style.display = (type === 'CATEGORY') ? 'block' : 'none';
+      if (gcGroup) gcGroup.style.display = (type === 'GAMING_CENTER') ? 'block' : 'none';
+    }
+
+    async function uploadAdBannerFile(input) {
+      if (!input.files || input.files.length === 0) return;
+      var file = input.files[0];
+      var msg = document.getElementById('adBannerUploadMsg');
+      msg.textContent = 'در حال آپلود بنر...';
+
+      var formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        var h = headers();
+        delete h['Content-Type'];
+        var res = await fetch('/api/v1/platform-admin/media/upload', {
+          method: 'POST',
+          headers: h,
+          body: formData
+        });
+        var json = await res.json();
+        if (res.ok && json.data && json.data.url) {
+          document.getElementById('adNewBannerUrl').value = json.data.url;
+          msg.textContent = 'بنر با موفقیت آپلود شد.';
+          msg.style.color = 'var(--success)';
+        } else {
+          msg.textContent = 'خطا در آپلود بنر: ' + ((json.error && json.error.message) || 'آپلود ناموفق');
+          msg.style.color = '#ef4444';
+        }
+      } catch (err) {
+        msg.textContent = 'خطای ارتباط در آپلود بنر.';
+        msg.style.color = '#ef4444';
+      }
+    }
+
+    async function handleCreateAd(e) {
+      e.preventDefault();
+      var title = document.getElementById('adNewTitle').value.trim();
+      var description = document.getElementById('adNewDescription').value.trim() || undefined;
+      var bannerUrl = document.getElementById('adNewBannerUrl').value.trim();
+      var adType = document.getElementById('adNewType').value;
+      var destinationUrl = document.getElementById('adNewDestinationUrl').value.trim() || undefined;
+      var category = document.getElementById('adNewCategory').value.trim() || undefined;
+      var gamingCenterId = document.getElementById('adNewGamingCenterId').value.trim() || null;
+      var priority = parseInt(document.getElementById('adNewPriority').value, 10) || 0;
+      var durationDays = parseInt(document.getElementById('adNewDuration').value, 10) || 30;
+
+      var payload = {
+        title: title,
+        description: description,
+        bannerUrl: bannerUrl,
+        adType: adType,
+        destinationUrl: destinationUrl,
+        category: category,
+        gamingCenterId: gamingCenterId,
+        priority: priority,
+        durationDays: durationDays,
+        status: 'APPROVED'
+      };
+
+      try {
+        var res = await fetch('/api/v1/platform-admin/ad-requests', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify(payload)
+        });
+        var json = await res.json();
+        if (res.ok) {
+          showToast('تبلیغ با موفقیت ساخته شد.');
+          closeCreateAdModal();
+          loadAds();
+        } else {
+          showToast('خطا: ' + ((json.error && json.error.message) || 'عدم امکان ساخت تبلیغ'));
+        }
+      } catch (err) {
+        showToast('خطا در ارتباط با سرور.');
+      }
     }
 
     function openApproveAdModal(id, currentDuration) {
