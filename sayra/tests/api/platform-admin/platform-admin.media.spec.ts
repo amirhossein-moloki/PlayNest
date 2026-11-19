@@ -127,6 +127,45 @@ describe('Platform Admin Media & Direct Image Upload Test Suite', () => {
       expect(uploadStation.processAndStoreImage).not.toHaveBeenCalled();
     });
 
+    it('should successfully upload an avif image file', async () => {
+      const avifBuffer = Buffer.from('fake-avif-content-bytes');
+
+      const res = await request(app)
+        .post('/api/v1/platform-admin/media/upload')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .attach('file', avifBuffer, 'picture.avif');
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(uploadStation.processAndStoreImage).toHaveBeenCalled();
+    });
+
+    it('should reject unsupported file types with 400', async () => {
+      const txtBuffer = Buffer.from('plain-text-content');
+
+      const res = await request(app)
+        .post('/api/v1/platform-admin/media/upload')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .attach('file', txtBuffer, 'document.txt');
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.message).toBe('Invalid file type. Allowed formats: JPEG, PNG, WEBP, GIF, AVIF.');
+      expect(uploadStation.processAndStoreImage).not.toHaveBeenCalled();
+    });
+
+    it('should reject unsupported image formats (e.g. TIFF) with 400', async () => {
+      const tiffBuffer = Buffer.from('fake-tiff-content');
+
+      const res = await request(app)
+        .post('/api/v1/platform-admin/media/upload')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .attach('file', tiffBuffer, 'document.tiff');
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.message).toBe('Invalid file type. Allowed formats: JPEG, PNG, WEBP, GIF, AVIF.');
+      expect(uploadStation.processAndStoreImage).not.toHaveBeenCalled();
+    });
+
     it('should successfully upload an image file authenticated via AdminJS session cookie', async () => {
       const adminSessionId = 'sess_cookie_adm_1';
       const redisKey = `${ADMIN_CONSTANTS.SESSION_PREFIX}${adminSessionId}`;

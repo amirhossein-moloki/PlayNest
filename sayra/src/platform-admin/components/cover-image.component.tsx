@@ -127,7 +127,7 @@ export const CoverImageComponent: React.FC<BasePropertyProps> = (props) => {
           multiple={false}
           validate={{
             maxSize: 5 * 1024 * 1024,
-            mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+            mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'],
           }}
         />
         {isUploading && (

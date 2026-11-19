@@ -22,7 +22,17 @@ export async function ensureUploadDirs() {
 export async function processAndStoreImage(file: Express.Multer.File) {
   await ensureUploadDirs();
 
-  const fileExtension = path.extname(file.originalname).toLowerCase() || '.jpg';
+  let fileExtension = path.extname(file.originalname).toLowerCase();
+  if (!fileExtension && file.mimetype) {
+    if (file.mimetype.includes('jpeg') || file.mimetype.includes('jpg')) fileExtension = '.jpg';
+    else if (file.mimetype.includes('png')) fileExtension = '.png';
+    else if (file.mimetype.includes('webp')) fileExtension = '.webp';
+    else if (file.mimetype.includes('gif')) fileExtension = '.gif';
+    else if (file.mimetype.includes('avif')) fileExtension = '.avif';
+  }
+  if (!fileExtension) {
+    fileExtension = '.jpg';
+  }
   const fileName = `${uuidv4()}${fileExtension}`;
 
   const filePath = path.join(UPLOAD_ROOT, fileName);

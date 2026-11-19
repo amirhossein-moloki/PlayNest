@@ -15,11 +15,11 @@ const upload = multer({
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
   fileFilter: (_req, file, cb) => {
-    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
     if (allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new AppError('Only JPEG, PNG, and WebP images are allowed', httpStatus.BAD_REQUEST) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      cb(new AppError('Only JPEG, PNG, WebP, and AVIF images are allowed', httpStatus.BAD_REQUEST) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
     }
   },
 });

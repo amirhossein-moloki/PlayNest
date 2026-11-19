@@ -9107,7 +9107,7 @@ paths:
                 file:
                   type: string
                   format: binary
-                  description: Image file to upload (JPEG, PNG, WEBP, GIF, max 5MB)
+                  description: Image file to upload (JPEG, PNG, WEBP, GIF, AVIF, max 5MB)
       responses:
         '201':
           description: Media uploaded successfully

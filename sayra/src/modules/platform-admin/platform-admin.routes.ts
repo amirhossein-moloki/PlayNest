@@ -27,6 +27,8 @@ import {
   updatePlatformWithdrawalPaymentSchema,
 } from './withdrawals.validators';
 import multer from 'multer';
+import AppError from '../../common/errors/AppError';
+import httpStatus from 'http-status';
 
 const router = Router();
 
@@ -39,7 +41,7 @@ const mediaUpload = multer({
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
-      cb(new Error('Only images are allowed') as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      cb(new AppError('Invalid file type. Allowed formats: JPEG, PNG, WEBP, GIF, AVIF.', httpStatus.BAD_REQUEST) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
     }
   },
 });

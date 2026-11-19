@@ -23,6 +23,7 @@ const ALLOWED_MIME_TYPES = new Set([
   'image/png',
   'image/webp',
   'image/gif',
+  'image/avif',
 ]);
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
@@ -41,7 +42,7 @@ export class PlatformMediaStation {
 
     if (!ALLOWED_MIME_TYPES.has(file.mimetype.toLowerCase())) {
       throw new AppError(
-        'Invalid file type. Allowed formats: JPEG, PNG, WEBP, GIF.',
+        'Invalid file type. Allowed formats: JPEG, PNG, WEBP, GIF, AVIF.',
         httpStatus.BAD_REQUEST
       );
     }
