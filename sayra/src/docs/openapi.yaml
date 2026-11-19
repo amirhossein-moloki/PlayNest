@@ -1935,6 +1935,17 @@ components:
           type: integer
         comment:
           type: string
+          nullable: true
+        replyComment:
+          type: string
+          nullable: true
+        replyAt:
+          type: string
+          format: date-time
+          nullable: true
+        repliedById:
+          type: string
+          nullable: true
         status:
           type: string
           enum:
@@ -6347,6 +6358,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SiteSettings'
+  /gamingCenters/{gamingCenterId}/ratings:
+    get:
+      summary: List ratings for manager
+      description: List ratings for the gaming center manager panel
+      tags:
+      - Ratings
+      operationId: get_gamingCenters_gamingCenterId_ratings
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - PUBLISHED
+          - HIDDEN
+          - DELETED
+      responses:
+        '200':
+          description: List of ratings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Rating'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
   /gamingCenters/{gamingCenterId}/ratings/{id}/status:
     patch:
       summary: Moderate a review (status update)
@@ -6389,6 +6443,88 @@ paths:
                 $ref: '#/components/schemas/Success'
       operationId: patch_gamingCenters_gamingCenterId_ratings_id_status
       description: Moderate a review (status update)
+  /gamingCenters/{gamingCenterId}/ratings/{id}/reply:
+    post:
+      summary: Reply to a review
+      description: Post or update a manager reply to a customer review
+      tags:
+      - Ratings
+      operationId: post_gamingCenters_gamingCenterId_ratings_id_reply
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reply:
+                  type: string
+                  description: The manager reply text
+                replyComment:
+                  type: string
+                  description: The manager reply text
+      responses:
+        '200':
+          description: Reply added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Rating'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      summary: Delete reply to a review
+      description: Remove the manager reply from a customer review
+      tags:
+      - Ratings
+      operationId: delete_gamingCenters_gamingCenterId_ratings_id_reply
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Reply removed successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
   /public/gaming-centers/cities:
     get:
       summary: List cities with registered active gaming centers
@@ -12357,6 +12493,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+    delete:
+      summary: Delete media item
+      description: Delete media item and its associated stored file
+      tags:
+      - CMS
+      operationId: delete_gamingCenters_gamingCenterId_media_mediaId
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: mediaId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Media deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
   /gamingCenters/{gamingCenterId}/links:
     get:
       summary: List social & web links

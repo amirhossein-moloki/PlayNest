@@ -31,3 +31,9 @@ export async function updateMedia(gamingCenterId: string, mediaId: string, data:
     where: { id: mediaId },
   });
 }
+
+export async function deleteMedia(gamingCenterId: string, mediaId: string) {
+  return prisma.media.deleteMany({
+    where: { id: mediaId, gamingCenterId },
+  });
+}

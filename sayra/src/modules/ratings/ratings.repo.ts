@@ -44,6 +44,50 @@ export async function findPublishedReviewsByGamingCenterSlug(gamingCenterSlug: s
           name: true,
         },
       },
+      repliedBy: {
+        select: {
+          fullName: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+export async function findReviewsByGamingCenterId(gamingCenterId: string, status?: RatingStatus) {
+  return prisma.rating.findMany({
+    where: {
+      gamingCenterId,
+      ...(status ? { status } : {}),
+    },
+    include: {
+      customerAccount: {
+        select: {
+          id: true,
+          fullName: true,
+          phone: true,
+        },
+      },
+      reservation: {
+        select: {
+          id: true,
+          status: true,
+          startTime: true,
+          endTime: true,
+        },
+      },
+      station: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      repliedBy: {
+        select: {
+          id: true,
+          fullName: true,
+        },
+      },
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -59,9 +103,63 @@ export async function updateReviewStatus(reviewId: string, gamingCenterId: strin
   });
 }
 
+export async function replyToReview(
+  reviewId: string,
+  gamingCenterId: string,
+  replyComment: string,
+  repliedById?: string
+) {
+  return prisma.rating.update({
+    where: {
+      id: reviewId,
+      gamingCenterId,
+    },
+    data: {
+      replyComment,
+      replyAt: new Date(),
+      repliedById: repliedById || null,
+    },
+    include: {
+      customerAccount: {
+        select: {
+          id: true,
+          fullName: true,
+          phone: true,
+        },
+      },
+      station: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      repliedBy: {
+        select: {
+          id: true,
+          fullName: true,
+        },
+      },
+    },
+  });
+}
+
+export async function deleteReviewReply(reviewId: string, gamingCenterId: string) {
+  return prisma.rating.update({
+    where: {
+      id: reviewId,
+      gamingCenterId,
+    },
+    data: {
+      replyComment: null,
+      replyAt: null,
+      repliedById: null,
+    },
+  });
+}
+
 export async function findReviewById(reviewId: string, gamingCenterId: string) {
   return prisma.rating.findFirst({
-    where: { id: reviewId, gamingCenterId }
+    where: { id: reviewId, gamingCenterId },
   });
 }
 

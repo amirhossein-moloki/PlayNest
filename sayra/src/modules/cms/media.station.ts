@@ -3,6 +3,7 @@ import httpStatus from 'http-status';
 import { MediaPurpose, MediaType } from '@prisma/client';
 import * as MediaRepo from './media.repo';
 import { CreateMediaInput, UpdateMediaInput } from './media.types';
+import { deleteStoredImage } from '../../common/stations/upload.station';
 
 const ALT_TEXT_REQUIRED_PURPOSES = new Set<MediaPurpose>([
   MediaPurpose.LOGO,
@@ -49,4 +50,17 @@ export async function updateMedia(
   assertAltTextForPurpose(nextPurpose, nextAltText);
 
   return MediaRepo.updateMedia(gamingCenterId, mediaId, data);
+}
+
+export async function deleteMedia(gamingCenterId: string, mediaId: string) {
+  const existing = await MediaRepo.findMediaById(gamingCenterId, mediaId);
+  if (!existing) {
+    throw new AppError('Media not found', httpStatus.NOT_FOUND);
+  }
+
+  if (existing.url) {
+    await deleteStoredImage(existing.url, existing.thumbUrl);
+  }
+
+  await MediaRepo.deleteMedia(gamingCenterId, mediaId);
 }

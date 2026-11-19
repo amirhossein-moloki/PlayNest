@@ -5,6 +5,7 @@ import {
   createMediaSchema,
   updateMediaSchema,
   uploadMediaSchema,
+  deleteMediaSchema,
 } from './media.validators';
 import * as MediaController from './media.controller';
 import * as MediaUploadController from './media.upload.controller';
@@ -43,4 +44,10 @@ cmsMediaRouter.patch(
   '/:mediaId',
   validate(updateMediaSchema),
   asyncHandler(MediaController.updateMedia)
+);
+
+cmsMediaRouter.delete(
+  '/:mediaId',
+  validate(deleteMediaSchema),
+  asyncHandler(MediaController.deleteMedia)
 );

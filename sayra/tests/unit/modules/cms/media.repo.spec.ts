@@ -26,4 +26,10 @@ describe('MediaRepo', () => {
     await MediaRepo.updateMedia(gamingCenterId, 'm-1', { caption: 'new' });
     expect(mediaMock.updateMany).toHaveBeenCalled();
   });
+
+  it('deleteMedia', async () => {
+    mediaMock.deleteMany.mockResolvedValue({ count: 1 });
+    await MediaRepo.deleteMedia(gamingCenterId, 'm-1');
+    expect(mediaMock.deleteMany).toHaveBeenCalled();
+  });
 });

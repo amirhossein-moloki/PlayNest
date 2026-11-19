@@ -654,6 +654,7 @@ model User {
   comments       Comment[]
   reactions      Reaction[]
   revisions      Revision[] @relation("EditedBy")
+  ratingReplies  Rating[]   @relation("RatingReplies")
 
   // join table (explicit)
   stationSkills StaffStationSkill[]
@@ -2350,6 +2351,11 @@ model Rating {
 
   rating  Int
   comment String?
+
+  replyComment String?
+  replyAt      DateTime?
+  repliedById  String?
+  repliedBy    User?        @relation("RatingReplies", fields: [repliedById], references: [id], onDelete: SetNull)
 
   status RatingStatus @default(PUBLISHED)
 

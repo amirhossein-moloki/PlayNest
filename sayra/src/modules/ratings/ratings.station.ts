@@ -32,6 +32,10 @@ export async function getPublishedReviews(gamingCenterSlug: string) {
   return reviewsRepo.findPublishedReviewsByGamingCenterSlug(gamingCenterSlug);
 }
 
+export async function getManagerReviews(gamingCenterId: string, status?: RatingStatus) {
+  return reviewsRepo.findReviewsByGamingCenterId(gamingCenterId, status);
+}
+
 export async function moderateReview(gamingCenterId: string, reviewId: string, status: RatingStatus) {
   const rating = await reviewsRepo.findReviewById(reviewId, gamingCenterId);
   if (!rating) {
@@ -44,4 +48,27 @@ export async function moderateReview(gamingCenterId: string, reviewId: string, s
   queueAnalyticsSync({ type: 'REVIEW', entityId: reviewId }).catch(console.error);
 
   return updatedReview;
+}
+
+export async function replyToReview(
+  gamingCenterId: string,
+  reviewId: string,
+  replyComment: string,
+  repliedById?: string
+) {
+  const rating = await reviewsRepo.findReviewById(reviewId, gamingCenterId);
+  if (!rating) {
+    throw new AppError('Rating not found', httpStatus.NOT_FOUND);
+  }
+
+  return reviewsRepo.replyToReview(reviewId, gamingCenterId, replyComment, repliedById);
+}
+
+export async function deleteReviewReply(gamingCenterId: string, reviewId: string) {
+  const rating = await reviewsRepo.findReviewById(reviewId, gamingCenterId);
+  if (!rating) {
+    throw new AppError('Rating not found', httpStatus.NOT_FOUND);
+  }
+
+  return reviewsRepo.deleteReviewReply(reviewId, gamingCenterId);
 }

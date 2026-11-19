@@ -38,4 +38,22 @@ describe('RatingsRepo', () => {
     await RatingsRepo.findReservationForReview('res-1', 'slug');
     expect(resMock.findFirst).toHaveBeenCalled();
   });
+
+  it('findReviewsByGamingCenterId', async () => {
+    ratingMock.findMany.mockResolvedValue([]);
+    await RatingsRepo.findReviewsByGamingCenterId('gc-1');
+    expect(ratingMock.findMany).toHaveBeenCalled();
+  });
+
+  it('replyToReview', async () => {
+    ratingMock.update.mockResolvedValue({ id: 'r-1', replyComment: 'Thank you' });
+    await RatingsRepo.replyToReview('r-1', 'gc-1', 'Thank you', 'u-1');
+    expect(ratingMock.update).toHaveBeenCalled();
+  });
+
+  it('deleteReviewReply', async () => {
+    ratingMock.update.mockResolvedValue({ id: 'r-1', replyComment: null });
+    await RatingsRepo.deleteReviewReply('r-1', 'gc-1');
+    expect(ratingMock.update).toHaveBeenCalled();
+  });
 });

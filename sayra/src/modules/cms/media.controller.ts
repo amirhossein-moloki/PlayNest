@@ -19,3 +19,12 @@ export async function updateMedia(
   const media = await MediaStation.updateMedia(gamingCenterId, mediaId, req.body);
   res.ok(media);
 }
+
+export async function deleteMedia(
+  req: Request<{ gamingCenterId: string; mediaId: string }>,
+  res: Response
+) {
+  const { gamingCenterId, mediaId } = req.params;
+  await MediaStation.deleteMedia(gamingCenterId, mediaId);
+  res.noContent();
+}

@@ -10,3 +10,8 @@ export interface SubmitReviewInput {
 export interface ModerateReviewInput {
   status: RatingStatus;
 }
+
+export interface ReplyReviewInput {
+  replyComment?: string;
+  reply?: string;
+}
