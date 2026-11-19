@@ -89,8 +89,8 @@ export const updateMediaSchema = z.object({
 
 export const deleteMediaSchema = z.object({
   params: z.object({
-    gamingCenterId: idSchema(CUID_MESSAGE),
     mediaId: idSchema(CUID_MESSAGE),
+    gamingCenterId: idSchema(CUID_MESSAGE).optional(),
   }),
 });
 
