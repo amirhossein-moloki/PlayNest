@@ -9,37 +9,55 @@ import { prisma } from '../../config/prisma';
 export const VerificationStation = {
   /**
    * Submit verification documents by GamingCenter Manager/Admin
-   * Documents:
-   * 1. National Card / Shenasnameh photo
-   * 2. Selfie holding National ID / Shenasnameh
-   * 3. Business license / Activity permit photo
+   * Documents and information:
+   * 1. Owner Full Name (نام و نام خانوادگی)
+   * 2. Phone Number (شماره تماس)
+   * 3. Gaming Center Name (نام گیم‌نت)
+   * 4. Business License / Activity permit photo (پروانه کسب - حداکثر ۵ مگابایت)
    */
   async submitVerification(
     gamingCenterId: string,
     data: {
-      nationalCardUrl: string;
-      idWithSelfieUrl: string;
+      ownerFullName?: string;
+      phoneNumber?: string;
+      gamingCenterName?: string;
       businessLicenseUrl: string;
+      nationalCardUrl?: string | null;
+      idWithSelfieUrl?: string | null;
     },
-    actor?: { id: string; actorType: SessionActorType },
+    actor?: { id: string; actorType: SessionActorType; fullName?: string; phone?: string },
     context?: { ip?: string; userAgent?: string }
   ) {
     const center = await (prisma as any).gamingCenter.findUnique({
       where: { id: gamingCenterId },
+      include: {
+        users: {
+          where: { role: 'MANAGER' },
+          select: { id: true, fullName: true, phone: true },
+        },
+      },
     });
 
     if (!center) {
       throw new AppError('Gaming center not found', httpStatus.NOT_FOUND);
     }
 
+    const manager = center.users && center.users.length > 0 ? center.users[0] : null;
+    const ownerFullName = data.ownerFullName || manager?.fullName || (actor as any)?.fullName || null;
+    const phoneNumber = data.phoneNumber || manager?.phone || (actor as any)?.phone || null;
+    const gamingCenterName = data.gamingCenterName || center.name;
+
     const result = await VerificationRepo.transaction(async (tx: any) => {
       // Create new verification submission
       const record = await tx.gamingCenterVerification.create({
         data: {
           gamingCenterId,
-          nationalCardUrl: data.nationalCardUrl,
-          idWithSelfieUrl: data.idWithSelfieUrl,
+          ownerFullName,
+          phoneNumber,
+          gamingCenterName,
           businessLicenseUrl: data.businessLicenseUrl,
+          nationalCardUrl: data.nationalCardUrl || null,
+          idWithSelfieUrl: data.idWithSelfieUrl || null,
           status: GamingCenterVerificationStatus.PENDING,
         },
       });
@@ -48,6 +66,7 @@ export const VerificationStation = {
       await tx.gamingCenter.update({
         where: { id: gamingCenterId },
         data: {
+          name: gamingCenterName,
           verificationStatus: GamingCenterVerificationStatus.PENDING,
           rejectionReason: null,
         },
@@ -66,6 +85,9 @@ export const VerificationStation = {
           new: {
             action: 'VERIFICATION_SUBMITTED',
             status: GamingCenterVerificationStatus.PENDING,
+            ownerFullName,
+            phoneNumber,
+            gamingCenterName,
           },
         },
         context
@@ -75,7 +97,12 @@ export const VerificationStation = {
     return {
       success: true,
       verificationId: result.id,
+      gamingCenterId,
       status: result.status,
+      ownerFullName: result.ownerFullName,
+      phoneNumber: result.phoneNumber,
+      gamingCenterName: result.gamingCenterName,
+      businessLicenseUrl: result.businessLicenseUrl,
       message: 'مدارک احراز هویت با موفقیت ثبت شد و در انتظار بررسی مدیریت سیستم است.',
     };
   },
@@ -202,6 +229,7 @@ export const VerificationStation = {
           new: {
             action: 'VERIFICATION_APPROVED',
             adminId,
+            gamingCenterId: verification.gamingCenterId,
           },
         },
         context
@@ -211,6 +239,7 @@ export const VerificationStation = {
     return {
       success: true,
       status: updated.status,
+      gamingCenterId: verification.gamingCenterId,
       reviewedAt: updated.reviewedAt,
       message: 'احراز هویت گیم‌نت با موفقیت تأیید شد.',
     };
@@ -249,6 +278,7 @@ export const VerificationStation = {
         data: {
           verificationStatus: GamingCenterVerificationStatus.REJECTED,
           rejectionReason,
+          verifiedAt: null,
         },
       });
 
@@ -265,6 +295,7 @@ export const VerificationStation = {
           new: {
             action: 'VERIFICATION_REJECTED',
             adminId,
+            gamingCenterId: verification.gamingCenterId,
             rejectionReason,
           },
         },
@@ -275,6 +306,7 @@ export const VerificationStation = {
     return {
       success: true,
       status: updated.status,
+      gamingCenterId: verification.gamingCenterId,
       rejectionReason: updated.rejectionReason,
       reviewedAt: updated.reviewedAt,
       message: 'درخواست احراز هویت رد شد.',

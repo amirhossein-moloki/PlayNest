@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { GameStationType } from '@prisma/client';
+import { GameStationType, GamingCenterVerificationStatus } from '@prisma/client';
 import { baseFilterSchema } from '../../common/validators/query.validators';
 
 export const createGamingCenterSchema = z.object({
@@ -139,6 +139,7 @@ export const listGamingCentersSchema = baseFilterSchema.extend({
     (val) => (val === 'true' || val === true ? true : val === 'false' || val === false ? false : val),
     z.boolean().optional()
   ),
+  verificationStatus: z.nativeEnum(GamingCenterVerificationStatus).optional(),
 });
 
 export type ListGamingCentersQuery = z.infer<typeof listGamingCentersSchema>;

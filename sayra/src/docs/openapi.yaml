@@ -55,6 +55,121 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   schemas:
+    GamingCenterVerificationStatus:
+      type: string
+      enum: [NOT_SUBMITTED, PENDING, APPROVED, REJECTED]
+      description: Verification status of a gaming center
+    SubmitVerificationInput:
+      type: object
+      required:
+      - ownerFullName
+      - phoneNumber
+      - gamingCenterName
+      properties:
+        ownerFullName:
+          type: string
+          minLength: 2
+          description: نام و نام خانوادگی صاحب یا مدیر گیم‌نت
+          example: علی رضایی
+        phoneNumber:
+          type: string
+          pattern: '^(\\+98|0)?9\\d{9}$'
+          description: شماره تماس معتبر مدیر گیم‌نت
+          example: '09123456789'
+        gamingCenterName:
+          type: string
+          minLength: 2
+          description: نام گیم‌نت متقاضی احراز هویت
+          example: گیم نت شتاب
+        businessLicense:
+          type: string
+          format: binary
+          description: فایل تصویر پروانه کسب (حداکثر ۵ مگابایت)
+        businessLicenseUrl:
+          type: string
+          format: uri
+          description: آدرس تصویر پروانه کسب
+        nationalCardUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: تصویر کارت ملی (اختیاری)
+        idWithSelfieUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: تصویر سلفی با مدرک هویتی (اختیاری)
+    GamingCenterVerification:
+      type: object
+      properties:
+        id:
+          type: string
+        gamingCenterId:
+          type: string
+          description: شناسه گیم‌نت مربوطه
+        ownerFullName:
+          type: string
+          nullable: true
+        phoneNumber:
+          type: string
+          nullable: true
+        gamingCenterName:
+          type: string
+          nullable: true
+        businessLicenseUrl:
+          type: string
+        nationalCardUrl:
+          type: string
+          nullable: true
+        idWithSelfieUrl:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/GamingCenterVerificationStatus'
+        rejectionReason:
+          type: string
+          nullable: true
+          description: دلیل رد احراز هویت در صورت عدم تایید
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    GamingCenterVerificationStatusResponse:
+      type: object
+      properties:
+        gamingCenterId:
+          type: string
+        name:
+          type: string
+        verificationStatus:
+          $ref: '#/components/schemas/GamingCenterVerificationStatus'
+        verifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+        rejectionReason:
+          type: string
+          nullable: true
+          description: دلیل رد شدن درخواست در صورت رد احراز هویت
+        latestVerification:
+          $ref: '#/components/schemas/GamingCenterVerification'
+          nullable: true
+    RejectVerificationInput:
+      type: object
+      required:
+      - rejectionReason
+      properties:
+        rejectionReason:
+          type: string
+          minLength: 3
+          description: دلیل رد درخواست احراز هویت گیم‌نت که برای کاربر نمایش داده خواهد شد
+          example: تصویر پروانه کسب تار و ناخوانا است
     CustomerWalletOverview:
       type: object
       properties:
@@ -2467,6 +2582,103 @@ paths:
                           type: string
                         gamingCenterSlug:
                           type: string
+  /gamingCenters/{gamingCenterId}/verification:
+    post:
+      summary: ثبت درخواست احراز هویت گیم‌نت (KYC)
+      description: ثبت اطلاعات هویتی و آپلود فایل پروانه کسب گیم‌نت (حداکثر ۵ مگابایت). تا زمان تایید درخواست توسط ادمین، گیم‌نت به صورت عمومی نمایش داده نمی‌شود.
+      tags:
+      - GamingCenterVerification
+      operationId: post_gamingCenters_gamingCenterId_verification
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        description: شناسه گیم‌نت
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SubmitVerificationInput'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitVerificationInput'
+      responses:
+        '201':
+          description: درخواست احراز هویت با موفقیت ثبت شد
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      verificationId:
+                        type: string
+                      gamingCenterId:
+                        type: string
+                      status:
+                        $ref: '#/components/schemas/GamingCenterVerificationStatus'
+                      ownerFullName:
+                        type: string
+                      phoneNumber:
+                        type: string
+                      gamingCenterName:
+                        type: string
+                      businessLicenseUrl:
+                        type: string
+                      message:
+                        type: string
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    get:
+      summary: مشاهده وضعیت احراز هویت گیم‌نت
+      description: کاربر و مدیر گیم‌نت می‌توانند وضعیت احراز هویت و در صورت رد درخواست، دلیل رد شدن را مشاهده کنند.
+      tags:
+      - GamingCenterVerification
+      operationId: get_gamingCenters_gamingCenterId_verification
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        description: شناسه گیم‌نت
+        schema:
+          type: string
+      responses:
+        '200':
+          description: وضعیت احراز هویت
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/GamingCenterVerificationStatusResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
   /gamingCenters/{gamingCenterId}/advertisements:
     get:
       operationId: listCenterAdvertisements
@@ -7552,6 +7764,11 @@ paths:
         description: Filter by address district name
         schema:
           type: string
+      - name: verificationStatus
+        in: query
+        description: Filter by verification status (default is APPROVED for public listing)
+        schema:
+          $ref: '#/components/schemas/GamingCenterVerificationStatus'
       - name: game
         in: query
         description: Filter by game offered
@@ -9321,6 +9538,186 @@ paths:
                 $ref: '#/components/schemas/Success'
         '403':
           $ref: '#/components/responses/ForbiddenError'
+  /platform-admin/verifications:
+    get:
+      summary: لیست درخواست‌های احراز هویت برای پلتفرم ادمین
+      description: مشاهده و بررسی درخواست‌های احراز هویت به همراه آیدی گیم‌نت، نام گیم‌نت، اطلاعات صاحب گیم‌نت و مدارک پروانه کسب.
+      tags:
+      - PlatformAdminVerifications
+      operationId: get_platform_admin_verifications
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/GamingCenterVerificationStatus'
+      responses:
+        '200':
+          description: لیست درخواست‌ها به همراه صفحه‌بندی
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GamingCenterVerification'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /platform-admin/verifications/{id}:
+    get:
+      summary: مشاهده جزئیات یک درخواست احراز هویت
+      description: نمایش اطلاعات درخواست، آیدی و نام گیم‌نت مربوطه، اطلاعات هویتی و فایل پروانه کسب.
+      tags:
+      - PlatformAdminVerifications
+      operationId: get_platform_admin_verifications_id
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: شناسه درخواست احراز هویت
+        schema:
+          type: string
+      responses:
+        '200':
+          description: جزئیات احراز هویت
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/GamingCenterVerification'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /platform-admin/verifications/{id}/approve:
+    post:
+      summary: تایید احراز هویت گیم‌نت توسط پلتفرم ادمین
+      description: با تایید درخواست، وضعیت گیم‌نت به APPROVED تغییر کرده و برای عموم کاربران در سایت و اپلیکیشن نمایش داده می‌شود.
+      tags:
+      - PlatformAdminVerifications
+      operationId: post_platform_admin_verifications_id_approve
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: شناسه درخواست احراز هویت
+        schema:
+          type: string
+      responses:
+        '200':
+          description: درخواست با موفقیت تایید شد
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: APPROVED
+                      gamingCenterId:
+                        type: string
+                      reviewedAt:
+                        type: string
+                        format: date-time
+                      message:
+                        type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /platform-admin/verifications/{id}/reject:
+    post:
+      summary: رد درخواست احراز هویت گیم‌نت همراه با ثبت دلیل
+      description: ادمین دلیل رد شدن درخواست را ثبت می‌کند تا کاربر بتواند علت عدم تایید را مشاهده و اصلاح نماید.
+      tags:
+      - PlatformAdminVerifications
+      operationId: post_platform_admin_verifications_id_reject
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: شناسه درخواست احراز هویت
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectVerificationInput'
+      responses:
+        '200':
+          description: درخواست با موفقیت رد شد
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: REJECTED
+                      gamingCenterId:
+                        type: string
+                      rejectionReason:
+                        type: string
+                      reviewedAt:
+                        type: string
+                        format: date-time
+                      message:
+                        type: string
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
   /platform-admin/users:
     get:
       summary: List users across all gaming centers

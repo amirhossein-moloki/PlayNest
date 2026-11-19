@@ -263,22 +263,25 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
     <!-- Tab 2: KYC Verifications -->
     <div id="tab-verifications" class="card" style="display:none;">
       <div class="section-header">
-        <div class="section-title"><i class="fa-solid fa-id-card"></i> Center KYC Documents & Verifications</div>
+        <div class="section-title"><i class="fa-solid fa-id-card"></i> احراز هویت صاحبان گیم‌نت (KYC Verifications)</div>
         <button class="btn btn-secondary btn-sm" onclick="loadVerifications()"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
       </div>
       <table>
         <thead>
           <tr>
             <th>ID</th>
-            <th>Gaming Center</th>
+            <th>Gaming Center ID</th>
+            <th>Gaming Center Name</th>
+            <th>Applicant Name</th>
+            <th>Phone</th>
             <th>Submitted</th>
-            <th>Status</th>
+            <th>Status / Reason</th>
             <th>Documents</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody id="verifications-table-body">
-          <tr><td colspan="6">Loading verification submissions...</td></tr>
+          <tr><td colspan="9">Loading verification submissions...</td></tr>
         </tbody>
       </table>
     </div>
@@ -807,28 +810,40 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
         var items = Array.isArray(data) ? data : ((data && data.items) || []);
         var tbody = document.getElementById('verifications-table-body');
         if (items.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6">No KYC verification submissions found.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="9">هیچ درخواست احراز هویتی یافت نشد.</td></tr>';
           return;
         }
         tbody.innerHTML = items.map(function(v) {
           var badgeCls = v.status === 'APPROVED' ? 'badge-success' : (v.status === 'REJECTED' ? 'badge-danger' : 'badge-warning');
-          var centerName = v.gamingCenter && v.gamingCenter.name ? v.gamingCenter.name : v.gamingCenterId;
+          var centerId = v.gamingCenterId || (v.gamingCenter && v.gamingCenter.id) || '-';
+          var centerName = (v.gamingCenter && v.gamingCenter.name) || v.gamingCenterName || '-';
+          var applicantName = v.ownerFullName || (v.gamingCenter && v.gamingCenter.users && v.gamingCenter.users[0] && v.gamingCenter.users[0].fullName) || '-';
+          var applicantPhone = v.phoneNumber || (v.gamingCenter && v.gamingCenter.users && v.gamingCenter.users[0] && v.gamingCenter.users[0].phone) || '-';
+
+          var statusHtml = '<span class="badge ' + badgeCls + '">' + v.status + '</span>';
+          if (v.status === 'REJECTED' && v.rejectionReason) {
+            statusHtml += '<div style="font-size:11px; color:#ef4444; margin-top:4px;"><strong>دلیل رد:</strong> ' + v.rejectionReason + '</div>';
+          }
+
           var docsHtml = '';
-          if (v.nationalCardUrl) docsHtml += '<a href="' + v.nationalCardUrl + '" target="_blank" class="btn btn-sm btn-secondary"><i class="fa-solid fa-file"></i> National Card</a> ';
-          if (v.businessLicenseUrl) docsHtml += '<a href="' + v.businessLicenseUrl + '" target="_blank" class="btn btn-sm btn-secondary"><i class="fa-solid fa-file-contract"></i> License</a>';
+          if (v.businessLicenseUrl) docsHtml += '<a href="' + v.businessLicenseUrl + '" target="_blank" class="btn btn-sm btn-secondary"><i class="fa-solid fa-file-contract"></i> پروانه کسب</a> ';
+          if (v.nationalCardUrl) docsHtml += '<a href="' + v.nationalCardUrl + '" target="_blank" class="btn btn-sm btn-secondary"><i class="fa-solid fa-file"></i> کارت ملی</a>';
 
           var actionsHtml = v.status === 'PENDING'
             ? '<div style="display:flex; gap:6px;">' +
-                '<button class="btn btn-sm btn-success" onclick="approveVerification(\'' + v.id + '\')"><i class="fa-solid fa-check"></i> Approve</button>' +
-                '<button class="btn btn-sm btn-danger" onclick="rejectVerification(\'' + v.id + '\')"><i class="fa-solid fa-xmark"></i> Reject</button>' +
+                '<button class="btn btn-sm btn-success" onclick="approveVerification(\'' + v.id + '\')"><i class="fa-solid fa-check"></i> تایید</button>' +
+                '<button class="btn btn-sm btn-danger" onclick="rejectVerification(\'' + v.id + '\')"><i class="fa-solid fa-xmark"></i> رد</button>' +
               '</div>'
-            : '<span style="color:var(--text-muted); font-size:12px;">Reviewed</span>';
+            : '<span style="color:var(--text-muted); font-size:12px;">' + (v.reviewedAt ? new Date(v.reviewedAt).toLocaleDateString() : 'بررسی شده') + '</span>';
 
           return '<tr>' +
             '<td><code>' + v.id + '</code></td>' +
+            '<td><code>' + centerId + '</code></td>' +
             '<td><strong>' + centerName + '</strong></td>' +
+            '<td>' + applicantName + '</td>' +
+            '<td>' + (applicantPhone !== '-' ? '<a href="tel:' + applicantPhone + '">' + applicantPhone + '</a>' : '-') + '</td>' +
             '<td>' + new Date(v.createdAt).toLocaleDateString() + '</td>' +
-            '<td><span class="badge ' + badgeCls + '">' + v.status + '</span></td>' +
+            '<td>' + statusHtml + '</td>' +
             '<td>' + docsHtml + '</td>' +
             '<td>' + actionsHtml + '</td>' +
           '</tr>';
@@ -837,20 +852,27 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
     }
 
     async function approveVerification(id) {
-      if (!confirm('Approve this gaming center KYC verification?')) return;
+      if (!confirm('آیا از تایید احراز هویت این گیم‌نت اطمینان دارید؟')) return;
       var res = await fetch('/api/v1/platform-admin/verifications/' + id + '/approve', { method: 'POST', headers: headers() });
-      if (res.ok) { showToast('Verification approved successfully.'); loadVerifications(); }
+      if (res.ok) { showToast('احراز هویت با موفقیت تایید شد.'); loadVerifications(); }
+      else { showToast('خطا در تایید احراز هویت.'); }
     }
 
     async function rejectVerification(id) {
-      var reason = 'Documents do not meet regulatory compliance requirements';
-      if (!confirm('Reject verification submission with standard reason?')) return;
+      var reason = prompt('لطفاً دلیل رد درخواست احراز هویت را وارد نمایید:');
+      if (reason === null) return;
+      reason = reason.trim();
+      if (!reason || reason.length < 3) {
+        showToast('دلیل رد باید حداقل ۳ کاراکتر باشد.');
+        return;
+      }
       var res = await fetch('/api/v1/platform-admin/verifications/' + id + '/reject', {
         method: 'POST',
         headers: headers(),
         body: JSON.stringify({ rejectionReason: reason })
       });
-      if (res.ok) { showToast('Verification rejected.'); loadVerifications(); }
+      if (res.ok) { showToast('درخواست احراز هویت رد شد.'); loadVerifications(); }
+      else { showToast('خطا در رد درخواست.'); }
     }
 
     async function loadAds() {

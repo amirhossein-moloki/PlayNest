@@ -18,6 +18,7 @@ export const PublicGamingCentersRepo = {
       FROM "Address" a
       INNER JOIN "GamingCenter" gc ON gc."id" = a."gamingCenterId"
       WHERE gc."isActive" = true
+        AND gc."verificationStatus" = 'APPROVED'
         AND a."city" IS NOT NULL
         AND TRIM(a."city") <> ''
       GROUP BY TRIM(a."city")

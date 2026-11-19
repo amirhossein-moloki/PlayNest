@@ -1160,10 +1160,15 @@ model GamingCenterVerification {
 
   status GamingCenterVerificationStatus @default(PENDING)
 
-  // 1. National ID card / Shenasnameh photo
-  nationalCardUrl    String
-  // 2. Selfie holding National ID / Shenasnameh
-  idWithSelfieUrl    String
+  // Applicant details
+  ownerFullName      String?
+  phoneNumber        String?
+  gamingCenterName   String?
+
+  // 1. National ID card / Shenasnameh photo (optional)
+  nationalCardUrl    String?
+  // 2. Selfie holding National ID / Shenasnameh (optional)
+  idWithSelfieUrl    String?
   // 3. Business license / Activity permit photo
   businessLicenseUrl String
 

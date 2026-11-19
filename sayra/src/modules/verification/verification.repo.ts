@@ -5,8 +5,11 @@ import { GamingCenterVerificationStatus, Prisma } from '@prisma/client';
 export const VerificationRepo = {
   async createVerification(data: {
     gamingCenterId: string;
-    nationalCardUrl: string;
-    idWithSelfieUrl: string;
+    ownerFullName?: string | null;
+    phoneNumber?: string | null;
+    gamingCenterName?: string | null;
+    nationalCardUrl?: string | null;
+    idWithSelfieUrl?: string | null;
     businessLicenseUrl: string;
     status: GamingCenterVerificationStatus;
   }) {
@@ -98,6 +101,6 @@ export const VerificationRepo = {
   },
 
   async transaction<T>(fn: (tx: any) => Promise<T>): Promise<T> {
-    return prisma.$transaction(fn);
+    return (prisma as any).$transaction(fn);
   },
 };

@@ -1,6 +1,6 @@
 import { prisma } from '../../config/prisma';
 import { CreateGamingCenterInput, UpdateGamingCenterInput, GamingCenterListItem, GamingCenterPricing } from './gamingCenter.types';
-import { Prisma, GameStation, Rating, Settings, Address, DiscountValueType } from '@prisma/client';
+import { Prisma, GameStation, Rating, Settings, Address, DiscountValueType, GamingCenterVerificationStatus } from '@prisma/client';
 import { ListGamingCentersQuery, GetGamingCenterDetailsQuery } from './gamingCenter.validation';
 import { getPaginationParams, formatPaginatedResult } from '../../common/utils/pagination';
 import { toZonedTime } from 'date-fns-tz';
@@ -637,6 +637,7 @@ export const gamingCenterRepository = {
 
     const where: Prisma.GamingCenterWhereInput = {
       isActive: isActive !== undefined ? isActive : true,
+      verificationStatus: (query as any).verificationStatus || GamingCenterVerificationStatus.APPROVED,
     };
 
     if (search) {

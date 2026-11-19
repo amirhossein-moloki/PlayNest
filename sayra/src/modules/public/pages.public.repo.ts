@@ -3,14 +3,14 @@ import { prisma } from '../../config/prisma';
 
 export const PagesPublicRepo = {
   async findGamingCenterBySlug(slug: string) {
-    return prisma.gamingCenter.findUnique({
-      where: { slug, isActive: true },
+    return prisma.gamingCenter.findFirst({
+      where: { slug, isActive: true, verificationStatus: 'APPROVED' },
     });
   },
 
   async findGamingCenterById(id: string) {
-    return prisma.gamingCenter.findUnique({
-      where: { id, isActive: true },
+    return prisma.gamingCenter.findFirst({
+      where: { id, isActive: true, verificationStatus: 'APPROVED' },
     });
   },
 

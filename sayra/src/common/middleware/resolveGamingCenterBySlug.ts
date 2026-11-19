@@ -27,7 +27,7 @@ export const resolveGamingCenterBySlug = async (
   const gamingCenter = await prisma.gamingCenter.findUnique({
     where: { slug: gamingCenterSlug, isActive: true },
   });
-  if (!gamingCenter) {
+  if (!gamingCenter || (gamingCenter.verificationStatus && gamingCenter.verificationStatus !== 'APPROVED')) {
     return next(new AppError('GamingCenter not found', httpStatus.NOT_FOUND));
   }
 
