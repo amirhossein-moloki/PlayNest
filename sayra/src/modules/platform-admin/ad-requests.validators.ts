@@ -27,9 +27,30 @@ export const createPlatformAdRequestSchema = z.object({
         .optional()
         .nullable()
         .or(z.literal('')),
-      gamingCenterId: z.string().trim().min(1).optional().nullable(),
-      ownerId: z.string().trim().min(1).optional().nullable(),
-      mediaId: z.string().trim().min(1).optional().nullable(),
+      gamingCenterId: z
+        .string()
+        .trim()
+        .min(1)
+        .optional()
+        .nullable()
+        .or(z.literal(''))
+        .transform((val) => (val === '' ? null : val)),
+      ownerId: z
+        .string()
+        .trim()
+        .min(1)
+        .optional()
+        .nullable()
+        .or(z.literal(''))
+        .transform((val) => (val === '' ? null : val)),
+      mediaId: z
+        .string()
+        .trim()
+        .min(1)
+        .optional()
+        .nullable()
+        .or(z.literal(''))
+        .transform((val) => (val === '' ? null : val)),
       status: z.enum(['APPROVED', 'PENDING']).optional().default('APPROVED'),
       durationDays: z.coerce.number().int().min(1, 'Duration must be at least 1 day').max(365, 'Duration cannot exceed 365 days').optional().default(30),
       priority: z.coerce.number().int().min(0).max(1000).optional().default(0),

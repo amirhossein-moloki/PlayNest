@@ -78,7 +78,24 @@ router.patch('/gaming-centers/:id/status', asyncHandler(PlatformAdminController.
 
 // Advertisements Management across all centers
 router.get('/ad-requests', asyncHandler(PlatformAdRequestsController.listAdRequests));
-router.post('/ad-requests', asyncHandler(PlatformAdRequestsController.createAdRequest));
+router.post(
+  '/ad-requests',
+  (req, res, next) => {
+    mediaUpload.fields([
+      { name: 'file', maxCount: 1 },
+      { name: 'banner', maxCount: 1 },
+      { name: 'bannerImage', maxCount: 1 },
+    ])(req, res, (err) => {
+      if (err) return next(err);
+      const files = req.files as Record<string, Express.Multer.File[]> | undefined;
+      if (files) {
+        req.file = files.file?.[0] || files.banner?.[0] || files.bannerImage?.[0] || undefined;
+      }
+      next();
+    });
+  },
+  asyncHandler(PlatformAdRequestsController.createAdRequest)
+);
 router.get('/ad-requests/:id', asyncHandler(PlatformAdRequestsController.getAdRequestById));
 router.patch('/ad-requests/:id/status', asyncHandler(PlatformAdRequestsController.updateAdRequestStatus));
 router.delete('/ad-requests/:id', asyncHandler(PlatformAdRequestsController.deleteAdRequest));

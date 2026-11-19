@@ -339,9 +339,9 @@ describe('Platform Admin Advertisement Management API', () => {
         reviewedAt: new Date(),
         decisionReason: 'Ad content verified and approved.',
         adminNote: 'Verified high quality banner.',
-        startDate: new Date('2026-11-15T00:00:00Z'),
+        startDate: new Date('2027-11-15T00:00:00Z'),
         durationDays: 30,
-        endDate: new Date('2026-12-15T00:00:00Z'),
+        endDate: new Date('2027-12-15T00:00:00Z'),
         reviewedBy: {
           id: 'pa_ad_1',
           fullName: 'Chief Superuser',
@@ -358,7 +358,7 @@ describe('Platform Admin Advertisement Management API', () => {
           status: 'APPROVED',
           decisionReason: 'Ad content verified and approved.',
           adminNote: 'Verified high quality banner.',
-          startDate: '2026-11-15T00:00:00Z',
+          startDate: '2027-11-15T00:00:00Z',
           durationDays: 30,
         });
 

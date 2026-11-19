@@ -1,3 +1,4 @@
+import path from 'path';
 import { Response, NextFunction } from 'express';
 import { AppRequest } from '../../types/express';
 import { PlatformAdRequestsStation } from './ad-requests.station';
@@ -6,6 +7,7 @@ import {
   listPlatformAdRequestsQuerySchema,
   updatePlatformAdRequestStatusSchema,
 } from './ad-requests.validators';
+import { getStorageAdapter } from '../media/storage';
 
 export const PlatformAdRequestsController = {
   /**
@@ -13,6 +15,20 @@ export const PlatformAdRequestsController = {
    */
   async createAdRequest(req: AppRequest, res: Response, next: NextFunction) {
     try {
+      if (req.file) {
+        const adapter = getStorageAdapter();
+        const ext = path.extname(req.file.originalname) || '.jpg';
+        const storageKey = `platform-admin/ads/banner-${Date.now()}${ext}`;
+        const uploadResult = await adapter.upload({
+          key: storageKey,
+          body: req.file.buffer,
+          contentType: req.file.mimetype,
+          cacheControl: 'public, max-age=31536000, immutable',
+        });
+        if (!req.body) req.body = {};
+        req.body.bannerUrl = uploadResult.url;
+      }
+
       const parsed = createPlatformAdRequestSchema.parse(req);
       const result = await PlatformAdRequestsStation.createAdRequest(
         parsed.body as Parameters<typeof PlatformAdRequestsStation.createAdRequest>[0],

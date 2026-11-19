@@ -289,8 +289,9 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
     <!-- Tab 3: Advertisements -->
     <div id="tab-ads" class="card" style="display:none;">
       <div class="section-header">
-        <div class="section-title"><i class="fa-solid fa-rectangle-ad"></i> Slider Advertisement Management</div>
+        <div class="section-title"><i class="fa-solid fa-rectangle-ad"></i> مدیریت تبلیغات اسلایدر (Slider Advertisements)</div>
         <div style="display:flex; gap:10px; align-items:center;">
+          <button class="btn btn-primary btn-sm" onclick="openCreateAdModal()"><i class="fa-solid fa-plus"></i> ایجاد تبلیغ جدید</button>
           <input type="text" id="ad-search-input" placeholder="Search center or title..." class="input" style="width:200px; padding:6px 12px; font-size:13px;" onkeyup="loadAds()" />
           <select id="ad-status-filter" class="select" style="padding:6px 12px; font-size:13px;" onchange="loadAds()">
             <option value="">All Statuses</option>
@@ -308,6 +309,7 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
         <thead>
           <tr>
             <th>Banner & Title</th>
+            <th>Type</th>
             <th>Gaming Center</th>
             <th>Priority</th>
             <th>Period (Start ~ End)</th>
@@ -317,7 +319,7 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
           </tr>
         </thead>
         <tbody id="ads-table-body">
-          <tr><td colspan="7">Loading advertisement requests...</td></tr>
+          <tr><td colspan="8">Loading advertisement requests...</td></tr>
         </tbody>
       </table>
     </div>
@@ -588,6 +590,72 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
         <div style="display:flex; gap:10px; justify-content:flex-end;">
           <button type="button" class="btn btn-secondary" onclick="closeRejectAdModal()">Cancel</button>
           <button type="submit" class="btn btn-danger">Confirm Rejection</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Create Advertisement Modal (Platform Admin) -->
+  <div id="createAdModal" class="auth-overlay" style="display: none;">
+    <div class="auth-card" style="max-width: 560px;">
+      <h2><i class="fa-solid fa-rectangle-ad" style="color: var(--primary);"></i> ایجاد تبلیغ جدید در اسلایدر</h2>
+      <p>ایجاد تبلیغ مستقل (بدون وابستگی به گیم‌نت) یا متصل به یک گیم‌نت خاص.</p>
+      <form id="createAdForm" onsubmit="handleCreateAd(event)">
+        <div class="form-group">
+          <label>نوع تبلیغ (Advertisement Type)</label>
+          <select id="adNewType" class="form-control" onchange="toggleAdTypeFields()">
+            <option value="GLOBAL_PROMOTION" selected>تبلیغ عمومی سراسری (مستقل - بدون گیم‌نت)</option>
+            <option value="CUSTOM_LINK">لینک اختصاصی / وب‌سایت (مستقل - بدون گیم‌نت)</option>
+            <option value="CATEGORY">دسته‌بندی خاص (مستقل - بدون گیم‌نت)</option>
+            <option value="GAMING_CENTER">مربوط به یک گیم‌نت خاص</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>عنوان تبلیغ (Title)</label>
+          <input type="text" id="adNewTitle" class="form-control" placeholder="مثلاً: جشنواره تخفیف پلتفرم PlayNest" required />
+        </div>
+        <div class="form-group">
+          <label>توضیحات (Description - اختیاری)</label>
+          <textarea id="adNewDescription" class="form-control" rows="2" placeholder="توضیحات تکمیلی تبلیغ..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>تصویر بنر (Banner Image URL یا آپلود)</label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="adNewBannerUrl" class="form-control" placeholder="https://... یا آدرس تصویر" required />
+            <label class="btn btn-secondary" style="margin-bottom:0; cursor:pointer; white-space:nowrap;">
+              <i class="fa-solid fa-upload"></i> آپلود
+              <input type="file" id="adNewBannerFile" accept="image/*" style="display:none;" onchange="uploadAdBannerFile(this)" />
+            </label>
+          </div>
+          <small id="adBannerUploadMsg" style="color:var(--text-muted); font-size:11px;"></small>
+        </div>
+        <div class="form-group" id="adDestinationUrlGroup">
+          <label>لینک مقصد (Destination URL)</label>
+          <input type="url" id="adNewDestinationUrl" class="form-control" placeholder="https://example.com/promo" />
+        </div>
+        <div class="form-group" id="adCategoryGroup" style="display:none;">
+          <label>نام دسته‌بندی (Category)</label>
+          <input type="text" id="adNewCategory" class="form-control" placeholder="مثلاً: PC, VR, PLAYSTATION" />
+        </div>
+        <div class="form-group" id="adGamingCenterGroup" style="display:none;">
+          <label>گیم‌نت مربوطه (در صورت خالی بودن، تبلیغ مستقل خواهد بود)</label>
+          <select id="adNewGamingCenterId" class="form-control">
+            <option value="">-- مستقل (بدون ارتباط با هیچ گیم‌نتی) --</option>
+          </select>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+          <div class="form-group">
+            <label>اولویت نمایش (Priority)</label>
+            <input type="number" id="adNewPriority" class="form-control" value="10" min="0" max="1000" />
+          </div>
+          <div class="form-group">
+            <label>مدت زمان نمایش به روز (Duration Days)</label>
+            <input type="number" id="adNewDuration" class="form-control" value="30" min="1" max="365" />
+          </div>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button type="submit" class="btn btn-primary" style="flex:1;"><i class="fa-solid fa-plus"></i> ایجاد و انتشار تبلیغ</button>
+          <button type="button" class="btn btn-secondary" onclick="closeCreateAdModal()">انصراف</button>
         </div>
       </form>
     </div>
