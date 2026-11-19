@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 export const addressBodySchema = z.object({
+  id: z.string().optional(),
+  addressId: z.string().optional(),
   title: z.string().optional(),
   province: z.string().optional(),
   city: z.string().min(1),
@@ -10,6 +12,7 @@ export const addressBodySchema = z.object({
   lat: z.number().optional(),
   lng: z.number().optional(),
   isPrimary: z.boolean().optional(),
+  createNew: z.boolean().optional(),
 });
 
 export const updateAddressBodySchema = addressBodySchema.partial();

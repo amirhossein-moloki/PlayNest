@@ -9,6 +9,21 @@ export const AddressesStation = {
   },
 
   async createAddress(gamingCenterId: string, data: Record<string, unknown>): Promise<Address> {
+    const explicitId = (data.id || data.addressId) as string | undefined;
+
+    if (explicitId) {
+      const existing = await AddressesRepo.findById(explicitId);
+      if (existing && existing.gamingCenterId === gamingCenterId) {
+        return this.updateAddress(gamingCenterId, explicitId, data);
+      }
+    }
+
+    const existingList = (await AddressesRepo.findByGamingCenterId(gamingCenterId)) || [];
+    if (existingList && existingList.length > 0 && data.createNew !== true) {
+      const target = existingList.find((a) => a.isPrimary) || existingList[0];
+      return this.updateAddress(gamingCenterId, target.id, data);
+    }
+
     return AddressesRepo.create(gamingCenterId, data);
   },
 

@@ -12691,8 +12691,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
     post:
-      summary: Create branch address
-      description: Create branch address
+      summary: Create or update branch address
+      description: Create branch address, or update existing address if ID is specified or gaming center already has a primary address
       tags:
       - CMS
       operationId: post_gamingCenters_gamingCenterId_addresses
@@ -12710,9 +12710,169 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-              - city
-              - addressLine
+              properties:
+                id:
+                  type: string
+                  description: Address ID to update if editing
+                addressId:
+                  type: string
+                  description: Address ID to update if editing
+                createNew:
+                  type: boolean
+                  description: Force creation of a new address even if an address already exists
+                title:
+                  type: string
+                province:
+                  type: string
+                city:
+                  type: string
+                district:
+                  type: string
+                addressLine:
+                  type: string
+                postalCode:
+                  type: string
+                lat:
+                  type: number
+                lng:
+                  type: number
+                isPrimary:
+                  type: boolean
+      responses:
+        '200':
+          description: Address updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '201':
+          description: Address created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+    put:
+      summary: Update branch or primary address
+      description: Update branch or primary address
+      tags:
+      - CMS
+      operationId: put_gamingCenters_gamingCenterId_addresses
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                title:
+                  type: string
+                province:
+                  type: string
+                city:
+                  type: string
+                district:
+                  type: string
+                addressLine:
+                  type: string
+                postalCode:
+                  type: string
+                lat:
+                  type: number
+                lng:
+                  type: number
+                isPrimary:
+                  type: boolean
+      responses:
+        '200':
+          description: Address updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+    patch:
+      summary: Partial update branch or primary address
+      description: Partial update branch or primary address
+      tags:
+      - CMS
+      operationId: patch_gamingCenters_gamingCenterId_addresses
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                title:
+                  type: string
+                province:
+                  type: string
+                city:
+                  type: string
+                district:
+                  type: string
+                addressLine:
+                  type: string
+                postalCode:
+                  type: string
+                lat:
+                  type: number
+                lng:
+                  type: number
+                isPrimary:
+                  type: boolean
+      responses:
+        '200':
+          description: Address updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+  /gamingCenters/{gamingCenterId}/addresses/{addressId}:
+    patch:
+      summary: Update branch address
+      description: Update branch address
+      tags:
+      - CMS
+      operationId: patch_gamingCenters_gamingCenterId_addresses_addressId
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: addressId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
               properties:
                 title:
                   type: string
@@ -12733,19 +12893,69 @@ paths:
                 isPrimary:
                   type: boolean
       responses:
-        '201':
-          description: Address created
+        '200':
+          description: Address updated
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
-  /gamingCenters/{gamingCenterId}/addresses/{addressId}:
-    patch:
-      summary: Update branch address
-      description: Update branch address
+    put:
+      summary: Replace or update branch address
+      description: Replace or update branch address
       tags:
       - CMS
-      operationId: patch_gamingCenters_gamingCenterId_addresses_addressId
+      operationId: put_gamingCenters_gamingCenterId_addresses_addressId
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: addressId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                province:
+                  type: string
+                city:
+                  type: string
+                district:
+                  type: string
+                addressLine:
+                  type: string
+                postalCode:
+                  type: string
+                lat:
+                  type: number
+                lng:
+                  type: number
+                isPrimary:
+                  type: boolean
+      responses:
+        '200':
+          description: Address updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+    post:
+      summary: Update branch address via POST
+      description: Update branch address via POST
+      tags:
+      - CMS
+      operationId: post_gamingCenters_gamingCenterId_addresses_addressId
       security:
       - bearerAuth: []
       parameters:

@@ -14,6 +14,20 @@ export const getAddresses = async (req: Request, res: Response, next: NextFuncti
 export const createAddress = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { gamingCenterId } = req.params;
+    const addressId = req.params.addressId || (req.body && (req.body.id || req.body.addressId));
+
+    if (addressId) {
+      const address = await AddressesStation.updateAddress(gamingCenterId, addressId, req.body);
+      return res.ok(address);
+    }
+
+    const existing = (await AddressesStation.getAddresses(gamingCenterId)) || [];
+    if (existing && existing.length > 0 && req.body && req.body.createNew !== true) {
+      const primary = existing.find((a) => a.isPrimary) || existing[0];
+      const address = await AddressesStation.updateAddress(gamingCenterId, primary.id, req.body);
+      return res.ok(address);
+    }
+
     const address = await AddressesStation.createAddress(gamingCenterId, req.body);
     res.created(address);
   } catch (error) {
@@ -23,7 +37,21 @@ export const createAddress = async (req: Request, res: Response, next: NextFunct
 
 export const updateAddress = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { gamingCenterId, addressId } = req.params;
+    const { gamingCenterId } = req.params;
+    const addressId = req.params.addressId || (req.body && (req.body.id || req.body.addressId));
+
+    if (!addressId) {
+      const existing = (await AddressesStation.getAddresses(gamingCenterId)) || [];
+      if (existing && existing.length > 0) {
+        const primary = existing.find((a) => a.isPrimary) || existing[0];
+        const address = await AddressesStation.updateAddress(gamingCenterId, primary.id, req.body);
+        return res.ok(address);
+      } else {
+        const created = await AddressesStation.createAddress(gamingCenterId, req.body);
+        return res.created(created);
+      }
+    }
+
     const address = await AddressesStation.updateAddress(gamingCenterId, addressId, req.body);
     res.ok(address);
   } catch (error) {

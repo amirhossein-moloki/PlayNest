@@ -152,6 +152,84 @@ describe('CMS Addresses & Links API', () => {
       });
     });
 
+    it('should update address via PUT /addresses/:addressId', async () => {
+      const addressId = 'addr-1';
+      ((prisma as any).address.findUnique as jest.Mock).mockResolvedValue({
+        id: addressId,
+        gamingCenterId,
+        city: 'رشت',
+        addressLine: 'آدرس قدیمی',
+      });
+      ((prisma as any).address.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+
+      const res = await request(app)
+        .put(`/api/v1/gamingCenters/${gamingCenterId}/addresses/${addressId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          city: 'لاهیجان',
+          addressLine: 'آدرس جدید',
+        });
+
+      expect(res.status).toBe(200);
+      expect((prisma as any).address.updateMany).toHaveBeenCalledWith({
+        where: { id: addressId, gamingCenterId },
+        data: { city: 'لاهیجان', addressLine: 'آدرس جدید' },
+      });
+    });
+
+    it('should update existing address when id is passed in POST /addresses', async () => {
+      const addressId = 'addr-1';
+      ((prisma as any).address.findUnique as jest.Mock).mockResolvedValue({
+        id: addressId,
+        gamingCenterId,
+        city: 'تهران',
+        addressLine: 'آدرس قدیمی',
+      });
+      ((prisma as any).address.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+
+      const res = await request(app)
+        .post(`/api/v1/gamingCenters/${gamingCenterId}/addresses`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          id: addressId,
+          city: 'تهران',
+          addressLine: 'آدرس ویرایش شده',
+        });
+
+      expect(res.status).toBe(200);
+      expect((prisma as any).address.updateMany).toHaveBeenCalledWith({
+        where: { id: addressId, gamingCenterId },
+        data: { city: 'تهران', addressLine: 'آدرس ویرایش شده' },
+      });
+    });
+
+    it('should update existing address when center already has address and createNew is false in POST /addresses', async () => {
+      const existingAddress = {
+        id: 'addr-existing',
+        gamingCenterId,
+        isPrimary: true,
+        city: 'تهران',
+        addressLine: 'آدرس اول',
+      };
+      ((prisma as any).address.findMany as jest.Mock).mockResolvedValue([existingAddress]);
+      ((prisma as any).address.findUnique as jest.Mock).mockResolvedValue(existingAddress);
+      ((prisma as any).address.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+
+      const res = await request(app)
+        .post(`/api/v1/gamingCenters/${gamingCenterId}/addresses`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          city: 'تهران',
+          addressLine: 'آدرس به‌روزشده بدون ارسال id',
+        });
+
+      expect(res.status).toBe(200);
+      expect((prisma as any).address.updateMany).toHaveBeenCalledWith({
+        where: { id: 'addr-existing', gamingCenterId },
+        data: { city: 'تهران', addressLine: 'آدرس به‌روزشده بدون ارسال id' },
+      });
+    });
+
     it('should reject invalid field types in PATCH', async () => {
       const addressId = 'addr-1';
       const res = await request(app)
