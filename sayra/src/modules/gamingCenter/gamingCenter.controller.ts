@@ -1,10 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { gamingCenterStation } from './gamingCenter.station';
+import { PublicGamingCentersRepo } from '../public/gamingCenters.public.repo';
 import {
   createGamingCenterSchema,
   updateGamingCenterSchema,
   listGamingCentersSchema,
   getGamingCenterDetailsSchema,
+  mapGamingCentersQuerySchema,
 } from './gamingCenter.validation';
 
 export const gamingCenterController = {
@@ -38,6 +40,16 @@ export const gamingCenterController = {
       const validatedQuery = listGamingCentersSchema.parse(req.query);
       const gamingCenters = await gamingCenterStation.getAllGamingCenters(validatedQuery);
       res.ok(gamingCenters);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getMapGamingCenters(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { city } = mapGamingCentersQuerySchema.parse(req.query);
+      const markers = await PublicGamingCentersRepo.findMapGamingCentersByCity(city);
+      res.ok(markers);
     } catch (error) {
       next(error);
     }

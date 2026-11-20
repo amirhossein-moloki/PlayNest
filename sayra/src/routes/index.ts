@@ -175,6 +175,7 @@ router.use('/gamingCenters/:gamingCenterId/ratings', privateReviewsRouter);
 
 // Public GamingCenter Root & Reviews
 router.use('/public/gaming-centers', publicGamingCentersRouter);
+router.use('/public/gamingCenters', publicGamingCentersRouter);
 router.use('/public/gamingCenters/:gamingCenterSlug', publicGamingCenterRouter);
 router.use('/public/gamingCenters/:gamingCenterSlug', publicReviewsRouter);
 

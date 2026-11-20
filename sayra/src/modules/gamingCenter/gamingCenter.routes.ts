@@ -10,6 +10,7 @@ const router = Router();
 
 // Public routes
 router.get('/', asyncHandler(gamingCenterController.getAllGamingCenters));
+router.get('/map', asyncHandler(gamingCenterController.getMapGamingCenters));
 router.get('/:id', asyncHandler(gamingCenterController.getGamingCenterById));
 
 // Protected routes - Require authentication and specific roles

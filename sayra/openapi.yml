@@ -55,6 +55,37 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   schemas:
+    GamingCenterMapItem:
+      type: object
+      required:
+      - id
+      - name
+      - latitude
+      - longitude
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          description: شناسه گیمنت
+          example: cmwlxvn5r0014137pppik07te
+        name:
+          type: string
+          description: نام گیمنت
+          example: گیم‌نت شتاب
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+          description: عرض جغرافیایی
+          example: 35.7152
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+          description: طول جغرافیایی
+          example: 51.4043
     PaymentCalculation:
       type: object
       properties:
@@ -6594,6 +6625,41 @@ paths:
                           example: 12
         '500':
           $ref: '#/components/responses/InternalServerError'
+  /public/gaming-centers/map:
+    get:
+      summary: List gaming center map markers for a selected city
+      description: Returns active, approved gaming centers with valid geographic coordinates belonging only to the specified city. Only minimal marker fields (id, name, latitude, longitude) are returned.
+      tags:
+      - Public
+      operationId: get_public_gaming_centers_map
+      parameters:
+      - name: city
+        in: query
+        required: true
+        description: نام شهر انتخاب‌شده (الزامی)
+        schema:
+          type: string
+          minLength: 1
+          example: Tehran
+      responses:
+        '200':
+          description: List of gaming center map markers for the selected city
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GamingCenterMapItem'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /public/gamingCenters/{gamingCenterSlug}:
     get:
       summary: Get public gaming center info
@@ -8250,6 +8316,41 @@ paths:
                 $ref: '#/components/schemas/Success'
       operationId: post_gamingCenters
       description: Create a new gamingCenter
+  /gamingCenters/map:
+    get:
+      summary: List gaming center map markers for a selected city
+      description: Returns active, approved gaming centers with valid geographic coordinates belonging only to the specified city. Only minimal marker fields (id, name, latitude, longitude) are returned.
+      tags:
+      - GamingCenters
+      operationId: get_gamingCenters_map
+      parameters:
+      - name: city
+        in: query
+        required: true
+        description: نام شهر انتخاب‌شده (الزامی)
+        schema:
+          type: string
+          minLength: 1
+          example: Tehran
+      responses:
+        '200':
+          description: List of gaming center map markers for the selected city
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GamingCenterMapItem'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /auth/me:
     get:
       summary: Get current authenticated user profile

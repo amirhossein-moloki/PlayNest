@@ -85,3 +85,10 @@ publicGamingCentersRouter.get(
   publicApiRateLimiter,
   PublicGamingCentersController.getRegisteredCities
 );
+
+// Public Gaming Centers on Map (by City)
+publicGamingCentersRouter.get(
+  '/map',
+  publicApiRateLimiter,
+  PublicGamingCentersController.getMapGamingCenters
+);
