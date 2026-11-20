@@ -77,6 +77,7 @@ describe('Payment API', () => {
       expect(res.body.error?.message).toBe('Reservation not found.');
       expect(prisma.reservation.findFirst).toHaveBeenCalledWith({
         where: { id: reservationId, gamingCenterId },
+        include: { customerAccount: true },
       });
       expect(prisma.payment.findFirst).not.toHaveBeenCalled();
     });
@@ -97,6 +98,7 @@ describe('Payment API', () => {
       expect(res.body.error?.message).toBe('Reservation not found.');
       expect(prisma.reservation.findFirst).toHaveBeenCalledWith({
         where: { id: otherReservationId, gamingCenterId },
+        include: { customerAccount: true },
       });
     });
 

@@ -33,9 +33,10 @@ const reconcilePayment = async ({ gamingCenterId, paymentId }: ReconcilePaymentI
   if (payment.providerPaymentId) {
     try {
       const provider = PaymentProviderFactory.getProvider(payment.provider);
+      const gatewayAmount = payment.amount - (payment.walletAmount || 0);
       const verifyResult = await provider.verifyPayment({
         authority: payment.providerPaymentId,
-        amount: payment.amount,
+        amount: gatewayAmount,
       });
 
       if (verifyResult.success && payment.status !== PaymentStatus.PAID) {

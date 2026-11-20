@@ -204,7 +204,12 @@ function createTxClient(heldLocks: Array<() => void>, heldLockKeys: Set<string>)
         return found ? { ...found } : null;
       }),
       create: jest.fn(async ({ data }: any) => {
-        const record = { id: `le-${state.ledgerEntries.length + 1}`, ...data };
+        const record = {
+          id: `le-${state.ledgerEntries.length + 1}`,
+          ...data,
+          paymentId: data.payment?.connect?.id || data.paymentId,
+          gamingCenterId: data.gamingCenter?.connect?.id || data.gamingCenterId,
+        };
         state.ledgerEntries.push(record);
         return record;
       }),
@@ -233,6 +238,8 @@ const mockPrisma: any = {
         if (where?.providerPaymentId && p.providerPaymentId !== where.providerPaymentId) return false;
         if (where?.reservationId && p.reservationId !== where.reservationId) return false;
         if (where?.gamingCenterId && p.gamingCenterId !== where.gamingCenterId) return false;
+        if (where?.status && p.status !== where.status) return false;
+        if (where?.idempotencyKey && p.idempotencyKey !== where.idempotencyKey) return false;
         return true;
       });
       if (orderBy?.createdAt === 'desc') {
@@ -834,6 +841,190 @@ describe('Wallet Payment and Partial Payment Module', () => {
       expect(state.customerAccounts.get(customerAccountId).walletBalance).toBe(35000);
       expect(state.payments.size).toBe(0);
       expect(state.walletTransactions.length).toBe(0);
+    });
+  });
+
+  describe('8. Concurrency Protection & Race Conditions', () => {
+    it('prevents double-spending when two concurrent requests try to spend the same wallet balance', async () => {
+      // Customer has 100,000 in wallet
+      state.customerAccounts.set(customerAccountId, {
+        id: customerAccountId,
+        walletBalance: 100000,
+      });
+
+      // Two different reservations each costing 80,000
+      const res1 = 'res-race-1';
+      const res2 = 'res-race-2';
+
+      state.reservations.set(res1, {
+        id: res1,
+        gamingCenterId,
+        customerAccountId,
+        totalPrice: 80000,
+        customerPayableAmount: 80000,
+        status: ReservationStatus.PENDING,
+        paymentState: ReservationPaymentState.UNPAID,
+      });
+
+      state.reservations.set(res2, {
+        id: res2,
+        gamingCenterId,
+        customerAccountId,
+        totalPrice: 80000,
+        customerPayableAmount: 80000,
+        status: ReservationStatus.PENDING,
+        paymentState: ReservationPaymentState.UNPAID,
+      });
+
+      // Submit both full-wallet payment requests concurrently
+      const results = await Promise.allSettled([
+        PaymentsStation.initiatePayment({
+          gamingCenterId,
+          reservationId: res1,
+          idempotencyKey: 'race-idemp-1',
+          useWallet: true,
+        }),
+        PaymentsStation.initiatePayment({
+          gamingCenterId,
+          reservationId: res2,
+          idempotencyKey: 'race-idemp-2',
+          useWallet: true,
+        }),
+      ]);
+
+      const fulfilled = results.filter((r) => r.status === 'fulfilled');
+      const rejected = results.filter((r) => r.status === 'rejected');
+
+      // Exactly one must succeed and one must fail with insufficient balance
+      expect(fulfilled.length).toBe(1);
+      expect(rejected.length).toBe(1);
+
+      const rejectedReason = (rejected[0] as PromiseRejectedResult).reason;
+      expect(rejectedReason.message).toMatch(/Insufficient wallet balance/);
+
+      // Remaining balance must be exactly 20,000 (never negative)
+      const finalBalance = state.customerAccounts.get(customerAccountId).walletBalance;
+      expect(finalBalance).toBe(20000);
+    });
+  });
+
+  describe('9. Strict Idempotency & Retries', () => {
+    it('re-requesting with same idempotencyKey returns existing payment without double deduction', async () => {
+      state.customerAccounts.set(customerAccountId, {
+        id: customerAccountId,
+        walletBalance: 150000,
+      });
+
+      state.reservations.set(reservationId, {
+        id: reservationId,
+        gamingCenterId,
+        customerAccountId,
+        totalPrice: 100000,
+        customerPayableAmount: 100000,
+        status: ReservationStatus.PENDING,
+        paymentState: ReservationPaymentState.UNPAID,
+      });
+
+      // First call
+      const firstResult = await PaymentsStation.initiatePayment({
+        gamingCenterId,
+        reservationId,
+        idempotencyKey: 'dup-key-12345',
+        useWallet: true,
+      });
+
+      expect(firstResult.paymentStatus).toBe(PaymentStatus.PAID);
+      expect(state.customerAccounts.get(customerAccountId).walletBalance).toBe(50000);
+
+      // Second identical call (simulating retry or network replay)
+      const secondResult = await PaymentsStation.initiatePayment({
+        gamingCenterId,
+        reservationId,
+        idempotencyKey: 'dup-key-12345',
+        useWallet: true,
+      });
+
+      expect(secondResult.paymentId).toBe(firstResult.paymentId);
+      expect(secondResult.paymentStatus).toBe(PaymentStatus.PAID);
+      expect(secondResult.message).toBe('Payment already completed.');
+
+      // Balance must NOT have been deducted again
+      expect(state.customerAccounts.get(customerAccountId).walletBalance).toBe(50000);
+      expect(state.walletTransactions.length).toBe(1);
+    });
+
+    it('retrying checkout when an active INITIATED payment exists cancels old payment and restores wallet balance', async () => {
+      state.customerAccounts.set(customerAccountId, {
+        id: customerAccountId,
+        walletBalance: 40000,
+      });
+
+      state.reservations.set(reservationId, {
+        id: reservationId,
+        gamingCenterId,
+        customerAccountId,
+        totalPrice: 100000,
+        customerPayableAmount: 100000,
+        status: ReservationStatus.PENDING,
+        paymentState: ReservationPaymentState.UNPAID,
+      });
+
+      // 1. Initial attempt with partial wallet
+      const firstResult = await PaymentsStation.initiatePayment({
+        gamingCenterId,
+        reservationId,
+        idempotencyKey: 'first-attempt-key',
+        useWallet: true,
+      });
+
+      expect(firstResult.paymentStatus).toBe(PaymentStatus.INITIATED);
+      expect(state.customerAccounts.get(customerAccountId).walletBalance).toBe(0);
+
+      // 2. User abandons and initiates a new checkout (different idempotency key)
+      const secondResult = await PaymentsStation.initiatePayment({
+        gamingCenterId,
+        reservationId,
+        idempotencyKey: 'second-attempt-key',
+        useWallet: true,
+      });
+
+      // Old payment is cancelled and refunded, new payment deducted freshly
+      expect(secondResult.paymentStatus).toBe(PaymentStatus.INITIATED);
+      expect(secondResult.paymentId).not.toBe(firstResult.paymentId);
+
+      const oldPayment = state.payments.get(firstResult.paymentId);
+      expect(oldPayment.status).toBe(PaymentStatus.FAILED);
+
+      // Wallet funds were restored from first payment then deducted for second payment
+      expect(state.customerAccounts.get(customerAccountId).walletBalance).toBe(0);
+      const refundTxs = state.walletTransactions.filter((t) => t.type === WalletTransactionType.REFUND);
+      expect(refundTxs.length).toBe(1);
+      expect(refundTxs[0].paymentId).toBe(firstResult.paymentId);
+    });
+
+    it('re-verifying already FAILED payment returns failure without re-calling provider', async () => {
+      const pId = 'pay-term-failed';
+      state.payments.set(pId, {
+        id: pId,
+        gamingCenterId,
+        reservationId,
+        amount: 100000,
+        walletAmount: 0,
+        status: PaymentStatus.FAILED,
+        providerPaymentId: 'term-auth-123',
+        failureReason: 'Pre-existing failure',
+        createdAt: new Date(),
+      });
+
+      const res = await PaymentsStation.verifyPayment({
+        gamingCenterId,
+        reservationId,
+        authority: 'term-auth-123',
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.paymentStatus).toBe(PaymentStatus.FAILED);
+      expect(mockProvider.verifyPayment).not.toHaveBeenCalled();
     });
   });
 });

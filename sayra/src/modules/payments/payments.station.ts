@@ -47,6 +47,44 @@ const initiatePayment = async ({
     throw new AppError('Unauthorized access to reservation payment.', httpStatus.FORBIDDEN);
   }
 
+  // Idempotency check: If an idempotencyKey was provided, check for existing payment record
+  if (idempotencyKey) {
+    const existingPayment = await prisma.payment.findFirst({
+      where: {
+        gamingCenterId,
+        idempotencyKey,
+      },
+      include: { reservation: true },
+    });
+
+    if (existingPayment) {
+      if (existingPayment.status === PaymentStatus.PAID) {
+        return {
+          paymentId: existingPayment.id,
+          paymentStatus: existingPayment.status,
+          totalAmount: existingPayment.amount,
+          walletAmount: existingPayment.walletAmount || 0,
+          gatewayAmount: existingPayment.amount - (existingPayment.walletAmount || 0),
+          checkoutUrl: null,
+          message: 'Payment already completed.',
+        };
+      }
+
+      if (existingPayment.status === PaymentStatus.INITIATED) {
+        return {
+          paymentId: existingPayment.id,
+          paymentStatus: existingPayment.status,
+          totalAmount: existingPayment.amount,
+          walletAmount: existingPayment.walletAmount || 0,
+          gatewayAmount: existingPayment.amount - (existingPayment.walletAmount || 0),
+          providerPaymentId: existingPayment.providerPaymentId,
+          checkoutUrl: null,
+          message: 'Payment already initiated.',
+        };
+      }
+    }
+  }
+
   // 2. Validate reservation state and payment eligibility
   if (reservation.paymentState === ReservationPaymentState.PAID) {
     throw new AppError('Reservation is already paid.', httpStatus.CONFLICT);
@@ -54,6 +92,26 @@ const initiatePayment = async ({
 
   if (reservation.status === ReservationStatus.CANCELED || reservation.status === ReservationStatus.EXPIRED) {
     throw new AppError('Reservation is canceled or expired and cannot be paid.', httpStatus.BAD_REQUEST);
+  }
+
+  // Cancel any stale INITIATED payment for this reservation, restoring any deducted wallet contribution
+  const activeExistingPayment = await prisma.payment.findFirst({
+    where: {
+      reservationId,
+      status: PaymentStatus.INITIATED,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (activeExistingPayment) {
+    await PaymentsRepo.transaction(async (tx) => {
+      await PaymentsRepo.handleFailedPayment(
+        tx,
+        activeExistingPayment.id,
+        PaymentStatus.FAILED,
+        'Superseded by new payment initiation'
+      );
+    });
   }
 
   // 3. Trusted server-side price & currency calculation (Backend Authority & Legacy Compatibility)
@@ -263,6 +321,19 @@ const verifyPayment = async ({
       gatewayAmount: payment.amount - (payment.walletAmount || 0),
       referenceCode: payment.referenceCode,
       message: 'Payment already verified.',
+    };
+  }
+
+  // Idempotency check: If already failed or cancelled, return existing failure state without re-invoking provider
+  if (payment.status === PaymentStatus.FAILED || payment.status === PaymentStatus.CANCELED) {
+    return {
+      success: false,
+      paymentId: payment.id,
+      paymentStatus: payment.status,
+      totalAmount: payment.amount,
+      walletAmount: payment.walletAmount || 0,
+      gatewayAmount: payment.amount - (payment.walletAmount || 0),
+      failureReason: payment.failureReason || 'Payment already terminated.',
     };
   }
 

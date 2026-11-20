@@ -161,10 +161,11 @@ export async function handlePaymentCallback(req: Request, res: Response): Promis
 
   // 4. Server-to-server authoritative verification via SDK
   const provider = PaymentProviderFactory.getProvider(payment.provider || 'ZARINPAL');
+  const gatewayExpectedAmount = payment.amount - (payment.walletAmount || 0);
 
   const verifyResult = await provider.verifyPayment({
     authority,
-    amount: payment.amount,
+    amount: gatewayExpectedAmount,
     metadata: {
       orderId: paymentInitialOrderId,
       reservationId: payment.reservationId,
@@ -391,10 +392,11 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
 
   // 4. Server-to-server authoritative verification via SDK
   const provider = PaymentProviderFactory.getProvider('ZIBAL');
+  const gatewayExpectedAmount = payment.amount - (payment.walletAmount || 0);
 
   const verifyResult = await provider.verifyPayment({
     authority: trackId,
-    amount: payment.amount,
+    amount: gatewayExpectedAmount,
     metadata: {
       orderId: paymentInitialOrderId,
       reservationId: payment.reservationId,
