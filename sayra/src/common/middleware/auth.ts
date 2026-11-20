@@ -177,3 +177,109 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
 
   next();
 };
+
+export const optionalAuth = async (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  let actorId: string | undefined;
+  let actorType: SessionActorType | undefined;
+  let sessionId: string | undefined;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    const payload = verifyToken(token, env.JWT_ACCESS_SECRET);
+    if (payload && payload.actorId && payload.actorType) {
+      actorId = payload.actorId;
+      actorType = payload.actorType;
+      sessionId = payload.sessionId;
+    }
+  }
+
+  if (!actorId || !actorType) {
+    return next();
+  }
+
+  const cacheKey = getActorCacheKey(actorId, actorType);
+  let cachedActor: CachedActor | null = null;
+
+  try {
+    const rawData = await redis.get(cacheKey);
+    if (rawData) {
+      cachedActor = JSON.parse(rawData) as CachedActor;
+    }
+  } catch (error) {
+    logger.warn({ error, actorId }, 'Redis read error in optionalAuth');
+  }
+
+  if (cachedActor) {
+    if (cachedActor.isActive !== false) {
+      req.actor = {
+        id: cachedActor.id,
+        actorId: cachedActor.actorId,
+        role: cachedActor.role,
+        gamingCenterId: cachedActor.gamingCenterId,
+        actorType: cachedActor.actorType,
+        sessionId: sessionId as string | undefined,
+        isSuperuser: cachedActor.isSuperuser,
+      };
+    }
+    return next();
+  }
+
+  // Cache Miss - Query database
+  let user;
+  let isSuperuser = false;
+  try {
+    if (actorType === 'PLATFORM_ADMIN') {
+      const admin = await prisma.platformAdmin.findUnique({ where: { id: actorId } });
+      if (admin && admin.isActive !== false) {
+        user = admin;
+        isSuperuser = admin.isSuperuser ?? true;
+      }
+    } else if (actorType === 'USER') {
+      const foundUser = await prisma.user.findUnique({ where: { id: actorId } });
+      if (foundUser) {
+        const isActive = 'isActive' in foundUser ? (foundUser as { isActive?: boolean }).isActive !== false : true;
+        if (isActive) {
+          user = foundUser;
+        }
+      }
+    } else {
+      user = await prisma.customerAccount.findUnique({ where: { id: actorId } });
+    }
+
+    if (user) {
+      const role = 'role' in user ? (user as { role?: UserRole }).role : (isSuperuser ? UserRole.ADMIN : undefined);
+      const gamingCenterId = 'gamingCenterId' in user ? (user as { gamingCenterId?: string }).gamingCenterId : undefined;
+
+      const actorData: CachedActor = {
+        id: user.id,
+        actorId,
+        role,
+        gamingCenterId,
+        actorType,
+        isActive: true,
+        ...(isSuperuser ? { isSuperuser: true } : {}),
+      };
+
+      try {
+        await redis.set(cacheKey, JSON.stringify(actorData), 'EX', AUTH_CACHE_TTL_SECONDS);
+      } catch (error) {
+        logger.warn({ error, actorId }, 'Redis write error in optionalAuth');
+      }
+
+      req.actor = {
+        id: user.id,
+        actorId,
+        role,
+        gamingCenterId,
+        actorType,
+        sessionId: sessionId as string | undefined,
+        isSuperuser: isSuperuser ? true : undefined,
+      };
+    }
+  } catch (dbErr) {
+    logger.warn({ dbErr, actorId }, 'DB query error in optionalAuth');
+  }
+
+  return next();
+};

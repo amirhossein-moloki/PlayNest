@@ -11,6 +11,8 @@ import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { normalizePhone } from '../../common/utils/phone';
 import { validateOperatingHours } from '../reservation/reservation.validation';
+import { RequestActor } from '../../types/express';
+import { prisma } from '../../config/prisma';
 
 const OTP_POST_VERIFICATION_WINDOW_MINUTES = 5;
 
@@ -241,6 +243,7 @@ export const GroupBookingStation = {
     items: Array<{ stationId: string; staffId?: string }>;
     customer: { fullName: string; phone: string; email?: string };
     note?: string;
+    actor?: RequestActor;
   }) {
     const gamingCenter = await ReservationRepo.findGamingCenterBySlugWithSettings(gamingCenterSlug);
     if (!gamingCenter) {
@@ -268,13 +271,38 @@ export const GroupBookingStation = {
 
     if (gamingCenter.settings?.requireOtpForPublicBooking) {
       const normalizedPhone = normalizePhone(input.customer.phone);
-      const verificationWindow = new Date(Date.now() - OTP_POST_VERIFICATION_WINDOW_MINUTES * 60 * 1000);
-      const recentVerifiedOtp = await AuthRepository.findRecentConsumedOtp(normalizedPhone, OtpPurpose.LOGIN, verificationWindow);
 
-      if (!recentVerifiedOtp) {
-        throw new AppError('Phone number not verified. Please verify via OTP first.', httpStatus.UNAUTHORIZED, {
-          code: 'OTP_REQUIRED',
-        });
+      // If the caller is already authenticated via JWT with matching phone number or staff/admin, bypass OTP
+      let isAuthenticatedCustomer = false;
+      if (input.actor) {
+        if (
+          input.actor.actorType === SessionActorType.USER ||
+          input.actor.actorType === SessionActorType.PLATFORM_ADMIN
+        ) {
+          isAuthenticatedCustomer = true;
+        } else if (input.actor.actorType === SessionActorType.CUSTOMER) {
+          const actorCustomer = await prisma.customerAccount.findUnique({
+            where: { id: input.actor.id },
+            select: { id: true, phone: true },
+          });
+          if (
+            actorCustomer &&
+            (normalizePhone(actorCustomer.phone) === normalizedPhone || actorCustomer.id === input.actor.id)
+          ) {
+            isAuthenticatedCustomer = true;
+          }
+        }
+      }
+
+      if (!isAuthenticatedCustomer) {
+        const verificationWindow = new Date(Date.now() - OTP_POST_VERIFICATION_WINDOW_MINUTES * 60 * 1000);
+        const recentVerifiedOtp = await AuthRepository.findRecentConsumedOtp(normalizedPhone, OtpPurpose.LOGIN, verificationWindow);
+
+        if (!recentVerifiedOtp) {
+          throw new AppError('Phone number not verified. Please verify via OTP first.', httpStatus.UNAUTHORIZED, {
+            code: 'OTP_REQUIRED',
+          });
+        }
       }
     }
 

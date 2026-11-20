@@ -157,6 +157,8 @@ export const createPublicReservationSchema = z.object({
 });
 
 
+import { RequestActor } from '../../types/express';
+
 // = a single source of truth for types
 export type CreateReservationInput = z.infer<typeof createReservationSchema>['body'];
 export type UpdateReservationInput = z.infer<typeof updateReservationSchema>['body'];
@@ -164,4 +166,4 @@ export type CancelReservationInput = z.infer<typeof cancelReservationSchema>['bo
 export type RescheduleReservationInput = z.infer<typeof rescheduleReservationSchema>['body'];
 export type ProposeTimeInput = z.infer<typeof proposeTimeSchema>['body'];
 export type ListReservationQuery = z.infer<typeof listReservationQuerySchema>['query'];
-export type CreatePublicReservationInput = z.infer<typeof createPublicReservationSchema>['body'];
+export type CreatePublicReservationInput = z.infer<typeof createPublicReservationSchema>['body'] & { actor?: RequestActor };

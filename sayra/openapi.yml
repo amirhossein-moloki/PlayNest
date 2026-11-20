@@ -3237,7 +3237,9 @@ paths:
       description: Validates availability, creates an active BookingHold and pending payment, and returns gateway payment URL.
       tags:
       - Group Reservations
-      security: []
+      security:
+      - {}
+      - bearerAuth: []
       parameters:
       - name: gamingCenterSlug
         in: path

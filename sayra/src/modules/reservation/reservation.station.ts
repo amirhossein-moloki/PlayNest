@@ -389,13 +389,38 @@ export const reservationStation = {
         // Configurable OTP verification
         if (gamingCenter.settings?.requireOtpForPublicBooking) {
           const normalizedPhone = normalizePhone(input.customer.phone);
-          const verificationWindow = new Date(Date.now() - OTP_POST_VERIFICATION_WINDOW_MINUTES * 60 * 1000);
-          const recentVerifiedOtp = await AuthRepository.findRecentConsumedOtp(normalizedPhone, OtpPurpose.LOGIN, verificationWindow);
 
-          if (!recentVerifiedOtp) {
-            throw new AppError('Phone number not verified. Please verify via OTP first.', httpStatus.UNAUTHORIZED, {
-              code: 'OTP_REQUIRED',
-            });
+          // If the caller is already authenticated via JWT with matching phone number or staff/admin, bypass OTP
+          let isAuthenticatedCustomer = false;
+          if (input.actor) {
+            if (
+              input.actor.actorType === SessionActorType.USER ||
+              input.actor.actorType === SessionActorType.PLATFORM_ADMIN
+            ) {
+              isAuthenticatedCustomer = true;
+            } else if (input.actor.actorType === SessionActorType.CUSTOMER) {
+              const actorCustomer = await tx.customerAccount.findUnique({
+                where: { id: input.actor.id },
+                select: { id: true, phone: true },
+              });
+              if (
+                actorCustomer &&
+                (normalizePhone(actorCustomer.phone) === normalizedPhone || actorCustomer.id === input.actor.id)
+              ) {
+                isAuthenticatedCustomer = true;
+              }
+            }
+          }
+
+          if (!isAuthenticatedCustomer) {
+            const verificationWindow = new Date(Date.now() - OTP_POST_VERIFICATION_WINDOW_MINUTES * 60 * 1000);
+            const recentVerifiedOtp = await AuthRepository.findRecentConsumedOtp(normalizedPhone, OtpPurpose.LOGIN, verificationWindow);
+
+            if (!recentVerifiedOtp) {
+              throw new AppError('Phone number not verified. Please verify via OTP first.', httpStatus.UNAUTHORIZED, {
+                code: 'OTP_REQUIRED',
+              });
+            }
           }
         }
 

@@ -50,7 +50,7 @@ describe('BookingHoldStation', () => {
   });
 
   describe('createBookingHold', () => {
-    const startTime = '2026-11-20T16:00:00Z';
+    const startTime = '2027-01-01T16:00:00Z';
     const items = [
       { stationId: 'st-1' },
       { stationId: 'st-2' },
@@ -158,8 +158,8 @@ describe('BookingHoldStation', () => {
         status: BookingHoldStatus.ACTIVE,
         totalAmount: 200000,
         durationMinutes: 60,
-        startTime: new Date('2026-11-20T16:00:00Z'),
-        endTime: new Date('2026-11-20T17:00:00Z'),
+        startTime: new Date('2027-01-01T16:00:00Z'),
+        endTime: new Date('2027-01-01T17:00:00Z'),
         items: [{ stationId: 'st-1', price: 200000, discountAmount: 0 }],
         payment: { id: 'pay-1', status: PaymentStatus.PAID, amount: 200000, currency: 'IRR' },
       };
@@ -243,8 +243,8 @@ describe('BookingHoldStation', () => {
         status: BookingHoldStatus.ACTIVE,
         totalAmount: 200000,
         durationMinutes: 60,
-        startTime: new Date('2026-11-20T16:00:00Z'),
-        endTime: new Date('2026-11-20T17:00:00Z'),
+        startTime: new Date('2027-01-01T16:00:00Z'),
+        endTime: new Date('2027-01-01T17:00:00Z'),
         items: [{ stationId: 'st-1', price: 200000, discountAmount: 0 }],
         payment: { id: 'pay-1', status: PaymentStatus.PAID, amount: 200000, currency: 'IRR' },
       };

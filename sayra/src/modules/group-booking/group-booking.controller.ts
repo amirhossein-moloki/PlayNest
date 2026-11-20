@@ -15,6 +15,7 @@ export const checkoutGroupReservation = async (
     const result = await BookingHoldStation.checkoutGroupReservation(gamingCenterSlug, {
       ...req.body,
       idempotencyKey,
+      actor: req.actor,
     });
     res.created(result);
   } catch (error) {
@@ -31,7 +32,10 @@ export const createPublicGroupBooking = async (
     const { gamingCenterSlug } = req.params;
     const groupBooking = await GroupBookingStation.createPublicGroupBooking(
       gamingCenterSlug,
-      req.body
+      {
+        ...req.body,
+        actor: req.actor,
+      }
     );
     res.created(groupBooking);
   } catch (error) {

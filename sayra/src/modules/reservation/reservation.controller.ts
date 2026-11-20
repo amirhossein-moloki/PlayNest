@@ -26,7 +26,10 @@ export const createPublicReservation = async (
 
   const reservation = await reservationStation.createPublicReservation(
     gamingCenterSlug,
-    req.body
+    {
+      ...req.body,
+      actor: req.actor,
+    }
   );
 
   res.created(reservation);

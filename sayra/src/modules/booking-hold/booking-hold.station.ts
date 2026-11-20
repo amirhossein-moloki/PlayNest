@@ -7,6 +7,7 @@ import {
   WalletTransactionType,
   Prisma,
   OtpPurpose,
+  SessionActorType,
 } from '@prisma/client';
 import httpStatus from 'http-status';
 import AppError from '../../common/errors/AppError';
@@ -27,6 +28,7 @@ import {
   ExtraControllerSelectionInput,
   validateAndPriceExtraControllers,
 } from '../station/extra-controller.service';
+import { RequestActor } from '../../types/express';
 
 export const DEFAULT_HOLD_EXPIRATION_MINUTES = 10;
 export const OTP_POST_VERIFICATION_WINDOW_MINUTES = 15;
@@ -44,6 +46,7 @@ export interface CreateBookingHoldInput {
   provider?: string;
   useWallet?: boolean;
   idempotencyKey?: string | null;
+  actor?: RequestActor;
 }
 
 export const BookingHoldStation = {
@@ -74,13 +77,38 @@ export const BookingHoldStation = {
     // Configurable OTP verification
     if (gamingCenter.settings?.requireOtpForPublicBooking) {
       const normalizedPhone = normalizePhone(input.customer.phone);
-      const verificationWindow = new Date(Date.now() - OTP_POST_VERIFICATION_WINDOW_MINUTES * 60 * 1000);
-      const recentVerifiedOtp = await AuthRepository.findRecentConsumedOtp(normalizedPhone, OtpPurpose.LOGIN, verificationWindow);
 
-      if (!recentVerifiedOtp) {
-        throw new AppError('Phone number not verified. Please verify via OTP first.', httpStatus.UNAUTHORIZED, {
-          code: 'OTP_REQUIRED',
-        });
+      // If the caller is already authenticated via JWT with matching phone number or staff/admin, bypass OTP
+      let isAuthenticatedCustomer = false;
+      if (input.actor) {
+        if (
+          input.actor.actorType === SessionActorType.USER ||
+          input.actor.actorType === SessionActorType.PLATFORM_ADMIN
+        ) {
+          isAuthenticatedCustomer = true;
+        } else if (input.actor.actorType === SessionActorType.CUSTOMER) {
+          const actorCustomer = await prisma.customerAccount.findUnique({
+            where: { id: input.actor.id },
+            select: { id: true, phone: true },
+          });
+          if (
+            actorCustomer &&
+            (normalizePhone(actorCustomer.phone) === normalizedPhone || actorCustomer.id === input.actor.id)
+          ) {
+            isAuthenticatedCustomer = true;
+          }
+        }
+      }
+
+      if (!isAuthenticatedCustomer) {
+        const verificationWindow = new Date(Date.now() - OTP_POST_VERIFICATION_WINDOW_MINUTES * 60 * 1000);
+        const recentVerifiedOtp = await AuthRepository.findRecentConsumedOtp(normalizedPhone, OtpPurpose.LOGIN, verificationWindow);
+
+        if (!recentVerifiedOtp) {
+          throw new AppError('Phone number not verified. Please verify via OTP first.', httpStatus.UNAUTHORIZED, {
+            code: 'OTP_REQUIRED',
+          });
+        }
       }
     }
 
@@ -445,7 +473,12 @@ export const BookingHoldStation = {
 
     // Resolve customer account for potential wallet payment
     const normalizedPhone = normalizePhone(input.customer.phone);
-    const customerAccount = await ReservationRepo.findCustomerAccountByPhone(normalizedPhone);
+    let customerAccount = await ReservationRepo.findCustomerAccountByPhone(normalizedPhone);
+    if (!customerAccount && input.actor?.actorType === SessionActorType.CUSTOMER) {
+      customerAccount = await prisma.customerAccount.findUnique({
+        where: { id: input.actor.id },
+      });
+    }
     const availableBalance = customerAccount?.walletBalance ?? 0;
 
     // Full Wallet Payment Scenario
@@ -643,6 +676,25 @@ export const BookingHoldStation = {
           PaymentStatus.FAILED,
           error instanceof Error ? error.message : 'Gateway initiation failed'
         );
+        if (typeof tx.payment?.update === 'function') {
+          try {
+            await tx.payment.update({
+              where: { id: payment.id },
+              data: {
+                status: PaymentStatus.FAILED,
+                failureReason: error instanceof Error ? error.message : 'Gateway initiation failed',
+              },
+            });
+          } catch {}
+        }
+        if (typeof tx.bookingHold?.update === 'function') {
+          try {
+            await tx.bookingHold.update({
+              where: { id: hold.id },
+              data: { status: BookingHoldStatus.RELEASED },
+            });
+          } catch {}
+        }
       });
 
       if (error instanceof AppError) throw error;

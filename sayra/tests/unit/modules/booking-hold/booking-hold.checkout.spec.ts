@@ -58,7 +58,7 @@ describe('BookingHoldStation - Checkout & Idempotency Retries', () => {
     MockedBookingHoldRepo.findHoldByIdempotencyKey.mockResolvedValue(existingHold as any);
 
     const result = await BookingHoldStation.checkoutGroupReservation(gamingCenterSlug, {
-      startTime: '2026-11-20T16:00:00Z',
+      startTime: '2027-01-01T16:00:00Z',
       durationMinutes: 60,
       items,
       customer,
@@ -128,7 +128,7 @@ describe('BookingHoldStation - Checkout & Idempotency Retries', () => {
     MockedPaymentsRepo.updatePayment.mockResolvedValue({ id: 'new-pay-1' } as any);
 
     const result = await BookingHoldStation.checkoutGroupReservation(gamingCenterSlug, {
-      startTime: '2026-11-20T16:00:00Z',
+      startTime: '2027-01-01T16:00:00Z',
       durationMinutes: 60,
       items,
       customer,
@@ -167,11 +167,13 @@ describe('BookingHoldStation - Checkout & Idempotency Retries', () => {
       },
       payment: {
         findFirst: (jest.fn() as any).mockResolvedValue(null),
+        findUnique: (jest.fn() as any).mockResolvedValue({ id: 'pay-fail-1', status: PaymentStatus.INITIATED, bookingHoldId: 'hold-fail-1' }),
         create: (jest.fn() as any).mockResolvedValue({ id: 'pay-fail-1', status: PaymentStatus.INITIATED }),
         update: jest.fn(),
       },
       bookingHold: {
         update: jest.fn(),
+        updateMany: jest.fn(),
       },
     };
 
@@ -201,7 +203,7 @@ describe('BookingHoldStation - Checkout & Idempotency Retries', () => {
 
     await expect(
       BookingHoldStation.checkoutGroupReservation(gamingCenterSlug, {
-        startTime: '2026-11-20T16:00:00Z',
+        startTime: '2027-01-01T16:00:00Z',
         durationMinutes: 60,
         items,
         customer,

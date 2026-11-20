@@ -12,7 +12,7 @@ import {
 import { idempotencyMiddleware } from '../../common/middleware/idempotency';
 import { publicReservationRateLimiter, privateApiRateLimiter } from '../../common/middleware/rateLimit';
 import { resolveGamingCenterBySlug } from '../../common/middleware/resolveGamingCenterBySlug';
-import { authMiddleware } from '../../common/middleware/auth';
+import { authMiddleware, optionalAuth } from '../../common/middleware/auth';
 import { requireRole } from '../../common/middleware/requireRole';
 import { tenantGuard } from '../../common/middleware/tenantGuard';
 import { UserRole } from '@prisma/client';
@@ -26,6 +26,7 @@ export const publicGroupBookingRouter = Router({ mergeParams: true });
 
 publicGroupBookingRouter.post(
   '/checkout',
+  optionalAuth,
   ...(env.NODE_ENV !== 'test' ? [publicReservationRateLimiter] : []),
   resolveGamingCenterBySlug,
   validate(checkoutGroupReservationSchema),
@@ -35,6 +36,7 @@ publicGroupBookingRouter.post(
 
 publicGroupBookingRouter.post(
   '/',
+  optionalAuth,
   ...(env.NODE_ENV !== 'test' ? [publicReservationRateLimiter] : []),
   resolveGamingCenterBySlug,
   validate(createPublicGroupReservationSchema),
