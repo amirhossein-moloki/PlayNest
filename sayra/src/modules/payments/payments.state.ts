@@ -20,13 +20,30 @@ const paymentTransitions: Record<PaymentStatus, PaymentStatus[]> = {
  * Defines the state machine for ReservationPaymentState.
  */
 const reservationTransitions: Record<ReservationPaymentState, ReservationPaymentState[]> = {
-  [ReservationPaymentState.UNPAID]: [ReservationPaymentState.PENDING, ReservationPaymentState.PAID],
-  [ReservationPaymentState.PENDING]: [ReservationPaymentState.PAID, ReservationPaymentState.FAILED, ReservationPaymentState.CANCELED],
-  [ReservationPaymentState.PARTIALLY_PAID]: [ReservationPaymentState.PAID, ReservationPaymentState.REFUNDED, ReservationPaymentState.OVERPAID],
+  [ReservationPaymentState.UNPAID]: [
+    ReservationPaymentState.PENDING,
+    ReservationPaymentState.PAID,
+    ReservationPaymentState.FAILED,
+    ReservationPaymentState.CANCELED,
+  ],
+  [ReservationPaymentState.PENDING]: [
+    ReservationPaymentState.PAID,
+    ReservationPaymentState.FAILED,
+    ReservationPaymentState.CANCELED,
+  ],
+  [ReservationPaymentState.PARTIALLY_PAID]: [
+    ReservationPaymentState.PAID,
+    ReservationPaymentState.REFUNDED,
+    ReservationPaymentState.OVERPAID,
+  ],
   [ReservationPaymentState.PAID]: [ReservationPaymentState.REFUNDED],
   [ReservationPaymentState.REFUNDED]: [],
   [ReservationPaymentState.OVERPAID]: [ReservationPaymentState.REFUNDED],
-  [ReservationPaymentState.FAILED]: [],
+  [ReservationPaymentState.FAILED]: [
+    ReservationPaymentState.PENDING,
+    ReservationPaymentState.PAID,
+    ReservationPaymentState.CANCELED,
+  ],
   [ReservationPaymentState.CANCELED]: [],
 };
 

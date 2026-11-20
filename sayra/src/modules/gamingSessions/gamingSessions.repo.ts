@@ -1,14 +1,21 @@
 import { GamingSession, GamingSessionStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
+const getClient = (tx?: Prisma.TransactionClient) => {
+  if (tx && typeof (tx as unknown as Record<string, unknown>).gamingSession === 'object' && (tx as unknown as Record<string, unknown>).gamingSession !== null) {
+    return tx;
+  }
+  return prisma;
+};
+
 export const GamingSessionsRepo = {
   async createSession(data: Prisma.GamingSessionUncheckedCreateInput, tx?: Prisma.TransactionClient): Promise<GamingSession> {
-    const client = tx || prisma;
+    const client = getClient(tx);
     return client.gamingSession.create({ data });
   },
 
   async findActiveSessionByReservationId(reservationId: string, tx?: Prisma.TransactionClient): Promise<GamingSession | null> {
-    const client = tx || prisma;
+    const client = getClient(tx);
     return client.gamingSession.findFirst({
       where: {
         reservationId,
@@ -18,7 +25,7 @@ export const GamingSessionsRepo = {
   },
 
   async findPausedSessionByReservationId(reservationId: string, tx?: Prisma.TransactionClient): Promise<GamingSession | null> {
-    const client = tx || prisma;
+    const client = getClient(tx);
     return client.gamingSession.findFirst({
       where: {
         reservationId,
@@ -28,7 +35,7 @@ export const GamingSessionsRepo = {
   },
 
   async findActiveOrPausedSessionByReservationId(reservationId: string, tx?: Prisma.TransactionClient): Promise<GamingSession | null> {
-    const client = tx || prisma;
+    const client = getClient(tx);
     return client.gamingSession.findFirst({
       where: {
         reservationId,
@@ -38,7 +45,7 @@ export const GamingSessionsRepo = {
   },
 
   async updateSession(sessionId: string, data: Prisma.GamingSessionUpdateInput, tx?: Prisma.TransactionClient): Promise<GamingSession> {
-    const client = tx || prisma;
+    const client = getClient(tx);
     return client.gamingSession.update({
       where: { id: sessionId },
       data,
@@ -46,7 +53,7 @@ export const GamingSessionsRepo = {
   },
 
   async findSessionById(sessionId: string, tx?: Prisma.TransactionClient): Promise<GamingSession | null> {
-    const client = tx || prisma;
+    const client = getClient(tx);
     return client.gamingSession.findUnique({
       where: { id: sessionId },
     });

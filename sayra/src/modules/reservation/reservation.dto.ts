@@ -26,6 +26,8 @@ export const createReservationSchema = z.object({
     note: z.string().max(500).optional(),
     voucherCode: z.string().trim().optional(),
     extraControllers: z.array(extraControllerSelectionSchema).optional(),
+    useWallet: z.boolean().optional(),
+    provider: z.string().optional(),
   }),
 });
 
@@ -149,6 +151,8 @@ export const createPublicReservationSchema = z.object({
     note: z.string().max(500).optional(),
     voucherCode: z.string().trim().optional(),
     extraControllers: z.array(extraControllerSelectionSchema).optional(),
+    useWallet: z.boolean().optional(),
+    provider: z.string().optional(),
   }),
 });
 

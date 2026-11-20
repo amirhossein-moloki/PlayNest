@@ -1,6 +1,23 @@
 import { addMinutes } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { Reservation, ReservationSource, ReservationStatus, Prisma, SessionActorType, UserRole, OtpPurpose, DiscountFundingSource, CommissionType } from '@prisma/client';
+import {
+  Reservation,
+  ReservationSource,
+  ReservationStatus,
+  ReservationPaymentState,
+  PaymentStatus,
+  PaymentMethod,
+  PaymentProvider,
+  WalletTransactionType,
+  Prisma,
+  SessionActorType,
+  UserRole,
+  OtpPurpose,
+  DiscountFundingSource,
+  CommissionType,
+} from '@prisma/client';
+import { LedgerRepo } from '../payments/ledger.repo';
+import { commissionsStation } from '../commissions/commissions.station';
 import { ReservationRepo } from './reservation.repo';
 import { CommissionsRepo } from '../commissions/commissions.repo';
 import { AuthRepository } from '../auth/auth.repository';
@@ -439,10 +456,6 @@ export const reservationStation = {
 
         await ReservationRepo.assertActiveReservationLimitNotExceeded(customerAccount.id, tx);
 
-        const status = gamingCenter.settings?.onlineBookingAutoConfirm
-          ? ReservationStatus.CONFIRMED
-          : ReservationStatus.PENDING;
-
         const stationBasePrice = calculateBasePrice(durationHours, station.hourlyPrice);
         const pricedExtras = await validateAndPriceExtraControllers(
           station.id,
@@ -464,9 +477,51 @@ export const reservationStation = {
           tx
         );
 
+        const isPayable = financials.customerPayableAmount > 0;
+        let initialStatus = gamingCenter.settings?.onlineBookingAutoConfirm
+          ? ReservationStatus.CONFIRMED
+          : ReservationStatus.PENDING;
+        let initialPaymentState = isPayable ? ReservationPaymentState.UNPAID : ReservationPaymentState.PAID;
+
+        const roundedPayable = Math.round(financials.customerPayableAmount);
+        const isWalletPayment = Boolean(input.useWallet && isPayable);
+
+        if (isWalletPayment) {
+          // Lock CustomerAccount for update
+          if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
+            await tx.$executeRaw`SELECT id FROM "CustomerAccount" WHERE id = ${customerAccount.id} FOR UPDATE`;
+          }
+
+          const freshAccount = await tx.customerAccount.findUnique({
+            where: { id: customerAccount.id },
+            select: { walletBalance: true },
+          });
+
+          const currentBalance = freshAccount?.walletBalance ?? 0;
+          if (currentBalance < roundedPayable) {
+            throw new AppError('Insufficient wallet balance.', httpStatus.BAD_REQUEST, {
+              code: 'INSUFFICIENT_WALLET_BALANCE',
+            });
+          }
+
+          await tx.customerAccount.update({
+            where: { id: customerAccount.id },
+            data: { walletBalance: { decrement: roundedPayable } },
+          });
+
+          initialPaymentState = ReservationPaymentState.PAID;
+          if (gamingCenter.settings?.onlineBookingAutoConfirm) {
+            initialStatus = ReservationStatus.CONFIRMED;
+          }
+        }
+
         const timeoutMinutes = gamingCenter.settings?.reservationConfirmationTimeoutMinutes ?? 30;
-        const confirmationExpiresAt = status === ReservationStatus.PENDING
-          ? new Date(Date.now() + timeoutMinutes * 60 * 1000)
+        const unpaidReleaseMinutes = gamingCenter.settings?.autoReleaseUnpaidMinutes ?? 15;
+        const effectiveTimeout = isPayable && initialPaymentState !== ReservationPaymentState.PAID
+          ? Math.min(unpaidReleaseMinutes, timeoutMinutes)
+          : timeoutMinutes;
+        const confirmationExpiresAt = initialStatus === ReservationStatus.PENDING
+          ? new Date(Date.now() + effectiveTimeout * 60 * 1000)
           : null;
         const expiresAt = confirmationExpiresAt;
 
@@ -480,7 +535,8 @@ export const reservationStation = {
           startTime,
           endTime,
           note: input.note,
-          status,
+          status: initialStatus,
+          paymentState: initialPaymentState,
           source: ReservationSource.ONLINE,
           expiresAt,
           confirmationExpiresAt,
@@ -488,6 +544,7 @@ export const reservationStation = {
             name: station.name,
             hourlyPrice: station.hourlyPrice,
             stationType: station.stationType,
+            currency: 'IRR',
             ...(pricedExtras.items.length > 0 ? { extraControllers: pricedExtras.items } : {}),
           } as unknown as Prisma.InputJsonValue,
           totalHours: durationHours,
@@ -517,6 +574,45 @@ export const reservationStation = {
             : {}),
         }, tx);
 
+        if (isWalletPayment) {
+          const payment = await tx.payment.create({
+            data: {
+              gamingCenter: { connect: { id: gamingCenter.id } },
+              reservation: { connect: { id: reservation.id } },
+              amount: roundedPayable,
+              walletAmount: roundedPayable,
+              currency: 'IRR',
+              provider: PaymentProvider.MANUAL,
+              method: PaymentMethod.WALLET,
+              status: PaymentStatus.PAID,
+              paidAt: new Date(),
+              referenceCode: `WALLET-${reservation.id.slice(-8).toUpperCase()}`,
+            },
+          });
+
+          await tx.walletTransaction.create({
+            data: {
+              customerAccountId: customerAccount.id,
+              amount: -roundedPayable,
+              currency: 'IRR',
+              type: WalletTransactionType.RESERVATION_PAYMENT,
+              reservationId: reservation.id,
+              paymentId: payment.id,
+              note: `پرداخت کامل هزینه رزرو ${reservation.id} از طریق کیف پول`,
+            },
+          });
+
+          await LedgerRepo.createCollectionEntry(tx, {
+            gamingCenterId: gamingCenter.id,
+            paymentId: payment.id,
+            amount: roundedPayable,
+            currency: 'IRR',
+            description: `Wallet payment collection for reservation ${reservation.id}`,
+          });
+
+          await commissionsStation.calculateCommission(reservation.id, tx).catch(() => {});
+        }
+
         if (financials.campaignId) {
           await discountsStation.consumeCampaignDiscount(
             financials.campaignId,
@@ -530,8 +626,8 @@ export const reservationStation = {
 
         await ReservationRepo.createHistory({
           reservationId: reservation.id,
-          fromStatus: status,
-          toStatus: status,
+          fromStatus: initialStatus,
+          toStatus: initialStatus,
           action: 'CREATE',
           actorId: customerAccount.id,
           actorType: SessionActorType.CUSTOMER,

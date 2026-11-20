@@ -148,24 +148,50 @@ const initiatePayment = async ({
 
   // Scenario A: Full Wallet Payment (No external gateway needed)
   if (paymentSplit.coversEntireAmount && reservation.customerAccountId) {
-    const { payment } = await PaymentsRepo.createFullWalletPayment({
-      reservationId,
-      gamingCenterId,
-      customerAccountId: reservation.customerAccountId,
-      amount: paymentSplit.totalAmount,
-      currency,
-      idempotencyKey,
-    });
+    try {
+      const { payment } = await PaymentsRepo.createFullWalletPayment({
+        reservationId,
+        gamingCenterId,
+        customerAccountId: reservation.customerAccountId,
+        amount: paymentSplit.totalAmount,
+        currency,
+        idempotencyKey,
+      });
 
-    return {
-      paymentId: payment.id,
-      paymentStatus: payment.status,
-      totalAmount: paymentSplit.totalAmount,
-      walletAmount: paymentSplit.walletContribution,
-      gatewayAmount: 0,
-      checkoutUrl: null,
-      message: 'Payment completed successfully using wallet balance.',
-    };
+      return {
+        paymentId: payment.id,
+        paymentStatus: payment.status,
+        totalAmount: paymentSplit.totalAmount,
+        walletAmount: paymentSplit.walletContribution,
+        gatewayAmount: 0,
+        checkoutUrl: null,
+        message: 'Payment completed successfully using wallet balance.',
+      };
+    } catch (error) {
+      await PaymentsRepo.transaction(async (tx) => {
+        await tx.reservation.update({
+          where: { id: reservationId },
+          data: {
+            paymentState: ReservationPaymentState.FAILED,
+            status: ReservationStatus.CANCELED,
+            canceledAt: new Date(),
+            cancelReason: error instanceof Error ? error.message : 'تراکنش پرداخت با کیف پول ناموفق بود',
+          },
+        });
+        if (typeof (tx as unknown as { reservationHistory?: { create: unknown } }).reservationHistory?.create === 'function') {
+          await tx.reservationHistory.create({
+            data: {
+              reservationId,
+              fromStatus: reservation.status,
+              toStatus: ReservationStatus.CANCELED,
+              action: 'CANCEL',
+              reason: error instanceof Error ? error.message : 'لغو خودکار به دلیل خطای پرداخت با کیف پول',
+            },
+          });
+        }
+      });
+      throw error;
+    }
   }
 
   // Resolve provider strategy for external gateway portion

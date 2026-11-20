@@ -510,12 +510,39 @@ const handleFailedPayment = async (
 
     try {
       validateReservationTransition(payment.reservation.paymentState, newReservationPaymentState);
+
+      const isTerminal =
+        payment.reservation.status === ReservationStatus.CANCELED ||
+        payment.reservation.status === ReservationStatus.COMPLETED;
+
+      const updateData: Prisma.ReservationUpdateInput = {
+        paymentState: newReservationPaymentState,
+      };
+
+      if (!isTerminal) {
+        updateData.status = ReservationStatus.CANCELED;
+        updateData.canceledAt = new Date();
+        updateData.cancelReason = failureReason || 'لغو خودکار به دلیل ناموفق بودن پرداخت';
+      }
+
       await tx.reservation.update({
         where: { id: payment.reservationId! },
-        data: { paymentState: newReservationPaymentState },
+        data: updateData,
       });
-    } catch {
-      // Ignore transition error if reservation is already in a terminal payment state
+
+      if (!isTerminal && typeof (tx as unknown as { reservationHistory?: { create: unknown } }).reservationHistory?.create === 'function') {
+        await tx.reservationHistory.create({
+          data: {
+            reservationId: payment.reservationId!,
+            fromStatus: payment.reservation.status,
+            toStatus: ReservationStatus.CANCELED,
+            action: 'CANCEL',
+            reason: failureReason || 'لغو خودکار به دلیل عدم پرداخت / تراکنش ناموفق',
+          },
+        });
+      }
+    } catch (err) {
+      logger.warn({ err, reservationId: payment.reservationId }, 'Failed to transition reservation state on payment failure');
     }
   }
 
