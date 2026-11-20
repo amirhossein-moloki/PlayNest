@@ -6,6 +6,11 @@ import { ReservationStatus, SessionActorType, UserRole } from '@prisma/client';
 
 jest.mock('../../../../src/modules/reservation/reservation.repo');
 jest.mock('../../../../src/modules/gamingSessions/gamingSessions.station');
+jest.mock('../../../../src/modules/gamingSessions/gamingSessions.repo', () => ({
+  GamingSessionsRepo: {
+    findActiveOrPausedSessionByReservationId: jest.fn().mockImplementation((resId: string) => Promise.resolve({ id: 'sess-1', reservationId: resId })),
+  },
+}));
 jest.mock('../../../../src/modules/commissions/commissions.station', () => ({
   commissionsStation: {
     calculateCommission: jest.fn().mockImplementation(() => Promise.resolve()),

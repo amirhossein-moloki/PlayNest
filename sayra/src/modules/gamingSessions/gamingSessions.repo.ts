@@ -35,6 +35,9 @@ export const GamingSessionsRepo = {
   },
 
   async findActiveOrPausedSessionByReservationId(reservationId: string, tx?: Prisma.TransactionClient): Promise<GamingSession | null> {
+    if (tx && !('gamingSession' in tx)) {
+      return null;
+    }
     const client = getClient(tx);
     return client.gamingSession.findFirst({
       where: {
