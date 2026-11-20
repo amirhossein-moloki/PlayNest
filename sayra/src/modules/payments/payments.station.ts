@@ -97,7 +97,10 @@ const initiatePayment = async ({
   // Cancel any stale INITIATED payment for this reservation, restoring any deducted wallet contribution
   const activeExistingPayment = await prisma.payment.findFirst({
     where: {
-      reservationId,
+      OR: [
+        { reservationId },
+        { groupBookingId: reservationId },
+      ],
       status: PaymentStatus.INITIATED,
     },
     orderBy: { createdAt: 'desc' },
@@ -169,25 +172,46 @@ const initiatePayment = async ({
       };
     } catch (error) {
       await PaymentsRepo.transaction(async (tx) => {
-        await tx.reservation.update({
-          where: { id: reservationId },
-          data: {
-            paymentState: ReservationPaymentState.FAILED,
-            status: ReservationStatus.CANCELED,
-            canceledAt: new Date(),
-            cancelReason: error instanceof Error ? error.message : 'تراکنش پرداخت با کیف پول ناموفق بود',
-          },
-        });
-        if (typeof (tx as unknown as { reservationHistory?: { create: unknown } }).reservationHistory?.create === 'function') {
-          await tx.reservationHistory.create({
+        if ((reservation as unknown as { isGroupBooking?: boolean }).isGroupBooking) {
+          await tx.groupBooking.update({
+            where: { id: reservationId },
             data: {
-              reservationId,
-              fromStatus: reservation.status,
-              toStatus: ReservationStatus.CANCELED,
-              action: 'CANCEL',
-              reason: error instanceof Error ? error.message : 'لغو خودکار به دلیل خطای پرداخت با کیف پول',
+              paymentState: ReservationPaymentState.FAILED,
+              status: ReservationStatus.CANCELED,
+              canceledAt: new Date(),
+              cancelReason: error instanceof Error ? error.message : 'تراکنش پرداخت با کیف پول ناموفق بود',
             },
           });
+          await tx.reservation.updateMany({
+            where: { groupBookingId: reservationId },
+            data: {
+              paymentState: ReservationPaymentState.FAILED,
+              status: ReservationStatus.CANCELED,
+              canceledAt: new Date(),
+              cancelReason: error instanceof Error ? error.message : 'تراکنش پرداخت با کیف پول ناموفق بود',
+            },
+          });
+        } else {
+          await tx.reservation.update({
+            where: { id: reservationId },
+            data: {
+              paymentState: ReservationPaymentState.FAILED,
+              status: ReservationStatus.CANCELED,
+              canceledAt: new Date(),
+              cancelReason: error instanceof Error ? error.message : 'تراکنش پرداخت با کیف پول ناموفق بود',
+            },
+          });
+          if (typeof (tx as unknown as { reservationHistory?: { create: unknown } }).reservationHistory?.create === 'function') {
+            await tx.reservationHistory.create({
+              data: {
+                reservationId,
+                fromStatus: reservation.status,
+                toStatus: ReservationStatus.CANCELED,
+                action: 'CANCEL',
+                reason: error instanceof Error ? error.message : 'لغو خودکار به دلیل خطای پرداخت با کیف پول',
+              },
+            });
+          }
         }
       });
       throw error;

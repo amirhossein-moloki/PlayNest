@@ -133,14 +133,14 @@ export const listReservationQuerySchema = z.object({
 
 export const createPublicReservationSchema = z.object({
   headers: z.object({
-    'idempotency-key': z.string().min(16).max(128),
-  }),
+    'idempotency-key': z.string().min(16).max(128).optional(),
+  }).passthrough().optional(),
   params: z.object({
     gamingCenterSlug: z.string(),
   }),
   body: z.object({
     stationId: idSchema(CUID_MESSAGE),
-    staffId: idSchema(CUID_MESSAGE),
+    staffId: idSchema(CUID_MESSAGE).optional(),
     startTime: z.string().datetime(),
     durationHours: z.number().int().positive().max(24).optional(),
     customer: z.object({

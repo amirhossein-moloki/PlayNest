@@ -16,6 +16,8 @@ import { RescheduleReservationInput } from '../reservation/reservation.dto';
 import { getZonedStartAndEnd } from '../../common/utils/date';
 import { calculateBasePrice } from '../../common/utils/money';
 import { validateCancellationDeadline } from '../reservation/reservation.validation';
+import { prisma } from '../../config/prisma';
+import { GroupBookingStation } from '../group-booking/group-booking.station';
 
 export const CustomerPanelStation = {
   async getProfile(customerAccountId: string) {
@@ -70,6 +72,22 @@ export const CustomerPanelStation = {
   async getReservationDetails(reservationId: string, customerAccountId: string) {
     const reservation = await CustomerPanelRepo.findReservationById(reservationId, customerAccountId);
     if (!reservation) {
+      const groupBooking = await prisma.groupBooking.findFirst({
+        where: { id: reservationId, customerAccountId },
+        include: {
+          gamingCenter: { include: { settings: true } },
+          reservations: {
+            include: {
+              station: { select: { id: true, name: true } },
+              staff: { select: { id: true, fullName: true, avatarUrl: true } },
+            },
+          },
+          items: true,
+        },
+      });
+      if (groupBooking) {
+        return groupBooking;
+      }
       throw new AppError('Reservation not found', httpStatus.NOT_FOUND);
     }
     return reservation;
@@ -103,6 +121,22 @@ export const CustomerPanelStation = {
   ) {
     const reservation = await CustomerPanelRepo.findReservationById(reservationId, customerAccountId);
     if (!reservation) {
+      const groupBooking = await prisma.groupBooking.findFirst({
+        where: { id: reservationId, customerAccountId },
+        include: { gamingCenter: { include: { settings: true } } },
+      });
+      if (groupBooking) {
+        if (groupBooking.status === ReservationStatus.CANCELED) {
+          return groupBooking;
+        }
+        return GroupBookingStation.cancelGroupBooking(
+          reservationId,
+          groupBooking.gamingCenterId,
+          { id: customerAccountId, actorType: SessionActorType.CUSTOMER, customerAccountId },
+          reason,
+          context
+        );
+      }
       throw new AppError('Reservation not found', httpStatus.NOT_FOUND);
     }
 

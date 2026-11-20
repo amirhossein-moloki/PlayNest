@@ -10,8 +10,8 @@ import { walletService } from '../wallet/wallet.station';
 
 type Tx = Prisma.TransactionClient;
 
-const findReservationForUpdate = (reservationId: string, gamingCenterId?: string) => {
-  return prisma.reservation.findFirst({
+const findReservationForUpdate = async (reservationId: string, gamingCenterId?: string) => {
+  const reservation = await prisma.reservation.findFirst({
     where: {
       id: reservationId,
       ...(gamingCenterId ? { gamingCenterId } : {}),
@@ -20,6 +20,32 @@ const findReservationForUpdate = (reservationId: string, gamingCenterId?: string
       customerAccount: true,
     },
   });
+
+  if (reservation) {
+    return { ...reservation, isGroupBooking: false };
+  }
+
+  const groupBooking = await prisma.groupBooking.findFirst({
+    where: {
+      id: reservationId,
+      ...(gamingCenterId ? { gamingCenterId } : {}),
+    },
+    include: {
+      customerAccount: true,
+      reservations: true,
+    },
+  });
+
+  if (!groupBooking) {
+    return null;
+  }
+
+  return {
+    ...groupBooking,
+    isGroupBooking: true,
+    customerPayableAmount: groupBooking.totalPrice,
+    stationSnapshot: { currency: 'IRR' },
+  };
 };
 
 const findPaymentByProviderPaymentId = (providerPaymentId: string) => {
@@ -42,6 +68,7 @@ const findLatestPaymentByEntity = (entityId: string, gamingCenterId: string) => 
     where: {
       OR: [
         { reservationId: entityId, gamingCenterId },
+        { groupBookingId: entityId, gamingCenterId },
         { bookingHoldId: entityId, gamingCenterId },
         { id: entityId, gamingCenterId },
       ],
@@ -59,11 +86,38 @@ const createPaymentAndUpdateReservation = ({
   paymentData: Prisma.PaymentCreateInput;
 }) => {
   return prisma.$transaction(async (tx) => {
-    const payment = await tx.payment.create({ data: paymentData });
-    const reservation = await tx.reservation.update({
+    const isGroup = typeof tx.groupBooking?.findUnique === 'function' && (await tx.groupBooking.findUnique({
       where: { id: reservationId },
-      data: { paymentState: ReservationPaymentState.PENDING },
-    });
+      select: { id: true },
+    }));
+
+    let payment;
+    let reservation: any;
+    if (isGroup) {
+      const { reservation: _res, ...restPaymentData } = paymentData as any;
+      payment = await tx.payment.create({
+        data: {
+          ...restPaymentData,
+          groupBooking: { connect: { id: reservationId } },
+        },
+      });
+      reservation = await tx.groupBooking.update({
+        where: { id: reservationId },
+        data: { paymentState: ReservationPaymentState.PENDING },
+      });
+      if (typeof tx.reservation?.updateMany === 'function') {
+        await tx.reservation.updateMany({
+          where: { groupBookingId: reservationId },
+          data: { paymentState: ReservationPaymentState.PENDING },
+        });
+      }
+    } else {
+      payment = await tx.payment.create({ data: paymentData });
+      reservation = await tx.reservation.update({
+        where: { id: reservationId },
+        data: { paymentState: ReservationPaymentState.PENDING },
+      });
+    }
 
     return { payment, reservation };
   });
@@ -85,10 +139,17 @@ const createFullWalletPayment = async ({
   idempotencyKey: string | null;
 }) => {
   return prisma.$transaction(async (tx) => {
-    // 1. Lock CustomerAccount and Reservation row
+    // 1. Lock CustomerAccount and Reservation / GroupBooking row
     if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
-      await tx.$executeRaw`SELECT id FROM "CustomerAccount" WHERE id = ${customerAccountId} FOR UPDATE`;
-      await tx.$executeRaw`SELECT id FROM "Reservation" WHERE id = ${reservationId} FOR UPDATE`;
+      try {
+        await tx.$executeRaw`SELECT id FROM "CustomerAccount" WHERE id = ${customerAccountId} FOR UPDATE`;
+      } catch {}
+      try {
+        await tx.$executeRaw`SELECT id FROM "Reservation" WHERE id = ${reservationId} FOR UPDATE`;
+      } catch {}
+      try {
+        await tx.$executeRaw`SELECT id FROM "GroupBooking" WHERE id = ${reservationId} FOR UPDATE`;
+      } catch {}
     }
 
     const account = await tx.customerAccount.findUnique({
@@ -105,10 +166,17 @@ const createFullWalletPayment = async ({
       where: { id: reservationId },
       select: { id: true, status: true, paymentState: true },
     });
-    if (!reservation) {
+
+    const isGroup = !reservation && typeof tx.groupBooking?.findUnique === 'function' && (await tx.groupBooking.findUnique({
+      where: { id: reservationId },
+      select: { id: true, status: true, paymentState: true },
+    }));
+
+    const targetEntity = reservation || isGroup;
+    if (!targetEntity) {
       throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
     }
-    if (reservation.paymentState === ReservationPaymentState.PAID) {
+    if (targetEntity.paymentState === ReservationPaymentState.PAID) {
       throw new AppError('Reservation is already paid.', httpStatus.CONFLICT);
     }
 
@@ -122,7 +190,9 @@ const createFullWalletPayment = async ({
     const payment = await tx.payment.create({
       data: {
         gamingCenter: { connect: { id: gamingCenterId } },
-        reservation: { connect: { id: reservationId } },
+        ...(isGroup
+          ? { groupBooking: { connect: { id: reservationId } } }
+          : { reservation: { connect: { id: reservationId } } }),
         amount,
         walletAmount: amount,
         currency,
@@ -142,24 +212,47 @@ const createFullWalletPayment = async ({
         amount: -amount,
         currency,
         type: WalletTransactionType.RESERVATION_PAYMENT,
-        reservationId,
+        ...(isGroup ? {} : { reservationId }),
         paymentId: payment.id,
         note: `پرداخت کامل هزینه رزرو ${reservationId} از طریق کیف پول`,
         idempotencyKey: idempotencyKey ? `wallet_debit:${idempotencyKey}` : undefined,
       },
     });
 
-    // 5. Update Reservation status
-    const updateData: Prisma.ReservationUpdateInput = {
-      paymentState: ReservationPaymentState.PAID,
-    };
-    if (reservation.status === ReservationStatus.PENDING) {
-      updateData.status = ReservationStatus.CONFIRMED;
+    // 5. Update Reservation or GroupBooking status
+    let updatedReservation: any;
+    if (isGroup) {
+      const updateData: Prisma.GroupBookingUpdateInput = {
+        paymentState: ReservationPaymentState.PAID,
+      };
+      if (isGroup.status === ReservationStatus.PENDING) {
+        updateData.status = ReservationStatus.CONFIRMED;
+      }
+      updatedReservation = await tx.groupBooking.update({
+        where: { id: reservationId },
+        data: updateData,
+      });
+      if (typeof tx.reservation?.updateMany === 'function') {
+        await tx.reservation.updateMany({
+          where: { groupBookingId: reservationId },
+          data: {
+            paymentState: ReservationPaymentState.PAID,
+            ...(isGroup.status === ReservationStatus.PENDING ? { status: ReservationStatus.CONFIRMED } : {}),
+          },
+        });
+      }
+    } else {
+      const updateData: Prisma.ReservationUpdateInput = {
+        paymentState: ReservationPaymentState.PAID,
+      };
+      if (reservation!.status === ReservationStatus.PENDING) {
+        updateData.status = ReservationStatus.CONFIRMED;
+      }
+      updatedReservation = await tx.reservation.update({
+        where: { id: reservationId },
+        data: updateData,
+      });
     }
-    const updatedReservation = await tx.reservation.update({
-      where: { id: reservationId },
-      data: updateData,
-    });
 
     // 6. Record Ledger Entry
     await LedgerRepo.createCollectionEntry(tx, {
@@ -171,9 +264,19 @@ const createFullWalletPayment = async ({
     });
 
     // 7. Commission calculation
-    await commissionsStation.calculateCommission(reservationId, tx).catch((err) => {
-      logger.error({ err, reservationId }, 'Failed to calculate commission after wallet payment');
-    });
+    if (!isGroup) {
+      await commissionsStation.calculateCommission(reservationId, tx).catch((err) => {
+        logger.error({ err, reservationId }, 'Failed to calculate commission after wallet payment');
+      });
+    } else if (typeof tx.reservation?.findMany === 'function') {
+      const childReservations = await tx.reservation.findMany({
+        where: { groupBookingId: reservationId },
+        select: { id: true },
+      });
+      for (const res of childReservations) {
+        await commissionsStation.calculateCommission(res.id, tx).catch(() => {});
+      }
+    }
 
     return { payment, reservation: updatedReservation };
   });
@@ -199,10 +302,17 @@ const createPartialPayment = async ({
   idempotencyKey: string | null;
 }) => {
   return prisma.$transaction(async (tx) => {
-    // 1. Lock CustomerAccount and Reservation row
+    // 1. Lock CustomerAccount and Reservation or GroupBooking row
     if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
-      await tx.$executeRaw`SELECT id FROM "CustomerAccount" WHERE id = ${customerAccountId} FOR UPDATE`;
-      await tx.$executeRaw`SELECT id FROM "Reservation" WHERE id = ${reservationId} FOR UPDATE`;
+      try {
+        await tx.$executeRaw`SELECT id FROM "CustomerAccount" WHERE id = ${customerAccountId} FOR UPDATE`;
+      } catch {}
+      try {
+        await tx.$executeRaw`SELECT id FROM "Reservation" WHERE id = ${reservationId} FOR UPDATE`;
+      } catch {}
+      try {
+        await tx.$executeRaw`SELECT id FROM "GroupBooking" WHERE id = ${reservationId} FOR UPDATE`;
+      } catch {}
     }
 
     const account = await tx.customerAccount.findUnique({
@@ -219,10 +329,17 @@ const createPartialPayment = async ({
       where: { id: reservationId },
       select: { id: true, status: true, paymentState: true },
     });
-    if (!reservation) {
+
+    const isGroup = !reservation && typeof tx.groupBooking?.findUnique === 'function' && (await tx.groupBooking.findUnique({
+      where: { id: reservationId },
+      select: { id: true, status: true, paymentState: true },
+    }));
+
+    const targetEntity = reservation || isGroup;
+    if (!targetEntity) {
       throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
     }
-    if (reservation.paymentState === ReservationPaymentState.PAID) {
+    if (targetEntity.paymentState === ReservationPaymentState.PAID) {
       throw new AppError('Reservation is already paid.', httpStatus.CONFLICT);
     }
 
@@ -236,7 +353,9 @@ const createPartialPayment = async ({
     const payment = await tx.payment.create({
       data: {
         gamingCenter: { connect: { id: gamingCenterId } },
-        reservation: { connect: { id: reservationId } },
+        ...(isGroup
+          ? { groupBooking: { connect: { id: reservationId } } }
+          : { reservation: { connect: { id: reservationId } } }),
         amount: totalAmount,
         walletAmount: walletContribution,
         currency,
@@ -254,29 +373,43 @@ const createPartialPayment = async ({
         amount: -walletContribution,
         currency,
         type: WalletTransactionType.RESERVATION_PAYMENT,
-        reservationId,
+        ...(isGroup ? {} : { reservationId }),
         paymentId: payment.id,
         note: `پرداخت سهم کیف پول برای رزرو ${reservationId}`,
         idempotencyKey: idempotencyKey ? `wallet_debit:${idempotencyKey}` : undefined,
       },
     });
 
-    // 5. Update Reservation payment state to PENDING
-    const updatedReservation = await tx.reservation.update({
-      where: { id: reservationId },
-      data: { paymentState: ReservationPaymentState.PENDING },
-    });
+    // 5. Update Reservation or GroupBooking payment state to PENDING
+    let updatedReservation: any;
+    if (isGroup) {
+      updatedReservation = await tx.groupBooking.update({
+        where: { id: reservationId },
+        data: { paymentState: ReservationPaymentState.PENDING },
+      });
+      if (typeof tx.reservation?.updateMany === 'function') {
+        await tx.reservation.updateMany({
+          where: { groupBookingId: reservationId },
+          data: { paymentState: ReservationPaymentState.PENDING },
+        });
+      }
+    } else {
+      updatedReservation = await tx.reservation.update({
+        where: { id: reservationId },
+        data: { paymentState: ReservationPaymentState.PENDING },
+      });
+    }
 
     return { payment, reservation: updatedReservation };
   });
 };
 
 const handleSuccessfulPayment = async (tx: Tx, paymentId: string, refId?: string) => {
-  // Lock Reservation (first) and Payment (second) to serialize with concurrent cancellations/expirations
+  // Lock Reservation / GroupBooking (first) and Payment (second) to serialize with concurrent cancellations/expirations
   if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
     const initialPayment = await tx.payment.findUnique({
       where: { id: paymentId },
-      select: { id: true, reservationId: true },
+      select: { id: true, reservationId: true, groupBookingId: true },
     });
 
     if (!initialPayment) {
@@ -284,9 +417,18 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string, refId?: string
     }
 
     if (initialPayment.reservationId) {
-      await tx.$executeRaw`SELECT id FROM "Reservation" WHERE id = ${initialPayment.reservationId} FOR UPDATE`;
+      try {
+        await tx.$executeRaw`SELECT id FROM "Reservation" WHERE id = ${initialPayment.reservationId} FOR UPDATE`;
+      } catch {}
     }
-    await tx.$executeRaw`SELECT id FROM "Payment" WHERE id = ${paymentId} FOR UPDATE`;
+    if (initialPayment.groupBookingId) {
+      try {
+        await tx.$executeRaw`SELECT id FROM "GroupBooking" WHERE id = ${initialPayment.groupBookingId} FOR UPDATE`;
+      } catch {}
+    }
+    try {
+      await tx.$executeRaw`SELECT id FROM "Payment" WHERE id = ${paymentId} FOR UPDATE`;
+    } catch {}
   }
 
   const payment = await tx.payment.findUnique({
@@ -326,6 +468,109 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string, refId?: string
 
   // Validate state transitions for Payment
   validatePaymentTransition(payment.status, PaymentStatus.PAID);
+
+  // Handle GroupBooking payment path
+  if (payment.groupBookingId && typeof tx.groupBooking?.findUnique === 'function') {
+    const group = await tx.groupBooking.findUnique({
+      where: { id: payment.groupBookingId },
+    });
+    if (group) {
+      if (group.status === ReservationStatus.CANCELED || group.status === ReservationStatus.EXPIRED) {
+        logger.warn(
+          { paymentId, groupBookingId: payment.groupBookingId, status: group.status },
+          `Payment succeeded for ${group.status} group booking. Refunded to customer wallet.`
+        );
+        const updatedPayment = await tx.payment.update({
+          where: { id: paymentId },
+          data: {
+            status: PaymentStatus.PAID,
+            paidAt: new Date(),
+            referenceCode: refId || payment.referenceCode,
+            failureReason: `Paid after group booking ${group.status.toLowerCase()}; refunded to wallet`,
+          },
+        });
+        await LedgerRepo.createCollectionEntry(tx, {
+          gamingCenterId: payment.gamingCenterId,
+          paymentId: payment.id,
+          amount: payment.amount,
+          currency: payment.currency,
+          description: `Payment collection for ${payment.id} (Group booking ${group.status.toLowerCase()})`,
+        });
+        if (group.customerAccountId) {
+          await tx.customerAccount.update({
+            where: { id: group.customerAccountId },
+            data: { walletBalance: { increment: payment.amount } },
+          });
+          await tx.walletTransaction.create({
+            data: {
+              customerAccountId: group.customerAccountId,
+              amount: payment.amount,
+              currency: payment.currency,
+              type: WalletTransactionType.REFUND,
+              paymentId: payment.id,
+              note: `استرداد پرداخت رزرو گروهی لغو شده ${group.id} به کیف پول`,
+            },
+          });
+        }
+        return updatedPayment;
+      }
+
+      if (group.paymentState !== ReservationPaymentState.PAID) {
+        validateReservationTransition(group.paymentState, ReservationPaymentState.PAID);
+      }
+
+      const updatedPayment = await tx.payment.update({
+        where: { id: paymentId },
+        data: {
+          status: PaymentStatus.PAID,
+          paidAt: new Date(),
+          referenceCode: refId || payment.referenceCode,
+        },
+      });
+
+      const updateData: Prisma.GroupBookingUpdateInput = {
+        paymentState: ReservationPaymentState.PAID,
+      };
+      if (group.status === ReservationStatus.PENDING) {
+        updateData.status = ReservationStatus.CONFIRMED;
+      }
+
+      await tx.groupBooking.update({
+        where: { id: payment.groupBookingId },
+        data: updateData,
+      });
+
+      if (typeof tx.reservation?.updateMany === 'function') {
+        await tx.reservation.updateMany({
+          where: { groupBookingId: payment.groupBookingId },
+          data: {
+            paymentState: ReservationPaymentState.PAID,
+            ...(group.status === ReservationStatus.PENDING ? { status: ReservationStatus.CONFIRMED } : {}),
+          },
+        });
+      }
+
+      await LedgerRepo.createCollectionEntry(tx, {
+        gamingCenterId: payment.gamingCenterId,
+        paymentId: payment.id,
+        amount: payment.amount,
+        currency: payment.currency,
+        description: `Payment collection for group booking ${payment.groupBookingId}`,
+      });
+
+      if (typeof tx.reservation?.findMany === 'function') {
+        const childReservations = await tx.reservation.findMany({
+          where: { groupBookingId: payment.groupBookingId },
+          select: { id: true },
+        });
+        for (const res of childReservations) {
+          await commissionsStation.calculateCommission(res.id, tx).catch(() => {});
+        }
+      }
+
+      return updatedPayment;
+    }
+  }
 
   if (!payment.reservation) {
     const updatedPaymentNoRes = await tx.payment.update({
@@ -435,7 +680,7 @@ const handleFailedPayment = async (
 ) => {
   const payment = await tx.payment.findUnique({
     where: { id: paymentId },
-    include: { reservation: true },
+    include: { reservation: true, groupBooking: true },
   });
 
   if (!payment) {
@@ -458,7 +703,8 @@ const handleFailedPayment = async (
   });
 
   // If payment had a wallet contribution deducted, restore it safely and idempotently!
-  if (payment.walletAmount > 0 && payment.reservation?.customerAccountId) {
+  const customerAccountId = payment.reservation?.customerAccountId || payment.groupBooking?.customerAccountId;
+  if (payment.walletAmount > 0 && customerAccountId) {
     const existingFailureRefund = await tx.walletTransaction.findFirst({
       where: {
         paymentId: payment.id,
@@ -468,7 +714,7 @@ const handleFailedPayment = async (
 
     if (!existingFailureRefund) {
       await tx.customerAccount.update({
-        where: { id: payment.reservation.customerAccountId },
+        where: { id: customerAccountId },
         data: {
           walletBalance: { increment: payment.walletAmount },
         },
@@ -476,7 +722,7 @@ const handleFailedPayment = async (
 
       await tx.walletTransaction.create({
         data: {
-          customerAccountId: payment.reservation.customerAccountId,
+          customerAccountId,
           amount: payment.walletAmount,
           currency: payment.currency,
           type: WalletTransactionType.REFUND,
@@ -490,6 +736,7 @@ const handleFailedPayment = async (
         msg: 'Restored wallet contribution after payment failure',
         paymentId: payment.id,
         reservationId: payment.reservationId,
+        groupBookingId: payment.groupBookingId,
         walletRestoredAmount: payment.walletAmount,
       });
     }
@@ -500,6 +747,59 @@ const handleFailedPayment = async (
       where: { id: payment.bookingHoldId, status: 'ACTIVE' },
       data: { status: 'RELEASED' },
     });
+  }
+
+  if (
+    payment.groupBookingId &&
+    payment.groupBooking &&
+    typeof tx.groupBooking?.update === 'function' &&
+    payment.groupBooking.paymentState !== ReservationPaymentState.PAID
+  ) {
+    const newPaymentState =
+      newStatus === PaymentStatus.CANCELED
+        ? ReservationPaymentState.CANCELED
+        : ReservationPaymentState.FAILED;
+
+    try {
+      validateReservationTransition(payment.groupBooking.paymentState, newPaymentState);
+
+      const isTerminal =
+        payment.groupBooking.status === ReservationStatus.CANCELED ||
+        payment.groupBooking.status === ReservationStatus.COMPLETED;
+
+      const updateData: Prisma.GroupBookingUpdateInput = {
+        paymentState: newPaymentState,
+      };
+
+      if (!isTerminal) {
+        updateData.status = ReservationStatus.CANCELED;
+        updateData.canceledAt = new Date();
+        updateData.cancelReason = failureReason || 'لغو خودکار به دلیل ناموفق بودن پرداخت';
+      }
+
+      await tx.groupBooking.update({
+        where: { id: payment.groupBookingId },
+        data: updateData,
+      });
+
+      if (typeof tx.reservation?.updateMany === 'function') {
+        await tx.reservation.updateMany({
+          where: { groupBookingId: payment.groupBookingId },
+          data: {
+            paymentState: newPaymentState,
+            ...(isTerminal
+              ? {}
+              : {
+                  status: ReservationStatus.CANCELED,
+                  canceledAt: new Date(),
+                  cancelReason: failureReason || 'لغو خودکار به دلیل ناموفق بودن پرداخت',
+                }),
+          },
+        });
+      }
+    } catch (err) {
+      logger.warn({ err, groupBookingId: payment.groupBookingId }, 'Failed to transition group booking state on payment failure');
+    }
   }
 
   if (payment.reservation && payment.reservation.paymentState !== ReservationPaymentState.PAID) {

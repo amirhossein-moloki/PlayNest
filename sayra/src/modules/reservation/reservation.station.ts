@@ -407,11 +407,30 @@ export const reservationStation = {
           throw new AppError('GameStation not found or is not active.', httpStatus.NOT_FOUND);
         }
 
-        const staff = await ReservationRepo.findStaff(input.staffId, gamingCenter.id, input.stationId, true, tx);
+        let staff = null;
+        if (input.staffId) {
+          staff = await ReservationRepo.findStaff(input.staffId, gamingCenter.id, input.stationId, true, tx);
+        } else {
+          const skilledStaff = await tx.user.findFirst({
+            where: {
+              gamingCenterId: gamingCenter.id,
+              isActive: true,
+              ...(input.stationId ? { stationSkills: { some: { stationId: input.stationId } } } : {}),
+            },
+            select: { id: true },
+          });
+          const anyStaff = skilledStaff || (await tx.user.findFirst({
+            where: { gamingCenterId: gamingCenter.id, isActive: true },
+            select: { id: true },
+          }));
+          if (anyStaff) {
+            staff = anyStaff;
+          }
+        }
 
         if (!staff) {
           throw new AppError(
-            'Staff member not found or does not perform this station.',
+            'Staff member not found or no staff available for this station.',
             httpStatus.NOT_FOUND
           );
         }
@@ -438,7 +457,9 @@ export const reservationStation = {
 
         const staffShift = await ReservationRepo.findStaffShift(gamingCenter.id, staff.id, zonedStartAt.getDay(), tx);
 
-        validateStaffShiftHours(staffShift, startTime, endTime, timeZone);
+        if (input.staffId || staffShift) {
+          validateStaffShiftHours(staffShift, startTime, endTime, timeZone);
+        }
 
         const overlappingReservation = await ReservationRepo.findOverlappingReservation(gamingCenter.id, staff.id, startTime, endTime, undefined, tx, station.id);
 

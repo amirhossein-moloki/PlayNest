@@ -3299,6 +3299,9 @@ paths:
                   type: string
                 provider:
                   type: string
+                useWallet:
+                  type: boolean
+                  description: Whether to deduct available wallet balance towards the reservation amount
       responses:
         '201':
           description: Booking hold created and payment checkout URL generated
@@ -3324,6 +3327,10 @@ paths:
                       paymentUrl:
                         type: string
                       totalAmount:
+                        type: integer
+                      walletAmount:
+                        type: integer
+                      gatewayAmount:
                         type: integer
                       currency:
                         type: string
@@ -7112,7 +7119,7 @@ paths:
           type: string
       - name: idempotency-key
         in: header
-        required: true
+        required: false
         schema:
           type: string
       requestBody:

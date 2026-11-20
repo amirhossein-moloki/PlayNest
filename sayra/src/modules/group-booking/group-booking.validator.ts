@@ -49,6 +49,7 @@ export const checkoutGroupReservationSchema = z.object({
     customer: customerSchema,
     note: z.string().max(500).optional(),
     provider: z.string().optional(),
+    useWallet: z.boolean().optional(),
   }),
 });
 

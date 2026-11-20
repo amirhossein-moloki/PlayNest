@@ -1,5 +1,13 @@
 import { isBefore, addMinutes } from 'date-fns';
-import { BookingHoldStatus, PaymentStatus, Prisma, OtpPurpose } from '@prisma/client';
+import {
+  BookingHoldStatus,
+  PaymentStatus,
+  PaymentMethod,
+  PaymentProvider,
+  WalletTransactionType,
+  Prisma,
+  OtpPurpose,
+} from '@prisma/client';
 import httpStatus from 'http-status';
 import AppError from '../../common/errors/AppError';
 import { BookingHoldRepo } from './booking-hold.repo';
@@ -34,6 +42,7 @@ export interface CreateBookingHoldInput {
   customer: { fullName: string; phone: string; email?: string };
   note?: string;
   provider?: string;
+  useWallet?: boolean;
   idempotencyKey?: string | null;
 }
 
@@ -434,13 +443,111 @@ export const BookingHoldStation = {
     // 2. Create ACTIVE BookingHold (authoritative validation & pricing)
     const hold = await this.createBookingHold(gamingCenterSlug, input);
 
+    // Resolve customer account for potential wallet payment
+    const normalizedPhone = normalizePhone(input.customer.phone);
+    const customerAccount = await ReservationRepo.findCustomerAccountByPhone(normalizedPhone);
+    const availableBalance = customerAccount?.walletBalance ?? 0;
+
+    // Full Wallet Payment Scenario
+    if (input.useWallet && customerAccount && availableBalance >= hold.totalAmount) {
+      const fullPayment = await PaymentsRepo.transaction(async (tx) => {
+        if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
+          await tx.$executeRaw`SELECT id FROM "CustomerAccount" WHERE id = ${customerAccount.id} FOR UPDATE`;
+        }
+
+        // Decrement wallet balance
+        await tx.customerAccount.update({
+          where: { id: customerAccount.id },
+          data: { walletBalance: { decrement: hold.totalAmount } },
+        });
+
+        if (input.idempotencyKey) {
+          const priorPayment = await tx.payment.findFirst({
+            where: {
+              gamingCenterId: hold.gamingCenterId,
+              idempotencyKey: input.idempotencyKey,
+            },
+          });
+          if (priorPayment) {
+            await tx.payment.update({
+              where: { id: priorPayment.id },
+              data: { idempotencyKey: `archived_${priorPayment.id}_${Date.now()}` },
+            });
+          }
+        }
+
+        const paymentRecord = await tx.payment.create({
+          data: {
+            gamingCenterId: hold.gamingCenterId,
+            bookingHoldId: hold.id,
+            amount: hold.totalAmount,
+            walletAmount: hold.totalAmount,
+            currency: hold.currency,
+            provider: PaymentProvider.MANUAL,
+            method: PaymentMethod.WALLET,
+            status: PaymentStatus.PAID,
+            paidAt: new Date(),
+            referenceCode: `WALLET-HOLD-${hold.id.slice(-8).toUpperCase()}`,
+            idempotencyKey: input.idempotencyKey,
+          },
+        });
+
+        await tx.walletTransaction.create({
+          data: {
+            customerAccountId: customerAccount.id,
+            amount: -hold.totalAmount,
+            currency: hold.currency,
+            type: WalletTransactionType.RESERVATION_PAYMENT,
+            paymentId: paymentRecord.id,
+            note: `پرداخت کامل هولد رزرو گروهی ${hold.id} از طریق کیف پول`,
+            idempotencyKey: input.idempotencyKey ? `wallet_debit:${input.idempotencyKey}` : undefined,
+          },
+        });
+
+        const convertedGroup = await BookingHoldRepo.convertHoldToGroupBookingAndReservations(hold.id, tx);
+
+        await LedgerRepo.createCollectionEntry(tx, {
+          gamingCenterId: hold.gamingCenterId,
+          paymentId: paymentRecord.id,
+          amount: hold.totalAmount,
+          currency: hold.currency,
+          description: `Wallet collection for group hold ${hold.id}`,
+        });
+
+        if (convertedGroup?.reservations) {
+          for (const res of convertedGroup.reservations) {
+            await commissionsStation.calculateCommission(res.id, tx).catch(() => {});
+          }
+        }
+
+        return { payment: paymentRecord, groupBooking: convertedGroup };
+      });
+
+      return {
+        holdId: hold.id,
+        paymentId: fullPayment.payment.id,
+        paymentStatus: PaymentStatus.PAID,
+        holdExpiresAt: hold.expiresAt,
+        paymentUrl: null,
+        checkoutUrl: null,
+        totalAmount: hold.totalAmount,
+        walletAmount: hold.totalAmount,
+        gatewayAmount: 0,
+        currency: hold.currency,
+        groupBookingId: fullPayment.groupBooking?.id,
+        reservations: fullPayment.groupBooking?.reservations,
+      };
+    }
+
+    // Partial Wallet or Gateway Checkout Scenario
+    const isPartialWallet = Boolean(input.useWallet && customerAccount && availableBalance > 0);
+    const walletContribution = isPartialWallet ? Math.min(availableBalance, hold.totalAmount) : 0;
+    const gatewayAmount = hold.totalAmount - walletContribution;
+
     // 3. Resolve provider & initiate payment
     const providerName = input.provider;
     const provider = PaymentProviderFactory.getProvider(providerName);
 
-    // 4. Create PENDING/INITIATED Payment record associated with BookingHold
-    // If a payment with the same idempotency key already exists for this gaming center (e.g. from a failed attempt),
-    // archive/clear its idempotency key so the @@unique constraint on [gamingCenterId, idempotencyKey] is satisfied.
     const payment = await PaymentsRepo.transaction(async (tx) => {
       if (input.idempotencyKey) {
         const priorPayment = await tx.payment.findFirst({
@@ -458,24 +565,49 @@ export const BookingHoldStation = {
         }
       }
 
-      return tx.payment.create({
+      if (walletContribution > 0 && customerAccount) {
+        await tx.customerAccount.update({
+          where: { id: customerAccount.id },
+          data: { walletBalance: { decrement: walletContribution } },
+        });
+      }
+
+      const p = await tx.payment.create({
         data: {
           gamingCenterId: hold.gamingCenterId,
           bookingHoldId: hold.id,
           amount: hold.totalAmount,
+          walletAmount: walletContribution,
           currency: hold.currency,
           provider: provider.name as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+          method: walletContribution > 0 ? PaymentMethod.ONLINE : PaymentMethod.ONLINE,
           status: PaymentStatus.INITIATED,
           idempotencyKey: input.idempotencyKey,
         },
       });
+
+      if (walletContribution > 0 && customerAccount) {
+        await tx.walletTransaction.create({
+          data: {
+            customerAccountId: customerAccount.id,
+            amount: -walletContribution,
+            currency: hold.currency,
+            type: WalletTransactionType.RESERVATION_PAYMENT,
+            paymentId: p.id,
+            note: `کسر سهم کیف پول برای هولد رزرو گروهی ${hold.id}`,
+            idempotencyKey: input.idempotencyKey ? `wallet_debit:${input.idempotencyKey}` : undefined,
+          },
+        });
+      }
+
+      return p;
     });
 
     // 4. Generate payment gateway request
     try {
       const callbackUrl = provider.name === 'ZIBAL' ? process.env.ZIBAL_CALLBACK_URL : process.env.ZARINPAL_CALLBACK_URL;
       const initiateResult = await provider.initiatePayment({
-        amount: hold.totalAmount,
+        amount: gatewayAmount,
         currency: hold.currency,
         description: `Group Reservation Hold ${hold.id}`,
         callbackUrl,
@@ -496,24 +628,21 @@ export const BookingHoldStation = {
         holdExpiresAt: hold.expiresAt,
         paymentUrl: initiateResult.checkoutUrl,
         totalAmount: hold.totalAmount,
+        walletAmount: walletContribution,
+        gatewayAmount,
         currency: hold.currency,
       };
     } catch (error) {
       logger.error({ error, holdId: hold.id, paymentId: payment.id }, 'Payment gateway initiation failed; releasing hold');
 
-      // Fail payment & release hold consistently
+      // Fail payment & restore deducted wallet funds & release hold consistently
       await PaymentsRepo.transaction(async (tx) => {
-        await tx.payment.update({
-          where: { id: payment.id },
-          data: {
-            status: PaymentStatus.FAILED,
-            failureReason: error instanceof Error ? error.message : 'Gateway initiation failed',
-          },
-        });
-        await tx.bookingHold.update({
-          where: { id: hold.id },
-          data: { status: BookingHoldStatus.RELEASED },
-        });
+        await PaymentsRepo.handleFailedPayment(
+          tx,
+          payment.id,
+          PaymentStatus.FAILED,
+          error instanceof Error ? error.message : 'Gateway initiation failed'
+        );
       });
 
       if (error instanceof AppError) throw error;
