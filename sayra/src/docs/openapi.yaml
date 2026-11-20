@@ -55,6 +55,41 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
   schemas:
+    PaymentCalculation:
+      type: object
+      properties:
+        reservationId:
+          type: string
+        totalAmount:
+          type: integer
+          example: 100000
+        walletBalance:
+          type: integer
+          example: 40000
+        walletContribution:
+          type: integer
+          example: 40000
+        gatewayAmount:
+          type: integer
+          example: 60000
+        currency:
+          type: string
+          example: IRR
+        useWallet:
+          type: boolean
+          example: true
+        coversEntireAmount:
+          type: boolean
+          example: false
+      required:
+      - reservationId
+      - totalAmount
+      - walletBalance
+      - walletContribution
+      - gatewayAmount
+      - currency
+      - useWallet
+      - coversEntireAmount
     GamingCenterVerificationStatus:
       type: string
       enum: [NOT_SUBMITTED, PENDING, APPROVED, REJECTED]
@@ -7332,9 +7367,23 @@ paths:
           type: string
       - name: idempotency-key
         in: header
-        required: true
+        required: false
         schema:
           type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider:
+                  type: string
+                  example: ZARINPAL
+                useWallet:
+                  type: boolean
+                  description: Whether to use available wallet balance for payment
+                  example: true
       responses:
         '200':
           description: Payment initiated
@@ -7342,8 +7391,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '201':
+          description: Payment initiated or completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
       operationId: post_gamingCenters_gamingCenterId_reservation_reservationId_payments_init
       description: Initiate payment for reservation
+  /gamingCenters/{gamingCenterId}/reservation/{reservationId}/payments/calculate:
+    get:
+      summary: Calculate payment breakdown and wallet split for a reservation
+      tags:
+      - Payments
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: useWallet
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: Whether to simulate payment using wallet balance
+      responses:
+        '200':
+          description: Payment calculation breakdown
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PaymentCalculation'
+      operationId: get_gamingCenters_gamingCenterId_reservation_reservationId_payments_calculate
+      description: Returns the calculated split between customer wallet and external gateway
   /customer/me:
     get:
       summary: Get current customer info
@@ -7443,6 +7537,102 @@ paths:
                 $ref: '#/components/schemas/Success'
       operationId: get_customer_reservation_reservationId
       description: Get reservation details
+  /customer/reservation/{reservationId}/payments/init:
+    post:
+      summary: Initiate payment for customer reservation
+      description: Initiate full or partial wallet payment, or external gateway payment for customer reservation
+      tags:
+      - Customer Panel
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: idempotency-key
+        in: header
+        required: false
+        schema:
+          type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider:
+                  type: string
+                  example: ZARINPAL
+                useWallet:
+                  type: boolean
+                  description: Whether to use customer wallet balance
+                  example: true
+      responses:
+        '201':
+          description: Payment initiated or completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: post_customer_reservation_reservationId_payments_init
+  /customer/reservation/{reservationId}/payments/calculate:
+    get:
+      summary: Calculate payment breakdown for customer reservation
+      description: Calculate wallet contribution and remaining gateway amount for customer reservation
+      tags:
+      - Customer Panel
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: useWallet
+        in: query
+        required: false
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: Payment calculation breakdown
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PaymentCalculation'
+      operationId: get_customer_reservation_reservationId_payments_calculate
+  /customer/reservation/{reservationId}/payments/status:
+    get:
+      summary: Get payment status for customer reservation
+      description: Get payment status for customer reservation
+      tags:
+      - Customer Panel
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Payment status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+      operationId: get_customer_reservation_reservationId_payments_status
   /customer/reservation/{reservationId}/cancel:
     post:
       summary: Cancel my reservation

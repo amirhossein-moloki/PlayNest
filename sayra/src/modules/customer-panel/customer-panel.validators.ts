@@ -62,6 +62,38 @@ export const updateCustomerProfileSchema = z.object({
   }).strict(),
 });
 
+export const customerPaymentInitSchema = z.object({
+  params: z.object({
+    reservationId: idSchema(CUID_MESSAGE),
+  }),
+  body: z
+    .object({
+      provider: z.string().optional(),
+      useWallet: z.boolean().optional(),
+    })
+    .optional(),
+});
+
+export const customerPaymentCalculateSchema = z.object({
+  params: z.object({
+    reservationId: idSchema(CUID_MESSAGE),
+  }),
+  query: z
+    .object({
+      useWallet: z
+        .string()
+        .optional()
+        .transform((val) => val === 'true' || val === '1'),
+    })
+    .optional(),
+});
+
+export const customerPaymentStatusSchema = z.object({
+  params: z.object({
+    reservationId: idSchema(CUID_MESSAGE),
+  }),
+});
+
 export type GetCustomerReservationQuery = z.infer<typeof getCustomerReservationSchema>['query'];
 export type CustomerCancelReservationInput = z.infer<typeof customerCancelReservationSchema>['body'];
 export type CustomerSubmitReviewInput = z.infer<typeof customerSubmitReviewSchema>['body'];

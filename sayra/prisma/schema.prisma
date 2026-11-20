@@ -65,6 +65,7 @@ enum PaymentMethod {
   ONLINE
   GIFT_CARD
   MEMBERSHIP
+  WALLET
 }
 
 enum PaymentStatus {
@@ -2081,12 +2082,15 @@ model Payment {
   method        PaymentMethod @default(ONLINE)
   referenceCode String?
 
+  walletAmount Int @default(0)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   refunds               Refund[]
   ledgerEntries         LedgerEntry[]
   reconciliationRecords ReconciliationRecord[]
+  walletTransactions    WalletTransaction[]
 
   @@unique(fields: [provider, providerPaymentId], name: "provider_payment_id")
   @@unique(fields: [gamingCenterId, idempotencyKey], name: "idempotency_key")
@@ -2108,6 +2112,9 @@ model WalletTransaction {
   reservationId String?
   reservation   Reservation? @relation(fields: [reservationId], references: [id])
 
+  paymentId String?
+  payment   Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
   withdrawalRequestId String?
   withdrawalRequest   WithdrawalRequest? @relation(fields: [withdrawalRequestId], references: [id])
 
@@ -2115,12 +2122,16 @@ model WalletTransaction {
   walletCharge   WalletCharge? @relation(fields: [walletChargeId], references: [id])
 
   note String?
+  idempotencyKey String?
 
   createdAt DateTime @default(now())
 
-  @@unique([reservationId, type], name: "unique_reservation_transaction_type")
+  @@unique([paymentId, type], name: "unique_payment_transaction_type")
   @@index([customerAccountId])
   @@index([reservationId])
+  @@index([reservationId, type])
+  @@index([paymentId])
+  @@index([idempotencyKey])
   @@index([withdrawalRequestId])
   @@index([walletChargeId])
 }

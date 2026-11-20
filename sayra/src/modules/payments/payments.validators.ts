@@ -9,6 +9,22 @@ export const InitPaymentValidators = z.object({
   body: z
     .object({
       provider: z.string().optional(),
+      useWallet: z.boolean().optional(),
+    })
+    .optional(),
+});
+
+export const CalculatePaymentValidators = z.object({
+  params: z.object({
+    gamingCenterId: idSchema('Invalid gamingCenterId'),
+    reservationId: idSchema('Invalid reservationId'),
+  }),
+  query: z
+    .object({
+      useWallet: z
+        .string()
+        .optional()
+        .transform((val) => val === 'true' || val === '1'),
     })
     .optional(),
 });

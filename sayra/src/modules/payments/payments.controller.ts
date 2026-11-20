@@ -10,15 +10,32 @@ const initiatePayment = async (req: AppRequest, res: Response) => {
   const { gamingCenterId, reservationId } = req.params;
   const idempotencyKey = req.header('Idempotency-Key');
   const providerName = req.body?.provider;
+  const useWallet = req.body?.useWallet;
 
   const result = await PaymentsStation.initiatePayment({
     gamingCenterId: gamingCenterId!,
     reservationId,
     idempotencyKey: idempotencyKey ?? null,
     providerName,
+    useWallet,
+    actor: req.actor,
   });
 
   res.created(result);
+};
+
+const calculatePayment = async (req: AppRequest, res: Response) => {
+  const { gamingCenterId, reservationId } = req.params;
+  const useWallet = req.query.useWallet === 'true' || req.query.useWallet === '1';
+
+  const result = await PaymentsStation.calculatePayment({
+    gamingCenterId: gamingCenterId!,
+    reservationId,
+    useWallet,
+    actor: req.actor,
+  });
+
+  res.ok(result);
 };
 
 const verifyPayment = async (req: AppRequest, res: Response) => {
@@ -127,6 +144,7 @@ const reconcile = async (req: AppRequest, res: Response) => {
 
 export const PaymentsController = {
   initiatePayment,
+  calculatePayment,
   verifyPayment,
   getPaymentStatus,
   requestRefund,

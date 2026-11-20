@@ -12,8 +12,12 @@ import {
   proposalActionParamsSchema,
   listProposalsParamsSchema,
   updateCustomerProfileSchema,
+  customerPaymentInitSchema,
+  customerPaymentCalculateSchema,
+  customerPaymentStatusSchema,
 } from './customer-panel.validators';
 import { privateApiRateLimiter } from '../../common/middleware/rateLimit';
+import { idempotencyMiddleware } from '../../common/middleware/idempotency';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
 import { AppRequest } from '../../types/express';
 
@@ -140,6 +144,26 @@ router.post(
   '/reservation/:reservationId/proposals/:proposalId/reject',
   validate(proposalActionParamsSchema),
   asyncHandler<AppRequest>(CustomerPanelController.rejectProposal)
+);
+
+// Customer reservation payment endpoints
+router.post(
+  '/reservation/:reservationId/payments/init',
+  asyncHandler(idempotencyMiddleware),
+  validate(customerPaymentInitSchema),
+  asyncHandler<AppRequest>(CustomerPanelController.initMyReservationPayment)
+);
+
+router.get(
+  '/reservation/:reservationId/payments/calculate',
+  validate(customerPaymentCalculateSchema),
+  asyncHandler<AppRequest>(CustomerPanelController.calculateMyReservationPayment)
+);
+
+router.get(
+  '/reservation/:reservationId/payments/status',
+  validate(customerPaymentStatusSchema),
+  asyncHandler<AppRequest>(CustomerPanelController.getMyReservationPaymentStatus)
 );
 
 export { router as customerPanelRouter };

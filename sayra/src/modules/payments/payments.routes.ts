@@ -7,6 +7,7 @@ import { validate } from '../../common/middleware/validate';
 import { PaymentsController } from './payments.controller';
 import {
   InitPaymentValidators,
+  CalculatePaymentValidators,
   VerifyPaymentValidators,
   GetPaymentStatusValidators,
   RequestRefundValidators,
@@ -32,6 +33,17 @@ router.post(
   requireRole([UserRole.MANAGER, UserRole.ADMIN]),
   validate(InitPaymentValidators),
   asyncHandler<AppRequest>(PaymentsController.initiatePayment)
+);
+
+// Calculate payment split (preview wallet and gateway amounts)
+router.get(
+  '/:reservationId/payments/calculate',
+  authMiddleware,
+  gamingCenterIdMiddleware,
+  tenantGuard,
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
+  validate(CalculatePaymentValidators),
+  asyncHandler<AppRequest>(PaymentsController.calculatePayment)
 );
 
 // Verify payment (GET callback from gateway browser return)

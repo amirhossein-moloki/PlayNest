@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import { CustomerPanelStation } from './customer-panel.station';
+import { PaymentsStation } from '../payments/payments.station';
 import { AppRequest } from '../../types/express';
 
 export const getMe = async (req: AppRequest, res: Response) => {
@@ -107,4 +108,53 @@ export const rejectProposal = async (req: AppRequest, res: Response) => {
   );
 
   res.ok(proposal);
+};
+
+export const initMyReservationPayment = async (req: AppRequest, res: Response) => {
+  const { reservationId } = req.params;
+  const idempotencyKey = req.header('Idempotency-Key');
+  const providerName = req.body?.provider;
+  const useWallet = req.body?.useWallet;
+
+  const reservation = await CustomerPanelStation.getReservationDetails(reservationId, req.actor.id);
+
+  const result = await PaymentsStation.initiatePayment({
+    gamingCenterId: reservation.gamingCenterId,
+    reservationId,
+    idempotencyKey: idempotencyKey ?? null,
+    providerName,
+    useWallet,
+    actor: req.actor,
+  });
+
+  res.created(result);
+};
+
+export const calculateMyReservationPayment = async (req: AppRequest, res: Response) => {
+  const { reservationId } = req.params;
+  const useWallet = req.query.useWallet === 'true' || req.query.useWallet === '1';
+
+  const reservation = await CustomerPanelStation.getReservationDetails(reservationId, req.actor.id);
+
+  const result = await PaymentsStation.calculatePayment({
+    gamingCenterId: reservation.gamingCenterId,
+    reservationId,
+    useWallet,
+    actor: req.actor,
+  });
+
+  res.ok(result);
+};
+
+export const getMyReservationPaymentStatus = async (req: AppRequest, res: Response) => {
+  const { reservationId } = req.params;
+
+  const reservation = await CustomerPanelStation.getReservationDetails(reservationId, req.actor.id);
+
+  const result = await PaymentsStation.getPaymentStatus({
+    gamingCenterId: reservation.gamingCenterId,
+    reservationId,
+  });
+
+  res.ok(result);
 };

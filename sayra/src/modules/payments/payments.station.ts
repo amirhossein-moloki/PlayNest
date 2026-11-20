@@ -1,9 +1,12 @@
-import { ReservationPaymentState, PaymentProvider, PaymentStatus, ReservationStatus } from '@prisma/client';
+import { ReservationPaymentState, PaymentProvider, PaymentStatus, ReservationStatus, SessionActorType } from '@prisma/client';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { PaymentsRepo } from './payments.repo';
 import { env } from '../../config/env';
 import { PaymentProviderFactory } from './providers';
+import { calculatePaymentSplit } from './payment-calculation';
+import { prisma } from '../../config/prisma';
+import { RequestActor } from '../../types/express';
 
 const mapProviderEnum = (providerName: string): PaymentProvider => {
   const upper = providerName.toUpperCase();
@@ -18,17 +21,30 @@ const initiatePayment = async ({
   reservationId,
   idempotencyKey,
   providerName,
+  useWallet,
+  actor,
 }: {
   gamingCenterId: string;
   reservationId: string;
   idempotencyKey: string | null;
   providerName?: string;
+  useWallet?: boolean;
+  actor?: RequestActor;
 }) => {
   // 1. Fetch the reservation
   const reservation = await PaymentsRepo.findReservationForUpdate(reservationId, gamingCenterId);
 
   if (!reservation) {
     throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
+  }
+
+  // Security check: Customer can only pay for their own reservation
+  if (
+    actor?.actorType === SessionActorType.CUSTOMER &&
+    reservation.customerAccountId &&
+    reservation.customerAccountId !== actor.id
+  ) {
+    throw new AppError('Unauthorized access to reservation payment.', httpStatus.FORBIDDEN);
   }
 
   // 2. Validate reservation state and payment eligibility
@@ -54,17 +70,114 @@ const initiatePayment = async ({
   const snapshotCurrency = (reservation.stationSnapshot as Record<string, unknown>)?.currency as string | undefined;
   const currency = snapshotCurrency || 'IRR';
 
-  // 4. Resolve provider strategy
+  // 4. Resolve customer wallet balance
+  let availableWalletBalance = 0;
+  if (reservation.customerAccountId) {
+    const customerAccount = await prisma.customerAccount.findUnique({
+      where: { id: reservation.customerAccountId },
+      select: { walletBalance: true },
+    });
+    availableWalletBalance = customerAccount?.walletBalance ?? 0;
+  }
+
+  // 5. Calculate payment split
+  const paymentSplit = calculatePaymentSplit({
+    payableAmount: calculatedAmount,
+    walletBalance: availableWalletBalance,
+    useWallet: Boolean(useWallet),
+    currency,
+  });
+
+  // Scenario A: Full Wallet Payment (No external gateway needed)
+  if (paymentSplit.coversEntireAmount && reservation.customerAccountId) {
+    const { payment } = await PaymentsRepo.createFullWalletPayment({
+      reservationId,
+      gamingCenterId,
+      customerAccountId: reservation.customerAccountId,
+      amount: paymentSplit.totalAmount,
+      currency,
+      idempotencyKey,
+    });
+
+    return {
+      paymentId: payment.id,
+      paymentStatus: payment.status,
+      totalAmount: paymentSplit.totalAmount,
+      walletAmount: paymentSplit.walletContribution,
+      gatewayAmount: 0,
+      checkoutUrl: null,
+      message: 'Payment completed successfully using wallet balance.',
+    };
+  }
+
+  // Resolve provider strategy for external gateway portion
   const provider = PaymentProviderFactory.getProvider(providerName);
   const prismaProvider = mapProviderEnum(provider.name);
 
-  // 5. Create durable payment record
+  // Scenario B: Partial Wallet Payment (Wallet + External gateway)
+  if (paymentSplit.walletContribution > 0 && reservation.customerAccountId) {
+    const { payment } = await PaymentsRepo.createPartialPayment({
+      reservationId,
+      gamingCenterId,
+      customerAccountId: reservation.customerAccountId,
+      totalAmount: paymentSplit.totalAmount,
+      walletContribution: paymentSplit.walletContribution,
+      currency,
+      provider: prismaProvider,
+      idempotencyKey,
+    });
+
+    try {
+      const callbackUrl = provider.name === 'ZIBAL' ? env.ZIBAL_CALLBACK_URL : env.ZARINPAL_CALLBACK_URL;
+      const initiateResult = await provider.initiatePayment({
+        amount: paymentSplit.gatewayAmount,
+        currency,
+        description: `Reservation ${reservation.id} - ${gamingCenterId}`,
+        callbackUrl,
+        reservationId: reservation.id,
+        gamingCenterId,
+      });
+
+      // Save provider reference
+      await PaymentsRepo.updatePayment(payment.id, {
+        providerPaymentId: initiateResult.providerPaymentId,
+        providerCheckoutId: initiateResult.providerCheckoutId,
+      });
+
+      return {
+        paymentId: payment.id,
+        paymentStatus: payment.status,
+        totalAmount: paymentSplit.totalAmount,
+        walletAmount: paymentSplit.walletContribution,
+        gatewayAmount: paymentSplit.gatewayAmount,
+        providerPaymentId: initiateResult.providerPaymentId,
+        checkoutUrl: initiateResult.checkoutUrl,
+      };
+    } catch (error) {
+      // Record payment failure if initiation fails, restoring deducted wallet funds atomically
+      await PaymentsRepo.transaction(async (tx) => {
+        await PaymentsRepo.handleFailedPayment(
+          tx,
+          payment.id,
+          PaymentStatus.FAILED,
+          error instanceof Error ? error.message : 'Provider initiation failed'
+        );
+      });
+
+      if (error instanceof AppError) throw error;
+      console.error('Payment initiation error:', error);
+      throw new AppError('Internal error during payment initiation.', httpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // Scenario C & D: External gateway only (Wallet disabled or empty)
   const { payment } = await PaymentsRepo.createPaymentAndUpdateReservation({
     reservationId,
     paymentData: {
       gamingCenter: { connect: { id: gamingCenterId } },
       reservation: { connect: { id: reservationId } },
-      amount: calculatedAmount,
+      amount: paymentSplit.totalAmount,
+      walletAmount: 0,
       currency,
       provider: prismaProvider,
       status: PaymentStatus.INITIATED,
@@ -72,11 +185,10 @@ const initiatePayment = async ({
     },
   });
 
-  // 6. Initiate with external provider adapter
   try {
     const callbackUrl = provider.name === 'ZIBAL' ? env.ZIBAL_CALLBACK_URL : env.ZARINPAL_CALLBACK_URL;
     const initiateResult = await provider.initiatePayment({
-      amount: calculatedAmount,
+      amount: paymentSplit.gatewayAmount,
       currency,
       description: `Reservation ${reservation.id} - ${gamingCenterId}`,
       callbackUrl,
@@ -84,7 +196,6 @@ const initiatePayment = async ({
       gamingCenterId,
     });
 
-    // Save provider reference
     await PaymentsRepo.updatePayment(payment.id, {
       providerPaymentId: initiateResult.providerPaymentId,
       providerCheckoutId: initiateResult.providerCheckoutId,
@@ -93,11 +204,13 @@ const initiatePayment = async ({
     return {
       paymentId: payment.id,
       paymentStatus: payment.status,
+      totalAmount: paymentSplit.totalAmount,
+      walletAmount: 0,
+      gatewayAmount: paymentSplit.gatewayAmount,
       providerPaymentId: initiateResult.providerPaymentId,
       checkoutUrl: initiateResult.checkoutUrl,
     };
   } catch (error) {
-    // Record payment failure if initiation fails
     await PaymentsRepo.transaction(async (tx) => {
       await PaymentsRepo.handleFailedPayment(
         tx,
@@ -145,6 +258,9 @@ const verifyPayment = async ({
       success: true,
       paymentId: payment.id,
       paymentStatus: PaymentStatus.PAID,
+      totalAmount: payment.amount,
+      walletAmount: payment.walletAmount || 0,
+      gatewayAmount: payment.amount - (payment.walletAmount || 0),
       referenceCode: payment.referenceCode,
       message: 'Payment already verified.',
     };
@@ -161,6 +277,9 @@ const verifyPayment = async ({
       success: false,
       paymentId: payment.id,
       paymentStatus: updated.status,
+      totalAmount: updated.amount,
+      walletAmount: updated.walletAmount || 0,
+      gatewayAmount: updated.amount - (updated.walletAmount || 0),
       failureReason: 'Payment canceled or rejected by user/gateway.',
     };
   }
@@ -173,9 +292,11 @@ const verifyPayment = async ({
     throw new AppError('Missing provider payment authority for verification.', httpStatus.BAD_REQUEST);
   }
 
+  const gatewayExpectedAmount = payment.amount - (payment.walletAmount || 0);
+
   const verifyResult = await provider.verifyPayment({
     authority: providerAuthority,
-    amount: payment.amount,
+    amount: gatewayExpectedAmount,
     metadata: {
       orderId: payment.reservationId || payment.bookingHoldId || payment.id,
       reservationId: payment.reservationId,
@@ -209,8 +330,76 @@ const verifyPayment = async ({
     success: verifyResult.success,
     paymentId: payment.id,
     paymentStatus: finalPayment.status,
+    totalAmount: finalPayment.amount,
+    walletAmount: finalPayment.walletAmount || 0,
+    gatewayAmount: finalPayment.amount - (finalPayment.walletAmount || 0),
     referenceCode: finalPayment.referenceCode,
     failureReason: finalPayment.failureReason,
+  };
+};
+
+const calculatePayment = async ({
+  gamingCenterId,
+  reservationId,
+  useWallet,
+  actor,
+}: {
+  gamingCenterId: string;
+  reservationId: string;
+  useWallet?: boolean;
+  actor?: RequestActor;
+}) => {
+  const reservation = await PaymentsRepo.findReservationForUpdate(reservationId, gamingCenterId);
+
+  if (!reservation) {
+    throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
+  }
+
+  if (
+    actor?.actorType === SessionActorType.CUSTOMER &&
+    reservation.customerAccountId &&
+    reservation.customerAccountId !== actor.id
+  ) {
+    throw new AppError('Unauthorized access to reservation payment.', httpStatus.FORBIDDEN);
+  }
+
+  const payableCandidate = typeof reservation.customerPayableAmount === 'number' && reservation.customerPayableAmount > 0
+    ? reservation.customerPayableAmount
+    : reservation.totalPrice;
+
+  const totalAmount = Math.round(payableCandidate);
+  if (totalAmount <= 0) {
+    throw new AppError('Invalid reservation payable amount for payment.', httpStatus.BAD_REQUEST);
+  }
+
+  const snapshotCurrency = (reservation.stationSnapshot as Record<string, unknown>)?.currency as string | undefined;
+  const currency = snapshotCurrency || 'IRR';
+
+  let walletBalance = 0;
+  if (reservation.customerAccountId) {
+    const customerAccount = await prisma.customerAccount.findUnique({
+      where: { id: reservation.customerAccountId },
+      select: { walletBalance: true },
+    });
+    walletBalance = customerAccount?.walletBalance ?? 0;
+  }
+
+  const calculation = calculatePaymentSplit({
+    payableAmount: totalAmount,
+    walletBalance,
+    useWallet: Boolean(useWallet),
+    currency,
+  });
+
+  return {
+    reservationId,
+    totalAmount: calculation.totalAmount,
+    walletBalance: calculation.walletBalance,
+    walletContribution: calculation.walletContribution,
+    gatewayAmount: calculation.gatewayAmount,
+    currency: calculation.currency,
+    useWallet: Boolean(useWallet),
+    coversEntireAmount: calculation.coversEntireAmount,
   };
 };
 
@@ -230,10 +419,15 @@ const getPaymentStatus = async ({
   return {
     paymentId: payment.id,
     status: payment.status,
+    totalAmount: payment.amount,
+    walletAmount: payment.walletAmount || 0,
+    gatewayAmount: payment.amount - (payment.walletAmount || 0),
     amount: payment.amount,
     currency: payment.currency,
+    method: payment.method,
     provider: payment.provider,
     referenceCode: payment.referenceCode,
+    failureReason: payment.failureReason,
     reservationPaymentState: payment.reservation?.paymentState,
     reservationStatus: payment.reservation?.status,
     createdAt: payment.createdAt,
@@ -244,5 +438,6 @@ const getPaymentStatus = async ({
 export const PaymentsStation = {
   initiatePayment,
   verifyPayment,
+  calculatePayment,
   getPaymentStatus,
 };
