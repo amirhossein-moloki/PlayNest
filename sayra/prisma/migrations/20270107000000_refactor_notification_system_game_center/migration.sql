@@ -1,11 +1,32 @@
--- 1. Create NotificationCategory enum
+-- 1. Create or Update NotificationCategory enum
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'NotificationCategory') THEN
     CREATE TYPE "NotificationCategory" AS ENUM ('CUSTOMER', 'GAME_CENTER', 'MANAGER');
+  ELSE
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_enum JOIN pg_type ON pg_enum.enumtypid = pg_type.oid
+      WHERE pg_type.typname = 'NotificationCategory' AND pg_enum.enumlabel = 'CUSTOMER'
+    ) THEN
+      ALTER TYPE "NotificationCategory" ADD VALUE 'CUSTOMER';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_enum JOIN pg_type ON pg_enum.enumtypid = pg_type.oid
+      WHERE pg_type.typname = 'NotificationCategory' AND pg_enum.enumlabel = 'GAME_CENTER'
+    ) THEN
+      ALTER TYPE "NotificationCategory" ADD VALUE 'GAME_CENTER';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_enum JOIN pg_type ON pg_enum.enumtypid = pg_type.oid
+      WHERE pg_type.typname = 'NotificationCategory' AND pg_enum.enumlabel = 'MANAGER'
+    ) THEN
+      ALTER TYPE "NotificationCategory" ADD VALUE 'MANAGER';
+    END IF;
   END IF;
 END $$;
 
--- 2. Alter NotificationType enum to add new values
+-- 2. Alter NotificationType enum to add all domain event types
 DO $$ BEGIN
   -- Customer Notifications
   IF NOT EXISTS (SELECT 1 FROM pg_enum JOIN pg_type ON pg_enum.enumtypid = pg_type.oid WHERE pg_type.typname = 'NotificationType' AND pg_enum.enumlabel = 'TICKET_CREATED') THEN
@@ -65,9 +86,26 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- 3. Add category columns
-ALTER TABLE "Notification" ADD COLUMN IF NOT EXISTS "category" "NotificationCategory" NOT NULL DEFAULT 'GAME_CENTER';
-ALTER TABLE "NotificationLog" ADD COLUMN IF NOT EXISTS "category" "NotificationCategory" DEFAULT 'GAME_CENTER';
+-- 3. Add or update category columns
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'Notification' AND column_name = 'category'
+  ) THEN
+    ALTER TABLE "Notification" ALTER COLUMN "category" SET DEFAULT 'GAME_CENTER';
+  ELSE
+    ALTER TABLE "Notification" ADD COLUMN "category" "NotificationCategory" NOT NULL DEFAULT 'GAME_CENTER';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'NotificationLog' AND column_name = 'category'
+  ) THEN
+    ALTER TABLE "NotificationLog" ALTER COLUMN "category" SET DEFAULT 'GAME_CENTER';
+  ELSE
+    ALTER TABLE "NotificationLog" ADD COLUMN "category" "NotificationCategory" DEFAULT 'GAME_CENTER';
+  END IF;
+END $$;
 
 -- 4. Create Indexes
 CREATE INDEX IF NOT EXISTS "Notification_userId_category_createdAt_idx" ON "Notification"("userId", "category", "createdAt");
