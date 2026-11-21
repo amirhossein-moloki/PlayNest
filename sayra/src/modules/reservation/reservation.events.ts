@@ -17,6 +17,7 @@ import {
   NotificationTemplateKey,
   formatCurrencyAmount,
   getRecipientPreferredLanguage,
+  renderLocalizedNotification,
 } from '../notifications/notification-i18n';
 import { invalidateObsoleteReminders, scheduleReservationReminders } from './reservation.reminders';
 import { waitlistStation } from '../waitlist/waitlist.station';
@@ -62,6 +63,30 @@ const notifyOwnerAndStaff = async (
     }
   } catch (error) {
     console.error('Failed to notify owner/staff:', error);
+  }
+};
+
+const notifyCustomerInApp = async (
+  customerAccountId: string,
+  type: string,
+  templateKey: NotificationTemplateKey,
+  templateParams: Record<string, string | number | undefined | null>,
+  metadata?: Prisma.InputJsonValue,
+  language?: string | null
+) => {
+  try {
+    const localized = renderLocalizedNotification(templateKey, templateParams, language);
+    await prisma.customerNotification.create({
+      data: {
+        customerAccountId,
+        title: localized.title,
+        message: localized.message,
+        type,
+        metadata: metadata ?? Prisma.JsonNull,
+      },
+    });
+  } catch (error) {
+    console.error('Failed to create customer in-app notification:', error);
   }
 };
 
@@ -135,6 +160,17 @@ export const initReservationEvents = () => {
 
     const customerLang = getRecipientPreferredLanguage(customerAccount);
     await sendReservationStatusSms(reservation, gamingCenter, customerAccount.phone, customerAccount.fullName || '', customerLang);
+
+    if (customerAccount?.id) {
+      await notifyCustomerInApp(
+        customerAccount.id,
+        'RESERVATION_CREATED',
+        'RESERVATION_STATUS_PENDING_CUSTOMER',
+        { reservationId: reservation.id },
+        { reservationId: reservation.id, gamingCenterId: gamingCenter.id },
+        customerLang
+      );
+    }
 
     const timeZone = gamingCenter.settings?.timeZone || 'UTC';
     const dateStr = formatInTimeZone(reservation.startTime, timeZone, 'yyyy/MM/dd');
@@ -223,6 +259,17 @@ export const initReservationEvents = () => {
     const customerLang = getRecipientPreferredLanguage(customerAccount);
     await sendReservationStatusSms(reservation, gamingCenter, customerAccount.phone, customerAccount.fullName || '', customerLang);
 
+    if (customerAccount?.id) {
+      await notifyCustomerInApp(
+        customerAccount.id,
+        'RESERVATION_CONFIRMED',
+        'RESERVATION_STATUS_CONFIRMED_CUSTOMER',
+        { reservationId: reservation.id },
+        { reservationId: reservation.id, gamingCenterId: gamingCenter.id },
+        customerLang
+      );
+    }
+
     await notifyOwnerAndStaff(
       gamingCenter.id,
       NotificationType.RESERVATION_CONFIRMED,
@@ -256,6 +303,17 @@ export const initReservationEvents = () => {
 
     const customerLang = getRecipientPreferredLanguage(customerAccount);
     await sendReservationStatusSms(reservation, gamingCenter, customerAccount.phone, customerAccount.fullName || '', customerLang);
+
+    if (customerAccount?.id) {
+      await notifyCustomerInApp(
+        customerAccount.id,
+        'RESERVATION_CANCELLED',
+        'RESERVATION_STATUS_CANCELED_CUSTOMER',
+        { reservationId: reservation.id },
+        { reservationId: reservation.id, gamingCenterId: gamingCenter.id },
+        customerLang
+      );
+    }
 
     await notifyOwnerAndStaff(
       gamingCenter.id,
@@ -323,6 +381,28 @@ export const initReservationEvents = () => {
         { reservationId, proposalId: proposal?.id }
       );
     }
+
+    if (reservationId) {
+      try {
+        const res = await prisma.reservation.findUnique({
+          where: { id: reservationId },
+          include: { customerAccount: true },
+        });
+        if (res?.customerAccount?.id) {
+          const customerLang = getRecipientPreferredLanguage(res.customerAccount);
+          await notifyCustomerInApp(
+            res.customerAccount.id,
+            'RESERVATION_TIME_PROPOSED',
+            'RESERVATION_TIME_PROPOSED_STAFF',
+            { reservationId },
+            { reservationId, proposalId: proposal?.id },
+            customerLang
+          );
+        }
+      } catch (err) {
+        console.error('Failed to notify customer In-App of time proposal:', err);
+      }
+    }
   });
 
   eventEmitter.on(AppEvents.PAYMENT_SUCCESS, async ({ payment }) => {
@@ -336,33 +416,50 @@ export const initReservationEvents = () => {
         })
         : null;
 
-      if (reservation && reservation.customerAccount?.phone) {
+      if (reservation && reservation.customerAccount) {
         const customerLang = getRecipientPreferredLanguage(reservation.customerAccount);
         const formattedAmount = formatCurrencyAmount(payment.amount, payment.currency, customerLang);
-        const templateId = env.SMSIR_PAYMENT_SUCCESS_TEMPLATE_ID;
-        const parameters = [
-          { name: 'CUSTOMER_NAME', value: reservation.customerAccount.fullName || 'Customer' },
-          { name: 'AMOUNT', value: String(payment.amount) },
-          { name: 'REF_CODE', value: payment.referenceCode || payment.id },
-        ];
 
-        await NotificationStation.enqueueNotificationLog({
-          gamingCenterId: payment.gamingCenterId,
-          recipient: reservation.customerAccount.phone,
-          channel: 'SMS',
-          type: NotificationType.PAYMENT_SUCCESS,
-          templateKey: 'PAYMENT_SUCCESS_CUSTOMER',
-          templateParams: {
-            formattedAmount,
-            refCode: payment.referenceCode || payment.id,
-          },
-          language: customerLang,
-          templateId,
-          parameters,
-          idempotencyKey: `pay_success_sms:${payment.id}`,
-          entityType: 'Payment',
-          entityId: payment.id,
-        });
+        if (reservation.customerAccount.id) {
+          await notifyCustomerInApp(
+            reservation.customerAccount.id,
+            'PAYMENT_SUCCESS',
+            'PAYMENT_SUCCESS_CUSTOMER',
+            {
+              formattedAmount,
+              refCode: payment.referenceCode || payment.id,
+            },
+            { paymentId: payment.id, reservationId: reservation.id },
+            customerLang
+          );
+        }
+
+        if (reservation.customerAccount.phone) {
+          const templateId = env.SMSIR_PAYMENT_SUCCESS_TEMPLATE_ID;
+          const parameters = [
+            { name: 'CUSTOMER_NAME', value: reservation.customerAccount.fullName || 'Customer' },
+            { name: 'AMOUNT', value: String(payment.amount) },
+            { name: 'REF_CODE', value: payment.referenceCode || payment.id },
+          ];
+
+          await NotificationStation.enqueueNotificationLog({
+            gamingCenterId: payment.gamingCenterId,
+            recipient: reservation.customerAccount.phone,
+            channel: 'SMS',
+            type: NotificationType.PAYMENT_SUCCESS,
+            templateKey: 'PAYMENT_SUCCESS_CUSTOMER',
+            templateParams: {
+              formattedAmount,
+              refCode: payment.referenceCode || payment.id,
+            },
+            language: customerLang,
+            templateId,
+            parameters,
+            idempotencyKey: `pay_success_sms:${payment.id}`,
+            entityType: 'Payment',
+            entityId: payment.id,
+          });
+        }
       }
     } catch (error) {
       console.error('Failed to handle PAYMENT_SUCCESS notification event:', error);
@@ -380,33 +477,50 @@ export const initReservationEvents = () => {
         })
         : null;
 
-      if (reservation && reservation.customerAccount?.phone) {
+      if (reservation && reservation.customerAccount) {
         const customerLang = getRecipientPreferredLanguage(reservation.customerAccount);
         const formattedAmount = formatCurrencyAmount(payment.amount, payment.currency, customerLang);
-        const templateId = env.SMSIR_PAYMENT_FAILED_TEMPLATE_ID;
-        const parameters = [
-          { name: 'CUSTOMER_NAME', value: reservation.customerAccount.fullName || 'Customer' },
-          { name: 'AMOUNT', value: String(payment.amount) },
-          { name: 'REASON', value: failureReason || (customerLang === 'en' ? 'Payment failed' : 'پرداخت ناموفق') },
-        ];
 
-        await NotificationStation.enqueueNotificationLog({
-          gamingCenterId: payment.gamingCenterId,
-          recipient: reservation.customerAccount.phone,
-          channel: 'SMS',
-          type: NotificationType.PAYMENT_FAILED,
-          templateKey: 'PAYMENT_FAILED_CUSTOMER',
-          templateParams: {
-            formattedAmount,
-            reason: failureReason || (customerLang === 'en' ? 'Declined' : 'تراکنش ناموفق'),
-          },
-          language: customerLang,
-          templateId,
-          parameters,
-          idempotencyKey: `pay_failed_sms:${payment.id}`,
-          entityType: 'Payment',
-          entityId: payment.id,
-        });
+        if (reservation.customerAccount.id) {
+          await notifyCustomerInApp(
+            reservation.customerAccount.id,
+            'PAYMENT_FAILED',
+            'PAYMENT_FAILED_CUSTOMER',
+            {
+              formattedAmount,
+              reason: failureReason || (customerLang === 'en' ? 'Declined' : 'تراکنش ناموفق'),
+            },
+            { paymentId: payment.id, reservationId: reservation.id },
+            customerLang
+          );
+        }
+
+        if (reservation.customerAccount.phone) {
+          const templateId = env.SMSIR_PAYMENT_FAILED_TEMPLATE_ID;
+          const parameters = [
+            { name: 'CUSTOMER_NAME', value: reservation.customerAccount.fullName || 'Customer' },
+            { name: 'AMOUNT', value: String(payment.amount) },
+            { name: 'REASON', value: failureReason || (customerLang === 'en' ? 'Payment failed' : 'پرداخت ناموفق') },
+          ];
+
+          await NotificationStation.enqueueNotificationLog({
+            gamingCenterId: payment.gamingCenterId,
+            recipient: reservation.customerAccount.phone,
+            channel: 'SMS',
+            type: NotificationType.PAYMENT_FAILED,
+            templateKey: 'PAYMENT_FAILED_CUSTOMER',
+            templateParams: {
+              formattedAmount,
+              reason: failureReason || (customerLang === 'en' ? 'Declined' : 'تراکنش ناموفق'),
+            },
+            language: customerLang,
+            templateId,
+            parameters,
+            idempotencyKey: `pay_failed_sms:${payment.id}`,
+            entityType: 'Payment',
+            entityId: payment.id,
+          });
+        }
       }
 
       // Notify managers In-App of failed payment

@@ -3,11 +3,13 @@ import * as ticketStation from '../../../../src/modules/tickets/tickets.station'
 import * as ticketRepo from '../../../../src/modules/tickets/tickets.repo';
 import { auditService } from '../../../../src/modules/audit/audit.station';
 import { MelipayamakStation } from '../../../../src/modules/notifications/melipayamak.station';
+import { NotificationStation } from '../../../../src/modules/notifications/notifications.station';
 import { TicketStatus, TicketPriority, TicketCategory, UserRole, SessionActorType, TicketSenderType } from '@prisma/client';
 
 jest.mock('../../../../src/modules/tickets/tickets.repo');
 jest.mock('../../../../src/modules/audit/audit.station');
 jest.mock('../../../../src/modules/notifications/melipayamak.station');
+jest.mock('../../../../src/modules/notifications/notifications.station');
 
 const MockedTicketRepo = ticketRepo as jest.Mocked<typeof ticketRepo>;
 const MockedAuditStation = auditService as jest.Mocked<typeof auditService>;
@@ -20,6 +22,7 @@ describe('Ticket System Station Unit Tests (Mocked Repo)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (NotificationStation.notifyCustomerTicket as jest.MockedFunction<typeof NotificationStation.notifyCustomerTicket>).mockResolvedValue({} as any);
   });
 
   it('should successfully create a ticket and record audit log', async () => {
@@ -68,7 +71,9 @@ describe('Ticket System Station Unit Tests (Mocked Repo)', () => {
 
     expect(MockedTicketRepo.createMessage).toHaveBeenCalled();
     expect(MockedTicketRepo.updateTicket).toHaveBeenCalledWith(ticketId, { status: TicketStatus.ANSWERED });
-    expect(MelipayamakStation.sendTicketReplySms).toHaveBeenCalledWith('09121111111', ticketId);
+    expect(NotificationStation.notifyCustomerTicket).toHaveBeenCalledWith(
+      expect.objectContaining({ phone: '09121111111', ticketId })
+    );
   });
 
   it('should successfully assign a ticket', async () => {

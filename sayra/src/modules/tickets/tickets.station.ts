@@ -133,6 +133,7 @@ export const addMessage = async (
   // When support replies to a ticket, dispatch SMS notification to ticket creator asynchronously
   if (senderType === TicketSenderType.SUPPORT) {
     const recipientPhone = (ticket as any).customerAccount?.phone || (ticket as any).user?.phone;
+    const customerAccountId = (ticket as any).customerAccountId || (ticket as any).customerAccount?.id;
     if (recipientPhone) {
       NotificationStation.notifyCustomerTicket({
         phone: recipientPhone,
@@ -144,6 +145,7 @@ export const addMessage = async (
           ticketCode: ticket.id,
         },
         gamingCenterId: ticket.gamingCenterId ?? undefined,
+        userId: customerAccountId,
       }).catch((err) => {
         logger.error({
           msg: 'Non-blocking SMS dispatch failed on support reply to ticket',
@@ -213,6 +215,7 @@ export const updateTicketStatus = async (
 
   if (status === TicketStatus.CLOSED) {
     const recipientPhone = (ticket as any).customerAccount?.phone || (ticket as any).user?.phone;
+    const customerAccountId = (ticket as any).customerAccountId || (ticket as any).customerAccount?.id;
     if (recipientPhone) {
       NotificationStation.notifyCustomerTicket({
         phone: recipientPhone,
@@ -224,6 +227,7 @@ export const updateTicketStatus = async (
           ticketCode: ticket.id,
         },
         gamingCenterId: ticket.gamingCenterId ?? undefined,
+        userId: customerAccountId,
       }).catch((err) => {
         logger.error({
           msg: 'Non-blocking SMS dispatch failed on ticket close',

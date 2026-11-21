@@ -4,7 +4,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { env } from '../../config/env';
 import { NotificationStation } from '../notifications/notifications.station';
 import { notificationsRepo } from '../notifications/notifications.repo';
-import { getRecipientPreferredLanguage } from '../notifications/notification-i18n';
+import { getRecipientPreferredLanguage, renderLocalizedNotification } from '../notifications/notification-i18n';
 import logger from '../../config/logger';
 
 export interface ProcessRemindersOptions {
@@ -347,6 +347,23 @@ export const processReservationRemindersBatch = async (options: ProcessReminders
         entityType: 'Reservation',
         entityId: reservation.id,
       });
+
+      if (customerAccount?.id) {
+        const localized = renderLocalizedNotification(
+          'RESERVATION_REMINDER_CUSTOMER',
+          { stationName, gamingCenterName: gamingCenter.name, dateStr, timeStr },
+          customerLang
+        );
+        await prisma.customerNotification.create({
+          data: {
+            customerAccountId: customerAccount.id,
+            title: localized.title,
+            message: localized.message,
+            type: 'RESERVATION_REMINDER',
+            metadata: { reservationId: reservation.id },
+          },
+        }).catch((err) => logger.warn({ err, customerAccountId: customerAccount.id }, 'Failed to create customer reminder in-app notification'));
+      }
 
       const staffUsers = await prisma.user.findMany({
         where: {

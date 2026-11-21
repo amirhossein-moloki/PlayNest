@@ -78,6 +78,24 @@ export const notificationsRepo = {
     });
   },
 
+  async createCustomerNotification(data: {
+    customerAccountId: string;
+    title: string;
+    message: string;
+    type?: string;
+    metadata?: Prisma.InputJsonValue;
+  }) {
+    return prisma.customerNotification.create({
+      data: {
+        customerAccountId: data.customerAccountId,
+        title: data.title,
+        message: data.message,
+        type: data.type ?? 'GENERAL',
+        metadata: data.metadata ?? Prisma.JsonNull,
+      },
+    });
+  },
+
   async getUserNotifications(userId: string, options: ListNotificationsOptions = {}) {
     const page = Math.max(1, options.page || 1);
     const pageSize = Math.min(100, Math.max(1, options.pageSize || 20));

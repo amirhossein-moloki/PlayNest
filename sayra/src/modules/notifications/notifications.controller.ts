@@ -3,7 +3,8 @@ import { NotificationStation } from './notifications.station';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { AppRequest } from '../../types/express';
-import { NotificationType, NotificationCategory, UserRole } from '@prisma/client';
+import { NotificationType, NotificationCategory, UserRole, Prisma } from '@prisma/client';
+import { prisma } from '../../config/prisma';
 
 export const notificationsController = {
   async getNotifications(req: AppRequest, res: Response) {
@@ -28,6 +29,29 @@ export const notificationsController = {
       type,
     };
 
+    if (req.actor?.actorType === 'CUSTOMER') {
+      const p = Math.max(1, options.page || 1);
+      const ps = Math.min(100, Math.max(1, options.pageSize || 20));
+      const skip = (p - 1) * ps;
+      const where: Prisma.CustomerNotificationWhereInput = {
+        customerAccountId: userId,
+        ...(options.isRead !== undefined ? { isRead: options.isRead } : {}),
+      };
+      const [items, totalItems] = await Promise.all([
+        prisma.customerNotification.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: ps,
+        }),
+        prisma.customerNotification.count({ where }),
+      ]);
+      const totalPages = Math.ceil(totalItems / ps);
+      return res.ok(items, {
+        pagination: { totalItems, page: p, pageSize: ps, totalPages },
+      });
+    }
+
     const result = await NotificationStation.getUserNotifications(userId, options);
     return res.ok(result.items, { pagination: result.pagination });
   },
@@ -39,6 +63,21 @@ export const notificationsController = {
     }
 
     const notificationId = req.params.id;
+
+    if (req.actor?.actorType === 'CUSTOMER') {
+      const existing = await prisma.customerNotification.findUnique({
+        where: { id: notificationId },
+      });
+      if (!existing || existing.customerAccountId !== userId) {
+        throw new AppError('Notification not found', httpStatus.NOT_FOUND);
+      }
+      await prisma.customerNotification.update({
+        where: { id: notificationId },
+        data: { isRead: true },
+      });
+      return res.ok({ ...existing, isRead: true });
+    }
+
     const result = await NotificationStation.markAsRead(notificationId, userId);
     return res.ok(result);
   },
@@ -47,6 +86,13 @@ export const notificationsController = {
     const userId = req.actor?.id;
     if (!userId) {
       throw new AppError('Unauthorized', httpStatus.UNAUTHORIZED);
+    }
+
+    if (req.actor?.actorType === 'CUSTOMER') {
+      const count = await prisma.customerNotification.count({
+        where: { customerAccountId: userId, isRead: false },
+      });
+      return res.ok({ unreadCount: count });
     }
 
     const result = await NotificationStation.getUnreadCount(userId);

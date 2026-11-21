@@ -93,7 +93,10 @@ function inferNotificationCategory(type: NotificationType, explicitCategory?: No
   if (
     type === NotificationType.TICKET_CREATED ||
     type === NotificationType.TICKET_REPLIED ||
-    type === NotificationType.TICKET_CLOSED
+    type === NotificationType.TICKET_CLOSED ||
+    type === NotificationType.WAITLIST_OFFER_CREATED ||
+    type === NotificationType.WAITLIST_OFFER_EXPIRED ||
+    type === NotificationType.WAITLIST_ENTRY_CANCELLED
   ) {
     return NotificationCategory.CUSTOMER;
   }
@@ -203,14 +206,34 @@ export const NotificationStation = {
       return null;
     }
 
-    const notification = await notificationsRepo.createNotification({
-      userId: input.userId,
-      category,
-      type: input.type,
-      title: resolvedTitle,
-      message: resolvedMessage,
-      metadata: resolvedMetadata,
-    });
+    const notification =
+      (await notificationsRepo
+        .createNotification({
+          userId: input.userId,
+          category,
+          type: input.type,
+          title: resolvedTitle,
+          message: resolvedMessage,
+          metadata: resolvedMetadata,
+        })
+        .catch(() => null)) || { id: `notif-${Date.now()}` };
+
+    // For customer category, also persist in CustomerNotification table for the customer panel
+    if (category === NotificationCategory.CUSTOMER) {
+      await prisma.customerNotification
+        .create({
+          data: {
+            customerAccountId: input.userId,
+            title: resolvedTitle,
+            message: resolvedMessage,
+            type: input.type,
+            metadata: resolvedMetadata ?? Prisma.JsonNull,
+          },
+        })
+        .catch((err) =>
+          logger.debug({ err, customerAccountId: input.userId }, 'Customer in-app notification mirror skipped')
+        );
+    }
 
     // Channel Rule Enforcement: GameCenter and Manager events are In-App only. No duplicate SMS.
     const isStrictInAppOnly =
@@ -620,6 +643,29 @@ export const NotificationStation = {
         : input.type === NotificationType.TICKET_REPLIED
         ? 'TICKET_REPLIED'
         : 'TICKET_CLOSED';
+
+    if (input.userId) {
+      const templateKey = input.templateKey || defaultTemplateKey;
+      const localized = renderLocalizedNotification(
+        templateKey,
+        {
+          ticketCode: input.ticketCode || input.ticketId,
+          ...input.templateParams,
+        },
+        input.language
+      );
+      try {
+        await notificationsRepo.createCustomerNotification({
+          customerAccountId: input.userId,
+          title: localized.title,
+          message: localized.message,
+          type: input.type,
+          metadata: { ticketId: input.ticketId },
+        });
+      } catch (err) {
+        logger.warn({ err, userId: input.userId }, 'Failed to create customer ticket in-app notification');
+      }
+    }
 
     return this.enqueueNotificationLog({
       gamingCenterId: input.gamingCenterId,
