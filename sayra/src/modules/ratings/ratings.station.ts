@@ -2,8 +2,10 @@ import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import * as reviewsRepo from './ratings.repo';
 import { SubmitReviewInput } from './ratings.types';
-import { RatingStatus, ReservationStatus } from '@prisma/client';
+import { RatingStatus, ReservationStatus, NotificationType } from '@prisma/client';
 import { queueAnalyticsSync } from '../../jobs/producers/analytics.producer';
+import { NotificationStation } from '../notifications/notifications.station';
+import logger from '../../config/logger';
 
 export async function submitReview(gamingCenterSlug: string, input: SubmitReviewInput) {
   // 1. Verify reservation exists and belongs to the gamingCenter (by slug)
@@ -24,6 +26,23 @@ export async function submitReview(gamingCenterSlug: string, input: SubmitReview
 
   // Sync analytics
   queueAnalyticsSync({ type: 'REVIEW', entityId: rating.id }).catch(console.error);
+
+  // Notify GameCenter staff/managers of new review
+  NotificationStation.notifyGameCenter({
+    gamingCenterId: reservation.gamingCenterId,
+    type: NotificationType.GAME_CENTER_REVIEW_RECEIVED,
+    templateKey: 'GAME_CENTER_REVIEW_RECEIVED',
+    templateParams: {
+      gameCenterName: (reservation as any).gamingCenter?.name || gamingCenterSlug,
+      customerName: (reservation as any).customerAccount?.fullName || 'Customer',
+      rating: input.rating,
+    },
+    metadata: { reviewId: rating.id, reservationId: input.reservationId, rating: input.rating },
+    entityType: 'Rating',
+    entityId: rating.id,
+  }).catch((err) => {
+    logger.warn({ msg: 'Failed to notify GameCenter of review', error: err });
+  });
 
   return rating;
 }

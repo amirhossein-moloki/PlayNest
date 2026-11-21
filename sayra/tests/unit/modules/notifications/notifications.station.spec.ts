@@ -60,6 +60,7 @@ describe('NotificationStation (Unit)', () => {
 
       expect(notificationsRepo.createNotification).toHaveBeenCalledWith({
         userId: mockUserId,
+        category: 'GAME_CENTER',
         type: NotificationType.RESERVATION_CREATED,
         title: 'New Reservation',
         message: 'A reservation was created',

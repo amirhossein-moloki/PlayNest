@@ -22,7 +22,28 @@ export type NotificationTemplateKey =
   | 'WITHDRAWAL_REJECTED'
   | 'WITHDRAWAL_PROCESSING'
   | 'WITHDRAWAL_PAID'
-  | 'WITHDRAWAL_FAILED';
+  | 'WITHDRAWAL_FAILED'
+  // Customer Ticket Events
+  | 'TICKET_CREATED'
+  | 'TICKET_REPLIED'
+  | 'TICKET_CLOSED'
+  // GameCenter Events
+  | 'GAME_CENTER_BOOKING_REQUESTED'
+  | 'GAME_CENTER_BOOKING_REMINDER_24H'
+  | 'GAME_CENTER_BOOKING_REMINDER_2H'
+  | 'GAME_CENTER_BOOKING_REMINDER_15M'
+  | 'GAME_CENTER_BOOKING_CONFIRMED'
+  | 'GAME_CENTER_BOOKING_CANCELLED'
+  | 'GAME_CENTER_BOOKING_UPDATED'
+  | 'GAME_CENTER_REVIEW_RECEIVED'
+  // Manager Events
+  | 'NEW_GAME_CENTER_REGISTRATION'
+  | 'NEW_TICKET_CREATED'
+  | 'NEW_USER_REPORT'
+  | 'PAYMENT_FAILED'
+  | 'REFUND_REQUESTED'
+  | 'SYSTEM_ERROR'
+  | 'DAILY_BOOKING_SUMMARY';
 
 export interface LocalizedNotificationContent {
   language: NotificationLanguage;
@@ -333,6 +354,216 @@ const NOTIFICATION_TRANSLATIONS: Record<
       title: 'Withdrawal Failed',
       message: 'Payout of {{formattedAmount}} failed and the amount has been returned to your available balance.',
       actionLabel: 'View Details',
+    },
+  },
+  TICKET_CREATED: {
+    fa: {
+      title: 'تیکت پشتیبانی ایجاد شد',
+      message: 'تیکت شماره {{ticketCode}} با موضوع «{{subject}}» با موفقیت ایجاد شد.',
+    },
+    en: {
+      title: 'Ticket Created',
+      message: 'Ticket #{{ticketCode}} with subject "{{subject}}" has been created.',
+    },
+  },
+  TICKET_REPLIED: {
+    fa: {
+      title: 'پاسخ جدید به تیکت',
+      message: 'پاسخ جدیدی برای تیکت شماره {{ticketCode}} ثبت گردید.',
+    },
+    en: {
+      title: 'Ticket Replied',
+      message: 'A new reply has been submitted for ticket #{{ticketCode}}.',
+    },
+  },
+  TICKET_CLOSED: {
+    fa: {
+      title: 'بسته شدن تیکت',
+      message: 'تیکت شماره {{ticketCode}} بسته شد.',
+    },
+    en: {
+      title: 'Ticket Closed',
+      message: 'Ticket #{{ticketCode}} has been closed.',
+    },
+  },
+  GAME_CENTER_BOOKING_REQUESTED: {
+    fa: {
+      title: 'درخواست رزرو جدید',
+      message: 'درخواست رزرو جدید برای {{stationName}} در تاریخ {{dateStr}} ساعت {{timeStr}} توسط {{customerName}} ثبت شد.',
+      actionLabel: 'بررسی رزرو',
+    },
+    en: {
+      title: 'New Booking Requested',
+      message: 'A new booking has been requested for {{stationName}} on {{dateStr}} at {{timeStr}} by {{customerName}}.',
+      actionLabel: 'Review Booking',
+    },
+  },
+  GAME_CENTER_BOOKING_REMINDER_24H: {
+    fa: {
+      title: 'یادآوری رزرو (۲۴ ساعت مانده)',
+      message: 'رزرو {{bookingId}} ({{stationName}}) ۲۴ ساعت دیگر در تاریخ {{dateStr}} ساعت {{timeStr}} آغاز می‌شود.',
+      actionLabel: 'مشاهده رزرو',
+    },
+    en: {
+      title: 'Booking Reminder (24h prior)',
+      message: 'Booking {{bookingId}} ({{stationName}}) starts in 24 hours on {{dateStr}} at {{timeStr}}.',
+      actionLabel: 'View Booking',
+    },
+  },
+  GAME_CENTER_BOOKING_REMINDER_2H: {
+    fa: {
+      title: 'یادآوری رزرو (۲ ساعت مانده)',
+      message: 'رزرو {{bookingId}} ({{stationName}}) ۲ ساعت دیگر در ساعت {{timeStr}} آغاز خواهد شد.',
+      actionLabel: 'مشاهده رزرو',
+    },
+    en: {
+      title: 'Booking Reminder (2h prior)',
+      message: 'Booking {{bookingId}} ({{stationName}}) starts in 2 hours at {{timeStr}}.',
+      actionLabel: 'View Booking',
+    },
+  },
+  GAME_CENTER_BOOKING_REMINDER_15M: {
+    fa: {
+      title: 'یادآوری رزرو (۱۵ دقیقه مانده)',
+      message: 'رزرو {{bookingId}} ({{stationName}}) تا ۱۵ دقیقه دیگر (ساعت {{timeStr}}) آغاز خواهد شد. لطفاً آماده‌سازی لازم را انجام دهید.',
+      actionLabel: 'مشاهده رزرو',
+    },
+    en: {
+      title: 'Booking Reminder (15m prior)',
+      message: 'Booking {{bookingId}} ({{stationName}}) starts in 15 minutes at {{timeStr}}. Please prepare the station.',
+      actionLabel: 'View Booking',
+    },
+  },
+  GAME_CENTER_BOOKING_CONFIRMED: {
+    fa: {
+      title: 'رزرو مرکز بازی تأیید شد',
+      message: 'رزرو {{bookingId}} برای {{stationName}} با موفقیت تأیید شد.',
+      actionLabel: 'مشاهده رزرو',
+    },
+    en: {
+      title: 'Booking Confirmed',
+      message: 'Booking {{bookingId}} for {{stationName}} has been confirmed.',
+      actionLabel: 'View Booking',
+    },
+  },
+  GAME_CENTER_BOOKING_CANCELLED: {
+    fa: {
+      title: 'رزرو مرکز بازی لغو شد',
+      message: 'رزرو {{bookingId}} برای {{stationName}} لغو شد. دلیل: {{reason}}',
+      actionLabel: 'مشاهده جزئیات',
+    },
+    en: {
+      title: 'Booking Cancelled',
+      message: 'Booking {{bookingId}} for {{stationName}} was cancelled. Reason: {{reason}}',
+      actionLabel: 'View Details',
+    },
+  },
+  GAME_CENTER_BOOKING_UPDATED: {
+    fa: {
+      title: 'به‌روزرسانی رزرو مرکز بازی',
+      message: 'اطلاعات رزرو {{bookingId}} برای {{stationName}} به‌روزرسانی شد.',
+      actionLabel: 'مشاهده جزئیات',
+    },
+    en: {
+      title: 'Booking Updated',
+      message: 'Booking {{bookingId}} for {{stationName}} has been updated.',
+      actionLabel: 'View Details',
+    },
+  },
+  GAME_CENTER_REVIEW_RECEIVED: {
+    fa: {
+      title: 'دیدگاه جدید ثبت شد',
+      message: 'دیدگاه و امتیاز جدیدی ({{rating}} ستاره) برای مرکز بازی {{gameCenterName}} توسط {{customerName}} ثبت شد.',
+      actionLabel: 'مشاهده دیدگاه',
+    },
+    en: {
+      title: 'New Review Received',
+      message: 'A new review ({{rating}} stars) was submitted for {{gameCenterName}} by {{customerName}}.',
+      actionLabel: 'View Review',
+    },
+  },
+  NEW_GAME_CENTER_REGISTRATION: {
+    fa: {
+      title: 'ثبت‌نام مرکز بازی جدید',
+      message: 'مرکز بازی جدیدی با نام «{{gameCenterName}}» توسط «{{ownerName}}» ثبت شد و نیازمند بررسی است.',
+      actionLabel: 'بررسی مرکز بازی',
+    },
+    en: {
+      title: 'New GameCenter Registration',
+      message: 'A new game center "{{gameCenterName}}" was registered by {{ownerName}} and is awaiting review.',
+      actionLabel: 'Review GameCenter',
+    },
+  },
+  NEW_TICKET_CREATED: {
+    fa: {
+      title: 'تیکت پشتیبانی جدید',
+      message: 'یک تیکت پشتیبانی جدید ({{ticketCode}}) با موضوع «{{subject}}» ثبت شد.',
+      actionLabel: 'مشاهده تیکت',
+    },
+    en: {
+      title: 'New Ticket Created',
+      message: 'A new support ticket ({{ticketCode}}) with subject "{{subject}}" was created.',
+      actionLabel: 'View Ticket',
+    },
+  },
+  NEW_USER_REPORT: {
+    fa: {
+      title: 'گزارش تخلف جدید',
+      message: 'گزارش جدیدی در مورد «{{targetName}}» با دلیل «{{reason}}» ثبت شده است.',
+      actionLabel: 'بررسی گزارش',
+    },
+    en: {
+      title: 'New User Report',
+      message: 'A new report was submitted regarding "{{targetName}}" with reason: {{reason}}.',
+      actionLabel: 'Review Report',
+    },
+  },
+  PAYMENT_FAILED: {
+    fa: {
+      title: 'خطا در پرداخت',
+      message: 'تراکنش پرداخت به شناسه {{paymentId}} به مبلغ {{formattedAmount}} ناموفق بود. خطا: {{errorMessage}}',
+      actionLabel: 'مشاهده تراکنش',
+    },
+    en: {
+      title: 'Payment Failed',
+      message: 'Payment transaction {{paymentId}} of {{formattedAmount}} failed. Error: {{errorMessage}}',
+      actionLabel: 'View Transaction',
+    },
+  },
+  REFUND_REQUESTED: {
+    fa: {
+      title: 'درخواست استرداد وجه',
+      message: 'درخواست استرداد وجه برای پرداخت {{paymentId}} به مبلغ {{formattedAmount}} ثبت شد. علت: {{reason}}',
+      actionLabel: 'بررسی استرداد',
+    },
+    en: {
+      title: 'Refund Requested',
+      message: 'Refund requested for payment {{paymentId}} of {{formattedAmount}}. Reason: {{reason}}',
+      actionLabel: 'Review Refund',
+    },
+  },
+  SYSTEM_ERROR: {
+    fa: {
+      title: 'خطای سیستمی',
+      message: 'خطای سیستمی در بخش {{component}} رخ داده است: {{errorMessage}}',
+      actionLabel: 'بررسی خطا',
+    },
+    en: {
+      title: 'System Error',
+      message: 'A system error occurred in component {{component}}: {{errorMessage}}',
+      actionLabel: 'Inspect Error',
+    },
+  },
+  DAILY_BOOKING_SUMMARY: {
+    fa: {
+      title: 'گزارش روزانه رزروها',
+      message: 'خلاصه وضعیت رزروهای امروز: {{totalBookings}} رزرو به مبلغ کل {{formattedAmount}} ثبت شده است.',
+      actionLabel: 'مشاهده گزارش',
+    },
+    en: {
+      title: 'Daily Booking Summary',
+      message: "Today's booking summary: {{totalBookings}} bookings totaling {{formattedAmount}} were recorded.",
+      actionLabel: 'View Report',
     },
   },
 };

@@ -328,6 +328,12 @@ enum TicketSenderType {
   SUPPORT
 }
 
+enum NotificationCategory {
+  CUSTOMER
+  GAME_CENTER
+  MANAGER
+}
+
 enum NotificationType {
   RESERVATION_CREATED
   RESERVATION_CONFIRMED
@@ -340,6 +346,29 @@ enum NotificationType {
   WAITLIST_OFFER_CREATED
   WAITLIST_OFFER_EXPIRED
   WAITLIST_ENTRY_CANCELLED
+
+  // Customer Notifications
+  TICKET_CREATED
+  TICKET_REPLIED
+  TICKET_CLOSED
+
+  // GameCenter Notifications
+  GAME_CENTER_BOOKING_REQUESTED
+  GAME_CENTER_BOOKING_REMINDER_24H
+  GAME_CENTER_BOOKING_REMINDER_2H
+  GAME_CENTER_BOOKING_REMINDER_15M
+  GAME_CENTER_BOOKING_CONFIRMED
+  GAME_CENTER_BOOKING_CANCELLED
+  GAME_CENTER_BOOKING_UPDATED
+  GAME_CENTER_REVIEW_RECEIVED
+
+  // Manager Notifications
+  NEW_GAME_CENTER_REGISTRATION
+  NEW_TICKET_CREATED
+  NEW_USER_REPORT
+  REFUND_REQUESTED
+  SYSTEM_ERROR
+  DAILY_BOOKING_SUMMARY
 }
 
 enum NotificationChannel {
@@ -2691,19 +2720,22 @@ model TicketMessage {
 }
 
 model Notification {
-  id        String           @id @default(cuid())
+  id        String               @id @default(cuid())
   userId    String
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category  NotificationCategory @default(GAME_CENTER)
   type      NotificationType
   title     String
-  message   String           @db.Text
-  isRead    Boolean          @default(false)
+  message   String               @db.Text
+  isRead    Boolean              @default(false)
   metadata  Json?
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
 
   @@index([userId, isRead, createdAt])
   @@index([userId, createdAt])
+  @@index([userId, category, createdAt])
+  @@index([userId, type, createdAt])
 }
 
 model NotificationLog {
@@ -2711,6 +2743,7 @@ model NotificationLog {
   gamingCenterId String?
   userId         String?
   recipient      String
+  category       NotificationCategory?      @default(GAME_CENTER)
   channel        NotificationChannel        @default(SMS)
   type           NotificationType
   title          String?
@@ -2736,6 +2769,7 @@ model NotificationLog {
 
   @@index([status, scheduledAt])
   @@index([status, nextRetryAt])
+  @@index([category, status, scheduledAt])
   @@index([entityType, entityId])
   @@index([idempotencyKey])
   @@index([gamingCenterId, createdAt])

@@ -38,6 +38,21 @@ export const SmsStation = {
     return MelipayamakStation.sendTicketReplySms(mobile, ticketCode);
   },
 
+  async sendDirectSms(mobile: string, message: string) {
+    if (MelipayamakStation.isConfigured() || env.MELIPAYAMAK_FROM) {
+      const res = await MelipayamakStation.sendDirectSms(mobile, message);
+      return { id: res.recId, status: res.mocked ? 'mocked' : 'sent', provider: 'Melipayamak' };
+    }
+
+    if (!smsir) {
+      logger.info({ msg: '[MOCK SMS] Direct SMS dispatch', to: mobile, message });
+      return { status: 'mocked' };
+    }
+
+    logger.info({ msg: '[SMSIR MOCK] Direct SMS dispatch', to: mobile, message });
+    return { status: 'mocked' };
+  },
+
   async sendTemplateSms(mobile: string, templateId: number, parameters: Array<{ name: string; value: string }>) {
     // If Melipayamak is configured and template matches Melipayamak OTP or reservation body ID
     if (MelipayamakStation.isConfigured()) {

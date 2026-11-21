@@ -158,6 +158,22 @@ export const initReservationEvents = () => {
       env.SMSIR_OWNER_RESERVATION_CREATED_TEMPLATE_ID,
       ownerSmsParams
     );
+
+    // Notify GameCenter of new booking request (In-App only)
+    NotificationStation.notifyGameCenter({
+      gamingCenterId: gamingCenter.id,
+      type: NotificationType.GAME_CENTER_BOOKING_REQUESTED,
+      templateKey: 'GAME_CENTER_BOOKING_REQUESTED',
+      templateParams: {
+        stationName,
+        dateStr,
+        timeStr,
+        customerName: customerAccount.fullName || 'Customer',
+      },
+      metadata: { reservationId: reservation.id },
+      entityType: 'Reservation',
+      entityId: reservation.id,
+    }).catch(console.error);
   });
 
   eventEmitter.on(AppEvents.RESERVATION_UPDATED, async ({ updatedReservation, oldReservation }) => {
@@ -169,6 +185,21 @@ export const initReservationEvents = () => {
         oldReservation.startTime,
         oldReservation.endTime
       ).catch(console.error);
+    }
+
+    if (updatedReservation?.gamingCenterId) {
+      NotificationStation.notifyGameCenter({
+        gamingCenterId: updatedReservation.gamingCenterId,
+        type: NotificationType.GAME_CENTER_BOOKING_UPDATED,
+        templateKey: 'GAME_CENTER_BOOKING_UPDATED',
+        templateParams: {
+          bookingId: updatedReservation.id,
+          stationName: ((updatedReservation.stationSnapshot as Record<string, unknown>)?.name as string | undefined) || 'N/A',
+        },
+        metadata: { reservationId: updatedReservation.id },
+        entityType: 'Reservation',
+        entityId: updatedReservation.id,
+      }).catch(console.error);
     }
   });
 
@@ -184,6 +215,19 @@ export const initReservationEvents = () => {
       { reservationId: reservation.id },
       { reservationId: reservation.id, gamingCenterId: gamingCenter.id }
     );
+
+    NotificationStation.notifyGameCenter({
+      gamingCenterId: gamingCenter.id,
+      type: NotificationType.GAME_CENTER_BOOKING_CONFIRMED,
+      templateKey: 'GAME_CENTER_BOOKING_CONFIRMED',
+      templateParams: {
+        bookingId: reservation.id,
+        stationName: ((reservation.stationSnapshot as Record<string, unknown>)?.name as string | undefined) || 'N/A',
+      },
+      metadata: { reservationId: reservation.id },
+      entityType: 'Reservation',
+      entityId: reservation.id,
+    }).catch(console.error);
   });
 
   eventEmitter.on(AppEvents.RESERVATION_CANCELED, async ({ reservation, gamingCenter, customerAccount }) => {
@@ -202,6 +246,20 @@ export const initReservationEvents = () => {
       { reservationId: reservation.id },
       { reservationId: reservation.id, gamingCenterId: gamingCenter.id }
     );
+
+    NotificationStation.notifyGameCenter({
+      gamingCenterId: gamingCenter.id,
+      type: NotificationType.GAME_CENTER_BOOKING_CANCELLED,
+      templateKey: 'GAME_CENTER_BOOKING_CANCELLED',
+      templateParams: {
+        bookingId: reservation.id,
+        stationName: ((reservation.stationSnapshot as Record<string, unknown>)?.name as string | undefined) || 'N/A',
+        reason: reservation.canceledReason || 'No reason specified',
+      },
+      metadata: { reservationId: reservation.id },
+      entityType: 'Reservation',
+      entityId: reservation.id,
+    }).catch(console.error);
 
     await waitlistStation.processAvailableSlot(
       reservation.gamingCenterId,

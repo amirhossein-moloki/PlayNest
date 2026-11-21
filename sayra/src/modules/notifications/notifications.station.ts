@@ -1,15 +1,20 @@
-import { NotificationType, Prisma } from '@prisma/client';
+import { NotificationType, NotificationCategory, UserRole, Prisma } from '@prisma/client';
 import { notificationsRepo, ListNotificationsOptions, ListNotificationLogsOptions } from './notifications.repo';
 import { SmsStation } from './sms.station';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import logger from '../../config/logger';
 import { prisma } from '../../config/prisma';
-import { NotificationTemplateKey, renderLocalizedNotification } from './notification-i18n';
+import {
+  NotificationTemplateKey,
+  renderLocalizedNotification,
+  getRecipientPreferredLanguage,
+} from './notification-i18n';
 
 export interface NotifyUserInput {
   gamingCenterId?: string;
   userId: string;
+  category?: NotificationCategory;
   type: NotificationType;
   title?: string;
   message?: string;
@@ -30,6 +35,7 @@ export interface EnqueueNotificationInput {
   gamingCenterId?: string;
   userId?: string;
   recipient: string;
+  category?: NotificationCategory;
   channel?: string;
   type: NotificationType;
   title?: string;
@@ -44,6 +50,64 @@ export interface EnqueueNotificationInput {
   idempotencyKey: string;
   entityType?: string;
   entityId?: string;
+}
+
+export interface NotifyGameCenterInput {
+  gamingCenterId: string;
+  type: NotificationType;
+  title?: string;
+  message?: string;
+  templateKey?: NotificationTemplateKey;
+  templateParams?: Record<string, string | number | undefined | null>;
+  metadata?: Prisma.InputJsonValue;
+  entityType?: string;
+  entityId?: string;
+}
+
+export interface NotifyManagersInput {
+  type: NotificationType;
+  title?: string;
+  message?: string;
+  templateKey?: NotificationTemplateKey;
+  templateParams?: Record<string, string | number | undefined | null>;
+  metadata?: Prisma.InputJsonValue;
+  gamingCenterId?: string;
+  entityType?: string;
+  entityId?: string;
+}
+
+export interface NotifyCustomerTicketInput {
+  phone: string;
+  type: NotificationType;
+  ticketId: string;
+  ticketCode?: string;
+  templateKey?: NotificationTemplateKey;
+  templateParams?: Record<string, string | number | undefined | null>;
+  language?: string | null;
+  gamingCenterId?: string;
+  userId?: string;
+}
+
+function inferNotificationCategory(type: NotificationType, explicitCategory?: NotificationCategory): NotificationCategory {
+  if (explicitCategory) return explicitCategory;
+  if (
+    type === NotificationType.TICKET_CREATED ||
+    type === NotificationType.TICKET_REPLIED ||
+    type === NotificationType.TICKET_CLOSED
+  ) {
+    return NotificationCategory.CUSTOMER;
+  }
+  if (
+    type === NotificationType.NEW_GAME_CENTER_REGISTRATION ||
+    type === NotificationType.NEW_TICKET_CREATED ||
+    type === NotificationType.NEW_USER_REPORT ||
+    type === NotificationType.REFUND_REQUESTED ||
+    type === NotificationType.SYSTEM_ERROR ||
+    type === NotificationType.DAILY_BOOKING_SUMMARY
+  ) {
+    return NotificationCategory.MANAGER;
+  }
+  return NotificationCategory.GAME_CENTER;
 }
 
 export const NotificationStation = {
@@ -97,15 +161,68 @@ export const NotificationStation = {
       } as Prisma.InputJsonValue;
     }
 
+    const category = inferNotificationCategory(input.type, input.category);
+
+    // Channel Rule Enforcement: Customer ticket events must use SMS only, never In-App
+    const isCustomerTicket =
+      input.type === NotificationType.TICKET_CREATED ||
+      input.type === NotificationType.TICKET_REPLIED ||
+      input.type === NotificationType.TICKET_CLOSED;
+
+    if (isCustomerTicket) {
+      if (input.mobile) {
+        const key =
+          input.idempotencyKey ||
+          `ticket:${input.type}:${input.entityId || input.userId}:${Date.now()}`;
+
+        return await this.enqueueNotificationLog({
+          gamingCenterId: input.gamingCenterId,
+          userId: input.userId,
+          recipient: input.mobile,
+          category: NotificationCategory.CUSTOMER,
+          channel: 'SMS',
+          type: input.type,
+          title: resolvedTitle,
+          message: resolvedMessage,
+          templateKey: input.templateKey,
+          templateParams: input.templateParams,
+          language: input.language,
+          templateId: input.templateId,
+          parameters: input.parameters,
+          metadata: resolvedMetadata,
+          idempotencyKey: key,
+          entityType: input.entityType || 'Ticket',
+          entityId: input.entityId,
+        });
+      }
+      logger.warn({
+        msg: 'Customer ticket event skipped: SMS channel required but no mobile recipient provided',
+        type: input.type,
+        userId: input.userId,
+      });
+      return null;
+    }
+
     const notification = await notificationsRepo.createNotification({
       userId: input.userId,
+      category,
       type: input.type,
       title: resolvedTitle,
       message: resolvedMessage,
       metadata: resolvedMetadata,
     });
 
-    if (input.sendSms && input.mobile) {
+    // Channel Rule Enforcement: GameCenter and Manager events are In-App only. No duplicate SMS.
+    const isStrictInAppOnly =
+      String(input.type).startsWith('GAME_CENTER_') ||
+      input.type === NotificationType.NEW_GAME_CENTER_REGISTRATION ||
+      input.type === NotificationType.NEW_TICKET_CREATED ||
+      input.type === NotificationType.NEW_USER_REPORT ||
+      input.type === NotificationType.REFUND_REQUESTED ||
+      input.type === NotificationType.SYSTEM_ERROR ||
+      input.type === NotificationType.DAILY_BOOKING_SUMMARY;
+
+    if (input.sendSms && input.mobile && !isStrictInAppOnly) {
       const key =
         input.idempotencyKey ||
         `inapp:${input.userId}:${input.type}:${input.entityId || notification.id}:${Date.now()}`;
@@ -114,6 +231,7 @@ export const NotificationStation = {
         gamingCenterId: input.gamingCenterId,
         userId: input.userId,
         recipient: input.mobile,
+        category,
         channel: 'SMS',
         type: input.type,
         title: resolvedTitle,
@@ -152,10 +270,13 @@ export const NotificationStation = {
       } as Prisma.InputJsonValue;
     }
 
+    const category = inferNotificationCategory(input.type, input.category);
+
     const log = (await notificationsRepo.createNotificationLog({
       gamingCenterId: input.gamingCenterId,
       userId: input.userId,
       recipient: input.recipient,
+      category,
       channel: input.channel ?? 'SMS',
       type: input.type,
       title: resolvedTitle,
@@ -193,7 +314,14 @@ export const NotificationStation = {
     }
 
     // Reservation State Revalidation before sending reminders
-    if (log.entityType === 'Reservation' && log.entityId && log.type === NotificationType.RESERVATION_REMINDER) {
+    const reminderTypes: NotificationType[] = [
+      NotificationType.RESERVATION_REMINDER,
+      NotificationType.GAME_CENTER_BOOKING_REMINDER_24H,
+      NotificationType.GAME_CENTER_BOOKING_REMINDER_2H,
+      NotificationType.GAME_CENTER_BOOKING_REMINDER_15M,
+    ];
+
+    if (log.entityType === 'Reservation' && log.entityId && reminderTypes.includes(log.type as NotificationType)) {
       const reservation = await prisma.reservation.findUnique({
         where: { id: String(log.entityId) },
         select: { status: true, canceledAt: true },
@@ -223,12 +351,18 @@ export const NotificationStation = {
     try {
       let providerRefId: string | undefined;
 
-      if ((log.channel === 'SMS' || !log.channel) && log.templateId) {
-        const params = Array.isArray(log.parameters)
-          ? (log.parameters as Array<{ name: string; value: string }>)
-          : [];
-        const result = await SmsStation.sendTemplateSms(String(log.recipient), Number(log.templateId), params);
-        providerRefId = result && typeof result === 'object' && 'id' in result ? String((result as Record<string, unknown>).id) : undefined;
+      if (log.channel === 'SMS' || !log.channel) {
+        if (log.templateId) {
+          const params = Array.isArray(log.parameters)
+            ? (log.parameters as Array<{ name: string; value: string }>)
+            : [];
+          const result = await SmsStation.sendTemplateSms(String(log.recipient), Number(log.templateId), params);
+          providerRefId = result && typeof result === 'object' && 'id' in result ? String((result as Record<string, unknown>).id) : undefined;
+        } else {
+          // Direct SMS delivery (for plain text / ticket notifications)
+          const result = await SmsStation.sendDirectSms(String(log.recipient), String(log.message || log.title || ''));
+          providerRefId = result && typeof result === 'object' && 'id' in result ? String((result as Record<string, unknown>).id) : undefined;
+        }
       }
 
       return await notificationsRepo.updateNotificationLogStatus(String(log.id), {
@@ -325,5 +459,114 @@ export const NotificationStation = {
     });
 
     return this.dispatchNotificationLog(logId);
+  },
+
+  async notifyGameCenter(input: NotifyGameCenterInput) {
+    const gamingCenter = await prisma.gamingCenter.findUnique({
+      where: { id: input.gamingCenterId },
+      select: { managerId: true },
+    });
+
+    const staffUsers = await prisma.user.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { gamingCenterId: input.gamingCenterId },
+          ...(gamingCenter?.managerId ? [{ id: gamingCenter.managerId }] : []),
+        ],
+        role: { in: [UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF, UserRole.ADMIN] },
+      },
+    });
+
+    const notifications = [];
+    for (const user of staffUsers) {
+      const notif = await this.notifyUser({
+        gamingCenterId: input.gamingCenterId,
+        userId: user.id,
+        category: NotificationCategory.GAME_CENTER,
+        type: input.type,
+        title: input.title,
+        message: input.message,
+        templateKey: input.templateKey,
+        templateParams: input.templateParams,
+        language: getRecipientPreferredLanguage(user),
+        metadata: input.metadata,
+        sendSms: false,
+        entityType: input.entityType,
+        entityId: input.entityId,
+      });
+      if (notif) notifications.push(notif);
+    }
+    return notifications;
+  },
+
+  async notifyManagers(input: NotifyManagersInput) {
+    const managers = await prisma.user.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { role: { in: [UserRole.ADMIN, UserRole.MANAGER] } },
+          { isSuperuser: true },
+        ],
+        ...(input.gamingCenterId
+          ? {
+              OR: [
+                { role: UserRole.ADMIN },
+                { isSuperuser: true },
+                { gamingCenterId: input.gamingCenterId, role: UserRole.MANAGER },
+              ],
+            }
+          : {}),
+      },
+    });
+
+    const notifications = [];
+    for (const manager of managers) {
+      const notif = await this.notifyUser({
+        gamingCenterId: input.gamingCenterId,
+        userId: manager.id,
+        category: NotificationCategory.MANAGER,
+        type: input.type,
+        title: input.title,
+        message: input.message,
+        templateKey: input.templateKey,
+        templateParams: input.templateParams,
+        language: getRecipientPreferredLanguage(manager),
+        metadata: input.metadata,
+        sendSms: false,
+        entityType: input.entityType,
+        entityId: input.entityId,
+      });
+      if (notif) notifications.push(notif);
+    }
+    return notifications;
+  },
+
+  async notifyCustomerTicket(input: NotifyCustomerTicketInput) {
+    const key = `ticket:${input.type}:${input.ticketId}:${Date.now()}`;
+    const defaultTemplateKey: NotificationTemplateKey =
+      input.type === NotificationType.TICKET_CREATED
+        ? 'TICKET_CREATED'
+        : input.type === NotificationType.TICKET_REPLIED
+        ? 'TICKET_REPLIED'
+        : 'TICKET_CLOSED';
+
+    return this.enqueueNotificationLog({
+      gamingCenterId: input.gamingCenterId,
+      userId: input.userId,
+      recipient: input.phone,
+      category: NotificationCategory.CUSTOMER,
+      channel: 'SMS',
+      type: input.type,
+      templateKey: input.templateKey || defaultTemplateKey,
+      templateParams: {
+        ticketCode: input.ticketCode || input.ticketId,
+        ...input.templateParams,
+      },
+      language: input.language,
+      idempotencyKey: key,
+      entityType: 'Ticket',
+      entityId: input.ticketId,
+    });
   },
 };

@@ -3,7 +3,7 @@ import { NotificationStation } from './notifications.station';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { AppRequest } from '../../types/express';
-import { NotificationType, UserRole } from '@prisma/client';
+import { NotificationType, NotificationCategory, UserRole } from '@prisma/client';
 
 export const notificationsController = {
   async getNotifications(req: AppRequest, res: Response) {
@@ -12,16 +12,20 @@ export const notificationsController = {
       throw new AppError('Unauthorized', httpStatus.UNAUTHORIZED);
     }
 
-    const { page, pageSize, isRead } = req.query as {
+    const { page, pageSize, isRead, category, type } = req.query as {
       page?: string;
       pageSize?: string;
       isRead?: boolean;
+      category?: NotificationCategory;
+      type?: NotificationType;
     };
 
     const options = {
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
       isRead: isRead !== undefined ? Boolean(isRead) : undefined,
+      category,
+      type,
     };
 
     const result = await NotificationStation.getUserNotifications(userId, options);
@@ -55,7 +59,7 @@ export const notificationsController = {
       throw new AppError('Forbidden: Access denied to notification logs', httpStatus.FORBIDDEN);
     }
 
-    const { page, pageSize, status, type, channel, entityType, entityId, gamingCenterId } = req.query as Record<string, string | undefined>;
+    const { page, pageSize, status, category, type, channel, entityType, entityId, gamingCenterId } = req.query as Record<string, string | undefined>;
 
     const effectiveGamingCenterId =
       role === UserRole.ADMIN ? gamingCenterId : req.actor.gamingCenterId;
@@ -64,6 +68,7 @@ export const notificationsController = {
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
       status,
+      category: category as NotificationCategory | undefined,
       type: type as NotificationType | undefined,
       channel,
       entityType,

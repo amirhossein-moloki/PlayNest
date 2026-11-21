@@ -228,4 +228,48 @@ export const MelipayamakStation = {
       throw error;
     }
   },
+
+  /**
+   * Type 4: Direct Text SMS
+   * Sends arbitrary text SMS, using dedicated number from MELIPAYAMAK_FROM
+   */
+  async sendDirectSms(to: string, messageText: string): Promise<MelipayamakSendResult> {
+    const from = fromLine;
+
+    if (!this.isConfigured() || !smsRestInstance || !from) {
+      logger.info({
+        msg: '[MELIPAYAMAK MOCK] Direct SMS dispatch',
+        to,
+        from: from || 'NOT_CONFIGURED',
+        messageText,
+      });
+      return { success: true, mocked: true, recId: 'mock-melipayamak-direct' };
+    }
+
+    try {
+      const response = await this.executeWithTimeout(() =>
+        smsRestInstance!.send(to, from, messageText)
+      );
+      const recId = parseRecId(response);
+
+      logger.info({
+        msg: 'Melipayamak Direct SMS dispatched successfully',
+        to,
+        recId,
+      });
+
+      return {
+        success: true,
+        recId,
+        rawResponse: response,
+      };
+    } catch (error) {
+      logger.error({
+        msg: 'Failed to send Direct SMS via Melipayamak',
+        to,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  },
 };

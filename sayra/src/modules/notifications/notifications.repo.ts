@@ -1,5 +1,5 @@
 import { prisma } from '../../config/prisma';
-import { NotificationType, Prisma } from '@prisma/client';
+import { NotificationType, NotificationCategory, Prisma } from '@prisma/client';
 
 type PrismaWithNotificationLog = typeof prisma & {
   notificationLog: {
@@ -16,6 +16,7 @@ const getDb = () => prisma as unknown as PrismaWithNotificationLog;
 
 export interface CreateNotificationInput {
   userId: string;
+  category?: NotificationCategory;
   type: NotificationType;
   title: string;
   message: string;
@@ -26,12 +27,15 @@ export interface ListNotificationsOptions {
   page?: number;
   pageSize?: number;
   isRead?: boolean;
+  category?: NotificationCategory;
+  type?: NotificationType;
 }
 
 export interface CreateNotificationLogInput {
   gamingCenterId?: string;
   userId?: string;
   recipient: string;
+  category?: NotificationCategory;
   channel?: string;
   type: NotificationType;
   title?: string;
@@ -50,6 +54,7 @@ export interface CreateNotificationLogInput {
 export interface ListNotificationLogsOptions {
   gamingCenterId?: string;
   userId?: string;
+  category?: NotificationCategory;
   status?: string;
   type?: NotificationType;
   channel?: string;
@@ -64,6 +69,7 @@ export const notificationsRepo = {
     return prisma.notification.create({
       data: {
         userId: data.userId,
+        category: data.category ?? 'GAME_CENTER',
         type: data.type,
         title: data.title,
         message: data.message,
@@ -80,6 +86,8 @@ export const notificationsRepo = {
     const where: Prisma.NotificationWhereInput = {
       userId,
       ...(options.isRead !== undefined ? { isRead: options.isRead } : {}),
+      ...(options.category ? { category: options.category } : {}),
+      ...(options.type ? { type: options.type } : {}),
     };
 
     const [items, totalItems] = await Promise.all([
@@ -143,6 +151,7 @@ export const notificationsRepo = {
           gamingCenterId: data.gamingCenterId,
           userId: data.userId,
           recipient: data.recipient,
+          category: data.category ?? 'GAME_CENTER',
           channel: data.channel ?? 'SMS',
           type: data.type,
           title: data.title,
@@ -250,6 +259,7 @@ export const notificationsRepo = {
     const where: Record<string, unknown> = {
       ...(options.gamingCenterId ? { gamingCenterId: options.gamingCenterId } : {}),
       ...(options.userId ? { userId: options.userId } : {}),
+      ...(options.category ? { category: options.category } : {}),
       ...(options.status ? { status: options.status } : {}),
       ...(options.type ? { type: options.type } : {}),
       ...(options.channel ? { channel: options.channel } : {}),

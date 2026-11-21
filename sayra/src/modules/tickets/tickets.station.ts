@@ -1,9 +1,9 @@
-import { TicketStatus, TicketSenderType, TicketPriority, TicketCategory, UserRole, SessionActorType } from '@prisma/client';
+import { TicketStatus, TicketSenderType, TicketPriority, TicketCategory, UserRole, SessionActorType, NotificationType } from '@prisma/client';
 import * as ticketRepo from './tickets.repo';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { auditService } from '../audit/audit.station';
-import { MelipayamakStation } from '../notifications/melipayamak.station';
+import { NotificationStation } from '../notifications/notifications.station';
 import logger from '../../config/logger';
 
 export const createTicket = async (data: {
@@ -29,6 +29,41 @@ export const createTicket = async (data: {
     ipAddress: context.ip,
     userAgent: context.userAgent,
   });
+
+  // Non-blocking notification dispatch: Customer via SMS, Managers via In-App
+  (async () => {
+    try {
+      const recipientPhone = (ticket as any).customerAccount?.phone || (ticket as any).user?.phone;
+      if (recipientPhone) {
+        await NotificationStation.notifyCustomerTicket({
+          phone: recipientPhone,
+          type: NotificationType.TICKET_CREATED,
+          ticketId: ticket.id,
+          ticketCode: ticket.id,
+          templateKey: 'TICKET_CREATED',
+          templateParams: {
+            ticketCode: ticket.id,
+            subject: ticket.subject,
+          },
+          gamingCenterId: data.gamingCenterId,
+          userId: data.userId,
+        });
+      }
+      await NotificationStation.notifyManagers({
+        type: NotificationType.NEW_TICKET_CREATED,
+        templateKey: 'NEW_TICKET_CREATED',
+        templateParams: {
+          ticketCode: ticket.id,
+          subject: ticket.subject,
+        },
+        gamingCenterId: data.gamingCenterId,
+        entityType: 'Ticket',
+        entityId: ticket.id,
+      });
+    } catch (err) {
+      logger.warn({ msg: 'Non-blocking notification dispatch failed on ticket creation', error: err });
+    }
+  })();
 
   return ticket;
 };
@@ -97,9 +132,19 @@ export const addMessage = async (
 
   // When support replies to a ticket, dispatch SMS notification to ticket creator asynchronously
   if (senderType === TicketSenderType.SUPPORT) {
-    const recipientPhone = ticket.customerAccount?.phone || ticket.user?.phone;
+    const recipientPhone = (ticket as any).customerAccount?.phone || (ticket as any).user?.phone;
     if (recipientPhone) {
-      MelipayamakStation.sendTicketReplySms(recipientPhone, ticket.id).catch((err) => {
+      NotificationStation.notifyCustomerTicket({
+        phone: recipientPhone,
+        type: NotificationType.TICKET_REPLIED,
+        ticketId: ticket.id,
+        ticketCode: ticket.id,
+        templateKey: 'TICKET_REPLIED',
+        templateParams: {
+          ticketCode: ticket.id,
+        },
+        gamingCenterId: ticket.gamingCenterId ?? undefined,
+      }).catch((err) => {
         logger.error({
           msg: 'Non-blocking SMS dispatch failed on support reply to ticket',
           ticketId,
@@ -165,6 +210,29 @@ export const updateTicketStatus = async (
   }
 
   const updatedTicket = await ticketRepo.updateTicket(ticketId, updateData);
+
+  if (status === TicketStatus.CLOSED) {
+    const recipientPhone = (ticket as any).customerAccount?.phone || (ticket as any).user?.phone;
+    if (recipientPhone) {
+      NotificationStation.notifyCustomerTicket({
+        phone: recipientPhone,
+        type: NotificationType.TICKET_CLOSED,
+        ticketId: ticket.id,
+        ticketCode: ticket.id,
+        templateKey: 'TICKET_CLOSED',
+        templateParams: {
+          ticketCode: ticket.id,
+        },
+        gamingCenterId: ticket.gamingCenterId ?? undefined,
+      }).catch((err) => {
+        logger.error({
+          msg: 'Non-blocking SMS dispatch failed on ticket close',
+          ticketId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+    }
+  }
 
   await auditService.recordLog({
     userId: actor.id,
