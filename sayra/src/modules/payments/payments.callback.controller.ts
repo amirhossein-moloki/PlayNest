@@ -72,41 +72,44 @@ export function getPaymentFailedRedirectUrl(params: {
 }
 
 export async function handlePaymentCallback(req: Request, res: Response): Promise<void> {
-  const authorityQuery = req.query.Authority || req.query.authority || req.body?.Authority || req.body?.authority;
+  const authorityQuery =
+    req.query.Authority ||
+    req.query.authority ||
+    req.query.trackId ||
+    req.body?.Authority ||
+    req.body?.authority ||
+    req.body?.trackId;
   const statusQuery = req.query.Status || req.query.status || req.body?.Status || req.body?.status;
+  const successQuery = req.query.success || req.body?.success;
   const orderIdQuery = req.query.orderId || req.body?.orderId;
 
   const authority = authorityQuery ? String(authorityQuery) : undefined;
   const orderId = orderIdQuery ? String(orderIdQuery) : undefined;
   const status = statusQuery ? String(statusQuery).toUpperCase() : undefined;
 
-  if (!authority) {
-    const redirectUrl = getPaymentFailedRedirectUrl({
-      message: 'شناسه پیگیری یا Authority در درخواست بازگشت درگاه یافت نشد.',
-    });
-    res.redirect(302, redirectUrl);
-    return;
-  }
-
   // 1. Locate payment durable record by providerPaymentId (authority) or orderId
-  let payment = await prisma.payment.findFirst({
-    where: {
-      providerPaymentId: authority,
-    },
-    include: {
-      reservation: true,
-      bookingHold: true,
-    },
-  });
+  let payment = authority
+    ? await prisma.payment.findFirst({
+        where: {
+          providerPaymentId: authority,
+        },
+        include: {
+          reservation: true,
+          bookingHold: true,
+          groupBooking: true,
+        },
+      })
+    : null;
 
   if (!payment && orderId) {
     payment = await prisma.payment.findFirst({
       where: {
-        OR: [{ reservationId: orderId }, { bookingHoldId: orderId }, { id: orderId }],
+        OR: [{ reservationId: orderId }, { bookingHoldId: orderId }, { groupBookingId: orderId }, { id: orderId }],
       },
       include: {
         reservation: true,
         bookingHold: true,
+        groupBooking: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -124,7 +127,7 @@ export async function handlePaymentCallback(req: Request, res: Response): Promis
   }
 
   // 2. Idempotency check: If already paid, redirect to success URL
-  const paymentInitialOrderId = payment.reservationId || payment.bookingHoldId || payment.id;
+  const paymentInitialOrderId = payment.reservationId || payment.bookingHoldId || payment.groupBookingId || payment.id;
   if (payment.status === PaymentStatus.PAID) {
     const redirectUrl = getPaymentSuccessRedirectUrl({
       orderId: paymentInitialOrderId,
@@ -139,7 +142,10 @@ export async function handlePaymentCallback(req: Request, res: Response): Promis
   }
 
   // 3. Check gateway preliminary status before calling verify (e.g. NOK or user cancel)
-  const isFailedStatus = status && status !== 'OK' && status !== '1' && status !== '2';
+  const isFailedStatus =
+    (status && status !== 'OK' && status !== '1' && status !== '2') ||
+    successQuery === '0' ||
+    successQuery === 'false';
 
   if (isFailedStatus) {
     const failedPayment = await PaymentsRepo.transaction(async (tx) => {
@@ -322,17 +328,19 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
     include: {
       reservation: true,
       bookingHold: true,
+      groupBooking: true,
     },
   });
 
   if (!payment && orderId) {
     payment = await prisma.payment.findFirst({
       where: {
-        OR: [{ reservationId: orderId }, { bookingHoldId: orderId }, { id: orderId }],
+        OR: [{ reservationId: orderId }, { bookingHoldId: orderId }, { groupBookingId: orderId }, { id: orderId }],
       },
       include: {
         reservation: true,
         bookingHold: true,
+        groupBooking: true,
       },
       orderBy: { createdAt: 'desc' },
     });

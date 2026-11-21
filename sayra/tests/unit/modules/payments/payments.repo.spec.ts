@@ -200,6 +200,90 @@ describe('PaymentsRepo', () => {
       await PaymentsRepo.handleFailedPayment(prismaMock as any, paymentId, PaymentStatus.FAILED);
       expect(paymentMock.update).not.toHaveBeenCalled();
     });
+
+    it('should restore wallet balance for bookingHold when payment fails', async () => {
+      const mockPayment = {
+        id: paymentId,
+        bookingHoldId: 'hold-123',
+        status: PaymentStatus.INITIATED,
+        walletAmount: 35000,
+        currency: 'IRR',
+        bookingHold: {
+          id: 'hold-123',
+          customerAccountId: 'cust-account-1',
+          status: 'ACTIVE',
+        },
+      };
+
+      paymentMock.findUnique.mockResolvedValue(mockPayment);
+      paymentMock.update.mockResolvedValue({ ...mockPayment, status: PaymentStatus.FAILED });
+      (prismaMock.customerAccount as any).update = (jest.fn() as any).mockResolvedValue({ id: 'cust-account-1', walletBalance: 35000 });
+      (prismaMock.walletTransaction as any).findFirst = (jest.fn() as any).mockResolvedValue(null);
+      (prismaMock.walletTransaction as any).create = (jest.fn() as any).mockResolvedValue({ id: 'wtx-refund-1' });
+      (prismaMock.bookingHold as any).updateMany = (jest.fn() as any).mockResolvedValue({ count: 1 });
+
+      await PaymentsRepo.handleFailedPayment(prismaMock as any, paymentId, PaymentStatus.FAILED, 'Gateway error');
+
+      expect((prismaMock.customerAccount as any).update).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'cust-account-1' },
+        data: { walletBalance: { increment: 35000 } },
+      }));
+      expect((prismaMock.walletTransaction as any).create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          customerAccountId: 'cust-account-1',
+          amount: 35000,
+          type: 'REFUND',
+          paymentId,
+        }),
+      }));
+      expect((prismaMock.bookingHold as any).updateMany).toHaveBeenCalledWith({
+        where: { id: 'hold-123', status: 'ACTIVE' },
+        data: { status: 'RELEASED' },
+      });
+    });
+
+    it('should resolve customerAccountId from debit walletTransaction if missing from parent entity', async () => {
+      const mockPayment = {
+        id: paymentId,
+        status: PaymentStatus.INITIATED,
+        walletAmount: 20000,
+        currency: 'IRR',
+      };
+
+      paymentMock.findUnique.mockResolvedValue(mockPayment);
+      paymentMock.update.mockResolvedValue({ ...mockPayment, status: PaymentStatus.FAILED });
+      (prismaMock.customerAccount as any).update = (jest.fn() as any).mockResolvedValue({ id: 'cust-account-fallback', walletBalance: 20000 });
+      (prismaMock.walletTransaction as any).findFirst = (jest.fn() as any)
+        .mockResolvedValueOnce({ customerAccountId: 'cust-account-fallback' }) // debitTx lookup
+        .mockResolvedValueOnce(null); // existingFailureRefund lookup
+      (prismaMock.walletTransaction as any).create = (jest.fn() as any).mockResolvedValue({ id: 'wtx-refund-2' });
+
+      await PaymentsRepo.handleFailedPayment(prismaMock as any, paymentId, PaymentStatus.FAILED);
+
+      expect((prismaMock.customerAccount as any).update).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'cust-account-fallback' },
+        data: { walletBalance: { increment: 20000 } },
+      }));
+    });
+
+    it('should not duplicate refund if REFUND transaction already exists', async () => {
+      const mockPayment = {
+        id: paymentId,
+        status: PaymentStatus.INITIATED,
+        walletAmount: 20000,
+        currency: 'IRR',
+        reservation: { customerAccountId: 'cust-account-1' },
+      };
+
+      paymentMock.findUnique.mockResolvedValue(mockPayment);
+      paymentMock.update.mockResolvedValue({ ...mockPayment, status: PaymentStatus.FAILED });
+      (prismaMock.customerAccount as any).update = jest.fn();
+      (prismaMock.walletTransaction as any).findFirst = (jest.fn() as any).mockResolvedValue({ id: 'already-refunded-wtx' });
+
+      await PaymentsRepo.handleFailedPayment(prismaMock as any, paymentId, PaymentStatus.FAILED);
+
+      expect((prismaMock.customerAccount as any).update).not.toHaveBeenCalled();
+    });
   });
 
   describe('createPaymentAndUpdateReservation', () => {

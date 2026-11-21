@@ -1,11 +1,12 @@
 import { addMinutes, isBefore } from 'date-fns';
-import { ReservationStatus, ReservationPaymentState, ReservationSource, Prisma, SessionActorType, UserRole, OtpPurpose } from '@prisma/client';
+import { ReservationStatus, ReservationPaymentState, ReservationSource, PaymentStatus, Prisma, SessionActorType, UserRole, OtpPurpose } from '@prisma/client';
 import { GroupBookingRepo } from './group-booking.repo';
 import { ReservationRepo } from '../reservation/reservation.repo';
 import { AuthRepository } from '../auth/auth.repository';
 import { discountsStation } from '../discounts/discounts.station';
 import { walletService } from '../wallet/wallet.station';
 import { auditService } from '../audit/audit.station';
+import { PaymentsRepo } from '../payments/payments.repo';
 import { calculateBasePrice } from '../../common/utils/money';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
@@ -552,6 +553,24 @@ export const GroupBookingStation = {
         reason,
         tx
       );
+
+      // Cancel any initiated payments for this group booking, restoring deducted wallet funds
+      if (typeof tx.payment?.findMany === 'function') {
+        const activePayments = await tx.payment.findMany({
+          where: {
+            groupBookingId: id,
+            status: PaymentStatus.INITIATED,
+          },
+        });
+        for (const p of activePayments) {
+          await PaymentsRepo.handleFailedPayment(
+            tx,
+            p.id,
+            PaymentStatus.CANCELED,
+            reason || 'Group booking canceled'
+          );
+        }
+      }
 
       // Trigger wallet refunds for all reservations under this group booking if paid
       if (groupBooking.reservations) {

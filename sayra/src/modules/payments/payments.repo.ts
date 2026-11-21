@@ -680,30 +680,45 @@ const handleFailedPayment = async (
 ) => {
   const payment = await tx.payment.findUnique({
     where: { id: paymentId },
-    include: { reservation: true, groupBooking: true },
+    include: {
+      reservation: true,
+      groupBooking: true,
+      bookingHold: true,
+    },
   });
 
   if (!payment) {
     throw new AppError('Payment not found.', httpStatus.NOT_FOUND);
   }
 
-  // Idempotency check: If already in target status, do nothing.
-  if (payment.status === newStatus) {
-    return payment;
+  // 1. Resolve customerAccountId from all possible relationships and transactions
+  let customerAccountId =
+    payment.reservation?.customerAccountId ||
+    payment.groupBooking?.customerAccountId ||
+    payment.bookingHold?.customerAccountId;
+
+  // Fallback: look up directly from debit wallet transactions associated with this payment
+  if (!customerAccountId && payment.walletAmount > 0) {
+    const debitTx = await tx.walletTransaction.findFirst({
+      where: {
+        paymentId: payment.id,
+        amount: { lt: 0 },
+      },
+      select: { customerAccountId: true },
+    });
+    customerAccountId = debitTx?.customerAccountId;
   }
 
-  validatePaymentTransition(payment.status, newStatus);
+  // Fallback 2: if payment has bookingHoldId but bookingHold relation wasn't populated
+  if (!customerAccountId && payment.bookingHoldId) {
+    const hold = await tx.bookingHold.findUnique({
+      where: { id: payment.bookingHoldId },
+      select: { customerAccountId: true },
+    });
+    customerAccountId = hold?.customerAccountId;
+  }
 
-  const updatedPayment = await tx.payment.update({
-    where: { id: paymentId },
-    data: {
-      status: newStatus,
-      failureReason: failureReason || payment.failureReason,
-    },
-  });
-
-  // If payment had a wallet contribution deducted, restore it safely and idempotently!
-  const customerAccountId = payment.reservation?.customerAccountId || payment.groupBooking?.customerAccountId;
+  // 2. Safely and idempotently restore deducted wallet contribution
   if (payment.walletAmount > 0 && customerAccountId) {
     const existingFailureRefund = await tx.walletTransaction.findFirst({
       where: {
@@ -713,6 +728,12 @@ const handleFailedPayment = async (
     });
 
     if (!existingFailureRefund) {
+      if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
+        try {
+          await tx.$executeRaw`SELECT id FROM "CustomerAccount" WHERE id = ${customerAccountId} FOR UPDATE`;
+        } catch {}
+      }
+
       await tx.customerAccount.update({
         where: { id: customerAccountId },
         data: {
@@ -728,7 +749,8 @@ const handleFailedPayment = async (
           type: WalletTransactionType.REFUND,
           paymentId: payment.id,
           reservationId: payment.reservationId,
-          note: `استرداد سهم کسر شده از کیف پول به علت ناموفق بودن پرداخت درگاه ${payment.id}`,
+          note: `استرداد سهم کسر شده از کیف پول به علت ناموفق بودن یا لغو پرداخت ${payment.id}`,
+          idempotencyKey: `wallet_refund_fail:${payment.id}`,
         },
       });
 
@@ -737,9 +759,32 @@ const handleFailedPayment = async (
         paymentId: payment.id,
         reservationId: payment.reservationId,
         groupBookingId: payment.groupBookingId,
+        bookingHoldId: payment.bookingHoldId,
+        customerAccountId,
         walletRestoredAmount: payment.walletAmount,
       });
     }
+  }
+
+  // 3. Update payment status if needed
+  let updatedPayment = payment;
+  if (payment.status !== newStatus) {
+    if (payment.status !== PaymentStatus.FAILED && payment.status !== PaymentStatus.CANCELED) {
+      validatePaymentTransition(payment.status, newStatus);
+    }
+
+    updatedPayment = await tx.payment.update({
+      where: { id: paymentId },
+      data: {
+        status: newStatus,
+        failureReason: failureReason || payment.failureReason,
+      },
+      include: {
+        reservation: true,
+        groupBooking: true,
+        bookingHold: true,
+      },
+    });
   }
 
   if (payment.bookingHoldId) {
@@ -856,6 +901,37 @@ const updatePayment = (paymentId: string, data: Prisma.PaymentUpdateInput) => {
   });
 };
 
+const reapStaleCustomerInitiatedPayments = async (customerAccountId: string, thresholdMinutes: number = 15) => {
+  const cutoff = new Date(Date.now() - thresholdMinutes * 60 * 1000);
+
+  const stalePayments = await prisma.payment.findMany({
+    where: {
+      status: PaymentStatus.INITIATED,
+      createdAt: { lt: cutoff },
+      walletAmount: { gt: 0 },
+      OR: [
+        { reservation: { customerAccountId } },
+        { groupBooking: { customerAccountId } },
+        { bookingHold: { customerAccountId } },
+        { walletTransactions: { some: { customerAccountId, amount: { lt: 0 } } } },
+      ],
+    },
+  });
+
+  for (const sp of stalePayments) {
+    await prisma.$transaction(async (tx) => {
+      await handleFailedPayment(
+        tx,
+        sp.id,
+        PaymentStatus.FAILED,
+        'Stale initiated payment automatically timed out'
+      );
+    }).catch((err) => {
+      logger.warn({ err, paymentId: sp.id }, 'Failed to reap stale payment');
+    });
+  }
+};
+
 export const PaymentsRepo = {
   findReservationForUpdate,
   findPaymentByProviderPaymentId,
@@ -866,6 +942,7 @@ export const PaymentsRepo = {
   createPartialPayment,
   handleSuccessfulPayment,
   handleFailedPayment,
+  reapStaleCustomerInitiatedPayments,
   updatePayment,
   transaction: <T>(fn: (tx: Prisma.TransactionClient) => Promise<T>) => prisma.$transaction(fn),
 };

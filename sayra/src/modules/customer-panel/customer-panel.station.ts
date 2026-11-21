@@ -4,9 +4,10 @@ import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { CustomerPanelRepo } from './customer-panel.repo';
 import { GetCustomerReservationQuery, CustomerSubmitReviewInput, UpdateCustomerProfileInput } from './customer-panel.validators';
-import { ReservationStatus, ReservationProposalStatus, Prisma, SessionActorType } from '@prisma/client';
+import { ReservationStatus, ReservationProposalStatus, PaymentStatus, Prisma, SessionActorType } from '@prisma/client';
 import { auditService } from '../audit/audit.station';
 import { walletService } from '../wallet/wallet.station';
+import { PaymentsRepo } from '../payments/payments.repo';
 import { AnalyticsRepo } from '../analytics/analytics.repo';
 import * as reviewsRepo from '../ratings/ratings.repo';
 import { ReservationStateMachine } from '../reservation/reservation.state-machine';
@@ -166,6 +167,24 @@ export const CustomerPanelStation = {
         actorType: SessionActorType.CUSTOMER,
         reason: reason || 'Canceled by customer',
       }, tx);
+
+      // Cancel any initiated payments restoring deducted wallet funds
+      if (typeof tx.payment?.findMany === 'function') {
+        const activePayments = await tx.payment.findMany({
+          where: {
+            reservationId,
+            status: PaymentStatus.INITIATED,
+          },
+        });
+        for (const p of activePayments) {
+          await PaymentsRepo.handleFailedPayment(
+            tx,
+            p.id,
+            PaymentStatus.CANCELED,
+            reason || 'Canceled by customer'
+          );
+        }
+      }
 
       // Trigger refund if there are successful payments
       await walletService.refundReservationToWallet(reservationId, tx);

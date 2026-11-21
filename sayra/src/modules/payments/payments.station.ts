@@ -95,12 +95,18 @@ const initiatePayment = async ({
     throw new AppError('Reservation is canceled or expired and cannot be paid.', httpStatus.BAD_REQUEST);
   }
 
+  // Reclaim any stale initiated payments with stranded wallet deductions (> 15m)
+  if (reservation.customerAccountId) {
+    await PaymentsRepo.reapStaleCustomerInitiatedPayments(reservation.customerAccountId).catch(() => {});
+  }
+
   // Cancel any stale INITIATED payment for this reservation, restoring any deducted wallet contribution
   const activeExistingPayment = await prisma.payment.findFirst({
     where: {
       OR: [
         { reservationId },
         { groupBookingId: reservationId },
+        { bookingHoldId: reservationId },
       ],
       status: PaymentStatus.INITIATED,
     },
@@ -508,6 +514,7 @@ const calculatePayment = async ({
 
   let walletBalance = 0;
   if (reservation.customerAccountId) {
+    await PaymentsRepo.reapStaleCustomerInitiatedPayments(reservation.customerAccountId).catch(() => {});
     const customerAccount = await prisma.customerAccount.findUnique({
       where: { id: reservation.customerAccountId },
       select: { walletBalance: true },

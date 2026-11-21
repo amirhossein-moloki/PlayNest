@@ -567,7 +567,7 @@ export const NotificationStation = {
   },
 
   async notifyManagers(input: NotifyManagersInput) {
-    const managers = await prisma.user.findMany({
+    const managers = (await prisma.user.findMany({
       where: {
         isActive: true,
         OR: [
@@ -584,7 +584,11 @@ export const NotificationStation = {
             }
           : {}),
       },
-    });
+    })) || [];
+
+    if (!Array.isArray(managers) || managers.length === 0) {
+      return [];
+    }
 
     const notifications = [];
     for (const manager of managers) {

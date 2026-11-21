@@ -1,6 +1,7 @@
 import logger from '../../config/logger';
 import { env } from '../../config/env';
 import { BookingHoldRepo } from '../../modules/booking-hold/booking-hold.repo';
+import { PaymentsRepo } from '../../modules/payments/payments.repo';
 import { BookingHoldStatus, PaymentStatus } from '@prisma/client';
 import { runWithSystemContext } from '../../common/context/request-context';
 
@@ -94,15 +95,14 @@ export class BookingHoldExpiryWorker {
                 data: { status: BookingHoldStatus.EXPIRED },
               });
 
-              // 3. Mark unpaid payment FAILED/CANCELED if exists
+              // 3. Mark unpaid payment FAILED/CANCELED if exists & restore deducted wallet funds safely
               if (lockedHold.payment && lockedHold.payment.status !== PaymentStatus.PAID) {
-                await tx.payment.update({
-                  where: { id: lockedHold.payment.id },
-                  data: {
-                    status: PaymentStatus.CANCELED,
-                    failureReason: 'Booking hold expired before payment completion',
-                  },
-                });
+                await PaymentsRepo.handleFailedPayment(
+                  tx,
+                  lockedHold.payment.id,
+                  PaymentStatus.CANCELED,
+                  'Booking hold expired before payment completion'
+                );
               }
 
               result.expiredCount++;

@@ -2,14 +2,17 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { BookingHoldExpiryWorker } from '../../../../src/jobs/workers/bookingHoldExpiry.worker';
 import { BookingHoldRepo } from '../../../../src/modules/booking-hold/booking-hold.repo';
+import { PaymentsRepo } from '../../../../src/modules/payments/payments.repo';
 import { BookingHoldStatus, PaymentStatus } from '@prisma/client';
 
 jest.mock('../../../../src/modules/booking-hold/booking-hold.repo');
+jest.mock('../../../../src/modules/payments/payments.repo');
 jest.mock('../../../../src/common/context/request-context', () => ({
   runWithSystemContext: jest.fn(async (_name, fn: any) => fn()),
 }));
 
 const MockedBookingHoldRepo = BookingHoldRepo as jest.Mocked<typeof BookingHoldRepo>;
+const MockedPaymentsRepo = PaymentsRepo as jest.Mocked<typeof PaymentsRepo>;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -37,12 +40,14 @@ describe('BookingHoldExpiryWorker', () => {
     const updateHoldMock = jest.fn();
     const updatePaymentMock = jest.fn();
 
+    const txMock = {
+      bookingHold: { update: updateHoldMock },
+    };
+
     MockedBookingHoldRepo.transaction.mockImplementation(async (fn: any) => {
-      return fn({
-        bookingHold: { update: updateHoldMock },
-        payment: { update: updatePaymentMock },
-      } as any);
+      return fn(txMock as any);
     });
+    MockedPaymentsRepo.handleFailedPayment.mockResolvedValue({} as any);
 
     const result = await worker.tick(new Date());
 
@@ -54,11 +59,11 @@ describe('BookingHoldExpiryWorker', () => {
         data: { status: BookingHoldStatus.EXPIRED },
       })
     );
-    expect(updatePaymentMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'pay-1' },
-        data: expect.objectContaining({ status: PaymentStatus.CANCELED }),
-      })
+    expect(MockedPaymentsRepo.handleFailedPayment).toHaveBeenCalledWith(
+      txMock as any,
+      'pay-1',
+      PaymentStatus.CANCELED,
+      'Booking hold expired before payment completion'
     );
   });
 

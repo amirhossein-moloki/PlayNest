@@ -8474,7 +8474,6 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
       operationId: get_auth_me
-      description: Get current user info
     patch:
       summary: Update authenticated user profile
       description: Allows the currently authenticated user to update their own profile information such as username, firstName, lastName, fullName, email, bio, publicName, avatarUrl, and isPublic. The user ID is strictly derived from the authentication context. Protected fields like role, ID, or password cannot be modified.

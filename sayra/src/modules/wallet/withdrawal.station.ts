@@ -31,6 +31,11 @@ export const WithdrawalStation = {
    * Get wallet balance overview for a customer
    */
   async getWalletOverview(customerAccountId: string) {
+    try {
+      const { PaymentsRepo } = await import('../payments/payments.repo');
+      await PaymentsRepo.reapStaleCustomerInitiatedPayments(customerAccountId);
+    } catch {}
+
     const account = await WithdrawalRepo.findCustomerAccountById(customerAccountId);
     if (!account) {
       throw new AppError('Customer account not found', httpStatus.NOT_FOUND);

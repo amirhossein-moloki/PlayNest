@@ -599,6 +599,23 @@ export const BookingHoldStation = {
       }
 
       if (walletContribution > 0 && customerAccount) {
+        if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
+          try {
+            await tx.$executeRaw`SELECT id FROM "CustomerAccount" WHERE id = ${customerAccount.id} FOR UPDATE`;
+          } catch {}
+        }
+
+        const freshAccount = await tx.customerAccount.findUnique({
+          where: { id: customerAccount.id },
+          select: { walletBalance: true },
+        });
+
+        if (!freshAccount || freshAccount.walletBalance < walletContribution) {
+          throw new AppError('Insufficient wallet balance.', httpStatus.BAD_REQUEST, {
+            code: 'INSUFFICIENT_WALLET_BALANCE',
+          });
+        }
+
         await tx.customerAccount.update({
           where: { id: customerAccount.id },
           data: { walletBalance: { decrement: walletContribution } },

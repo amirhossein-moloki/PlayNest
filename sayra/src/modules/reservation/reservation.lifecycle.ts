@@ -4,6 +4,7 @@ import {
   Reservation,
   ReservationStatus,
   GamingSessionStatus,
+  PaymentStatus,
   Prisma,
   SessionActorType,
   UserRole,
@@ -11,6 +12,7 @@ import {
   CancellationActor,
 } from '@prisma/client';
 import { ReservationRepo } from './reservation.repo';
+import { PaymentsRepo } from '../payments/payments.repo';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { gamingSessionsStation } from '../gamingSessions/gamingSessions.station';
@@ -230,6 +232,24 @@ export const reservationLifecycle = {
               interruptionReason: data.reason || 'Reservation canceled',
             },
             tx
+          );
+        }
+      }
+
+      // Cancel any initiated payments restoring deducted wallet funds
+      if (typeof tx.payment?.findMany === 'function') {
+        const activePayments = await tx.payment.findMany({
+          where: {
+            reservationId,
+            status: PaymentStatus.INITIATED,
+          },
+        });
+        for (const p of activePayments) {
+          await PaymentsRepo.handleFailedPayment(
+            tx,
+            p.id,
+            PaymentStatus.CANCELED,
+            data.reason || 'Reservation canceled'
           );
         }
       }
@@ -626,6 +646,22 @@ export const reservationLifecycle = {
         const expired = await ReservationRepo.transaction(async (tx) => {
           const success = await ReservationRepo.expireReservationCandidate(candidate.id, now, tx);
           if (success) {
+            if (typeof tx.payment?.findMany === 'function') {
+              const initiatedPayments = await tx.payment.findMany({
+                where: {
+                  reservationId: candidate.id,
+                  status: PaymentStatus.INITIATED,
+                },
+              });
+              for (const p of initiatedPayments) {
+                await PaymentsRepo.handleFailedPayment(
+                  tx,
+                  p.id,
+                  PaymentStatus.CANCELED,
+                  'Reservation expired before payment completion'
+                );
+              }
+            }
             // Trigger refund to wallet if paid
             await walletService.refundReservationToWallet(candidate.id, tx);
           }
@@ -662,6 +698,22 @@ export const reservationLifecycle = {
         const expired = await ReservationRepo.transaction(async (tx) => {
           const success = await ReservationRepo.expireGroupBookingCandidate(groupCandidate.id, now, tx);
           if (success) {
+            if (typeof tx.payment?.findMany === 'function') {
+              const initiatedGroupPayments = await tx.payment.findMany({
+                where: {
+                  groupBookingId: groupCandidate.id,
+                  status: PaymentStatus.INITIATED,
+                },
+              });
+              for (const p of initiatedGroupPayments) {
+                await PaymentsRepo.handleFailedPayment(
+                  tx,
+                  p.id,
+                  PaymentStatus.CANCELED,
+                  'Group booking expired before payment completion'
+                );
+              }
+            }
             // Trigger refund for group booking child reservations
             const children = await tx.reservation.findMany({
               where: { groupBookingId: groupCandidate.id },
