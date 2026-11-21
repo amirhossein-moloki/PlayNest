@@ -3,9 +3,10 @@ import httpStatus from 'http-status';
 import { gamingCenterRepository } from './gamingCenter.repository';
 import { CreateGamingCenterInput, UpdateGamingCenterInput } from './gamingCenter.types';
 import { ListGamingCentersQuery, GetGamingCenterDetailsQuery } from './gamingCenter.validation';
-import { SessionActorType, UserRole } from '@prisma/client';
+import { SessionActorType, UserRole, NotificationType } from '@prisma/client';
 import { auditService } from '../audit/audit.station';
 import { invalidateActorCache } from '../../common/middleware/auth';
+import { NotificationStation } from '../notifications/notifications.station';
 
 export interface OwnerInfo {
   id: string;
@@ -175,6 +176,17 @@ export const gamingCenterStation = {
         context
       );
     }
+
+    // Notify managers of new GameCenter registration (In-App only)
+    NotificationStation.notifyManagers({
+      type: NotificationType.NEW_GAME_CENTER_REGISTRATION,
+      templateKey: 'NEW_GAME_CENTER_REGISTRATION',
+      templateParams: {
+        gameCenterName: gamingCenter.name,
+      },
+      entityType: 'GamingCenter',
+      entityId: gamingCenter.id,
+    }).catch(console.error);
 
     return {
       ...gamingCenter,

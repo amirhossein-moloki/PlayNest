@@ -1,9 +1,10 @@
 
 import type { Request, Response, NextFunction } from 'express';
-import { Prisma } from '@prisma/client';
+import { Prisma, NotificationType } from '@prisma/client';
 import httpStatus from 'http-status';
 import { ApiFailure } from '../utils/response';
 import { env } from '../../config/env';
+import { NotificationStation } from '../../modules/notifications/notifications.station';
 
 type NormalizedError = {
   status: number;
@@ -134,6 +135,18 @@ export function errorHandler(err: any, req: Request, res: Response, _next: NextF
   // For 5xx errors in production, we don't want to leak implementation details
   const isServerError = normalized.status >= 500;
   const includeDetails = !isServerError || env.NODE_ENV !== 'production';
+
+  if (isServerError) {
+    NotificationStation.notifyManagers({
+      type: NotificationType.SYSTEM_ERROR,
+      templateKey: 'SYSTEM_ERROR',
+      templateParams: {
+        component: req.originalUrl || req.url || 'API',
+        errorMessage: normalized.message || 'Internal Server Error',
+      },
+      metadata: { requestId, code: normalized.code, status: normalized.status },
+    }).catch(() => {});
+  }
 
   const body: ApiFailure = {
     success: false,

@@ -39,15 +39,16 @@ export const revalidateAndSendGameCenterReminder = async (
   const idempotencyKey = `reminder:${reservationId}:${windowKey}`;
 
   // 1. Idempotency check: has this specific window reminder already been sent?
-  const existingLog = await notificationsRepo.findLogByIdempotencyKey(idempotencyKey);
-  if (existingLog) {
+  const existingLog = (await notificationsRepo.findLogByIdempotencyKey(idempotencyKey)) as Record<string, unknown> | null;
+  if (existingLog && existingLog.status !== 'PENDING') {
     logger.info({
-      msg: 'GameCenter reminder skipped: already sent',
+      msg: 'GameCenter reminder skipped: already sent or cancelled',
       reservationId,
       window: windowKey,
       idempotencyKey,
+      status: existingLog.status,
     });
-    return { sent: false, reason: 'ALREADY_SENT' };
+    return { sent: false, reason: existingLog.status === 'CANCELLED' ? 'CANCELLED' : 'ALREADY_SENT' };
   }
 
   // 2. Query database fresh to re-fetch booking
@@ -161,22 +162,92 @@ export const revalidateAndSendGameCenterReminder = async (
   }
 
   // 9. Record idempotency log
-  await notificationsRepo.createNotificationLog({
-    gamingCenterId: gamingCenter.id,
-    recipient: `gamecenter:${gamingCenter.id}`,
-    category: NotificationCategory.GAME_CENTER,
-    channel: 'IN_APP',
-    type: windowConfig.type,
-    title: `GameCenter Reminder ${windowKey}`,
-    message: `Reminder for booking ${reservation.id} delivered to ${staffUsers.length} staff members.`,
-    status: 'SENT',
-    scheduledAt: now,
-    idempotencyKey,
-    entityType: 'Reservation',
-    entityId: reservation.id,
-  });
+  if (existingLog && existingLog.id) {
+    await notificationsRepo.updateNotificationLogStatus(String(existingLog.id), {
+      status: 'SENT',
+      sentAt: now,
+    });
+  } else {
+    await notificationsRepo.createNotificationLog({
+      gamingCenterId: gamingCenter.id,
+      recipient: `gamecenter:${gamingCenter.id}`,
+      category: NotificationCategory.GAME_CENTER,
+      channel: 'IN_APP',
+      type: windowConfig.type,
+      title: `GameCenter Reminder ${windowKey}`,
+      message: `Reminder for booking ${reservation.id} delivered to ${staffUsers.length} staff members.`,
+      status: 'SENT',
+      scheduledAt: now,
+      idempotencyKey,
+      entityType: 'Reservation',
+      entityId: reservation.id,
+    });
+  }
 
   return { sent: true };
+};
+
+export const scheduleReservationReminders = async (
+  reservationId: string,
+  startTime: Date,
+  gamingCenterId: string,
+  now = new Date()
+) => {
+  const windows: Array<{ key: ReminderWindowKey; leadTimeMs: number }> = [
+    { key: '24H', leadTimeMs: 24 * 60 * 60 * 1000 },
+    { key: '2H', leadTimeMs: 2 * 60 * 60 * 1000 },
+    { key: '15M', leadTimeMs: 15 * 60 * 1000 },
+  ];
+
+  const windowTypeMap = {
+    '24H': NotificationType.GAME_CENTER_BOOKING_REMINDER_24H,
+    '2H': NotificationType.GAME_CENTER_BOOKING_REMINDER_2H,
+    '15M': NotificationType.GAME_CENTER_BOOKING_REMINDER_15M,
+  };
+
+  const results = [];
+  for (const win of windows) {
+    const scheduledTime = new Date(startTime.getTime() - win.leadTimeMs);
+    const idempotencyKey = `reminder:${reservationId}:${win.key}`;
+
+    if (scheduledTime > now) {
+      try {
+        const log = (await notificationsRepo.createNotificationLog({
+          gamingCenterId,
+          recipient: `gamecenter:${gamingCenterId}`,
+          category: NotificationCategory.GAME_CENTER,
+          channel: 'IN_APP',
+          type: windowTypeMap[win.key],
+          title: `GameCenter Reminder ${win.key}`,
+          message: `Scheduled reminder for booking ${reservationId} (${win.key})`,
+          status: 'PENDING',
+          scheduledAt: scheduledTime,
+          idempotencyKey,
+          entityType: 'Reservation',
+          entityId: reservationId,
+        })) as Record<string, unknown>;
+
+        const delayMs = scheduledTime.getTime() - now.getTime();
+        try {
+          const { queueNotificationDispatch } = await import('../../jobs/producers/notifications.producer');
+          await queueNotificationDispatch(String(log.id), delayMs);
+        } catch (queueErr) {
+          logger.warn({ msg: 'Failed to enqueue reminder to BullMQ', logId: log.id, error: queueErr });
+        }
+
+        results.push({ window: win.key, scheduledAt: scheduledTime, scheduled: true });
+      } catch (err) {
+        logger.warn({
+          msg: 'Failed to schedule reservation reminder log',
+          reservationId,
+          window: win.key,
+          error: err,
+        });
+      }
+    }
+  }
+
+  return results;
 };
 
 export const processReservationRemindersBatch = async (options: ProcessRemindersOptions = {}) => {

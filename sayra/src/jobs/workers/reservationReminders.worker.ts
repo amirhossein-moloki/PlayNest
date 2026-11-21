@@ -4,7 +4,10 @@ import { env } from '../../config/env';
 import logger from '../../config/logger';
 import { requestContext } from '../../common/context/request-context';
 import { Metrics } from '../../common/metrics/metrics';
-import { processReservationRemindersBatch } from '../../modules/reservation/reservation.reminders';
+import {
+  processReservationRemindersBatch,
+  processGameCenterRemindersBatch,
+} from '../../modules/reservation/reservation.reminders';
 import { NotificationStation } from '../../modules/notifications/notifications.station';
 import { ReservationReminderJobData } from '../producers/reservationReminders.producer';
 
@@ -68,6 +71,10 @@ export class ReservationRemindersWorker {
       this.bullWorker.on('failed', (job, err) => {
         logger.error({ msg: 'Reminder job failed', jobId: job?.id, error: err });
       });
+
+      this.bullWorker.on('error', (err) => {
+        logger.warn({ msg: 'BullMQ Reminders Worker connection error (Redis may be offline)', error: err instanceof Error ? err.message : String(err) });
+      });
     } catch (err) {
       logger.warn({ msg: 'BullMQ queue connection warning in Reminders Worker', error: err });
     }
@@ -113,17 +120,26 @@ export class ReservationRemindersWorker {
         now,
       });
 
+      const gameCenterReminderResult = await processGameCenterRemindersBatch({
+        batchSize: this.batchSize,
+        now,
+      });
+
       const outboxResult = await NotificationStation.processPendingNotificationLogs(
         this.batchSize,
         now
       );
 
-      if (reminderResult.scheduledCount > 0 || outboxResult.processed > 0) {
+      if (
+        reminderResult.scheduledCount > 0 ||
+        gameCenterReminderResult.scheduledCount > 0 ||
+        outboxResult.processed > 0
+      ) {
         logger.info({
           msg: 'Reservation reminders tick completed',
-          candidateCount: reminderResult.candidateCount,
-          scheduledCount: reminderResult.scheduledCount,
-          skippedCount: reminderResult.skippedCount,
+          candidateCount: reminderResult.candidateCount + gameCenterReminderResult.candidateCount,
+          scheduledCount: reminderResult.scheduledCount + gameCenterReminderResult.scheduledCount,
+          skippedCount: reminderResult.skippedCount + gameCenterReminderResult.skippedCount,
           outboxProcessed: outboxResult.processed,
           outboxSuccess: outboxResult.success,
           outboxFailed: outboxResult.failed,
@@ -132,6 +148,8 @@ export class ReservationRemindersWorker {
 
       return {
         ...reminderResult,
+        gameCenterCandidateCount: gameCenterReminderResult.candidateCount,
+        gameCenterScheduledCount: gameCenterReminderResult.scheduledCount,
         outboxProcessed: outboxResult.processed,
       };
     } catch (error) {

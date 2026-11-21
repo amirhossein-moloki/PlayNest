@@ -7,6 +7,7 @@ import { PaymentProviderFactory } from './providers';
 import { calculatePaymentSplit } from './payment-calculation';
 import { prisma } from '../../config/prisma';
 import { RequestActor } from '../../types/express';
+import { eventEmitter, AppEvents } from '../../common/events/event-emitter';
 
 const mapProviderEnum = (providerName: string): PaymentProvider => {
   const upper = providerName.toUpperCase();
@@ -446,6 +447,15 @@ const verifyPayment = async ({
       );
     }
   });
+
+  if (verifyResult.success) {
+    eventEmitter.emit(AppEvents.PAYMENT_SUCCESS, { payment: finalPayment });
+  } else {
+    eventEmitter.emit(AppEvents.PAYMENT_FAILED, {
+      payment: finalPayment,
+      failureReason: finalPayment.failureReason || 'Payment verification failed',
+    });
+  }
 
   return {
     success: verifyResult.success,

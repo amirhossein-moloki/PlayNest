@@ -2,11 +2,12 @@
 import argon2 from 'argon2';
 import crypto from 'crypto';
 import httpStatus from 'http-status';
-import { OnboardingStep, OtpPurpose, UserRole } from '@prisma/client';
+import { OnboardingStep, OtpPurpose, UserRole, NotificationType } from '@prisma/client';
 import { OnboardingRepo } from './onboarding.repo';
 import { AuthRepository } from '../auth/auth.repository';
 import { generateAccessToken } from '../auth/auth.tokens';
 import { queueSms } from '../../jobs/producers/sms.producer';
+import { NotificationStation } from '../notifications/notifications.station';
 import { env } from '../../config/env';
 import AppError from '../../common/errors/AppError';
 import { normalizePhone } from '../../common/utils/phone';
@@ -461,6 +462,17 @@ export const OnboardingStation = {
         tokens: { accessToken, refreshToken },
       };
     });
+
+    // Notify managers of new GameCenter registration (In-App only)
+    NotificationStation.notifyManagers({
+      type: NotificationType.NEW_GAME_CENTER_REGISTRATION,
+      templateKey: 'NEW_GAME_CENTER_REGISTRATION',
+      templateParams: {
+        gameCenterName: result.gameCenter.name,
+      },
+      entityType: 'GamingCenter',
+      entityId: result.gameCenter.id,
+    }).catch(console.error);
 
     return {
       success: true,

@@ -294,6 +294,15 @@ export const NotificationStation = {
     const now = new Date();
     const scheduledAt = input.scheduledAt || now;
 
+    // Enqueue to BullMQ for asynchronous background processing
+    const delayMs = Math.max(0, scheduledAt.getTime() - now.getTime());
+    try {
+      const { queueNotificationDispatch } = await import('../../jobs/producers/notifications.producer');
+      await queueNotificationDispatch(String(log.id), delayMs);
+    } catch (err) {
+      logger.warn({ msg: 'BullMQ notification enqueue failed; backoff worker will retry', error: err });
+    }
+
     if (scheduledAt <= now) {
       try {
         return await this.dispatchNotificationLog(String(log.id));
@@ -347,6 +356,63 @@ export const NotificationStation = {
     }
 
     const currentAttempts = (Number(log.attempts) || 0) + 1;
+
+    // Handle GameCenter booking reminder windows (In-App only)
+    if (
+      log.entityType === 'Reservation' &&
+      log.entityId &&
+      (log.type === NotificationType.GAME_CENTER_BOOKING_REMINDER_24H ||
+        log.type === NotificationType.GAME_CENTER_BOOKING_REMINDER_2H ||
+        log.type === NotificationType.GAME_CENTER_BOOKING_REMINDER_15M)
+    ) {
+      const windowKey =
+        log.type === NotificationType.GAME_CENTER_BOOKING_REMINDER_24H
+          ? '24H'
+          : log.type === NotificationType.GAME_CENTER_BOOKING_REMINDER_2H
+          ? '2H'
+          : '15M';
+
+      try {
+        const { revalidateAndSendGameCenterReminder } = await import(
+          '../reservation/reservation.reminders'
+        );
+        const reminderResult = await revalidateAndSendGameCenterReminder(
+          String(log.entityId),
+          windowKey
+        );
+
+        if (!reminderResult.sent) {
+          if (reminderResult.reason === 'NO_VALID_RECIPIENT') {
+            return await notificationsRepo.updateNotificationLogStatus(String(log.id), {
+              status: 'FAILED',
+              lastError: 'No valid active staff recipients found for GameCenter',
+              attempts: currentAttempts,
+            });
+          } else if (
+            reminderResult.reason === 'CANCELLED' ||
+            reminderResult.reason === 'INACTIVE_STATUS' ||
+            reminderResult.reason === 'NOT_FOUND'
+          ) {
+            return await notificationsRepo.updateNotificationLogStatus(String(log.id), {
+              status: 'CANCELLED',
+              lastError: `Cancelled due to: ${reminderResult.reason}`,
+            });
+          }
+        }
+
+        return await notificationsRepo.updateNotificationLogStatus(String(log.id), {
+          status: 'SENT',
+          sentAt: new Date(),
+          attempts: currentAttempts,
+        });
+      } catch (err) {
+        return await notificationsRepo.updateNotificationLogStatus(String(log.id), {
+          status: 'FAILED',
+          attempts: currentAttempts,
+          lastError: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
 
     try {
       let providerRefId: string | undefined;
@@ -567,6 +633,58 @@ export const NotificationStation = {
       idempotencyKey: key,
       entityType: 'Ticket',
       entityId: input.ticketId,
+    });
+  },
+
+  async sendDailyBookingSummary(gamingCenterId?: string, targetDate = new Date()) {
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const where: Prisma.ReservationWhereInput = {
+      createdAt: { gte: startOfDay, lte: endOfDay },
+      ...(gamingCenterId ? { gamingCenterId } : {}),
+    };
+
+    const reservations = await prisma.reservation.findMany({
+      where,
+      select: { totalPrice: true },
+    });
+
+    const totalBookings = reservations.length;
+    const totalAmount = reservations.reduce((sum, r) => sum + (Number(r.totalPrice) || 0), 0);
+    const formattedAmount = `${totalAmount.toLocaleString()} IRR`;
+
+    return this.notifyManagers({
+      type: NotificationType.DAILY_BOOKING_SUMMARY,
+      templateKey: 'DAILY_BOOKING_SUMMARY',
+      templateParams: {
+        totalBookings,
+        formattedAmount,
+      },
+      gamingCenterId,
+      metadata: { targetDate: startOfDay.toISOString(), totalBookings, totalAmount },
+    });
+  },
+
+  async notifyUserReport(input: {
+    targetName: string;
+    reason: string;
+    gamingCenterId?: string;
+    reporterId?: string;
+    metadata?: Prisma.InputJsonValue;
+  }) {
+    return this.notifyManagers({
+      type: NotificationType.NEW_USER_REPORT,
+      templateKey: 'NEW_USER_REPORT',
+      templateParams: {
+        targetName: input.targetName,
+        reason: input.reason,
+      },
+      gamingCenterId: input.gamingCenterId,
+      metadata: input.metadata,
+      entityType: 'UserReport',
     });
   },
 };

@@ -18,7 +18,7 @@ import {
   formatCurrencyAmount,
   getRecipientPreferredLanguage,
 } from '../notifications/notification-i18n';
-import { invalidateObsoleteReminders } from './reservation.reminders';
+import { invalidateObsoleteReminders, scheduleReservationReminders } from './reservation.reminders';
 import { waitlistStation } from '../waitlist/waitlist.station';
 
 type GamingCenterWithSettings = GamingCenter & { settings?: Settings | null };
@@ -174,6 +174,9 @@ export const initReservationEvents = () => {
       entityType: 'Reservation',
       entityId: reservation.id,
     }).catch(console.error);
+
+    // Schedule 24H, 2H, and 15M reminders from actual booking date/time
+    scheduleReservationReminders(reservation.id, reservation.startTime, gamingCenter.id).catch(console.error);
   });
 
   eventEmitter.on(AppEvents.RESERVATION_UPDATED, async ({ updatedReservation, oldReservation }) => {
@@ -185,6 +188,18 @@ export const initReservationEvents = () => {
         oldReservation.startTime,
         oldReservation.endTime
       ).catch(console.error);
+    }
+
+    // Invalidate old scheduled reminders and reschedule for new time if updated
+    if (updatedReservation?.id) {
+      await invalidateObsoleteReminders(updatedReservation.id);
+      if (updatedReservation.startTime && updatedReservation.gamingCenterId) {
+        scheduleReservationReminders(
+          updatedReservation.id,
+          updatedReservation.startTime,
+          updatedReservation.gamingCenterId
+        ).catch(console.error);
+      }
     }
 
     if (updatedReservation?.gamingCenterId) {
@@ -228,6 +243,9 @@ export const initReservationEvents = () => {
       entityType: 'Reservation',
       entityId: reservation.id,
     }).catch(console.error);
+
+    // Schedule 24H, 2H, and 15M reminders from actual booking date/time
+    scheduleReservationReminders(reservation.id, reservation.startTime, gamingCenter.id).catch(console.error);
   });
 
   eventEmitter.on(AppEvents.RESERVATION_CANCELED, async ({ reservation, gamingCenter, customerAccount }) => {
@@ -390,6 +408,21 @@ export const initReservationEvents = () => {
           entityId: payment.id,
         });
       }
+
+      // Notify managers In-App of failed payment
+      const formattedAmount = `${payment.amount} ${payment.currency}`;
+      await NotificationStation.notifyManagers({
+        type: NotificationType.PAYMENT_FAILED,
+        templateKey: 'PAYMENT_FAILED',
+        templateParams: {
+          paymentId: payment.id,
+          formattedAmount,
+          errorMessage: failureReason || 'Payment failed',
+        },
+        gamingCenterId: payment.gamingCenterId || undefined,
+        entityType: 'Payment',
+        entityId: payment.id,
+      });
     } catch (error) {
       console.error('Failed to handle PAYMENT_FAILED notification event:', error);
     }

@@ -1,10 +1,11 @@
-import { RefundStatus, PaymentStatus, ReservationPaymentState, Prisma } from '@prisma/client';
+import { RefundStatus, PaymentStatus, ReservationPaymentState, Prisma, NotificationType } from '@prisma/client';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { PaymentsRepo } from './payments.repo';
 import { RefundsRepo } from './payments.refund.repo';
 import { LedgerRepo } from './ledger.repo';
 import { PaymentProviderFactory } from './providers';
+import { NotificationStation } from '../notifications/notifications.station';
 
 export interface RequestRefundInput {
   gamingCenterId: string;
@@ -106,6 +107,20 @@ const requestRefund = async (input: RequestRefundInput) => {
   });
 
   const { payment, refund } = initialData;
+
+  // Notify managers of refund requested (In-App only)
+  NotificationStation.notifyManagers({
+    type: NotificationType.REFUND_REQUESTED,
+    templateKey: 'REFUND_REQUESTED',
+    templateParams: {
+      paymentId: payment.id,
+      formattedAmount: `${refund.amount} ${payment.currency}`,
+      reason: refund.reason || 'No reason specified',
+    },
+    gamingCenterId,
+    entityType: 'Refund',
+    entityId: refund.id,
+  }).catch(console.error);
 
   // 3. Provider execution
   const provider = PaymentProviderFactory.getProvider(providerName || payment.provider);

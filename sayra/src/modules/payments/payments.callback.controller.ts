@@ -5,6 +5,7 @@ import { PaymentProviderFactory } from './providers';
 import { PaymentStatus } from '@prisma/client';
 import logger from '../../config/logger';
 import { env } from '../../config/env';
+import { eventEmitter, AppEvents } from '../../common/events/event-emitter';
 
 /**
  * Builds a redirect URL safely attaching query parameters.
@@ -141,13 +142,18 @@ export async function handlePaymentCallback(req: Request, res: Response): Promis
   const isFailedStatus = status && status !== 'OK' && status !== '1' && status !== '2';
 
   if (isFailedStatus) {
-    await PaymentsRepo.transaction(async (tx) => {
-      await PaymentsRepo.handleFailedPayment(
+    const failedPayment = await PaymentsRepo.transaction(async (tx) => {
+      return await PaymentsRepo.handleFailedPayment(
         tx,
         payment.id,
         PaymentStatus.FAILED,
         `Gateway callback returned unfulfilled status: status=${statusQuery}`
       );
+    });
+
+    eventEmitter.emit(AppEvents.PAYMENT_FAILED, {
+      payment: failedPayment,
+      failureReason: 'پرداخت در درگاه بانکی لغو شد یا با خطا متوقف گردید.',
     });
 
     const redirectUrl = getPaymentFailedRedirectUrl({
@@ -195,6 +201,8 @@ export async function handlePaymentCallback(req: Request, res: Response): Promis
 
     const finalOrderId = finalPayment.reservationId || finalPayment.bookingHoldId || finalPayment.id;
     if (verifyResult.success) {
+      eventEmitter.emit(AppEvents.PAYMENT_SUCCESS, { payment: finalPayment });
+
       const redirectUrl = getPaymentSuccessRedirectUrl({
         orderId: finalOrderId,
         amount: finalPayment.amount,
@@ -204,6 +212,11 @@ export async function handlePaymentCallback(req: Request, res: Response): Promis
       });
       res.redirect(302, redirectUrl);
     } else {
+      eventEmitter.emit(AppEvents.PAYMENT_FAILED, {
+        payment: finalPayment,
+        failureReason: finalPayment.failureReason || 'تأییدیه نهایی توسط درگاه بانکی صادر نشد.',
+      });
+
       const redirectUrl = getPaymentFailedRedirectUrl({
         orderId: finalOrderId,
         trackId: authority,
@@ -372,13 +385,18 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
     successQuery === 'false';
 
   if (isFailedStatus) {
-    await PaymentsRepo.transaction(async (tx) => {
-      await PaymentsRepo.handleFailedPayment(
+    const failedPayment = await PaymentsRepo.transaction(async (tx) => {
+      return await PaymentsRepo.handleFailedPayment(
         tx,
         payment.id,
         PaymentStatus.FAILED,
         `Zibal callback returned unfulfilled status: status=${statusQuery}, success=${successQuery}`
       );
+    });
+
+    eventEmitter.emit(AppEvents.PAYMENT_FAILED, {
+      payment: failedPayment,
+      failureReason: 'پرداخت در درگاه بانکی لغو شد یا با خطا متوقف گردید.',
     });
 
     const redirectUrl = getPaymentFailedRedirectUrl({
@@ -426,6 +444,8 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
 
     const finalOrderId = finalPayment.reservationId || finalPayment.bookingHoldId || finalPayment.id;
     if (verifyResult.success) {
+      eventEmitter.emit(AppEvents.PAYMENT_SUCCESS, { payment: finalPayment });
+
       const redirectUrl = getPaymentSuccessRedirectUrl({
         orderId: finalOrderId,
         amount: finalPayment.amount,
@@ -435,6 +455,11 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
       });
       res.redirect(302, redirectUrl);
     } else {
+      eventEmitter.emit(AppEvents.PAYMENT_FAILED, {
+        payment: finalPayment,
+        failureReason: finalPayment.failureReason || 'تأییدیه نهایی توسط زیبال صادر نشد.',
+      });
+
       const redirectUrl = getPaymentFailedRedirectUrl({
         orderId: finalOrderId,
         trackId,

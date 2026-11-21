@@ -44,3 +44,7 @@ smsWorker.on('completed', (job) => {
 smsWorker.on('failed', (job, err) => {
   logger.error({ msg: 'SMS job failed', jobId: job?.id, error: err });
 });
+
+smsWorker.on('error', (err) => {
+  logger.warn({ msg: 'SMS Worker connection error (Redis may be offline)', error: err instanceof Error ? err.message : String(err) });
+});
