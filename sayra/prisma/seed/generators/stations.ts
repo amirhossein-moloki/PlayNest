@@ -30,7 +30,7 @@ export async function seedStations(
 
       if (center.definition.archetype === 'VIP_LOUNGE') {
         if (i <= 5) {
-          type = GameStationType.PLAYSTATION;
+          type = GameStationType.PLAYSTATION_5;
           name = `PS5-VIP-${i}`;
           isVip = true;
         } else {
@@ -44,7 +44,7 @@ export async function seedStations(
           isVip = i <= 4;
           name = isVip ? `PRO-ARENA-${i}` : `PC-ESPORTS-${i}`;
         } else {
-          type = GameStationType.PLAYSTATION;
+          type = GameStationType.PLAYSTATION_5;
           name = `PS5-${i - 12}`;
           isVip = false;
         }
@@ -55,7 +55,7 @@ export async function seedStations(
           isVip = i <= 2;
           name = isVip ? `PC-VIP-${i}` : `PC-${i}`;
         } else if (i <= totalCount - 1) {
-          type = GameStationType.PLAYSTATION;
+          type = GameStationType.PLAYSTATION_5;
           isVip = i === pcRatio + 1;
           name = isVip ? `PS5-VIP-${i - pcRatio}` : `PS5-${i - pcRatio}`;
         } else {

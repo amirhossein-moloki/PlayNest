@@ -106,7 +106,7 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
         },
       };
 
-      const station = { id: stationId, name: 'PS5-1', hourlyPrice: 200, defaultDurationHours: 1, stationType: 'PLAYSTATION', isActive: true };
+      const station = { id: stationId, name: 'PS5-1', hourlyPrice: 200, defaultDurationHours: 1, stationType: 'PLAYSTATION_5', isActive: true };
       const staff = { id: staffId };
       const staffShift = { id: 'shift-1', startTime: '08:00', endTime: '22:00' };
       const customerAccount = { id: 'cust-2' };
@@ -157,7 +157,7 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
         },
       };
 
-      const station = { id: stationId, name: 'PS5-1', hourlyPrice: 200, defaultDurationHours: 1, stationType: 'PLAYSTATION', isActive: true };
+      const station = { id: stationId, name: 'PS5-1', hourlyPrice: 200, defaultDurationHours: 1, stationType: 'PLAYSTATION_5', isActive: true };
       const staff = { id: staffId };
       const staffShift = { id: 'shift-1', startTime: '08:00', endTime: '22:00' };
       const customerAccount = { id: 'cust-2', phone: '+989998887766' };
@@ -228,7 +228,7 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
         },
       };
 
-      const station = { id: stationId, name: 'PS5-1', hourlyPrice: 200, defaultDurationHours: 1, stationType: 'PLAYSTATION', isActive: true };
+      const station = { id: stationId, name: 'PS5-1', hourlyPrice: 200, defaultDurationHours: 1, stationType: 'PLAYSTATION_5', isActive: true };
       const staff = { id: staffId };
       const staffShift = { id: 'shift-1', startTime: '08:00', endTime: '22:00' };
       const customerAccount = { id: 'cust-2' };

@@ -1,5 +1,6 @@
 import { prisma } from '../../config/prisma';
-import { CreateGamingCenterInput, UpdateGamingCenterInput, GamingCenterListItem, GamingCenterPricing } from './gamingCenter.types';
+import { CreateGamingCenterInput, UpdateGamingCenterInput, GamingCenterListItem, GamingCenterPricing, DeviceTypeCounts } from './gamingCenter.types';
+import { toPublicStationType } from '../../common/utils/station-type';
 import { Prisma, GameStation, Rating, Settings, Address, DiscountValueType, GamingCenterVerificationStatus } from '@prisma/client';
 import { ListGamingCentersQuery, GetGamingCenterDetailsQuery } from './gamingCenter.validation';
 import { getPaginationParams, formatPaginatedResult } from '../../common/utils/pagination';
@@ -287,7 +288,7 @@ export function calculateGamingCenterPricing(
 
 export function transformGamingCenter(
   gc: GamingCenterWithRelations,
-  deviceCounts?: { PC: number; PLAYSTATION: number; XBOX: number; SWITCH: number; VR: number },
+  deviceCounts?: DeviceTypeCounts,
   extraData?: {
     hasDiscount?: boolean;
     coverImages?: string[];
@@ -302,23 +303,22 @@ export function transformGamingCenter(
   const manager = gc.manager || null;
 
   let hasPc = (deviceCounts ? deviceCounts.PC > 0 : false) || gc.pcCount > 0;
-  let hasPs4 = false;
-  let hasPs5 = deviceCounts ? deviceCounts.PLAYSTATION > 0 : false;
+  let hasPs4 = deviceCounts ? deviceCounts['PLAYSTATION 4'] > 0 : false;
+  let hasPs5 = deviceCounts ? deviceCounts['PLAYSTATION 5'] > 0 : false;
   let hasXbox = deviceCounts ? deviceCounts.XBOX > 0 : false;
 
   for (const st of stations) {
-    const type = st.stationType;
+    const type = toPublicStationType(st.stationType);
     const nameLower = (st.name || '').toLowerCase();
 
     if (type === 'PC') {
       hasPc = true;
-    } else if (type === 'PLAYSTATION') {
+    } else if (type === 'PLAYSTATION 4') {
+      hasPs4 = true;
+    } else if (type === 'PLAYSTATION 5') {
       if (nameLower.includes('ps4')) {
         hasPs4 = true;
-      } else if (nameLower.includes('ps5')) {
-        hasPs5 = true;
       } else {
-        // Default playstation station to ps5 if not explicitly ps4
         hasPs5 = true;
       }
     } else if (type === 'XBOX') {
@@ -355,8 +355,11 @@ export function transformGamingCenter(
   const isOpen = checkIsOpen(openTime, closeTime, tz);
 
   const finalPcCount = deviceCounts && (deviceCounts.PC > 0 || gc.stations !== undefined) ? deviceCounts.PC : gc.pcCount;
-  const finalConsoleCount = deviceCounts && ((deviceCounts.PLAYSTATION + deviceCounts.XBOX + deviceCounts.SWITCH + deviceCounts.VR) > 0 || gc.stations !== undefined)
-    ? deviceCounts.PLAYSTATION + deviceCounts.XBOX + deviceCounts.SWITCH + deviceCounts.VR
+  const totalConsoleDevices = deviceCounts
+    ? deviceCounts['PLAYSTATION 4'] + deviceCounts['PLAYSTATION 5'] + deviceCounts.XBOX + deviceCounts.SWITCH + deviceCounts.VR
+    : 0;
+  const finalConsoleCount = deviceCounts && (totalConsoleDevices > 0 || gc.stations !== undefined)
+    ? totalConsoleDevices
     : gc.consoleCount;
 
   // Resolve discount status
@@ -834,11 +837,12 @@ export const gamingCenterRepository = {
       }
     }
 
-    const countsMap = new Map<string, { PC: number; PLAYSTATION: number; XBOX: number; SWITCH: number; VR: number }>();
+    const countsMap = new Map<string, DeviceTypeCounts>();
     for (const id of centerIds) {
       countsMap.set(id, {
         PC: 0,
-        PLAYSTATION: 0,
+        'PLAYSTATION 4': 0,
+        'PLAYSTATION 5': 0,
         XBOX: 0,
         SWITCH: 0,
         VR: 0,
@@ -847,8 +851,9 @@ export const gamingCenterRepository = {
 
     for (const group of groupedCounts) {
       const centerCounts = countsMap.get(group.gamingCenterId);
-      if (centerCounts && group.stationType in centerCounts) {
-        (centerCounts as Record<string, number>)[group.stationType] = group._count?._all ?? 0;
+      const publicKey = toPublicStationType(group.stationType);
+      if (centerCounts && publicKey in centerCounts) {
+        (centerCounts as unknown as Record<string, number>)[publicKey] = group._count?._all ?? 0;
       }
     }
 
@@ -861,7 +866,7 @@ export const gamingCenterRepository = {
     // If minStationCount was specified for a device type
     if (minStationCount !== undefined && resolvedStationType) {
       data = data.filter((item) => {
-        const count = item.deviceCounts ? (item.deviceCounts as unknown as Record<string, number>)[resolvedStationType] ?? 0 : 0;
+        const count = item.deviceCounts ? (item.deviceCounts as unknown as Record<string, number>)[toPublicStationType(resolvedStationType)] ?? 0 : 0;
         return count >= minStationCount;
       });
     }

@@ -471,7 +471,9 @@ export async function seedFromDataset(
         });
 
         let stationType: GameStationType = GameStationType.PC;
-        if (st.stationType === 'PLAYSTATION') stationType = GameStationType.PLAYSTATION;
+        if (st.stationType === 'PLAYSTATION 4' || st.stationType === 'PLAYSTATION_4') stationType = GameStationType.PLAYSTATION_4;
+        else if (st.stationType === 'PLAYSTATION 5' || st.stationType === 'PLAYSTATION_5') stationType = GameStationType.PLAYSTATION_5;
+        else if (st.stationType === 'PLAYSTATION') stationType = (st.name || '').toLowerCase().includes('ps4') ? GameStationType.PLAYSTATION_4 : GameStationType.PLAYSTATION_5;
         else if (st.stationType === 'XBOX') stationType = GameStationType.XBOX;
 
         if (!existing) {

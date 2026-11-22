@@ -61,7 +61,7 @@ describe('GamingCenter Selected Games', () => {
           id: 'game-1',
           title: 'FIFA 25',
           coverImageUrl: 'https://example.com/fifa25.jpg',
-          supportedPlatforms: ['PLAYSTATION'],
+          supportedPlatforms: ['PLAYSTATION_5'],
           genre: 'Sports',
           description: 'Football game',
           supportsOnline: true,

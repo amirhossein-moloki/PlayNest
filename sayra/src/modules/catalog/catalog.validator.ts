@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { GameStationType } from '@prisma/client';
+import { zodGameStationType, zodGameStationTypeOptional } from '../../common/utils/station-type';
 import { baseFilterSchema } from '../../common/validators/query.validators';
 import { idSchema } from '../../common/validators/common.validators';
 
@@ -26,7 +27,7 @@ const parsePlatforms = (val: unknown) => {
 export const createDeviceCatalogSchema = z.object({
   body: z.object({
     name: z.string().min(1, 'Name is required'),
-    deviceType: z.nativeEnum(GameStationType).default(GameStationType.PC),
+    deviceType: zodGameStationType().default(GameStationType.PC),
     deviceTypeId: idSchema('Invalid deviceTypeId format').optional().nullable(),
     coverImageUrl: z.string().url('Cover image URL must be a valid URL').optional(),
     description: z.string().optional(),
@@ -46,7 +47,7 @@ export const updateDeviceCatalogSchema = z.object({
   }),
   body: z.object({
     name: z.string().min(1, 'Name cannot be empty').optional(),
-    deviceType: z.nativeEnum(GameStationType).optional(),
+    deviceType: zodGameStationTypeOptional(),
     deviceTypeId: idSchema('Invalid deviceTypeId format').optional().nullable(),
     coverImageUrl: z.string().url('Cover image URL must be a valid URL').optional(),
     description: z.string().optional().nullable(),
@@ -55,7 +56,7 @@ export const updateDeviceCatalogSchema = z.object({
 });
 
 export const listDeviceCatalogSchema = baseFilterSchema.extend({
-  deviceType: z.nativeEnum(GameStationType).optional(),
+  deviceType: zodGameStationTypeOptional(),
   isActive: z.preprocess((val) => {
     if (typeof val === 'string') {
       if (val.toLowerCase() === 'true') return true;
@@ -73,7 +74,7 @@ export const createGameCatalogSchema = z.object({
     supportedPlatforms: z.preprocess(
       parsePlatforms,
       z
-        .array(z.nativeEnum(GameStationType))
+        .array(zodGameStationType())
         .min(1, 'At least one supported platform is required')
         .default([GameStationType.PC])
     ),
@@ -91,7 +92,7 @@ export const updateGameCatalogSchema = z.object({
   body: z.object({
     title: z.string().min(1, 'Title cannot be empty').optional(),
     coverImageUrl: z.string().url('Cover image URL must be a valid URL').optional(),
-    supportedPlatforms: z.preprocess(parsePlatforms, z.array(z.nativeEnum(GameStationType)).optional()),
+    supportedPlatforms: z.preprocess(parsePlatforms, z.array(zodGameStationType()).optional()),
     genre: z.string().optional().nullable(),
     description: z.string().optional().nullable(),
     supportsOnline: z.preprocess(parseBoolean, z.boolean().optional()),
@@ -100,7 +101,7 @@ export const updateGameCatalogSchema = z.object({
 });
 
 export const listGameCatalogSchema = baseFilterSchema.extend({
-  platform: z.nativeEnum(GameStationType).optional(),
+  platform: zodGameStationTypeOptional(),
   genre: z.string().optional(),
   supportsOnline: z.preprocess(parseBoolean, z.boolean().optional()),
   isActive: z.preprocess(parseBoolean, z.boolean().optional()),
@@ -113,7 +114,7 @@ export const createDeviceTypeSchema = z.object({
     slug: z.string().min(1, 'Slug is required').regex(/^[a-z0-9-]+$/, 'Slug must be alphanumeric with hyphens').optional(),
     description: z.string().optional().nullable(),
     icon: z.string().optional().nullable(),
-    category: z.nativeEnum(GameStationType).default(GameStationType.PC),
+    category: zodGameStationType().default(GameStationType.PC),
     isActive: z.preprocess((val) => {
       if (typeof val === 'string') {
         if (val.toLowerCase() === 'true') return true;
@@ -140,14 +141,14 @@ export const updateDeviceTypeSchema = z.object({
     slug: z.string().min(1, 'Slug cannot be empty').regex(/^[a-z0-9-]+$/, 'Slug must be alphanumeric with hyphens').optional(),
     description: z.string().optional().nullable(),
     icon: z.string().optional().nullable(),
-    category: z.nativeEnum(GameStationType).optional(),
+    category: zodGameStationTypeOptional(),
     isActive: z.boolean().optional(),
     extraControllerEnabled: z.boolean().optional(),
   }),
 });
 
 export const listDeviceTypeSchema = baseFilterSchema.extend({
-  category: z.nativeEnum(GameStationType).optional(),
+  category: zodGameStationTypeOptional(),
   isActive: z.preprocess((val) => {
     if (typeof val === 'string') {
       if (val.toLowerCase() === 'true') return true;

@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { GameStationType, GamingCenterVerificationStatus } from '@prisma/client';
+import { GamingCenterVerificationStatus } from '@prisma/client';
+import { zodGameStationTypeOptional } from '../../common/utils/station-type';
 import { baseFilterSchema } from '../../common/validators/query.validators';
 
 export const createGamingCenterSchema = z.object({
@@ -101,30 +102,8 @@ export const listGamingCentersSchema = baseFilterSchema.extend({
   province: z.string().optional(),
   district: z.string().optional(),
   game: z.string().optional(),
-  stationType: z.preprocess(
-    (val) => {
-      if (typeof val === 'string') {
-        const upper = val.toUpperCase();
-        if (['PC', 'PLAYSTATION', 'XBOX', 'SWITCH', 'VR'].includes(upper)) {
-          return upper;
-        }
-      }
-      return val;
-    },
-    z.nativeEnum(GameStationType).optional()
-  ),
-  type: z.preprocess(
-    (val) => {
-      if (typeof val === 'string') {
-        const upper = val.toUpperCase();
-        if (['PC', 'PLAYSTATION', 'XBOX', 'SWITCH', 'VR'].includes(upper)) {
-          return upper;
-        }
-      }
-      return val;
-    },
-    z.nativeEnum(GameStationType).optional()
-  ),
+  stationType: zodGameStationTypeOptional(),
+  type: zodGameStationTypeOptional(),
   minStationCount: z.coerce.number().int().min(1).optional(),
   minHourlyRate: z.coerce.number().min(0).optional(),
   maxHourlyRate: z.coerce.number().min(0).optional(),

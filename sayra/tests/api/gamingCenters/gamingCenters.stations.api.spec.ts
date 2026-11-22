@@ -67,7 +67,7 @@ describe('Gaming Centers Stations API - Public and Protected Endpoints', () => {
       id: 'st_02',
       gamingCenterId: 'center_07',
       name: 'PS5-VIP-02',
-      stationType: 'PLAYSTATION',
+      stationType: 'PLAYSTATION_5',
       hourlyPrice: 159500,
       isActive: true,
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -165,7 +165,7 @@ describe('Gaming Centers Stations API - Public and Protected Endpoints', () => {
         id: stationId,
         gamingCenterId: centerId,
         name: 'PS5-01',
-        stationType: 'PLAYSTATION',
+        stationType: 'PLAYSTATION_5',
         hourlyPrice: 100000,
         isActive: true,
         deviceTypeRef: { extraControllerEnabled: true },
@@ -186,7 +186,7 @@ describe('Gaming Centers Stations API - Public and Protected Endpoints', () => {
         .set('Authorization', `Bearer ${managerToken}`)
         .send({
           name: 'PS5-01',
-          stationType: 'PLAYSTATION',
+          stationType: 'PLAYSTATION 5',
           hourlyPrice: 100000,
           extraControllers: [
             {
@@ -242,7 +242,7 @@ describe('Gaming Centers Stations API - Public and Protected Endpoints', () => {
         id: stationId,
         gamingCenterId: centerId,
         name: 'PS5-VIP',
-        stationType: 'PLAYSTATION',
+        stationType: 'PLAYSTATION_5',
         hourlyPrice: 150000,
         isActive: true,
         deviceTypeRef: { extraControllerEnabled: true },

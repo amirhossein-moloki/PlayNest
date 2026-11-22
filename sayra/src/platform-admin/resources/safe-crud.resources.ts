@@ -11,6 +11,7 @@ import { prisma } from '../../config/prisma';
 import { ADMIN_NAVIGATION_GROUPS } from '../config/admin.navigation';
 import { AdminAuditService } from '../services/admin-audit.service';
 import { PlatformMediaStation } from '../../modules/platform-admin/media.station';
+import { STATION_TYPE_AVAILABLE_VALUES } from '../../common/utils/station-type';
 
 /**
  * Creates actions with audit logging and media lifecycle management for catalog items.
@@ -28,7 +29,7 @@ function createCatalogActions(entityName: 'DeviceCatalog' | 'GameCatalog' | 'Dev
           const newUrl = originalResponse.record?.params?.coverImageUrl;
 
           // If the image was replaced, clean up the previous file if it was on server
-          if (oldUrl && newUrl && oldUrl !== newUrl && oldUrl.startsWith('/uploads/')) {
+          if (oldUrl && newUrl && oldUrl !== newUrl && (oldUrl.startsWith('/uploads/') || oldUrl.includes('/uploads/'))) {
             await PlatformMediaStation.deleteMediaByUrl(oldUrl);
           }
 
@@ -69,7 +70,7 @@ function createCatalogActions(entityName: 'DeviceCatalog' | 'GameCatalog' | 'Dev
       after: async (originalResponse: any, request: any, context: any) => {
         if (request.method === 'post' && context.record) {
           const coverUrl = context.record.params?.coverImageUrl;
-          if (coverUrl && coverUrl.startsWith('/uploads/')) {
+          if (coverUrl && (coverUrl.startsWith('/uploads/') || coverUrl.includes('/uploads/'))) {
             await PlatformMediaStation.deleteMediaByUrl(coverUrl);
           }
 
@@ -157,6 +158,7 @@ export function getSafeCrudResources(components?: { coverImageComponentId?: stri
         properties: {
           ...buildSensitivePropertiesConfiguration(),
           id: { isVisible: { list: true, show: true, edit: false, filter: true } },
+          category: { availableValues: STATION_TYPE_AVAILABLE_VALUES },
           createdAt: { isVisible: { list: true, show: true, edit: false, filter: true } },
           updatedAt: { isVisible: { list: false, show: true, edit: false, filter: false } },
         },
@@ -170,6 +172,7 @@ export function getSafeCrudResources(components?: { coverImageComponentId?: stri
         properties: {
           ...buildSensitivePropertiesConfiguration(),
           id: { isVisible: { list: true, show: true, edit: false, filter: true } },
+          deviceType: { availableValues: STATION_TYPE_AVAILABLE_VALUES },
           coverImageUrl: {
             components: {
               edit: coverImageComponent,
@@ -191,6 +194,7 @@ export function getSafeCrudResources(components?: { coverImageComponentId?: stri
           supportsOnline: {
             isVisible: { list: true, show: true, edit: true, filter: true },
           },
+          supportedPlatforms: { availableValues: STATION_TYPE_AVAILABLE_VALUES },
           coverImageUrl: {
             components: {
               edit: coverImageComponent,

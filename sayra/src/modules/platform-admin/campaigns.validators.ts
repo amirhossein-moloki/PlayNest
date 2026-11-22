@@ -4,8 +4,8 @@ import {
   CampaignScopeType,
   CampaignTargetAudience,
   CampaignStatus,
-  GameStationType,
 } from '@prisma/client';
+import { zodGameStationType } from '../../common/utils/station-type';
 
 export const listPlatformCampaignsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional().default(1),
@@ -33,7 +33,7 @@ export const createPlatformCampaignSchema = z.object({
 
       scopeType: z.nativeEnum(CampaignScopeType).optional().default(CampaignScopeType.GLOBAL),
       applicableGamecenterIds: z.array(z.string()).optional().default([]),
-      applicableDeviceTypes: z.array(z.nativeEnum(GameStationType)).optional().default([]),
+      applicableDeviceTypes: z.array(zodGameStationType()).optional().default([]),
 
       targetAudience: z.nativeEnum(CampaignTargetAudience).optional().default(CampaignTargetAudience.ALL_USERS),
       specificUserIds: z.array(z.string()).optional().default([]),
@@ -80,7 +80,7 @@ export const updatePlatformCampaignSchema = z.object({
 
       scopeType: z.nativeEnum(CampaignScopeType).optional(),
       applicableGamecenterIds: z.array(z.string()).optional(),
-      applicableDeviceTypes: z.array(z.nativeEnum(GameStationType)).optional(),
+      applicableDeviceTypes: z.array(zodGameStationType()).optional(),
 
       targetAudience: z.nativeEnum(CampaignTargetAudience).optional(),
       specificUserIds: z.array(z.string()).optional(),

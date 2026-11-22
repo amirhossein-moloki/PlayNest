@@ -8,7 +8,8 @@ export type UpdateGamingCenterInput = z.infer<typeof updateGamingCenterSchema>;
 
 export interface DeviceTypeCounts {
   PC: number;
-  PLAYSTATION: number;
+  'PLAYSTATION 4': number;
+  'PLAYSTATION 5': number;
   XBOX: number;
   SWITCH: number;
   VR: number;

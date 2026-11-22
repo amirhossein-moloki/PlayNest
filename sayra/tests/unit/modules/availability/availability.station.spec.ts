@@ -61,7 +61,7 @@ describe('AvailabilityStation 60-Minute Slots', () => {
     const baseStation = {
       id: stationId,
       name: 'PS5 Station 1',
-      stationType: 'PLAYSTATION',
+      stationType: 'PLAYSTATION_5',
       hourlyPrice: 80000,
       isActive: true,
       gamingCenterId,

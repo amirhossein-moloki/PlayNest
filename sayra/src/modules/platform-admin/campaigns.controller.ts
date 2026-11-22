@@ -6,6 +6,7 @@ import {
   updatePlatformCampaignSchema,
 } from './campaigns.validators';
 import { PlatformCampaignsStation } from './campaigns.station';
+import { serializeStationTypesDeep } from '../../common/utils/station-type';
 
 export const PlatformCampaignsController = {
   async listCampaigns(req: AppRequest, res: Response, next: NextFunction) {
@@ -33,7 +34,7 @@ export const PlatformCampaignsController = {
         req.actor,
         { ip: req.ip, userAgent: req.headers['user-agent'] as string }
       );
-      res.status(201).json({ success: true, data: result });
+      res.status(201).json({ success: true, data: serializeStationTypesDeep(result) });
     } catch (err) {
       next(err);
     }

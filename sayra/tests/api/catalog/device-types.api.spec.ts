@@ -147,7 +147,7 @@ describe('Dynamic Device Types API Test Suite', () => {
           id: 'cldevicetype_1',
           name: 'PlayStation 5',
           slug: 'playstation-5',
-          category: 'PLAYSTATION',
+          category: 'PLAYSTATION 5',
           isActive: true,
           _count: { deviceCatalogs: 2, stations: 5 },
         },
@@ -249,7 +249,7 @@ describe('Dynamic Device Types API Test Suite', () => {
           id: 'cldevicetype_1',
           name: 'PlayStation 5',
           slug: 'playstation-5',
-          category: 'PLAYSTATION',
+          category: 'PLAYSTATION 5',
           isActive: true,
         },
       ];
@@ -259,7 +259,7 @@ describe('Dynamic Device Types API Test Suite', () => {
 
       const res = await request(app)
         .get('/api/v1/catalog/device-types')
-        .query({ category: 'PLAYSTATION' });
+        .query({ category: 'PLAYSTATION 5' });
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
@@ -272,7 +272,7 @@ describe('Dynamic Device Types API Test Suite', () => {
         id: 'cldevicetype_1',
         name: 'PlayStation 5',
         slug: 'playstation-5',
-        category: 'PLAYSTATION',
+        category: 'PLAYSTATION 5',
         isActive: true,
       };
 

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { GamePlayMode, GameStationType } from '@prisma/client';
+import { zodGameStationType, zodGameStationTypeOptional } from '../../common/utils/station-type';
 import { baseFilterSchema } from '../../common/validators/query.validators';
 import { idSchema } from '../../common/validators/common.validators';
 
@@ -63,7 +64,7 @@ export const publicExtraControllersQuerySchema = z.object({
 // Base schema for common fields
 const stationBaseSchema = {
   name: z.string().min(1, 'Name is required'),
-  stationType: z.nativeEnum(GameStationType).default(GameStationType.PC),
+  stationType: zodGameStationType().default(GameStationType.PC),
   deviceTypeId: idSchema('Invalid deviceTypeId format').optional(),
   catalogDeviceId: idSchema('Invalid catalog device ID format').optional(),
   coverImageUrl: z.string().url('Invalid cover image URL').optional(),
@@ -144,7 +145,7 @@ export const listGamingCenterGamesQuerySchema = z.object({
 export const updateStationSchema = z.object({
   body: z.object({
     name: stationBaseSchema.name.optional(),
-    stationType: z.nativeEnum(GameStationType).optional(),
+    stationType: zodGameStationTypeOptional(),
     deviceTypeId: stationBaseSchema.deviceTypeId.optional(),
     catalogDeviceId: stationBaseSchema.catalogDeviceId.optional(),
     coverImageUrl: stationBaseSchema.coverImageUrl.optional(),
@@ -187,30 +188,8 @@ export const listStationsSchema = baseFilterSchema.extend({
   minPrice: z.coerce.number().optional(),
   maxPrice: z.coerce.number().optional(),
   catalogDeviceId: idSchema('Invalid catalog device ID format').optional(),
-  stationType: z.preprocess(
-    (val) => {
-      if (typeof val === 'string') {
-        const upper = val.toUpperCase();
-        if (['PLAYSTATION', 'PC', 'XBOX', 'SWITCH', 'VR'].includes(upper)) {
-          return upper;
-        }
-      }
-      return val;
-    },
-    z.nativeEnum(GameStationType).optional()
-  ),
-  type: z.preprocess(
-    (val) => {
-      if (typeof val === 'string') {
-        const upper = val.toUpperCase();
-        if (['PLAYSTATION', 'PC', 'XBOX', 'SWITCH', 'VR'].includes(upper)) {
-          return upper;
-        }
-      }
-      return val;
-    },
-    z.nativeEnum(GameStationType).optional()
-  ),
+  stationType: zodGameStationTypeOptional(),
+  type: zodGameStationTypeOptional(),
   isVip: z.coerce.boolean().optional(),
   staffId: z.string().optional(),
   ids: z

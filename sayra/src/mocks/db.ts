@@ -84,7 +84,7 @@ const createStations = (centerId: string, basePrice: number, vipPrice: number) =
       id: `st-${centerId}-${i}`,
       gamingCenterId: centerId,
       name: isPc ? `PC-${stationIndex}` : `PS5-${stationIndex}`,
-      stationType: isPc ? 'PC' : 'PLAYSTATION',
+      stationType: isPc ? 'PC' : 'PLAYSTATION 5',
       isVip,
       hourlyPrice: isVip ? (vipPrice || basePrice * 1.3) : basePrice,
       isActive: true,
