@@ -1,4 +1,4 @@
-import { SessionActorType } from '@prisma/client';
+import { GamePlayMode, GameStationType, SessionActorType } from '@prisma/client';
 import { auditService } from '../audit/audit.station';
 import * as StationRepo from './station.repo';
 import {
@@ -100,8 +100,35 @@ export async function createStationsFromCatalog(
   return createdStations;
 }
 
+const formatEnrichedCenterGame = (
+  catalogGame: {
+    id: string;
+    title: string;
+    coverImageUrl?: string | null;
+    supportedPlatforms?: GameStationType[];
+    genre?: string | null;
+    description?: string | null;
+    isActive?: boolean;
+    supportsOnline?: boolean;
+  },
+  playMode: GamePlayMode
+) => {
+  const supportsOnline = Boolean(catalogGame.supportsOnline);
+  return {
+    id: catalogGame.id,
+    title: catalogGame.title,
+    coverImageUrl: catalogGame.coverImageUrl ?? null,
+    supportedPlatforms: catalogGame.supportedPlatforms ?? [],
+    genre: catalogGame.genre ?? null,
+    description: catalogGame.description ?? null,
+    isActive: catalogGame.isActive ?? true,
+    supportsOnline,
+    playMode: supportsOnline ? playMode : GamePlayMode.OFFLINE,
+  };
+};
+
 /**
- * Business logic to add games from GameCatalog into GamingCenter's games list.
+ * Business logic to add games from GameCatalog into GamingCenter's games list and GamingCenterGame mode table.
  */
 export async function addGamesFromCatalog(
   gamingCenterId: string,
@@ -109,14 +136,61 @@ export async function addGamesFromCatalog(
   actor?: { id: string; actorType: SessionActorType },
   context?: { ip?: string; userAgent?: string }
 ) {
-  const games = await prisma.gameCatalog.findMany({
+  const requestedModeById = new Map<string, GamePlayMode>();
+  if ('games' in input && Array.isArray(input.games)) {
+    for (const item of input.games) {
+      requestedModeById.set(item.gameCatalogId, item.playMode ?? GamePlayMode.OFFLINE);
+    }
+  } else if ('gameCatalogIds' in input && Array.isArray(input.gameCatalogIds)) {
+    for (const gameCatalogId of input.gameCatalogIds) {
+      requestedModeById.set(gameCatalogId, GamePlayMode.OFFLINE);
+    }
+  }
+
+  const requestedIds = Array.from(requestedModeById.keys());
+  if (requestedIds.length === 0) {
+    throw new AppError('At least one game must be provided', httpStatus.BAD_REQUEST);
+  }
+
+  const catalogGames = await prisma.gameCatalog.findMany({
     where: {
-      id: { in: input.gameCatalogIds },
+      id: { in: requestedIds },
     },
   });
 
-  if (games.length === 0) {
+  if (catalogGames.length === 0) {
     throw new AppError('No matching games found in catalog', httpStatus.NOT_FOUND);
+  }
+
+  if (catalogGames.length < requestedIds.length) {
+    const foundIds = new Set(catalogGames.map((g) => g.id));
+    const missingIds = requestedIds.filter((id) => !foundIds.has(id));
+    throw new AppError(
+      `One or more games were not found in catalog: ${missingIds.join(', ')}`,
+      httpStatus.NOT_FOUND
+    );
+  }
+
+  for (const game of catalogGames) {
+    if (game.isActive === false) {
+      throw new AppError(
+        `Game "${game.title}" (${game.id}) is inactive and cannot be added.`,
+        httpStatus.BAD_REQUEST,
+        { code: 'GAME_INACTIVE', details: { gameCatalogId: game.id, title: game.title } }
+      );
+    }
+
+    const requestedMode = requestedModeById.get(game.id) ?? GamePlayMode.OFFLINE;
+    if (requestedMode === GamePlayMode.ONLINE && !game.supportsOnline) {
+      throw new AppError(
+        `Game "${game.title}" (${game.id}) does not support ONLINE play mode.`,
+        httpStatus.BAD_REQUEST,
+        {
+          code: 'ONLINE_MODE_NOT_SUPPORTED',
+          details: { gameCatalogId: game.id, title: game.title },
+        }
+      );
+    }
   }
 
   const center = await prisma.gamingCenter.findUnique({
@@ -129,15 +203,72 @@ export async function addGamesFromCatalog(
   }
 
   const existingGameTitles = new Set(center.games || []);
-  const newTitles = games.map((g) => g.title).filter((title) => !existingGameTitles.has(title));
-
+  const newTitles = catalogGames.map((g) => g.title).filter((title) => !existingGameTitles.has(title));
   const updatedGames = [...(center.games || []), ...newTitles];
 
-  const updatedCenter = await prisma.gamingCenter.update({
-    where: { id: gamingCenterId },
-    data: { games: updatedGames },
-    select: { id: true, name: true, games: true },
-  });
+  const configuredGames = catalogGames.map((game) => ({
+    gameCatalogId: game.id,
+    title: game.title,
+    playMode: requestedModeById.get(game.id) ?? GamePlayMode.OFFLINE,
+  }));
+
+  const updatedCenter = await (async () => {
+    if (typeof prisma.$transaction === 'function') {
+      return prisma.$transaction(async (tx) => {
+        if (typeof tx.gamingCenterGame?.upsert === 'function') {
+          for (const game of catalogGames) {
+            const playMode = requestedModeById.get(game.id) ?? GamePlayMode.OFFLINE;
+            await tx.gamingCenterGame.upsert({
+              where: {
+                gamingCenterId_gameCatalogId: {
+                  gamingCenterId,
+                  gameCatalogId: game.id,
+                },
+              },
+              update: { playMode },
+              create: {
+                gamingCenterId,
+                gameCatalogId: game.id,
+                playMode,
+              },
+            });
+          }
+        }
+
+        return tx.gamingCenter.update({
+          where: { id: gamingCenterId },
+          data: { games: updatedGames },
+          select: { id: true, name: true, games: true },
+        });
+      });
+    }
+
+    if (typeof prisma.gamingCenterGame?.upsert === 'function') {
+      for (const game of catalogGames) {
+        const playMode = requestedModeById.get(game.id) ?? GamePlayMode.OFFLINE;
+        await prisma.gamingCenterGame.upsert({
+          where: {
+            gamingCenterId_gameCatalogId: {
+              gamingCenterId,
+              gameCatalogId: game.id,
+            },
+          },
+          update: { playMode },
+          create: {
+            gamingCenterId,
+            gameCatalogId: game.id,
+            playMode,
+          },
+        });
+      }
+    }
+
+    return prisma.gamingCenter.update({
+      where: { id: gamingCenterId },
+      data: { games: updatedGames },
+      select: { id: true, name: true, games: true },
+    });
+  })();
 
   if (actor) {
     await auditService.log(
@@ -145,22 +276,136 @@ export async function addGamesFromCatalog(
       actor,
       'GAMING_CENTER_ADD_GAMES_FROM_CATALOG',
       { name: 'GamingCenter', id: gamingCenterId },
-      { old: { games: center.games }, new: { games: updatedGames, added: newTitles } },
+      {
+        old: { games: center.games },
+        new: { games: updatedGames, added: newTitles, configuredGames },
+      },
       context
     );
   }
+
+  const enrichedGames = catalogGames.map((game) =>
+    formatEnrichedCenterGame(game, requestedModeById.get(game.id) ?? GamePlayMode.OFFLINE)
+  );
 
   return {
     gamingCenterId,
     addedGames: newTitles,
     allGames: updatedCenter.games,
+    games: enrichedGames,
   };
 }
 
 /**
- * Returns the games selected by a gaming center, enriched with GameCatalog metadata.
+ * Updates playMode (OFFLINE / ONLINE) for a game already associated with a gaming center.
  */
-export async function getGamesForGamingCenter(gamingCenterId: string) {
+export async function updateGamingCenterGameMode(
+  gamingCenterId: string,
+  gameId: string,
+  playMode: GamePlayMode,
+  actor?: { id: string; actorType: SessionActorType },
+  context?: { ip?: string; userAgent?: string }
+) {
+  const center = await prisma.gamingCenter.findUnique({
+    where: { id: gamingCenterId },
+    select: { id: true, games: true },
+  });
+
+  if (!center) {
+    throw new AppError('Gaming center not found', httpStatus.NOT_FOUND);
+  }
+
+  let catalogGame: {
+    id: string;
+    title: string;
+    coverImageUrl?: string | null;
+    supportedPlatforms?: GameStationType[];
+    genre?: string | null;
+    description?: string | null;
+    isActive?: boolean;
+    supportsOnline?: boolean;
+  } | null = null;
+  let previousPlayMode: GamePlayMode = GamePlayMode.OFFLINE;
+
+  if (typeof prisma.gamingCenterGame?.findFirst === 'function') {
+    const existingCenterGame = await prisma.gamingCenterGame.findFirst({
+      where: {
+        gamingCenterId,
+        OR: [{ gameCatalogId: gameId }, { id: gameId }],
+      },
+      include: { gameCatalog: true },
+    });
+
+    if (existingCenterGame?.gameCatalog) {
+      catalogGame = existingCenterGame.gameCatalog;
+      previousPlayMode = existingCenterGame.playMode;
+    }
+  }
+
+  if (!catalogGame) {
+    const fallbackCatalog = await prisma.gameCatalog.findUnique({
+      where: { id: gameId },
+    });
+    if (fallbackCatalog && (center.games || []).includes(fallbackCatalog.title)) {
+      catalogGame = fallbackCatalog;
+      previousPlayMode = GamePlayMode.OFFLINE;
+    }
+  }
+
+  if (!catalogGame) {
+    throw new AppError('Game not found in this gaming center', httpStatus.NOT_FOUND);
+  }
+
+  if (playMode === GamePlayMode.ONLINE && !catalogGame.supportsOnline) {
+    throw new AppError(
+      `Game "${catalogGame.title}" (${catalogGame.id}) does not support ONLINE play mode.`,
+      httpStatus.BAD_REQUEST,
+      {
+        code: 'ONLINE_MODE_NOT_SUPPORTED',
+        details: { gameCatalogId: catalogGame.id, title: catalogGame.title },
+      }
+    );
+  }
+
+  const updatedRecord = await prisma.gamingCenterGame.upsert({
+    where: {
+      gamingCenterId_gameCatalogId: {
+        gamingCenterId,
+        gameCatalogId: catalogGame.id,
+      },
+    },
+    update: { playMode },
+    create: {
+      gamingCenterId,
+      gameCatalogId: catalogGame.id,
+      playMode,
+    },
+  });
+
+  if (actor) {
+    await auditService.log(
+      gamingCenterId,
+      actor,
+      'GAMING_CENTER_UPDATE_GAME_MODE',
+      { name: 'GamingCenterGame', id: updatedRecord.id },
+      {
+        old: { gameCatalogId: catalogGame.id, title: catalogGame.title, playMode: previousPlayMode },
+        new: { gameCatalogId: catalogGame.id, title: catalogGame.title, playMode: updatedRecord.playMode },
+      },
+      context
+    );
+  }
+
+  return formatEnrichedCenterGame(catalogGame, updatedRecord.playMode);
+}
+
+/**
+ * Returns the games selected by a gaming center, enriched with GameCatalog metadata, supportsOnline, and playMode.
+ */
+export async function getGamesForGamingCenter(
+  gamingCenterId: string,
+  options?: { playMode?: GamePlayMode }
+) {
   const center = await prisma.gamingCenter.findUnique({
     where: { id: gamingCenterId },
     select: { id: true, games: true },
@@ -171,23 +416,52 @@ export async function getGamesForGamingCenter(gamingCenterId: string) {
   }
 
   const gameTitles = center.games || [];
-  if (gameTitles.length === 0) {
+  const centerGames =
+    typeof prisma.gamingCenterGame?.findMany === 'function'
+      ? await prisma.gamingCenterGame.findMany({
+        where: { gamingCenterId },
+        include: { gameCatalog: true },
+        orderBy: { createdAt: 'asc' },
+      })
+      : [];
+
+  if (gameTitles.length === 0 && centerGames.length === 0) {
     return [];
   }
 
-  const catalogGames = await prisma.gameCatalog.findMany({
-    where: {
-      title: { in: gameTitles },
-    },
-  });
+  const centerGameByTitle = new Map<string, (typeof centerGames)[number]>();
+  for (const cg of centerGames) {
+    if (cg.gameCatalog?.title) {
+      centerGameByTitle.set(cg.gameCatalog.title, cg);
+    }
+  }
+
+  const unmatchedTitles = gameTitles.filter((title) => !centerGameByTitle.has(title));
+  const catalogGames =
+    (unmatchedTitles.length > 0
+      ? await prisma.gameCatalog.findMany({
+        where: {
+          title: { in: unmatchedTitles },
+        },
+      })
+      : []) || [];
 
   const catalogByTitle = new Map(catalogGames.map((g) => [g.title, g]));
+  const emittedCatalogIds = new Set<string>();
 
-  return gameTitles.map((title) => {
-    const match = catalogByTitle.get(title);
-    if (match) {
-      return match;
+  const enriched = gameTitles.map((title) => {
+    const centerGameMatch = centerGameByTitle.get(title);
+    if (centerGameMatch?.gameCatalog) {
+      emittedCatalogIds.add(centerGameMatch.gameCatalog.id);
+      return formatEnrichedCenterGame(centerGameMatch.gameCatalog, centerGameMatch.playMode);
     }
+
+    const catalogMatch = catalogByTitle.get(title);
+    if (catalogMatch) {
+      emittedCatalogIds.add(catalogMatch.id);
+      return formatEnrichedCenterGame(catalogMatch, GamePlayMode.OFFLINE);
+    }
+
     return {
       id: null,
       title,
@@ -196,12 +470,27 @@ export async function getGamesForGamingCenter(gamingCenterId: string) {
       genre: null,
       description: null,
       isActive: true,
+      supportsOnline: false,
+      playMode: GamePlayMode.OFFLINE,
     };
   });
+
+  for (const cg of centerGames) {
+    if (cg.gameCatalog && !emittedCatalogIds.has(cg.gameCatalog.id)) {
+      emittedCatalogIds.add(cg.gameCatalog.id);
+      enriched.push(formatEnrichedCenterGame(cg.gameCatalog, cg.playMode));
+    }
+  }
+
+  if (options?.playMode) {
+    return enriched.filter((g) => g.playMode === options.playMode);
+  }
+
+  return enriched;
 }
 
 /**
- * Removes a game (by GameCatalog ID or title) from a gaming center's games list.
+ * Removes a game (by GameCatalog ID, GamingCenterGame ID, or title) from a gaming center's games list.
  */
 export async function removeGameFromGamingCenter(
   gamingCenterId: string,
@@ -220,22 +509,61 @@ export async function removeGameFromGamingCenter(
 
   const catalogGame = await prisma.gameCatalog.findUnique({
     where: { id: gameIdOrTitle },
-    select: { title: true },
+    select: { id: true, title: true },
   });
 
-  const targetTitle = catalogGame?.title ?? gameIdOrTitle;
+  const matchedCenterGame =
+    typeof prisma.gamingCenterGame?.findFirst === 'function'
+      ? await prisma.gamingCenterGame.findFirst({
+        where: {
+          gamingCenterId,
+          OR: [
+            { gameCatalogId: gameIdOrTitle },
+            { id: gameIdOrTitle },
+            { gameCatalog: { title: gameIdOrTitle } },
+          ],
+        },
+        include: {
+          gameCatalog: { select: { id: true, title: true } },
+        },
+      })
+      : null;
+
+  const targetCatalogId = catalogGame?.id ?? matchedCenterGame?.gameCatalogId ?? null;
+  const targetTitle = catalogGame?.title ?? matchedCenterGame?.gameCatalog?.title ?? gameIdOrTitle;
   const currentGames = center.games || [];
 
-  if (!currentGames.includes(targetTitle)) {
+  if (!currentGames.includes(targetTitle) && !matchedCenterGame) {
     throw new AppError('Game not found in this gaming center', httpStatus.NOT_FOUND);
   }
 
   const updatedGames = currentGames.filter((t) => t !== targetTitle);
 
-  await prisma.gamingCenter.update({
-    where: { id: gamingCenterId },
-    data: { games: updatedGames },
-  });
+  const deleteWhere = targetCatalogId
+    ? { gamingCenterId, gameCatalogId: targetCatalogId }
+    : matchedCenterGame
+      ? { id: matchedCenterGame.id }
+      : null;
+
+  if (typeof prisma.$transaction === 'function' && typeof prisma.gamingCenterGame?.deleteMany === 'function') {
+    await prisma.$transaction(async (tx) => {
+      if (deleteWhere && typeof tx.gamingCenterGame?.deleteMany === 'function') {
+        await tx.gamingCenterGame.deleteMany({ where: deleteWhere });
+      }
+      await tx.gamingCenter.update({
+        where: { id: gamingCenterId },
+        data: { games: updatedGames },
+      });
+    });
+  } else {
+    if (deleteWhere && typeof prisma.gamingCenterGame?.deleteMany === 'function') {
+      await prisma.gamingCenterGame.deleteMany({ where: deleteWhere });
+    }
+    await prisma.gamingCenter.update({
+      where: { id: gamingCenterId },
+      data: { games: updatedGames },
+    });
+  }
 
   if (actor) {
     await auditService.log(

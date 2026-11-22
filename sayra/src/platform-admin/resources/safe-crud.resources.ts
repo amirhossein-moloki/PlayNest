@@ -6,6 +6,8 @@ import { buildSensitivePropertiesConfiguration } from './resource.defaults';
  * Verified low-risk configuration and CMS resources where direct CRUD operations are safe.
  * Inspects: Category, Tag, SiteSettings
  */
+import { GamePlayMode } from '@prisma/client';
+import { prisma } from '../../config/prisma';
 import { ADMIN_NAVIGATION_GROUPS } from '../config/admin.navigation';
 import { AdminAuditService } from '../services/admin-audit.service';
 import { PlatformMediaStation } from '../../modules/platform-admin/media.station';
@@ -28,6 +30,27 @@ function createCatalogActions(entityName: 'DeviceCatalog' | 'GameCatalog' | 'Dev
           // If the image was replaced, clean up the previous file if it was on server
           if (oldUrl && newUrl && oldUrl !== newUrl && oldUrl.startsWith('/uploads/')) {
             await PlatformMediaStation.deleteMediaByUrl(oldUrl);
+          }
+
+          if (entityName === 'GameCatalog') {
+            const wasOnline =
+              context.record?.params?.supportsOnline === true ||
+              context.record?.params?.supportsOnline === 'true';
+            const isNowOffline =
+              originalResponse.record?.params?.supportsOnline === false ||
+              originalResponse.record?.params?.supportsOnline === 'false';
+
+            if (wasOnline && isNowOffline && typeof prisma.gamingCenterGame?.updateMany === 'function') {
+              await prisma.gamingCenterGame.updateMany({
+                where: {
+                  gameCatalogId: String(originalResponse.record.id),
+                  playMode: GamePlayMode.ONLINE,
+                },
+                data: {
+                  playMode: GamePlayMode.OFFLINE,
+                },
+              });
+            }
           }
 
           await AdminAuditService.logAdminEvent({
@@ -165,6 +188,9 @@ export function getSafeCrudResources(components?: { coverImageComponentId?: stri
         properties: {
           ...buildSensitivePropertiesConfiguration(),
           id: { isVisible: { list: true, show: true, edit: false, filter: true } },
+          supportsOnline: {
+            isVisible: { list: true, show: true, edit: true, filter: true },
+          },
           coverImageUrl: {
             components: {
               edit: coverImageComponent,

@@ -557,6 +557,11 @@ components:
           type: string
           format: date-time
 
+    GamePlayMode:
+      type: string
+      enum: [OFFLINE, ONLINE]
+      description: Supported or selected play mode for a game (OFFLINE or ONLINE)
+
     GameCatalog:
       type: object
       properties:
@@ -578,6 +583,10 @@ components:
         description:
           type: string
           nullable: true
+        supportsOnline:
+          type: boolean
+          default: false
+          description: Indicates whether Platform Admin enabled ONLINE play support for this game
         isActive:
           type: boolean
         createdAt:
@@ -586,6 +595,37 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    GamingCenterGameItem:
+      type: object
+      properties:
+        id:
+          type: string
+          nullable: true
+        title:
+          type: string
+        coverImageUrl:
+          type: string
+          format: uri
+          nullable: true
+        supportedPlatforms:
+          type: array
+          items:
+            type: string
+            enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+        genre:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        supportsOnline:
+          type: boolean
+          description: Whether the game supports online play globally in GameCatalog
+        playMode:
+          $ref: '#/components/schemas/GamePlayMode'
 
     CreateDeviceCatalogInput:
       type: object
@@ -646,6 +686,9 @@ components:
           type: string
         description:
           type: string
+        supportsOnline:
+          type: boolean
+          default: false
         isActive:
           type: boolean
           default: true
@@ -669,6 +712,9 @@ components:
         description:
           type: string
           nullable: true
+        supportsOnline:
+          type: boolean
+          description: Updating from true to false automatically downgrades ONLINE GamingCenterGame records to OFFLINE
         isActive:
           type: boolean
 
@@ -707,14 +753,42 @@ components:
           default: 30
 
     AddGamesFromCatalogInput:
+      oneOf:
+        - type: object
+          required:
+            - games
+          properties:
+            games:
+              type: array
+              minItems: 1
+              items:
+                type: object
+                required:
+                  - gameCatalogId
+                properties:
+                  gameCatalogId:
+                    type: string
+                  playMode:
+                    $ref: '#/components/schemas/GamePlayMode'
+                    default: OFFLINE
+        - type: object
+          description: Legacy format assigning OFFLINE playMode to all provided game catalog IDs
+          required:
+            - gameCatalogIds
+          properties:
+            gameCatalogIds:
+              type: array
+              minItems: 1
+              items:
+                type: string
+
+    UpdateGamingCenterGameInput:
       type: object
       required:
-        - gameCatalogIds
+        - playMode
       properties:
-        gameCatalogIds:
-          type: array
-          items:
-            type: string
+        playMode:
+          $ref: '#/components/schemas/GamePlayMode'
 
     PlatformCampaign:
       type: object
@@ -3557,7 +3631,7 @@ paths:
   /gamingCenters/{gamingCenterId}/stations/games:
     get:
       summary: List games selected for a gaming center (Manager/Admin)
-      description: Returns the games selected by the gaming center manager, enriched with GameCatalog metadata (coverImageUrl, supportedPlatforms, genre, description).
+      description: Returns the games selected by the gaming center manager, enriched with GameCatalog metadata (coverImageUrl, supportedPlatforms, genre, description), global supportsOnline capability, and per-center playMode.
       tags:
       - Stations
       security:
@@ -3568,18 +3642,83 @@ paths:
         required: true
         schema:
           type: string
+      - name: playMode
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/GamePlayMode'
+        description: Optional filter by play mode (OFFLINE or ONLINE)
       responses:
         '200':
           description: List of games for this gaming center
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GamingCenterGameItem'
       operationId: get_gamingCenters_gamingCenterId_stations_games
   /gamingCenters/{gamingCenterId}/stations/games/{gameId}:
+    patch:
+      summary: Update a game's play mode in a gaming center (Manager/Admin)
+      description: Switches an existing gaming center game between OFFLINE and ONLINE playMode. Setting ONLINE when the catalog game has supportsOnline=false returns 400 ONLINE_MODE_NOT_SUPPORTED.
+      tags:
+      - Stations
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: gameId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: GameCatalog ID or GamingCenterGame ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGamingCenterGameInput'
+      responses:
+        '200':
+          description: Game play mode updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/GamingCenterGameItem'
+        '400':
+          description: Bad request or game does not support ONLINE mode (ONLINE_MODE_NOT_SUPPORTED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      operationId: patch_gamingCenters_gamingCenterId_stations_games_gameId
     delete:
       summary: Remove a game from a gaming center (Manager)
-      description: Removes a game (by GameCatalog ID or title) from the gaming center's selected games list.
+      description: Removes a game (by GameCatalog ID, GamingCenterGame ID, or title) from the gaming center's selected games list and deletes its GamingCenterGame record.
       tags:
       - Stations
       security:
@@ -3606,7 +3745,7 @@ paths:
   /public/gamingCenters/{gamingCenterSlug}/stations/games:
     get:
       summary: List games available at a gaming center (Public)
-      description: Returns the games selected by the gaming center, enriched with GameCatalog metadata.
+      description: Returns the games selected by the gaming center, enriched with GameCatalog metadata, supportsOnline, and per-center playMode.
       tags:
       - Stations
       security: []
@@ -3616,18 +3755,31 @@ paths:
         required: true
         schema:
           type: string
+      - name: playMode
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/GamePlayMode'
       responses:
         '200':
           description: List of games for this gaming center
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GamingCenterGameItem'
       operationId: get_public_gamingCenters_gamingCenterSlug_stations_games
   /public/gamingCenters/{gamingCenterSlug}/games:
     get:
       summary: List games available at a gaming center (Public alias)
-      description: Returns the games selected by the gaming center, enriched with GameCatalog metadata.
+      description: Returns the games selected by the gaming center, enriched with GameCatalog metadata, supportsOnline, and per-center playMode.
       tags:
       - Stations
       security: []
@@ -3637,18 +3789,31 @@ paths:
         required: true
         schema:
           type: string
+      - name: playMode
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/GamePlayMode'
       responses:
         '200':
           description: List of games for this gaming center
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GamingCenterGameItem'
       operationId: get_public_gamingCenters_gamingCenterSlug_games
   /gamingCenters/{gamingCenterId}/stations/games/from-catalog:
     post:
       summary: Add games to gaming center from game catalog
-      description: Allows a gaming center manager to select games from the central catalog and add them to their gaming center list.
+      description: Allows a gaming center manager to select games from the central catalog and optionally specify playMode (ONLINE/OFFLINE, defaulting to OFFLINE). Selecting ONLINE for a game with supportsOnline=false returns 400 ONLINE_MODE_NOT_SUPPORTED.
       tags:
       - Stations
       security:
@@ -3689,8 +3854,16 @@ paths:
                         type: array
                         items:
                           type: string
+                      games:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/GamingCenterGameItem'
         '400':
-          $ref: '#/components/responses/ValidationError'
+          description: Validation error or ONLINE mode requested for an offline-only game (ONLINE_MODE_NOT_SUPPORTED / GAME_INACTIVE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -3887,6 +4060,11 @@ paths:
         schema:
           type: boolean
           default: true
+      - name: supportsOnline
+        in: query
+        schema:
+          type: boolean
+        description: Filter games by whether they support ONLINE mode
       - name: search
         in: query
         schema:
@@ -4490,6 +4668,9 @@ paths:
                   type: string
                 description:
                   type: string
+                supportsOnline:
+                  type: boolean
+                  default: false
                 isActive:
                   type: boolean
       responses:
@@ -4543,6 +4724,11 @@ paths:
         in: query
         schema:
           type: boolean
+      - name: supportsOnline
+        in: query
+        schema:
+          type: boolean
+        description: Filter games by online capability
       - name: search
         in: query
         schema:
@@ -4606,6 +4792,7 @@ paths:
       operationId: get_platform_admin_catalog_games_id
     patch:
       summary: Update game in catalog (Platform Admin)
+      description: Update catalog game metadata. If supportsOnline is changed from true to false, all GamingCenterGame rows for this game in ONLINE mode are downgraded to OFFLINE atomically.
       tags:
       - PlatformAdmin
       - Catalog

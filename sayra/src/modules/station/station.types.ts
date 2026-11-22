@@ -4,6 +4,8 @@ import {
   updateStationSchema,
   createStationsFromCatalogSchema,
   addGamesFromCatalogSchema,
+  updateGamingCenterGameSchema,
+  listGamingCenterGamesQuerySchema,
 } from './station.validator';
 
 // Type for the body of the create station request
@@ -17,3 +19,9 @@ export type CreateStationsFromCatalogInput = z.infer<typeof createStationsFromCa
 
 // Type for adding games from catalog
 export type AddGamesFromCatalogInput = z.infer<typeof addGamesFromCatalogSchema>['body'];
+
+// Type for updating a gaming center game's play mode
+export type UpdateGamingCenterGameInput = z.infer<typeof updateGamingCenterGameSchema>['body'];
+
+// Type for listing gaming center games query
+export type ListGamingCenterGamesQuery = z.infer<typeof listGamingCenterGamesQuerySchema>;

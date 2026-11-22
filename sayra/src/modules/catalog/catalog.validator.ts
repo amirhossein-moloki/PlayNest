@@ -3,6 +3,25 @@ import { GameStationType } from '@prisma/client';
 import { baseFilterSchema } from '../../common/validators/query.validators';
 import { idSchema } from '../../common/validators/common.validators';
 
+const parseBoolean = (val: unknown) => {
+  if (typeof val === 'string') {
+    if (val.toLowerCase() === 'true') return true;
+    if (val.toLowerCase() === 'false') return false;
+  }
+  return val;
+};
+
+const parsePlatforms = (val: unknown) => {
+  if (typeof val === 'string') {
+    try {
+      return JSON.parse(val);
+    } catch {
+      return [val];
+    }
+  }
+  return val;
+};
+
 // Device Catalog Schemas
 export const createDeviceCatalogSchema = z.object({
   body: z.object({
@@ -51,28 +70,17 @@ export const createGameCatalogSchema = z.object({
   body: z.object({
     title: z.string().min(1, 'Title is required'),
     coverImageUrl: z.string().url('Cover image URL must be a valid URL').optional(),
-    supportedPlatforms: z.preprocess((val) => {
-      if (typeof val === 'string') {
-        try {
-          return JSON.parse(val);
-        } catch {
-          return [val];
-        }
-      }
-      return val;
-    }, z
-      .array(z.nativeEnum(GameStationType))
-      .min(1, 'At least one supported platform is required')
-      .default([GameStationType.PC])),
+    supportedPlatforms: z.preprocess(
+      parsePlatforms,
+      z
+        .array(z.nativeEnum(GameStationType))
+        .min(1, 'At least one supported platform is required')
+        .default([GameStationType.PC])
+    ),
     genre: z.string().optional(),
     description: z.string().optional(),
-    isActive: z.preprocess((val) => {
-      if (typeof val === 'string') {
-        if (val.toLowerCase() === 'true') return true;
-        if (val.toLowerCase() === 'false') return false;
-      }
-      return val;
-    }, z.boolean().optional().default(true)),
+    supportsOnline: z.preprocess(parseBoolean, z.boolean().optional().default(false)),
+    isActive: z.preprocess(parseBoolean, z.boolean().optional().default(true)),
   }),
 });
 
@@ -83,23 +91,19 @@ export const updateGameCatalogSchema = z.object({
   body: z.object({
     title: z.string().min(1, 'Title cannot be empty').optional(),
     coverImageUrl: z.string().url('Cover image URL must be a valid URL').optional(),
-    supportedPlatforms: z.array(z.nativeEnum(GameStationType)).optional(),
+    supportedPlatforms: z.preprocess(parsePlatforms, z.array(z.nativeEnum(GameStationType)).optional()),
     genre: z.string().optional().nullable(),
     description: z.string().optional().nullable(),
-    isActive: z.boolean().optional(),
+    supportsOnline: z.preprocess(parseBoolean, z.boolean().optional()),
+    isActive: z.preprocess(parseBoolean, z.boolean().optional()),
   }),
 });
 
 export const listGameCatalogSchema = baseFilterSchema.extend({
   platform: z.nativeEnum(GameStationType).optional(),
   genre: z.string().optional(),
-  isActive: z.preprocess((val) => {
-    if (typeof val === 'string') {
-      if (val.toLowerCase() === 'true') return true;
-      if (val.toLowerCase() === 'false') return false;
-    }
-    return val;
-  }, z.boolean().optional()),
+  supportsOnline: z.preprocess(parseBoolean, z.boolean().optional()),
+  isActive: z.preprocess(parseBoolean, z.boolean().optional()),
 });
 
 // Device Type Schemas (Dynamic Device Types)

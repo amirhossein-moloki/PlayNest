@@ -7,6 +7,7 @@ import {
   stationIdParamSchema,
   createStationsFromCatalogSchema,
   addGamesFromCatalogSchema,
+  updateGamingCenterGameSchema,
   replaceExtraControllersSchema,
   createExtraControllerSchema,
   updateExtraControllerSchema,
@@ -101,6 +102,17 @@ privateStationRouter.post(
   requireRole([UserRole.MANAGER]),
   validate(addGamesFromCatalogSchema),
   asyncHandler(StationController.addGamesFromCatalog)
+);
+
+// Update play mode (OFFLINE / ONLINE) of a game in gaming center
+privateStationRouter.patch(
+  '/games/:gameId',
+  privateApiRateLimiter,
+  authMiddleware,
+  tenantGuard,
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
+  validate(updateGamingCenterGameSchema),
+  asyncHandler(StationController.updateGamingCenterGameMode)
 );
 
 // Remove a game from gaming center

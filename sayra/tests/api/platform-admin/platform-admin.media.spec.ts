@@ -32,6 +32,9 @@ jest.mock('../../../src/config/prisma', () => ({
       create: jest.fn(),
       findMany: jest.fn(),
     },
+    gamingCenterGame: {
+      updateMany: jest.fn(),
+    },
     $extends: jest.fn().mockReturnThis(),
     $transaction: jest.fn(),
   },
@@ -260,9 +263,56 @@ describe('Platform Admin Media & Direct Image Upload Test Suite', () => {
       expect(deviceCatalogRes.options.properties.coverImageUrl.components.list).toBe('CoverImageField');
 
       expect(gameCatalogRes).toBeDefined();
+      expect(gameCatalogRes.options.properties.supportsOnline.isVisible).toEqual({
+        list: true,
+        show: true,
+        edit: true,
+        filter: true,
+      });
       expect(gameCatalogRes.options.properties.coverImageUrl.components.edit).toBe('CoverImageField');
       expect(gameCatalogRes.options.properties.coverImageUrl.components.show).toBe('CoverImageField');
       expect(gameCatalogRes.options.properties.coverImageUrl.components.list).toBe('CoverImageField');
+    });
+
+    it('should downgrade ONLINE GamingCenterGame rows when GameCatalog edit hook turns supportsOnline from true to false', async () => {
+      const safeCrud = getSafeCrudResources();
+      const gameCatalogRes = safeCrud.find((r) => r.resource.model.name === 'GameCatalog');
+      const editAfterHook = gameCatalogRes.options.actions.edit.after;
+
+      await editAfterHook(
+        {
+          record: {
+            id: 'game_online_1',
+            params: {
+              id: 'game_online_1',
+              title: 'Valorant',
+              supportsOnline: false,
+            },
+            errors: {},
+          },
+        },
+        { method: 'post' },
+        {
+          currentAdmin: { id: 'pa_super_1' },
+          record: {
+            params: {
+              id: 'game_online_1',
+              title: 'Valorant',
+              supportsOnline: true,
+            },
+          },
+        }
+      );
+
+      expect(prisma.gamingCenterGame.updateMany).toHaveBeenCalledWith({
+        where: {
+          gameCatalogId: 'game_online_1',
+          playMode: 'ONLINE',
+        },
+        data: {
+          playMode: 'OFFLINE',
+        },
+      });
     });
 
     it('should trigger old image cleanup when cover image is updated in edit hook', async () => {

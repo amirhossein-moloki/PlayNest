@@ -6,8 +6,9 @@ import {
   UpdateStationInput,
   CreateStationsFromCatalogInput,
   AddGamesFromCatalogInput,
+  UpdateGamingCenterGameInput,
 } from './station.types';
-import { listStationsSchema } from './station.validator';
+import { listStationsSchema, listGamingCenterGamesQuerySchema } from './station.validator';
 import { GamingCenter } from '@prisma/client';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
@@ -109,8 +110,40 @@ export async function getGamingCenterGames(
       return next(new AppError('GamingCenter ID or slug is required.', httpStatus.BAD_REQUEST));
     }
 
-    const games = await stationLogic.getGamesForGamingCenter(targetGamingCenterId);
+    const { playMode } = listGamingCenterGamesQuerySchema.parse(req.query);
+    const games = await stationLogic.getGamesForGamingCenter(
+      targetGamingCenterId,
+      playMode ? { playMode } : undefined
+    );
     res.ok(games);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Handle request to update play mode (OFFLINE / ONLINE) of a game in a gaming center.
+ */
+export async function updateGamingCenterGameMode(
+  req: Request<{ gamingCenterId: string; gameId: string }, unknown, UpdateGamingCenterGameInput>,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const targetGamingCenterId =
+      req.params.gamingCenterId ||
+      req.tenant?.gamingCenterId ||
+      (req as unknown as RequestWithGamingCenter).gamingCenter?.id ||
+      req.gamingCenterId;
+    const { gameId } = req.params;
+    const result = await stationLogic.updateGamingCenterGameMode(
+      targetGamingCenterId,
+      gameId,
+      req.body.playMode,
+      (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
+      { ip: req.ip, userAgent: req.headers['user-agent'] }
+    );
+    res.ok(result);
   } catch (error) {
     next(error);
   }

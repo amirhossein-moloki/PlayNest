@@ -573,6 +573,7 @@ model GamingCenter {
 
   users        User[]
   stations                GameStation[]
+  centerGames             GamingCenterGame[]
   stationExtraControllers StationExtraController[]
   reservations Reservation[]
   shifts       StaffShift[]
@@ -1473,19 +1474,45 @@ model DeviceCatalog {
   @@index([isActive])
 }
 
+enum GamePlayMode {
+  OFFLINE
+  ONLINE
+}
+
 model GameCatalog {
-  id                 String            @id @default(cuid())
+  id                 String             @id @default(cuid())
   title              String
   coverImageUrl      String
-  supportedPlatforms GameStationType[] @default([PC])
+  supportedPlatforms GameStationType[]  @default([PC])
   genre              String?
   description        String?
-  isActive           Boolean           @default(true)
+  supportsOnline     Boolean            @default(false)
+  isActive           Boolean            @default(true)
+
+  centerGames GamingCenterGame[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([isActive])
+  @@index([supportsOnline])
+}
+
+model GamingCenterGame {
+  id             String       @id @default(cuid())
+  gamingCenterId String
+  gameCatalogId  String
+  playMode       GamePlayMode @default(OFFLINE)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  gamingCenter GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+  gameCatalog  GameCatalog  @relation(fields: [gameCatalogId], references: [id], onDelete: Cascade)
+
+  @@unique([gamingCenterId, gameCatalogId])
+  @@index([gamingCenterId])
+  @@index([gameCatalogId])
+  @@index([gamingCenterId, playMode])
 }
 
 model GameStation {

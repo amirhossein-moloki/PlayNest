@@ -1,5 +1,5 @@
 import { prisma } from '../../config/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, GamePlayMode } from '@prisma/client';
 import {
   CreateDeviceCatalogInput,
   UpdateDeviceCatalogInput,
@@ -201,6 +201,7 @@ export async function createGame(data: CreateGameCatalogInput) {
       supportedPlatforms: data.supportedPlatforms,
       genre: data.genre,
       description: data.description,
+      supportsOnline: data.supportsOnline ?? false,
       isActive: data.isActive ?? true,
     },
   });
@@ -213,13 +214,17 @@ export async function findGameById(id: string) {
 }
 
 export async function findGames(query: ListGameCatalogQuery) {
-  const { page, limit, search, isActive, sortBy, sortOrder, platform, genre } = query;
+  const { page, limit, search, isActive, sortBy, sortOrder, platform, genre, supportsOnline } = query;
   const { skip, take } = getPaginationParams(page, limit);
 
   const where: Prisma.GameCatalogWhereInput = {};
 
   if (isActive !== undefined) {
     where.isActive = isActive;
+  }
+
+  if (supportsOnline !== undefined) {
+    where.supportsOnline = supportsOnline;
   }
 
   if (platform) {
@@ -254,6 +259,27 @@ export async function findGames(query: ListGameCatalogQuery) {
 }
 
 export async function updateGame(id: string, data: UpdateGameCatalogInput) {
+  if (data.supportsOnline === false && typeof prisma.$transaction === 'function') {
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.gameCatalog.update({
+        where: { id },
+        data,
+      });
+      if (typeof tx.gamingCenterGame?.updateMany === 'function') {
+        await tx.gamingCenterGame.updateMany({
+          where: {
+            gameCatalogId: id,
+            playMode: GamePlayMode.ONLINE,
+          },
+          data: {
+            playMode: GamePlayMode.OFFLINE,
+          },
+        });
+      }
+      return updated;
+    });
+  }
+
   return prisma.gameCatalog.update({
     where: { id },
     data,

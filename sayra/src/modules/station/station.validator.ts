@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { GameStationType } from '@prisma/client';
+import { GamePlayMode, GameStationType } from '@prisma/client';
 import { baseFilterSchema } from '../../common/validators/query.validators';
 import { idSchema } from '../../common/validators/common.validators';
 
@@ -100,11 +100,44 @@ export const createStationsFromCatalogSchema = z.object({
   }),
 });
 
-// Schema for adding catalog games to gaming center
+// Schema for adding catalog games to gaming center (supports both legacy IDs array and mode-aware objects)
+const addGameFromCatalogItemSchema = z.object({
+  gameCatalogId: idSchema('Invalid game catalog ID format'),
+  playMode: z.nativeEnum(GamePlayMode).optional().default(GamePlayMode.OFFLINE),
+});
+
 export const addGamesFromCatalogSchema = z.object({
-  body: z.object({
-    gameCatalogIds: z.array(idSchema('Invalid game catalog ID format')).min(1, 'At least one game must be provided'),
+  body: z.union([
+    z.object({
+      games: z
+        .array(addGameFromCatalogItemSchema)
+        .min(1, 'At least one game must be provided'),
+      gameCatalogIds: z.undefined().optional(),
+    }),
+    z.object({
+      gameCatalogIds: z
+        .array(idSchema('Invalid game catalog ID format'))
+        .min(1, 'At least one game must be provided'),
+      games: z.undefined().optional(),
+    }),
+  ]),
+});
+
+export const updateGamingCenterGameSchema = z.object({
+  params: z.object({
+    gamingCenterId: idSchema('Invalid gaming center ID format').optional(),
+    gameId: idSchema('Invalid game ID format'),
   }),
+  body: z.object({
+    playMode: z.nativeEnum(GamePlayMode),
+  }),
+});
+
+export const listGamingCenterGamesQuerySchema = z.object({
+  playMode: z.preprocess(
+    (val) => (typeof val === 'string' ? val.toUpperCase() : val),
+    z.nativeEnum(GamePlayMode).optional()
+  ),
 });
 
 // Schema for updating an existing station
