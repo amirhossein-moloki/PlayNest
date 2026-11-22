@@ -1,11 +1,21 @@
-import { ReservationPaymentState, PaymentProvider, PaymentStatus, ReservationStatus, SessionActorType } from '@prisma/client';
+import {
+  ReservationPaymentState,
+  PaymentProvider,
+  PaymentStatus,
+  ReservationStatus,
+  SessionActorType,
+  CancellationCategory,
+  CancellationActor,
+} from '@prisma/client';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { PaymentsRepo } from './payments.repo';
+import { ReservationStateMachine } from '../reservation/reservation.state-machine';
 import { env } from '../../config/env';
 import { PaymentProviderFactory } from './providers';
 import { calculatePaymentSplit } from './payment-calculation';
 import { prisma } from '../../config/prisma';
+import logger from '../../config/logger';
 import { RequestActor } from '../../types/express';
 import { eventEmitter, AppEvents } from '../../common/events/event-emitter';
 
@@ -50,13 +60,9 @@ const initiatePayment = async ({
 
   // Idempotency check: If an idempotencyKey was provided, check for existing payment record
   if (idempotencyKey) {
-    const existingPayment = await prisma.payment.findFirst({
-      where: {
-        gamingCenterId,
-        idempotencyKey,
-      },
-      include: { reservation: true },
-    });
+    const existingPayment = typeof PaymentsRepo.findPaymentByIdempotencyKey === 'function'
+      ? await PaymentsRepo.findPaymentByIdempotencyKey(gamingCenterId, idempotencyKey)
+      : null;
 
     if (existingPayment) {
       if (existingPayment.status === PaymentStatus.PAID) {
@@ -95,23 +101,26 @@ const initiatePayment = async ({
     throw new AppError('Reservation is canceled or expired and cannot be paid.', httpStatus.BAD_REQUEST);
   }
 
+  if (
+    reservation.paymentState === ReservationPaymentState.FAILED ||
+    reservation.paymentState === ReservationPaymentState.CANCELED
+  ) {
+    throw new AppError('Reservation payment has already failed or been canceled.', httpStatus.BAD_REQUEST);
+  }
+
+  const isWalletOnlyProvider = providerName?.toUpperCase() === 'WALLET';
+  const effectiveUseWallet = Boolean(useWallet || isWalletOnlyProvider);
+
   // Reclaim any stale initiated payments with stranded wallet deductions (> 15m)
-  if (reservation.customerAccountId) {
-    await PaymentsRepo.reapStaleCustomerInitiatedPayments(reservation.customerAccountId).catch(() => {});
+  if (reservation.customerAccountId && typeof PaymentsRepo.reapStaleCustomerInitiatedPayments === 'function') {
+    await Promise.resolve(PaymentsRepo.reapStaleCustomerInitiatedPayments(reservation.customerAccountId)).catch(() => {});
   }
 
   // Cancel any stale INITIATED payment for this reservation, restoring any deducted wallet contribution
-  const activeExistingPayment = await prisma.payment.findFirst({
-    where: {
-      OR: [
-        { reservationId },
-        { groupBookingId: reservationId },
-        { bookingHoldId: reservationId },
-      ],
-      status: PaymentStatus.INITIATED,
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+  // without canceling the reservation itself since a new payment attempt is starting immediately.
+  const activeExistingPayment = typeof PaymentsRepo.findActiveInitiatedPayment === 'function'
+    ? await PaymentsRepo.findActiveInitiatedPayment(reservationId)
+    : null;
 
   if (activeExistingPayment) {
     await PaymentsRepo.transaction(async (tx) => {
@@ -119,10 +128,120 @@ const initiatePayment = async ({
         tx,
         activeExistingPayment.id,
         PaymentStatus.FAILED,
-        'Superseded by new payment initiation'
+        'Superseded by new payment initiation',
+        { cancelReservation: false }
       );
     });
   }
+
+  const isAlreadyPaidConflict = (error: unknown): boolean =>
+    error instanceof AppError &&
+    error.statusCode === httpStatus.CONFLICT &&
+    error.message === 'Reservation is already paid.';
+
+  const cancelUnpaidEntityOnFailure = async (reason: string) => {
+    try {
+      await PaymentsRepo.transaction(async (tx) => {
+        const isGroupBooking = Boolean((reservation as unknown as { isGroupBooking?: boolean }).isGroupBooking);
+        if (isGroupBooking) {
+          const freshGroup =
+            typeof tx.groupBooking?.findUnique === 'function'
+              ? await tx.groupBooking.findUnique({
+                where: { id: reservationId },
+                select: { status: true, paymentState: true },
+              })
+              : reservation;
+
+          if (freshGroup?.paymentState === ReservationPaymentState.PAID) {
+            return;
+          }
+
+          const isTerminal = freshGroup?.status
+            ? ReservationStateMachine.isTerminalState(freshGroup.status)
+            : false;
+
+          if (typeof tx.groupBooking?.update === 'function') {
+            const groupUpdateData: Record<string, unknown> = {
+              paymentState: ReservationPaymentState.FAILED,
+            };
+            if (!isTerminal) {
+              groupUpdateData.status = ReservationStatus.CANCELED;
+              groupUpdateData.canceledAt = new Date();
+              groupUpdateData.cancelReason = reason;
+            }
+            await tx.groupBooking.update({
+              where: { id: reservationId },
+              data: groupUpdateData,
+            });
+          }
+
+          if (typeof tx.reservation?.updateMany === 'function') {
+            const childUpdateData: Record<string, unknown> = {
+              paymentState: ReservationPaymentState.FAILED,
+            };
+            if (!isTerminal) {
+              childUpdateData.status = ReservationStatus.CANCELED;
+              childUpdateData.canceledAt = new Date();
+              childUpdateData.cancelReason = reason;
+              childUpdateData.cancelCategory = CancellationCategory.PAYMENT_FAILED;
+              childUpdateData.cancelActor = CancellationActor.SYSTEM;
+            }
+            await tx.reservation.updateMany({
+              where: { groupBookingId: reservationId },
+              data: childUpdateData,
+            });
+          }
+        } else {
+          const freshRes =
+            typeof tx.reservation?.findUnique === 'function'
+              ? await tx.reservation.findUnique({
+                where: { id: reservationId },
+                select: { status: true, paymentState: true },
+              })
+              : reservation;
+
+          if (freshRes?.paymentState === ReservationPaymentState.PAID) {
+            return;
+          }
+
+          const isTerminal = freshRes?.status
+            ? ReservationStateMachine.isTerminalState(freshRes.status)
+            : false;
+
+          if (typeof tx.reservation?.update === 'function') {
+            const resUpdateData: Record<string, unknown> = {
+              paymentState: ReservationPaymentState.FAILED,
+            };
+            if (!isTerminal) {
+              resUpdateData.status = ReservationStatus.CANCELED;
+              resUpdateData.canceledAt = new Date();
+              resUpdateData.cancelReason = reason;
+              resUpdateData.cancelCategory = CancellationCategory.PAYMENT_FAILED;
+              resUpdateData.cancelActor = CancellationActor.SYSTEM;
+            }
+            await tx.reservation.update({
+              where: { id: reservationId },
+              data: resUpdateData,
+            });
+          }
+
+          if (!isTerminal && typeof (tx as unknown as { reservationHistory?: { create: unknown } }).reservationHistory?.create === 'function') {
+            await tx.reservationHistory.create({
+              data: {
+                reservationId,
+                fromStatus: freshRes?.status || reservation.status,
+                toStatus: ReservationStatus.CANCELED,
+                action: 'CANCEL',
+                reason,
+              },
+            });
+          }
+        }
+      });
+    } catch (cleanupErr) {
+      logger.warn({ err: cleanupErr, reservationId }, 'Failed to cancel unpaid reservation on payment initiation failure');
+    }
+  };
 
   // 3. Trusted server-side price & currency calculation (Backend Authority & Legacy Compatibility)
   // Prefers validated customerPayableAmount, with graceful fallback to totalPrice for legacy reservations
@@ -131,7 +250,8 @@ const initiatePayment = async ({
     : reservation.totalPrice;
 
   const calculatedAmount = Math.round(payableCandidate);
-  if (calculatedAmount <= 0) {
+  if (isNaN(calculatedAmount) || calculatedAmount <= 0) {
+    await cancelUnpaidEntityOnFailure('Invalid reservation payable amount for payment.');
     throw new AppError('Invalid reservation payable amount for payment.', httpStatus.BAD_REQUEST);
   }
 
@@ -149,12 +269,18 @@ const initiatePayment = async ({
   }
 
   // 5. Calculate payment split
-  const paymentSplit = calculatePaymentSplit({
-    payableAmount: calculatedAmount,
-    walletBalance: availableWalletBalance,
-    useWallet: Boolean(useWallet),
-    currency,
-  });
+  let paymentSplit;
+  try {
+    paymentSplit = calculatePaymentSplit({
+      payableAmount: calculatedAmount,
+      walletBalance: availableWalletBalance,
+      useWallet: effectiveUseWallet,
+      currency,
+    });
+  } catch (error) {
+    await cancelUnpaidEntityOnFailure(error instanceof Error ? error.message : 'Payment calculation failed');
+    throw error;
+  }
 
   // Scenario A: Full Wallet Payment (No external gateway needed)
   if (paymentSplit.coversEntireAmount && reservation.customerAccountId) {
@@ -178,69 +304,55 @@ const initiatePayment = async ({
         message: 'Payment completed successfully using wallet balance.',
       };
     } catch (error) {
-      await PaymentsRepo.transaction(async (tx) => {
-        if ((reservation as unknown as { isGroupBooking?: boolean }).isGroupBooking) {
-          await tx.groupBooking.update({
-            where: { id: reservationId },
-            data: {
-              paymentState: ReservationPaymentState.FAILED,
-              status: ReservationStatus.CANCELED,
-              canceledAt: new Date(),
-              cancelReason: error instanceof Error ? error.message : 'تراکنش پرداخت با کیف پول ناموفق بود',
-            },
-          });
-          await tx.reservation.updateMany({
-            where: { groupBookingId: reservationId },
-            data: {
-              paymentState: ReservationPaymentState.FAILED,
-              status: ReservationStatus.CANCELED,
-              canceledAt: new Date(),
-              cancelReason: error instanceof Error ? error.message : 'تراکنش پرداخت با کیف پول ناموفق بود',
-            },
-          });
-        } else {
-          await tx.reservation.update({
-            where: { id: reservationId },
-            data: {
-              paymentState: ReservationPaymentState.FAILED,
-              status: ReservationStatus.CANCELED,
-              canceledAt: new Date(),
-              cancelReason: error instanceof Error ? error.message : 'تراکنش پرداخت با کیف پول ناموفق بود',
-            },
-          });
-          if (typeof (tx as unknown as { reservationHistory?: { create: unknown } }).reservationHistory?.create === 'function') {
-            await tx.reservationHistory.create({
-              data: {
-                reservationId,
-                fromStatus: reservation.status,
-                toStatus: ReservationStatus.CANCELED,
-                action: 'CANCEL',
-                reason: error instanceof Error ? error.message : 'لغو خودکار به دلیل خطای پرداخت با کیف پول',
-              },
-            });
-          }
-        }
-      });
+      if (!isAlreadyPaidConflict(error)) {
+        await cancelUnpaidEntityOnFailure(
+          error instanceof Error ? error.message : 'تراکنش پرداخت با کیف پول ناموفق بود'
+        );
+      }
       throw error;
     }
   }
 
+  if (isWalletOnlyProvider) {
+    await cancelUnpaidEntityOnFailure('Insufficient wallet balance.');
+    throw new AppError('Insufficient wallet balance.', httpStatus.BAD_REQUEST, {
+      code: 'INSUFFICIENT_WALLET_BALANCE',
+    });
+  }
+
   // Resolve provider strategy for external gateway portion
-  const provider = PaymentProviderFactory.getProvider(providerName);
+  let provider;
+  try {
+    provider = PaymentProviderFactory.getProvider(providerName);
+  } catch (error) {
+    await cancelUnpaidEntityOnFailure(error instanceof Error ? error.message : 'Unsupported payment provider');
+    throw error;
+  }
   const prismaProvider = mapProviderEnum(provider.name);
 
   // Scenario B: Partial Wallet Payment (Wallet + External gateway)
   if (paymentSplit.walletContribution > 0 && reservation.customerAccountId) {
-    const { payment } = await PaymentsRepo.createPartialPayment({
-      reservationId,
-      gamingCenterId,
-      customerAccountId: reservation.customerAccountId,
-      totalAmount: paymentSplit.totalAmount,
-      walletContribution: paymentSplit.walletContribution,
-      currency,
-      provider: prismaProvider,
-      idempotencyKey,
-    });
+    let payment;
+    try {
+      const partialResult = await PaymentsRepo.createPartialPayment({
+        reservationId,
+        gamingCenterId,
+        customerAccountId: reservation.customerAccountId,
+        totalAmount: paymentSplit.totalAmount,
+        walletContribution: paymentSplit.walletContribution,
+        currency,
+        provider: prismaProvider,
+        idempotencyKey,
+      });
+      payment = partialResult.payment;
+    } catch (error) {
+      if (!isAlreadyPaidConflict(error)) {
+        await cancelUnpaidEntityOnFailure(
+          error instanceof Error ? error.message : 'Partial wallet payment initiation failed'
+        );
+      }
+      throw error;
+    }
 
     try {
       const callbackUrl = provider.name === 'ZIBAL' ? env.ZIBAL_CALLBACK_URL : env.ZARINPAL_CALLBACK_URL;
@@ -286,19 +398,30 @@ const initiatePayment = async ({
   }
 
   // Scenario C & D: External gateway only (Wallet disabled or empty)
-  const { payment } = await PaymentsRepo.createPaymentAndUpdateReservation({
-    reservationId,
-    paymentData: {
-      gamingCenter: { connect: { id: gamingCenterId } },
-      reservation: { connect: { id: reservationId } },
-      amount: paymentSplit.totalAmount,
-      walletAmount: 0,
-      currency,
-      provider: prismaProvider,
-      status: PaymentStatus.INITIATED,
-      idempotencyKey,
-    },
-  });
+  let payment;
+  try {
+    const gatewayCreateResult = await PaymentsRepo.createPaymentAndUpdateReservation({
+      reservationId,
+      paymentData: {
+        gamingCenter: { connect: { id: gamingCenterId } },
+        reservation: { connect: { id: reservationId } },
+        amount: paymentSplit.totalAmount,
+        walletAmount: 0,
+        currency,
+        provider: prismaProvider,
+        status: PaymentStatus.INITIATED,
+        idempotencyKey,
+      },
+    });
+    payment = gatewayCreateResult.payment;
+  } catch (error) {
+    if (!isAlreadyPaidConflict(error)) {
+      await cancelUnpaidEntityOnFailure(
+        error instanceof Error ? error.message : 'Payment creation failed'
+      );
+    }
+    throw error;
+  }
 
   try {
     const callbackUrl = provider.name === 'ZIBAL' ? env.ZIBAL_CALLBACK_URL : env.ZARINPAL_CALLBACK_URL;
@@ -399,6 +522,11 @@ const verifyPayment = async ({
   if (isExplicitFailure) {
     const updated = await PaymentsRepo.transaction(async (tx) => {
       return PaymentsRepo.handleFailedPayment(tx, payment.id, PaymentStatus.FAILED, 'Gateway returned non-OK status');
+    });
+
+    eventEmitter.emit(AppEvents.PAYMENT_FAILED, {
+      payment: updated,
+      failureReason: 'Payment canceled or rejected by user/gateway.',
     });
 
     return {

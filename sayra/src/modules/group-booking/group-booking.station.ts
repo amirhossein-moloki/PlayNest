@@ -1,5 +1,17 @@
 import { addMinutes, isBefore } from 'date-fns';
-import { ReservationStatus, ReservationPaymentState, ReservationSource, PaymentStatus, Prisma, SessionActorType, UserRole, OtpPurpose } from '@prisma/client';
+import {
+  ReservationStatus,
+  ReservationPaymentState,
+  ReservationSource,
+  PaymentStatus,
+  PaymentMethod,
+  PaymentProvider,
+  WalletTransactionType,
+  Prisma,
+  SessionActorType,
+  UserRole,
+  OtpPurpose,
+} from '@prisma/client';
 import { GroupBookingRepo } from './group-booking.repo';
 import { ReservationRepo } from '../reservation/reservation.repo';
 import { AuthRepository } from '../auth/auth.repository';
@@ -7,6 +19,8 @@ import { discountsStation } from '../discounts/discounts.station';
 import { walletService } from '../wallet/wallet.station';
 import { auditService } from '../audit/audit.station';
 import { PaymentsRepo } from '../payments/payments.repo';
+import { LedgerRepo } from '../payments/ledger.repo';
+import { commissionsStation } from '../commissions/commissions.station';
 import { calculateBasePrice } from '../../common/utils/money';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
@@ -58,9 +72,12 @@ export const GroupBookingStation = {
     customer: { fullName: string; phone: string; email?: string };
     note?: string;
     source?: ReservationSource;
+    useWallet?: boolean;
+    provider?: string;
     actor?: { id: string; role?: UserRole; actorType?: SessionActorType };
   }) {
     const { gamingCenterId, createdByUserId, items, customer, note, source, actor } = input;
+    const wantsWallet = Boolean(input.useWallet || input.provider?.toUpperCase() === 'WALLET');
     const startTime = new Date(input.startTime);
 
     if (!gamingCenterId) {
@@ -108,7 +125,25 @@ export const GroupBookingStation = {
       closures: gamingCenter.closures,
     });
 
-    return GroupBookingRepo.transaction(async (tx) => {
+    if (
+      wantsWallet &&
+      typeof prisma?.customerAccount?.findUnique === 'function' &&
+      typeof PaymentsRepo?.reapStaleCustomerInitiatedPayments === 'function'
+    ) {
+      try {
+        const preTxCustomer = await prisma.customerAccount.findUnique({
+          where: { phone: normalizePhone(customer.phone) },
+          select: { id: true },
+        });
+        if (preTxCustomer?.id) {
+          await PaymentsRepo.reapStaleCustomerInitiatedPayments(preTxCustomer.id).catch(() => {});
+        }
+      } catch {
+        // Ignore pre-transaction reap failures in mocked or offline environments
+      }
+    }
+
+    const result = await GroupBookingRepo.transaction(async (tx) => {
       // Resolve effective User record ID for createdByUserId
       let effectiveCreatedByUserId = createdByUserId;
       if (actor?.actorType === SessionActorType.CUSTOMER) {
@@ -205,6 +240,38 @@ export const GroupBookingStation = {
 
       await ReservationRepo.assertActiveReservationLimitNotExceeded(customerAccount.id, tx);
 
+      const isPayable = aggregatePrice > 0;
+      const roundedPayable = Math.round(aggregatePrice);
+      const isWalletPayment = Boolean(wantsWallet && isPayable);
+      let initialPaymentState: ReservationPaymentState = isPayable
+        ? ReservationPaymentState.UNPAID
+        : ReservationPaymentState.PAID;
+
+      if (isWalletPayment) {
+        if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
+          await tx.$executeRaw`SELECT id FROM "CustomerAccount" WHERE id = ${customerAccount.id} FOR UPDATE`;
+        }
+
+        const freshAccount = await tx.customerAccount.findUnique({
+          where: { id: customerAccount.id },
+          select: { walletBalance: true },
+        });
+
+        const currentBalance = freshAccount?.walletBalance ?? 0;
+        if (currentBalance < roundedPayable) {
+          throw new AppError('Insufficient wallet balance.', httpStatus.BAD_REQUEST, {
+            code: 'INSUFFICIENT_WALLET_BALANCE',
+          });
+        }
+
+        await tx.customerAccount.update({
+          where: { id: customerAccount.id },
+          data: { walletBalance: { decrement: roundedPayable } },
+        });
+
+        initialPaymentState = ReservationPaymentState.PAID;
+      }
+
       const status: ReservationStatus = ReservationStatus.CONFIRMED;
       const expiresAt = (status as ReservationStatus) === ReservationStatus.PENDING
         ? new Date(Date.now() + 60 * 1000)
@@ -223,7 +290,7 @@ export const GroupBookingStation = {
           totalPrice: aggregatePrice,
           discountAmount: aggregateDiscount,
           status: ReservationStatus.CONFIRMED,
-          paymentState: ReservationPaymentState.UNPAID,
+          paymentState: initialPaymentState,
           source: source || ReservationSource.WALK_IN,
           note,
           expiresAt,
@@ -232,10 +299,54 @@ export const GroupBookingStation = {
         tx
       );
 
-      return createdGroupBooking;
+      if (isWalletPayment && createdGroupBooking) {
+        const payment = await tx.payment.create({
+          data: {
+            gamingCenter: { connect: { id: gamingCenterId } },
+            groupBooking: { connect: { id: createdGroupBooking.id } },
+            amount: roundedPayable,
+            walletAmount: roundedPayable,
+            currency: 'IRR',
+            provider: PaymentProvider.MANUAL,
+            method: PaymentMethod.WALLET,
+            status: PaymentStatus.PAID,
+            paidAt: new Date(),
+            referenceCode: `WALLET-GB-${createdGroupBooking.id.slice(-8).toUpperCase()}`,
+          },
+        });
+
+        await tx.walletTransaction.create({
+          data: {
+            customerAccountId: customerAccount.id,
+            amount: -roundedPayable,
+            currency: 'IRR',
+            type: WalletTransactionType.RESERVATION_PAYMENT,
+            paymentId: payment.id,
+            note: `پرداخت کامل هزینه رزرو گروهی ${createdGroupBooking.id} از طریق کیف پول`,
+          },
+        });
+
+        await LedgerRepo.createCollectionEntry(tx, {
+          gamingCenterId,
+          paymentId: payment.id,
+          amount: roundedPayable,
+          currency: 'IRR',
+          description: `Wallet payment collection for group booking ${createdGroupBooking.id}`,
+        });
+      }
+
+      return { groupBooking: createdGroupBooking, isWalletPayment };
     }, {
       isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
     });
+
+    if (result.isWalletPayment && result.groupBooking?.reservations) {
+      for (const res of result.groupBooking.reservations) {
+        await commissionsStation.calculateCommission(res.id).catch(() => {});
+      }
+    }
+
+    return result.groupBooking;
   },
 
   async createPublicGroupBooking(gamingCenterSlug: string, input: {
@@ -244,6 +355,8 @@ export const GroupBookingStation = {
     items: Array<{ stationId: string; staffId?: string }>;
     customer: { fullName: string; phone: string; email?: string };
     note?: string;
+    useWallet?: boolean;
+    provider?: string;
     actor?: RequestActor;
   }) {
     const gamingCenter = await ReservationRepo.findGamingCenterBySlugWithSettings(gamingCenterSlug);
@@ -328,7 +441,26 @@ export const GroupBookingStation = {
       closures: gamingCenter.closures,
     });
 
-    return GroupBookingRepo.transaction(async (tx) => {
+    const wantsWallet = Boolean(input.useWallet || input.provider?.toUpperCase() === 'WALLET');
+    if (
+      wantsWallet &&
+      typeof prisma?.customerAccount?.findUnique === 'function' &&
+      typeof PaymentsRepo?.reapStaleCustomerInitiatedPayments === 'function'
+    ) {
+      try {
+        const preTxCustomer = await prisma.customerAccount.findUnique({
+          where: { phone: normalizePhone(customer.phone) },
+          select: { id: true },
+        });
+        if (preTxCustomer?.id) {
+          await PaymentsRepo.reapStaleCustomerInitiatedPayments(preTxCustomer.id).catch(() => {});
+        }
+      } catch {
+        // Ignore pre-transaction reap failures in mocked or offline environments
+      }
+    }
+
+    const result = await GroupBookingRepo.transaction(async (tx) => {
       await ReservationRepo.lockStationsForUpdate(stationIds, tx);
 
       const stations = await GroupBookingRepo.findStationsBatch(stationIds, gamingCenter.id, true, tx);
@@ -408,13 +540,57 @@ export const GroupBookingStation = {
 
       await ReservationRepo.assertActiveReservationLimitNotExceeded(customerAccount.id, tx);
 
-      const status = gamingCenter.settings?.onlineBookingAutoConfirm
-        ? ReservationStatus.CONFIRMED
-        : ReservationStatus.PENDING;
+      const isPayable = aggregatePrice > 0;
+      const roundedPayable = Math.round(aggregatePrice);
+      const isWalletPayment = Boolean(wantsWallet && isPayable);
+      let initialPaymentState: ReservationPaymentState = isPayable
+        ? ReservationPaymentState.UNPAID
+        : ReservationPaymentState.PAID;
+
+      if (isWalletPayment) {
+        if (input.actor?.actorType === SessionActorType.CUSTOMER && customerAccount.id !== input.actor.id) {
+          throw new AppError('You can only use your own wallet balance.', httpStatus.FORBIDDEN, {
+            code: 'UNAUTHORIZED_WALLET_ACCESS',
+          });
+        }
+
+        if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
+          await tx.$executeRaw`SELECT id FROM "CustomerAccount" WHERE id = ${customerAccount.id} FOR UPDATE`;
+        }
+
+        const freshAccount = await tx.customerAccount.findUnique({
+          where: { id: customerAccount.id },
+          select: { walletBalance: true },
+        });
+
+        const currentBalance = freshAccount?.walletBalance ?? 0;
+        if (currentBalance < roundedPayable) {
+          throw new AppError('Insufficient wallet balance.', httpStatus.BAD_REQUEST, {
+            code: 'INSUFFICIENT_WALLET_BALANCE',
+          });
+        }
+
+        await tx.customerAccount.update({
+          where: { id: customerAccount.id },
+          data: { walletBalance: { decrement: roundedPayable } },
+        });
+
+        initialPaymentState = ReservationPaymentState.PAID;
+      }
+
+      const isPaid = initialPaymentState === ReservationPaymentState.PAID;
+      const status =
+        isPaid && gamingCenter.settings?.onlineBookingAutoConfirm
+          ? ReservationStatus.CONFIRMED
+          : ReservationStatus.PENDING;
 
       const timeoutMinutes = gamingCenter.settings?.reservationConfirmationTimeoutMinutes ?? 30;
+      const unpaidReleaseMinutes = gamingCenter.settings?.autoReleaseUnpaidMinutes ?? 15;
+      const effectiveTimeout = !isPaid
+        ? Math.min(unpaidReleaseMinutes, timeoutMinutes)
+        : timeoutMinutes;
       const confirmationExpiresAt = status === ReservationStatus.PENDING
-        ? new Date(Date.now() + timeoutMinutes * 60 * 1000)
+        ? new Date(Date.now() + effectiveTimeout * 60 * 1000)
         : null;
       const expiresAt = confirmationExpiresAt;
 
@@ -424,7 +600,7 @@ export const GroupBookingStation = {
         throw new AppError('System error: Gaming center user not found.', httpStatus.INTERNAL_SERVER_ERROR);
       }
 
-      return GroupBookingRepo.createGroupBookingWithDetails(
+      const createdGroupBooking = await GroupBookingRepo.createGroupBookingWithDetails(
         {
           gamingCenterId: gamingCenter.id,
           customerProfileId: customerProfile.id,
@@ -436,7 +612,7 @@ export const GroupBookingStation = {
           totalPrice: aggregatePrice,
           discountAmount: aggregateDiscount,
           status,
-          paymentState: ReservationPaymentState.UNPAID,
+          paymentState: initialPaymentState,
           source: ReservationSource.ONLINE,
           note,
           expiresAt,
@@ -445,9 +621,55 @@ export const GroupBookingStation = {
         },
         tx
       );
+
+      if (isWalletPayment && createdGroupBooking) {
+        const payment = await tx.payment.create({
+          data: {
+            gamingCenter: { connect: { id: gamingCenter.id } },
+            groupBooking: { connect: { id: createdGroupBooking.id } },
+            amount: roundedPayable,
+            walletAmount: roundedPayable,
+            currency: 'IRR',
+            provider: PaymentProvider.MANUAL,
+            method: PaymentMethod.WALLET,
+            status: PaymentStatus.PAID,
+            paidAt: new Date(),
+            referenceCode: `WALLET-GB-${createdGroupBooking.id.slice(-8).toUpperCase()}`,
+          },
+        });
+
+        await tx.walletTransaction.create({
+          data: {
+            customerAccountId: customerAccount.id,
+            amount: -roundedPayable,
+            currency: 'IRR',
+            type: WalletTransactionType.RESERVATION_PAYMENT,
+            paymentId: payment.id,
+            note: `پرداخت کامل هزینه رزرو گروهی ${createdGroupBooking.id} از طریق کیف پول`,
+          },
+        });
+
+        await LedgerRepo.createCollectionEntry(tx, {
+          gamingCenterId: gamingCenter.id,
+          paymentId: payment.id,
+          amount: roundedPayable,
+          currency: 'IRR',
+          description: `Wallet payment collection for group booking ${createdGroupBooking.id}`,
+        });
+      }
+
+      return { groupBooking: createdGroupBooking, isWalletPayment };
     }, {
       isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
     });
+
+    if (result.isWalletPayment && result.groupBooking?.reservations) {
+      for (const res of result.groupBooking.reservations) {
+        await commissionsStation.calculateCommission(res.id).catch(() => {});
+      }
+    }
+
+    return result.groupBooking;
   },
 
   async getGroupBookingById(

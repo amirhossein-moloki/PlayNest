@@ -31,6 +31,7 @@ export const BookingHoldRepo = {
       where: {
         gamingCenterId,
         stationId: { in: stationIds },
+        paymentState: { notIn: [ReservationPaymentState.FAILED, ReservationPaymentState.CANCELED] },
         status: { in: [ReservationStatus.PENDING, ReservationStatus.CONFIRMED, ReservationStatus.COMPLETED, ReservationStatus.IN_PROGRESS] },
         startTime: { lt: endTime },
         endTime: { gt: startTime },

@@ -32,6 +32,8 @@ export const createPublicGroupReservationSchema = z.object({
     items: z.array(groupBookingItemSchema).min(1, 'At least one station item is required'),
     customer: customerSchema,
     note: z.string().max(500).optional(),
+    useWallet: z.boolean().optional(),
+    provider: z.string().optional(),
   }),
 });
 
@@ -64,6 +66,8 @@ export const createGroupBookingSchema = z.object({
     customer: customerSchema,
     note: z.string().max(500).optional(),
     source: z.nativeEnum(ReservationSource).optional(),
+    useWallet: z.boolean().optional(),
+    provider: z.string().optional(),
   }),
 });
 

@@ -2,7 +2,7 @@ import { describe, it, expect, jest } from '@jest/globals';
 import { prismaMock } from '../../../mocks/prisma';
 import { PaymentsRepo } from '../../../../src/modules/payments/payments.repo';
 import { walletService } from '../../../../src/modules/wallet/wallet.station';
-import { PaymentStatus, ReservationPaymentState, ReservationStatus } from '@prisma/client';
+import { CancellationActor, CancellationCategory, PaymentStatus, ReservationPaymentState, ReservationStatus } from '@prisma/client';
 import AppError from '../../../../src/common/errors/AppError';
 import httpStatus from 'http-status';
 
@@ -283,6 +283,81 @@ describe('PaymentsRepo', () => {
       await PaymentsRepo.handleFailedPayment(prismaMock as any, paymentId, PaymentStatus.FAILED);
 
       expect((prismaMock.customerAccount as any).update).not.toHaveBeenCalled();
+    });
+
+    it('should cancel active reservation even when paymentState is already FAILED, setting cancelCategory and cancelActor', async () => {
+      const mockPayment = {
+        id: paymentId,
+        reservationId,
+        status: PaymentStatus.INITIATED,
+        walletAmount: 0,
+        reservation: {
+          id: reservationId,
+          status: ReservationStatus.PENDING,
+          paymentState: ReservationPaymentState.FAILED,
+        },
+      };
+
+      paymentMock.findUnique.mockResolvedValue(mockPayment);
+      paymentMock.update.mockResolvedValue({ ...mockPayment, status: PaymentStatus.FAILED });
+      reservationMock.update.mockResolvedValue({
+        id: reservationId,
+        status: ReservationStatus.CANCELED,
+        paymentState: ReservationPaymentState.FAILED,
+      });
+
+      await PaymentsRepo.handleFailedPayment(prismaMock as any, paymentId, PaymentStatus.FAILED, 'Wallet error');
+
+      expect(reservationMock.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: reservationId },
+          data: expect.objectContaining({
+            paymentState: ReservationPaymentState.FAILED,
+            status: ReservationStatus.CANCELED,
+            cancelCategory: CancellationCategory.PAYMENT_FAILED,
+            cancelActor: CancellationActor.SYSTEM,
+          }),
+        })
+      );
+    });
+
+    it('should restore wallet and mark payment FAILED without canceling reservation when cancelReservation=false', async () => {
+      const mockPayment = {
+        id: paymentId,
+        reservationId,
+        status: PaymentStatus.INITIATED,
+        walletAmount: 15000,
+        currency: 'IRR',
+        reservation: {
+          id: reservationId,
+          customerAccountId: 'cust-1',
+          status: ReservationStatus.PENDING,
+          paymentState: ReservationPaymentState.PENDING,
+        },
+      };
+
+      paymentMock.findUnique.mockResolvedValue(mockPayment);
+      paymentMock.update.mockResolvedValue({ ...mockPayment, status: PaymentStatus.FAILED });
+      (prismaMock.customerAccount as any).update = (jest.fn() as any).mockResolvedValue({ id: 'cust-1' });
+      (prismaMock.walletTransaction as any).findFirst = (jest.fn() as any).mockResolvedValue(null);
+      (prismaMock.walletTransaction as any).create = (jest.fn() as any).mockResolvedValue({ id: 'wtx-r' });
+      reservationMock.update.mockClear();
+
+      await PaymentsRepo.handleFailedPayment(
+        prismaMock as any,
+        paymentId,
+        PaymentStatus.FAILED,
+        'Superseded',
+        { cancelReservation: false }
+      );
+
+      expect((prismaMock.customerAccount as any).update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'cust-1' },
+          data: { walletBalance: { increment: 15000 } },
+        })
+      );
+      expect(reservationMock.update).not.toHaveBeenCalled();
     });
   });
 

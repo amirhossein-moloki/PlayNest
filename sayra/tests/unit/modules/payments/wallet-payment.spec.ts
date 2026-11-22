@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import {
+  CancellationActor,
+  CancellationCategory,
   PaymentMethod,
   PaymentProvider,
   PaymentStatus,
@@ -311,6 +313,8 @@ jest.mock('../../../../src/modules/commissions/commissions.station', () => ({
   },
 }));
 
+import { PaymentsRepo } from '../../../../src/modules/payments/payments.repo';
+import { PaymentProviderFactory } from '../../../../src/modules/payments/providers';
 import { PaymentsStation } from '../../../../src/modules/payments/payments.station';
 
 describe('Wallet Payment and Partial Payment Module', () => {
@@ -1000,6 +1004,7 @@ describe('Wallet Payment and Partial Payment Module', () => {
       const refundTxs = state.walletTransactions.filter((t) => t.type === WalletTransactionType.REFUND);
       expect(refundTxs.length).toBe(1);
       expect(refundTxs[0].paymentId).toBe(firstResult.paymentId);
+      expect(state.reservations.get(reservationId).status).toBe(ReservationStatus.PENDING);
     });
 
     it('re-verifying already FAILED payment returns failure without re-calling provider', async () => {
@@ -1025,6 +1030,172 @@ describe('Wallet Payment and Partial Payment Module', () => {
       expect(res.success).toBe(false);
       expect(res.paymentStatus).toBe(PaymentStatus.FAILED);
       expect(mockProvider.verifyPayment).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('10. Prevent Unpaid/Failed Reservations on Payment Initiation Errors', () => {
+    beforeEach(() => {
+      state.customerAccounts.set(customerAccountId, {
+        id: customerAccountId,
+        walletBalance: 40000,
+      });
+
+      state.reservations.set(reservationId, {
+        id: reservationId,
+        gamingCenterId,
+        customerAccountId,
+        totalPrice: 100000,
+        customerPayableAmount: 100000,
+        status: ReservationStatus.PENDING,
+        paymentState: ReservationPaymentState.UNPAID,
+        stationSnapshot: { currency: 'IRR' },
+      });
+    });
+
+    it('cancels reservation with paymentState FAILED when providerName=WALLET and wallet balance is insufficient', async () => {
+      await expect(
+        PaymentsStation.initiatePayment({
+          gamingCenterId,
+          reservationId,
+          idempotencyKey: 'idemp-wallet-only-insuff',
+          providerName: 'WALLET',
+        })
+      ).rejects.toMatchObject({
+        statusCode: httpStatus.BAD_REQUEST,
+        code: 'INSUFFICIENT_WALLET_BALANCE',
+      });
+
+      expect(state.customerAccounts.get(customerAccountId).walletBalance).toBe(40000);
+      const res = state.reservations.get(reservationId);
+      expect(res.status).toBe(ReservationStatus.CANCELED);
+      expect(res.paymentState).toBe(ReservationPaymentState.FAILED);
+      expect(res.cancelCategory).toBe(CancellationCategory.PAYMENT_FAILED);
+      expect(res.cancelActor).toBe(CancellationActor.SYSTEM);
+    });
+
+    it('cancels reservation with paymentState FAILED when PaymentProviderFactory.getProvider throws', async () => {
+      (PaymentProviderFactory.getProvider as jest.Mock).mockImplementationOnce(() => {
+        throw new AppError('Unsupported payment provider: BAD', httpStatus.BAD_REQUEST);
+      });
+
+      await expect(
+        PaymentsStation.initiatePayment({
+          gamingCenterId,
+          reservationId,
+          idempotencyKey: 'idemp-bad-provider',
+          providerName: 'BAD',
+          useWallet: false,
+        })
+      ).rejects.toThrow('Unsupported payment provider: BAD');
+
+      const res = state.reservations.get(reservationId);
+      expect(res.status).toBe(ReservationStatus.CANCELED);
+      expect(res.paymentState).toBe(ReservationPaymentState.FAILED);
+    });
+
+    it('cancels reservation with paymentState FAILED without deducting wallet if createPartialPayment fails', async () => {
+      const spy = jest.spyOn(PaymentsRepo, 'createPartialPayment').mockRejectedValueOnce(
+        new AppError('Insufficient wallet balance.', httpStatus.BAD_REQUEST, {
+          code: 'INSUFFICIENT_WALLET_BALANCE',
+        })
+      );
+
+      await expect(
+        PaymentsStation.initiatePayment({
+          gamingCenterId,
+          reservationId,
+          idempotencyKey: 'idemp-partial-fail',
+          useWallet: true,
+        })
+      ).rejects.toThrow('Insufficient wallet balance.');
+
+      spy.mockRestore();
+      expect(state.customerAccounts.get(customerAccountId).walletBalance).toBe(40000);
+      const res = state.reservations.get(reservationId);
+      expect(res.status).toBe(ReservationStatus.CANCELED);
+      expect(res.paymentState).toBe(ReservationPaymentState.FAILED);
+    });
+
+    it('cancels reservation with paymentState FAILED if createPaymentAndUpdateReservation fails', async () => {
+      const spy = jest.spyOn(PaymentsRepo, 'createPaymentAndUpdateReservation').mockRejectedValueOnce(
+        new Error('DB write conflict')
+      );
+
+      await expect(
+        PaymentsStation.initiatePayment({
+          gamingCenterId,
+          reservationId,
+          idempotencyKey: 'idemp-gw-create-fail',
+          useWallet: false,
+        })
+      ).rejects.toThrow('DB write conflict');
+
+      spy.mockRestore();
+      const res = state.reservations.get(reservationId);
+      expect(res.status).toBe(ReservationStatus.CANCELED);
+      expect(res.paymentState).toBe(ReservationPaymentState.FAILED);
+    });
+
+    it('rejects initiatePayment for reservation whose paymentState is already FAILED or CANCELED', async () => {
+      state.reservations.get(reservationId).paymentState = ReservationPaymentState.FAILED;
+
+      await expect(
+        PaymentsStation.initiatePayment({
+          gamingCenterId,
+          reservationId,
+          idempotencyKey: 'idemp-already-failed',
+          useWallet: true,
+        })
+      ).rejects.toThrow('Reservation payment has already failed or been canceled.');
+
+      state.reservations.get(reservationId).paymentState = ReservationPaymentState.CANCELED;
+
+      await expect(
+        PaymentsStation.initiatePayment({
+          gamingCenterId,
+          reservationId,
+          idempotencyKey: 'idemp-already-canceled-pay',
+          useWallet: true,
+        })
+      ).rejects.toThrow('Reservation payment has already failed or been canceled.');
+    });
+
+    it('does not cancel an already-PAID reservation if concurrent createFullWalletPayment throws already paid', async () => {
+      state.customerAccounts.set(customerAccountId, {
+        id: customerAccountId,
+        walletBalance: 200000,
+      });
+      state.reservations.set(reservationId, {
+        id: reservationId,
+        gamingCenterId,
+        customerAccountId,
+        totalPrice: 100000,
+        customerPayableAmount: 100000,
+        status: ReservationStatus.CONFIRMED,
+        paymentState: ReservationPaymentState.UNPAID,
+        stationSnapshot: { currency: 'IRR' },
+      });
+
+      const spy = jest.spyOn(PaymentsRepo, 'createFullWalletPayment').mockImplementationOnce(async () => {
+        const res = state.reservations.get(reservationId);
+        res.paymentState = ReservationPaymentState.PAID;
+        res.status = ReservationStatus.CONFIRMED;
+        throw new AppError('Reservation is already paid.', httpStatus.CONFLICT);
+      });
+
+      await expect(
+        PaymentsStation.initiatePayment({
+          gamingCenterId,
+          reservationId,
+          idempotencyKey: 'idemp-race-paid',
+          useWallet: true,
+        })
+      ).rejects.toThrow('Reservation is already paid.');
+
+      spy.mockRestore();
+      const res = state.reservations.get(reservationId);
+      expect(res.status).toBe(ReservationStatus.CONFIRMED);
+      expect(res.paymentState).toBe(ReservationPaymentState.PAID);
     });
   });
 });

@@ -1,7 +1,8 @@
-import { Prisma, ReservationPaymentState, PaymentStatus, ReservationStatus, PaymentMethod, PaymentProvider, WalletTransactionType } from '@prisma/client';
+import { Prisma, ReservationPaymentState, PaymentStatus, ReservationStatus, PaymentMethod, PaymentProvider, WalletTransactionType, CancellationCategory, CancellationActor } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import logger from '../../config/logger';
 import { validateReservationTransition, validatePaymentTransition } from './payments.state';
+import { ReservationStateMachine } from '../reservation/reservation.state-machine';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { commissionsStation } from '../commissions/commissions.station';
@@ -9,6 +10,37 @@ import { LedgerRepo } from './ledger.repo';
 import { walletService } from '../wallet/wallet.station';
 
 type Tx = Prisma.TransactionClient;
+
+const archiveInactivePaymentIdempotencyKey = async (
+  tx: Tx,
+  gamingCenterId: string | undefined,
+  idempotencyKey: string | null | undefined
+) => {
+  if (
+    !idempotencyKey ||
+    !gamingCenterId ||
+    typeof tx.payment?.findFirst !== 'function' ||
+    typeof tx.payment?.update !== 'function'
+  ) {
+    return;
+  }
+
+  const priorPayment = await tx.payment.findFirst({
+    where: {
+      gamingCenterId,
+      idempotencyKey,
+      status: { in: [PaymentStatus.FAILED, PaymentStatus.CANCELED] },
+    },
+    select: { id: true },
+  });
+
+  if (priorPayment) {
+    await tx.payment.update({
+      where: { id: priorPayment.id },
+      data: { idempotencyKey: `archived_${priorPayment.id}_${Date.now()}` },
+    });
+  }
+};
 
 const findReservationForUpdate = async (reservationId: string, gamingCenterId?: string) => {
   const reservation = await prisma.reservation.findFirst({
@@ -23,6 +55,10 @@ const findReservationForUpdate = async (reservationId: string, gamingCenterId?: 
 
   if (reservation) {
     return { ...reservation, isGroupBooking: false };
+  }
+
+  if (typeof prisma.groupBooking?.findFirst !== 'function') {
+    return null;
   }
 
   const groupBooking = await prisma.groupBooking.findFirst({
@@ -78,6 +114,30 @@ const findLatestPaymentByEntity = (entityId: string, gamingCenterId: string) => 
   });
 };
 
+const findPaymentByIdempotencyKey = (gamingCenterId: string, idempotencyKey: string) => {
+  return prisma.payment.findFirst({
+    where: {
+      gamingCenterId,
+      idempotencyKey,
+    },
+    include: { reservation: true },
+  });
+};
+
+const findActiveInitiatedPayment = (entityId: string) => {
+  return prisma.payment.findFirst({
+    where: {
+      OR: [
+        { reservationId: entityId },
+        { groupBookingId: entityId },
+        { bookingHoldId: entityId },
+      ],
+      status: PaymentStatus.INITIATED,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+};
+
 const createPaymentAndUpdateReservation = ({
   reservationId,
   paymentData,
@@ -86,6 +146,10 @@ const createPaymentAndUpdateReservation = ({
   paymentData: Prisma.PaymentCreateInput;
 }) => {
   return prisma.$transaction(async (tx) => {
+    const gcId = (paymentData as { gamingCenter?: { connect?: { id?: string } } })?.gamingCenter?.connect?.id;
+    const idempKey = (paymentData as { idempotencyKey?: string | null })?.idempotencyKey;
+    await archiveInactivePaymentIdempotencyKey(tx, gcId, idempKey);
+
     const isGroup = typeof tx.groupBooking?.findUnique === 'function' && (await tx.groupBooking.findUnique({
       where: { id: reservationId },
       select: { id: true },
@@ -179,6 +243,20 @@ const createFullWalletPayment = async ({
     if (targetEntity.paymentState === ReservationPaymentState.PAID) {
       throw new AppError('Reservation is already paid.', httpStatus.CONFLICT);
     }
+    if (
+      targetEntity.status === ReservationStatus.CANCELED ||
+      targetEntity.status === ReservationStatus.EXPIRED
+    ) {
+      throw new AppError('Reservation is canceled or expired and cannot be paid.', httpStatus.BAD_REQUEST);
+    }
+    if (
+      targetEntity.paymentState === ReservationPaymentState.FAILED ||
+      targetEntity.paymentState === ReservationPaymentState.CANCELED
+    ) {
+      throw new AppError('Reservation payment has already failed or been canceled.', httpStatus.BAD_REQUEST);
+    }
+
+    await archiveInactivePaymentIdempotencyKey(tx, gamingCenterId, idempotencyKey);
 
     // 2. Decrement wallet balance atomically
     await tx.customerAccount.update({
@@ -342,6 +420,20 @@ const createPartialPayment = async ({
     if (targetEntity.paymentState === ReservationPaymentState.PAID) {
       throw new AppError('Reservation is already paid.', httpStatus.CONFLICT);
     }
+    if (
+      targetEntity.status === ReservationStatus.CANCELED ||
+      targetEntity.status === ReservationStatus.EXPIRED
+    ) {
+      throw new AppError('Reservation is canceled or expired and cannot be paid.', httpStatus.BAD_REQUEST);
+    }
+    if (
+      targetEntity.paymentState === ReservationPaymentState.FAILED ||
+      targetEntity.paymentState === ReservationPaymentState.CANCELED
+    ) {
+      throw new AppError('Reservation payment has already failed or been canceled.', httpStatus.BAD_REQUEST);
+    }
+
+    await archiveInactivePaymentIdempotencyKey(tx, gamingCenterId, idempotencyKey);
 
     // 2. Decrement wallet balance for partial wallet contribution
     await tx.customerAccount.update({
@@ -676,8 +768,10 @@ const handleFailedPayment = async (
   tx: Tx,
   paymentId: string,
   newStatus: PaymentStatus = PaymentStatus.FAILED,
-  failureReason?: string
+  failureReason?: string,
+  options?: { cancelReservation?: boolean }
 ) => {
+  const shouldCancelReservation = options?.cancelReservation !== false;
   const payment = await tx.payment.findUnique({
     where: { id: paymentId },
     include: {
@@ -795,6 +889,7 @@ const handleFailedPayment = async (
   }
 
   if (
+    shouldCancelReservation &&
     payment.groupBookingId &&
     payment.groupBooking &&
     typeof tx.groupBooking?.update === 'function' &&
@@ -806,11 +901,13 @@ const handleFailedPayment = async (
         : ReservationPaymentState.FAILED;
 
     try {
-      validateReservationTransition(payment.groupBooking.paymentState, newPaymentState);
+      if (payment.groupBooking.paymentState !== newPaymentState) {
+        validateReservationTransition(payment.groupBooking.paymentState, newPaymentState);
+      }
 
-      const isTerminal =
-        payment.groupBooking.status === ReservationStatus.CANCELED ||
-        payment.groupBooking.status === ReservationStatus.COMPLETED;
+      const isTerminal = payment.groupBooking.status
+        ? ReservationStateMachine.isTerminalState(payment.groupBooking.status)
+        : false;
 
       const updateData: Prisma.GroupBookingUpdateInput = {
         paymentState: newPaymentState,
@@ -828,18 +925,20 @@ const handleFailedPayment = async (
       });
 
       if (typeof tx.reservation?.updateMany === 'function') {
+        const childUpdateData: Prisma.ReservationUpdateManyMutationInput = {
+          paymentState: newPaymentState,
+        };
+        if (!isTerminal) {
+          childUpdateData.status = ReservationStatus.CANCELED;
+          childUpdateData.canceledAt = new Date();
+          childUpdateData.cancelReason = failureReason || 'لغو خودکار به دلیل ناموفق بودن پرداخت';
+          childUpdateData.cancelCategory = CancellationCategory.PAYMENT_FAILED;
+          childUpdateData.cancelActor = CancellationActor.SYSTEM;
+        }
+
         await tx.reservation.updateMany({
           where: { groupBookingId: payment.groupBookingId },
-          data: {
-            paymentState: newPaymentState,
-            ...(isTerminal
-              ? {}
-              : {
-                  status: ReservationStatus.CANCELED,
-                  canceledAt: new Date(),
-                  cancelReason: failureReason || 'لغو خودکار به دلیل ناموفق بودن پرداخت',
-                }),
-          },
+          data: childUpdateData,
         });
       }
     } catch (err) {
@@ -847,18 +946,20 @@ const handleFailedPayment = async (
     }
   }
 
-  if (payment.reservation && payment.reservation.paymentState !== ReservationPaymentState.PAID) {
+  if (shouldCancelReservation && payment.reservation && payment.reservation.paymentState !== ReservationPaymentState.PAID) {
     const newReservationPaymentState =
       newStatus === PaymentStatus.CANCELED
         ? ReservationPaymentState.CANCELED
         : ReservationPaymentState.FAILED;
 
     try {
-      validateReservationTransition(payment.reservation.paymentState, newReservationPaymentState);
+      if (payment.reservation.paymentState !== newReservationPaymentState) {
+        validateReservationTransition(payment.reservation.paymentState, newReservationPaymentState);
+      }
 
-      const isTerminal =
-        payment.reservation.status === ReservationStatus.CANCELED ||
-        payment.reservation.status === ReservationStatus.COMPLETED;
+      const isTerminal = payment.reservation.status
+        ? ReservationStateMachine.isTerminalState(payment.reservation.status)
+        : false;
 
       const updateData: Prisma.ReservationUpdateInput = {
         paymentState: newReservationPaymentState,
@@ -868,6 +969,8 @@ const handleFailedPayment = async (
         updateData.status = ReservationStatus.CANCELED;
         updateData.canceledAt = new Date();
         updateData.cancelReason = failureReason || 'لغو خودکار به دلیل ناموفق بودن پرداخت';
+        updateData.cancelCategory = CancellationCategory.PAYMENT_FAILED;
+        updateData.cancelActor = CancellationActor.SYSTEM;
       }
 
       await tx.reservation.update({
@@ -934,6 +1037,8 @@ const reapStaleCustomerInitiatedPayments = async (customerAccountId: string, thr
 
 export const PaymentsRepo = {
   findReservationForUpdate,
+  findPaymentByIdempotencyKey,
+  findActiveInitiatedPayment,
   findPaymentByProviderPaymentId,
   findLatestPaymentByReservation,
   findLatestPaymentByEntity,

@@ -224,4 +224,203 @@ describe('BookingHoldStation - Checkout & Idempotency Retries', () => {
       })
     );
   });
+
+  it('should re-verify wallet balance after FOR UPDATE and release hold if drained concurrently', async () => {
+    MockedReservationRepo.findGamingCenterBySlugWithSettings.mockResolvedValue({
+      id: gamingCenterId,
+      slug: gamingCenterSlug,
+      settings: { allowOnlineBooking: true, minAdvanceBookingMinutes: 30 },
+    } as any);
+
+    MockedBookingHoldRepo.findHoldByIdempotencyKey.mockResolvedValue(null);
+    MockedReservationRepo.findCustomerAccountByPhone.mockResolvedValue({
+      id: 'ca-race',
+      phone: '+989981385514',
+      walletBalance: 200000,
+    } as any);
+    MockedReservationRepo.findCustomerAccountById.mockResolvedValue({
+      id: 'ca-race',
+      phone: '+989981385514',
+      walletBalance: 200000,
+    } as any);
+
+    const txMock = {
+      $executeRaw: jest.fn().mockImplementation(() => Promise.resolve(1)),
+      gameStation: {
+        findMany: (jest.fn() as any).mockResolvedValue([
+          { id: 'station-1', name: 'Station 1', hourlyPrice: 185000, minRentHours: 1, maxRentHours: 8, stationType: 'PC' },
+        ]),
+      },
+      customerAccount: {
+        // Simulates concurrent drain inside locked transaction
+        findUnique: (jest.fn() as any).mockResolvedValue({ id: 'ca-race', walletBalance: 10000 }),
+        update: jest.fn(),
+      },
+      customerProfile: {
+        findUnique: (jest.fn() as any).mockResolvedValue({ id: 'cp-1', customerAccountId: 'ca-race' }),
+      },
+      bookingHold: {
+        updateMany: jest.fn().mockImplementation(() => Promise.resolve({ count: 1 })),
+      },
+    };
+
+    MockedBookingHoldRepo.transaction.mockImplementation(async (fn: any) => fn(txMock));
+    MockedBookingHoldRepo.findOverlappingReservationsAndHoldsForStations.mockResolvedValue([]);
+
+    const createdHold = {
+      id: 'hold-race-drain',
+      gamingCenterId,
+      status: BookingHoldStatus.ACTIVE,
+      totalAmount: 185000,
+      currency: 'IRR',
+      expiresAt: new Date(Date.now() + 600000),
+      items: [{ stationId: 'station-1', price: 185000 }],
+    };
+    MockedBookingHoldRepo.createBookingHold.mockResolvedValue(createdHold as any);
+    MockedPaymentsRepo.transaction.mockImplementation(async (fn: any) => fn(txMock));
+
+    await expect(
+      BookingHoldStation.checkoutGroupReservation(gamingCenterSlug, {
+        startTime: '2027-01-01T16:00:00Z',
+        durationMinutes: 60,
+        items,
+        customer,
+        useWallet: true,
+        idempotencyKey: 'idemp-race-drain-1',
+      })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      code: 'INSUFFICIENT_WALLET_BALANCE',
+    });
+
+    expect(txMock.customerAccount.update).not.toHaveBeenCalled();
+    expect(txMock.bookingHold.updateMany).toHaveBeenCalledWith({
+      where: { id: 'hold-race-drain', status: BookingHoldStatus.ACTIVE },
+      data: { status: BookingHoldStatus.RELEASED },
+    });
+  });
+
+  it('should release hold and throw INSUFFICIENT_WALLET_BALANCE when provider=WALLET and balance is insufficient', async () => {
+    MockedReservationRepo.findGamingCenterBySlugWithSettings.mockResolvedValue({
+      id: gamingCenterId,
+      slug: gamingCenterSlug,
+      settings: { allowOnlineBooking: true, minAdvanceBookingMinutes: 30 },
+    } as any);
+
+    MockedBookingHoldRepo.findHoldByIdempotencyKey.mockResolvedValue(null);
+    MockedReservationRepo.findCustomerAccountByPhone.mockResolvedValue({
+      id: 'ca-low',
+      phone: '+989981385514',
+      walletBalance: 50000,
+    } as any);
+
+    const txMock = {
+      gameStation: {
+        findMany: (jest.fn() as any).mockResolvedValue([
+          { id: 'station-1', name: 'Station 1', hourlyPrice: 185000, minRentHours: 1, maxRentHours: 8, stationType: 'PC' },
+        ]),
+      },
+      customerAccount: {
+        findUnique: (jest.fn() as any).mockResolvedValue({ id: 'ca-low', walletBalance: 50000 }),
+      },
+      customerProfile: {
+        findUnique: (jest.fn() as any).mockResolvedValue({ id: 'cp-1', customerAccountId: 'ca-low' }),
+      },
+      bookingHold: {
+        updateMany: jest.fn().mockImplementation(() => Promise.resolve({ count: 1 })),
+      },
+    };
+
+    MockedBookingHoldRepo.transaction.mockImplementation(async (fn: any) => fn(txMock));
+    MockedBookingHoldRepo.findOverlappingReservationsAndHoldsForStations.mockResolvedValue([]);
+    MockedBookingHoldRepo.createBookingHold.mockResolvedValue({
+      id: 'hold-wallet-only-low',
+      gamingCenterId,
+      status: BookingHoldStatus.ACTIVE,
+      totalAmount: 185000,
+      currency: 'IRR',
+      expiresAt: new Date(Date.now() + 600000),
+      items: [{ stationId: 'station-1', price: 185000 }],
+    } as any);
+    MockedPaymentsRepo.transaction.mockImplementation(async (fn: any) => fn(txMock));
+
+    await expect(
+      BookingHoldStation.checkoutGroupReservation(gamingCenterSlug, {
+        startTime: '2027-01-01T16:00:00Z',
+        durationMinutes: 60,
+        items,
+        customer,
+        provider: 'WALLET',
+        idempotencyKey: 'idemp-wallet-only-low-1',
+      })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      code: 'INSUFFICIENT_WALLET_BALANCE',
+    });
+
+    expect(txMock.bookingHold.updateMany).toHaveBeenCalledWith({
+      where: { id: 'hold-wallet-only-low', status: BookingHoldStatus.ACTIVE },
+      data: { status: BookingHoldStatus.RELEASED },
+    });
+  });
+
+  it('should release hold when provider resolution fails before payment initiation', async () => {
+    MockedReservationRepo.findGamingCenterBySlugWithSettings.mockResolvedValue({
+      id: gamingCenterId,
+      slug: gamingCenterSlug,
+      settings: { allowOnlineBooking: true, minAdvanceBookingMinutes: 30 },
+    } as any);
+
+    MockedBookingHoldRepo.findHoldByIdempotencyKey.mockResolvedValue(null);
+    MockedReservationRepo.findCustomerAccountByPhone.mockResolvedValue(null);
+
+    const txMock = {
+      gameStation: {
+        findMany: (jest.fn() as any).mockResolvedValue([
+          { id: 'station-1', name: 'Station 1', hourlyPrice: 185000, minRentHours: 1, maxRentHours: 8, stationType: 'PC' },
+        ]),
+      },
+      customerAccount: {
+        findUnique: (jest.fn() as any).mockResolvedValue({ id: 'ca-1', phone: '09981385514' }),
+      },
+      customerProfile: {
+        findUnique: (jest.fn() as any).mockResolvedValue({ id: 'cp-1', customerAccountId: 'ca-1' }),
+      },
+      bookingHold: {
+        updateMany: jest.fn().mockImplementation(() => Promise.resolve({ count: 1 })),
+      },
+    };
+
+    MockedBookingHoldRepo.transaction.mockImplementation(async (fn: any) => fn(txMock));
+    MockedBookingHoldRepo.findOverlappingReservationsAndHoldsForStations.mockResolvedValue([]);
+    MockedBookingHoldRepo.createBookingHold.mockResolvedValue({
+      id: 'hold-bad-provider',
+      gamingCenterId,
+      status: BookingHoldStatus.ACTIVE,
+      totalAmount: 185000,
+      currency: 'IRR',
+      expiresAt: new Date(Date.now() + 600000),
+      items: [{ stationId: 'station-1', price: 185000 }],
+    } as any);
+    MockedPaymentsRepo.transaction.mockImplementation(async (fn: any) => fn(txMock));
+    MockedProviderFactory.getProvider.mockImplementationOnce(() => {
+      throw new AppError('Unsupported payment provider: UNKNOWN', 400);
+    });
+
+    await expect(
+      BookingHoldStation.checkoutGroupReservation(gamingCenterSlug, {
+        startTime: '2027-01-01T16:00:00Z',
+        durationMinutes: 60,
+        items,
+        customer,
+        provider: 'UNKNOWN',
+        idempotencyKey: 'idemp-bad-prov-1',
+      })
+    ).rejects.toThrow('Unsupported payment provider: UNKNOWN');
+
+    expect(txMock.bookingHold.updateMany).toHaveBeenCalledWith({
+      where: { id: 'hold-bad-provider', status: BookingHoldStatus.ACTIVE },
+      data: { status: BookingHoldStatus.RELEASED },
+    });
+  });
 });

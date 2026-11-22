@@ -1,10 +1,32 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { reservationStation } from '../../../../src/modules/reservation/reservation.station';
 import { ReservationRepo } from '../../../../src/modules/reservation/reservation.repo';
-import { ReservationStatus, ReservationSource } from '@prisma/client';
+import { ReservationStatus, ReservationSource, ReservationPaymentState } from '@prisma/client';
 import { eventEmitter, AppEvents } from '../../../../src/common/events/event-emitter';
 import { discountsStation } from '../../../../src/modules/discounts/discounts.station';
 
+jest.mock('../../../../src/config/prisma', () => ({
+  prisma: {
+    customerAccount: {
+      findUnique: jest.fn(),
+    },
+  },
+}));
+jest.mock('../../../../src/modules/payments/payments.repo', () => ({
+  PaymentsRepo: {
+    reapStaleCustomerInitiatedPayments: jest.fn().mockImplementation(() => Promise.resolve()),
+  },
+}));
+jest.mock('../../../../src/modules/payments/ledger.repo', () => ({
+  LedgerRepo: {
+    createCollectionEntry: jest.fn().mockImplementation(() => Promise.resolve({})),
+  },
+}));
+jest.mock('../../../../src/modules/commissions/commissions.station', () => ({
+  commissionsStation: {
+    calculateCommission: jest.fn().mockImplementation(() => Promise.resolve()),
+  },
+}));
 jest.mock('../../../../src/modules/reservation/reservation.repo');
 jest.mock('../../../../src/modules/discounts/discounts.station');
 jest.mock('../../../../src/common/events/event-emitter');
@@ -66,7 +88,7 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
   });
 
   describe('createPublicReservation', () => {
-    it('should successfully create an online reservation', async () => {
+    it('should create unpaid payable online reservation as PENDING with expiry even when onlineBookingAutoConfirm is enabled', async () => {
       const input = {
         stationId,
         staffId,
@@ -89,7 +111,12 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
       const staffShift = { id: 'shift-1', startTime: '08:00', endTime: '22:00' };
       const customerAccount = { id: 'cust-2' };
       const customerProfile = { id: 'prof-2' };
-      const reservation = { id: 'res-2', status: ReservationStatus.CONFIRMED, source: ReservationSource.ONLINE };
+      const reservation = {
+        id: 'res-2',
+        status: ReservationStatus.PENDING,
+        paymentState: ReservationPaymentState.UNPAID,
+        source: ReservationSource.ONLINE,
+      };
 
       MockedReservationRepo.findGamingCenterBySlugWithSettings.mockResolvedValue(gamingCenter /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       MockedReservationRepo.findStation.mockResolvedValue(station /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
@@ -105,8 +132,133 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
       expect(result).toEqual(reservation);
       expect(MockedReservationRepo.createReservation).toHaveBeenCalledWith(expect.objectContaining({
         source: ReservationSource.ONLINE,
-        status: ReservationStatus.CONFIRMED,
+        status: ReservationStatus.PENDING,
+        paymentState: ReservationPaymentState.UNPAID,
       }), expect.anything());
+      expect(MockedEventEmitter.emit).not.toHaveBeenCalledWith(AppEvents.RESERVATION_CREATED, expect.anything());
+    });
+
+    it('should create CONFIRMED and PAID reservation when useWallet is true with sufficient balance and onlineBookingAutoConfirm is enabled', async () => {
+      const input = {
+        stationId,
+        staffId,
+        startTime: '2027-06-06T10:00:00Z',
+        customer: { fullName: 'Jane Doe', phone: '09998887766' },
+        useWallet: true,
+      };
+
+      const gamingCenter = {
+        id: gamingCenterId,
+        slug: gamingCenterSlug,
+        settings: {
+          allowOnlineBooking: true,
+          onlineBookingAutoConfirm: true,
+          timeZone: 'UTC',
+        },
+      };
+
+      const station = { id: stationId, name: 'PS5-1', hourlyPrice: 200, defaultDurationHours: 1, stationType: 'PLAYSTATION', isActive: true };
+      const staff = { id: staffId };
+      const staffShift = { id: 'shift-1', startTime: '08:00', endTime: '22:00' };
+      const customerAccount = { id: 'cust-2', phone: '+989998887766' };
+      const customerProfile = { id: 'prof-2' };
+      const reservation = {
+        id: 'res-wallet-ok',
+        gamingCenterId,
+        status: ReservationStatus.CONFIRMED,
+        paymentState: ReservationPaymentState.PAID,
+        source: ReservationSource.ONLINE,
+      };
+
+      const txMock = {
+        $executeRaw: jest.fn().mockImplementation(() => Promise.resolve(1)),
+        customerAccount: {
+          findUnique: jest.fn().mockImplementation(() => Promise.resolve({ walletBalance: 500 })),
+          update: jest.fn().mockImplementation(() => Promise.resolve({ walletBalance: 300 })),
+        },
+        payment: {
+          create: jest.fn().mockImplementation(() => Promise.resolve({ id: 'pay-w-1' })),
+        },
+        walletTransaction: {
+          create: jest.fn().mockImplementation(() => Promise.resolve({ id: 'wtx-1' })),
+        },
+      };
+
+      MockedReservationRepo.transaction.mockImplementationOnce(async (cb: /* eslint-disable-line @typescript-eslint/no-explicit-any */ any) => cb(txMock));
+      MockedReservationRepo.findGamingCenterBySlugWithSettings.mockResolvedValue(gamingCenter /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findStation.mockResolvedValue(station /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findStaff.mockResolvedValue(staff /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findStaffShift.mockResolvedValue(staffShift /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findOverlappingReservation.mockResolvedValue(null);
+      MockedReservationRepo.findCustomerAccountByPhone.mockResolvedValue(customerAccount /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findCustomerProfile.mockResolvedValue(customerProfile /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.createReservation.mockResolvedValue(reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+
+      const result = await reservationStation.createPublicReservation(gamingCenterSlug, input);
+
+      expect(result).toEqual(reservation);
+      expect(MockedReservationRepo.createReservation).toHaveBeenCalledWith(expect.objectContaining({
+        source: ReservationSource.ONLINE,
+        status: ReservationStatus.CONFIRMED,
+        paymentState: ReservationPaymentState.PAID,
+      }), expect.anything());
+      expect(txMock.customerAccount.update).toHaveBeenCalledWith({
+        where: { id: 'cust-2' },
+        data: { walletBalance: { decrement: 200 } },
+      });
+      expect(MockedEventEmitter.emit).toHaveBeenCalledWith(AppEvents.RESERVATION_CREATED, expect.anything());
+    });
+
+    it('should reject with INSUFFICIENT_WALLET_BALANCE and never create reservation when wallet balance is insufficient', async () => {
+      const input = {
+        stationId,
+        staffId,
+        startTime: '2027-06-06T10:00:00Z',
+        customer: { fullName: 'Jane Doe', phone: '09998887766' },
+        provider: 'WALLET',
+      };
+
+      const gamingCenter = {
+        id: gamingCenterId,
+        slug: gamingCenterSlug,
+        settings: {
+          allowOnlineBooking: true,
+          onlineBookingAutoConfirm: true,
+          timeZone: 'UTC',
+        },
+      };
+
+      const station = { id: stationId, name: 'PS5-1', hourlyPrice: 200, defaultDurationHours: 1, stationType: 'PLAYSTATION', isActive: true };
+      const staff = { id: staffId };
+      const staffShift = { id: 'shift-1', startTime: '08:00', endTime: '22:00' };
+      const customerAccount = { id: 'cust-2' };
+      const customerProfile = { id: 'prof-2' };
+
+      const txMock = {
+        $executeRaw: jest.fn().mockImplementation(() => Promise.resolve(1)),
+        customerAccount: {
+          findUnique: jest.fn().mockImplementation(() => Promise.resolve({ walletBalance: 50 })),
+          update: jest.fn(),
+        },
+      };
+
+      MockedReservationRepo.transaction.mockImplementationOnce(async (cb: /* eslint-disable-line @typescript-eslint/no-explicit-any */ any) => cb(txMock));
+      MockedReservationRepo.findGamingCenterBySlugWithSettings.mockResolvedValue(gamingCenter /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findStation.mockResolvedValue(station /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findStaff.mockResolvedValue(staff /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findStaffShift.mockResolvedValue(staffShift /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findOverlappingReservation.mockResolvedValue(null);
+      MockedReservationRepo.findCustomerAccountByPhone.mockResolvedValue(customerAccount /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedReservationRepo.findCustomerProfile.mockResolvedValue(customerProfile /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+
+      await expect(reservationStation.createPublicReservation(gamingCenterSlug, input))
+        .rejects.toMatchObject({
+          statusCode: 400,
+          code: 'INSUFFICIENT_WALLET_BALANCE',
+        });
+
+      expect(MockedReservationRepo.createReservation).not.toHaveBeenCalled();
+      expect(txMock.customerAccount.update).not.toHaveBeenCalled();
     });
 
     it('should fail if online reservation is disabled', async () => {

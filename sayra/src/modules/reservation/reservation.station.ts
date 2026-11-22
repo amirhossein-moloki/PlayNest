@@ -17,6 +17,8 @@ import {
   CommissionType,
 } from '@prisma/client';
 import { LedgerRepo } from '../payments/ledger.repo';
+import { PaymentsRepo } from '../payments/payments.repo';
+import { prisma } from '../../config/prisma';
 import { commissionsStation } from '../commissions/commissions.station';
 import { ReservationRepo } from './reservation.repo';
 import { CommissionsRepo } from '../commissions/commissions.repo';
@@ -281,6 +283,39 @@ export const reservationStation = {
         tx
       );
 
+      const isPayable = financials.customerPayableAmount > 0;
+      const roundedPayable = Math.round(financials.customerPayableAmount);
+      const wantsWallet = Boolean(input.useWallet || input.provider?.toUpperCase() === 'WALLET');
+      const isWalletPayment = Boolean(wantsWallet && isPayable);
+      let initialPaymentState: ReservationPaymentState = isPayable
+        ? ReservationPaymentState.UNPAID
+        : ReservationPaymentState.PAID;
+
+      if (isWalletPayment) {
+        if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
+          await tx.$executeRaw`SELECT id FROM "CustomerAccount" WHERE id = ${customerAccount.id} FOR UPDATE`;
+        }
+
+        const freshAccount = await tx.customerAccount.findUnique({
+          where: { id: customerAccount.id },
+          select: { walletBalance: true },
+        });
+
+        const currentBalance = freshAccount?.walletBalance ?? 0;
+        if (currentBalance < roundedPayable) {
+          throw new AppError('Insufficient wallet balance.', httpStatus.BAD_REQUEST, {
+            code: 'INSUFFICIENT_WALLET_BALANCE',
+          });
+        }
+
+        await tx.customerAccount.update({
+          where: { id: customerAccount.id },
+          data: { walletBalance: { decrement: roundedPayable } },
+        });
+
+        initialPaymentState = ReservationPaymentState.PAID;
+      }
+
       const reservation = await ReservationRepo.createReservation({
         gamingCenterId,
         stationId,
@@ -292,10 +327,12 @@ export const reservationStation = {
         endTime,
         note,
         status: ReservationStatus.CONFIRMED,
+        paymentState: initialPaymentState,
         stationSnapshot: {
           name: station.name,
           hourlyPrice: station.hourlyPrice,
           stationType: station.stationType,
+          currency: 'IRR',
           ...(pricedExtras.items.length > 0 ? { extraControllers: pricedExtras.items } : {}),
         } as unknown as Prisma.InputJsonValue,
         totalHours: durationHours,
@@ -325,6 +362,43 @@ export const reservationStation = {
           : {}),
       }, tx);
 
+      if (isWalletPayment) {
+        const payment = await tx.payment.create({
+          data: {
+            gamingCenter: { connect: { id: gamingCenterId } },
+            reservation: { connect: { id: reservation.id } },
+            amount: roundedPayable,
+            walletAmount: roundedPayable,
+            currency: 'IRR',
+            provider: PaymentProvider.MANUAL,
+            method: PaymentMethod.WALLET,
+            status: PaymentStatus.PAID,
+            paidAt: new Date(),
+            referenceCode: `WALLET-${reservation.id.slice(-8).toUpperCase()}`,
+          },
+        });
+
+        await tx.walletTransaction.create({
+          data: {
+            customerAccountId: customerAccount.id,
+            amount: -roundedPayable,
+            currency: 'IRR',
+            type: WalletTransactionType.RESERVATION_PAYMENT,
+            reservationId: reservation.id,
+            paymentId: payment.id,
+            note: `پرداخت کامل هزینه رزرو ${reservation.id} از طریق کیف پول`,
+          },
+        });
+
+        await LedgerRepo.createCollectionEntry(tx, {
+          gamingCenterId,
+          paymentId: payment.id,
+          amount: roundedPayable,
+          currency: 'IRR',
+          description: `Wallet payment collection for reservation ${reservation.id}`,
+        });
+      }
+
       if (financials.campaignId) {
         await discountsStation.consumeCampaignDiscount(
           financials.campaignId,
@@ -345,10 +419,14 @@ export const reservationStation = {
         actorType: SessionActorType.USER,
       }, tx);
 
-      return { reservation, gamingCenter, customerAccount };
+      return { reservation, gamingCenter, customerAccount, isWalletPayment };
     }, {
       isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
     });
+
+    if (result.isWalletPayment) {
+      await commissionsStation.calculateCommission(result.reservation.id).catch(() => {});
+    }
 
     // Emit event
     eventEmitter.emit(AppEvents.RESERVATION_CREATED, {
@@ -364,6 +442,26 @@ export const reservationStation = {
 
   async createPublicReservation(gamingCenterSlug: string, input: CreatePublicReservationInput) {
     try {
+      const wantsWallet = Boolean(input.useWallet || input.provider?.toUpperCase() === 'WALLET');
+      if (
+        wantsWallet &&
+        typeof prisma?.customerAccount?.findUnique === 'function' &&
+        typeof PaymentsRepo?.reapStaleCustomerInitiatedPayments === 'function'
+      ) {
+        try {
+          const normalizedPhone = normalizePhone(input.customer.phone);
+          const preTxCustomer = await prisma.customerAccount.findUnique({
+            where: { phone: normalizedPhone },
+            select: { id: true },
+          });
+          if (preTxCustomer?.id) {
+            await PaymentsRepo.reapStaleCustomerInitiatedPayments(preTxCustomer.id).catch(() => {});
+          }
+        } catch {
+          // Ignore pre-transaction reap failures in mocked or offline environments
+        }
+      }
+
       const result = await ReservationRepo.transaction(async (tx) => {
         const gamingCenter = await ReservationRepo.findGamingCenterBySlugWithSettings(gamingCenterSlug, tx);
 
@@ -524,15 +622,20 @@ export const reservationStation = {
         );
 
         const isPayable = financials.customerPayableAmount > 0;
-        let initialStatus = gamingCenter.settings?.onlineBookingAutoConfirm
-          ? ReservationStatus.CONFIRMED
-          : ReservationStatus.PENDING;
-        let initialPaymentState = isPayable ? ReservationPaymentState.UNPAID : ReservationPaymentState.PAID;
+        let initialPaymentState: ReservationPaymentState = isPayable
+          ? ReservationPaymentState.UNPAID
+          : ReservationPaymentState.PAID;
 
         const roundedPayable = Math.round(financials.customerPayableAmount);
-        const isWalletPayment = Boolean(input.useWallet && isPayable);
+        const isWalletPayment = Boolean(wantsWallet && isPayable);
 
         if (isWalletPayment) {
+          if (input.actor?.actorType === SessionActorType.CUSTOMER && customerAccount.id !== input.actor.id) {
+            throw new AppError('You can only use your own wallet balance.', httpStatus.FORBIDDEN, {
+              code: 'UNAUTHORIZED_WALLET_ACCESS',
+            });
+          }
+
           // Lock CustomerAccount for update
           if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
             await tx.$executeRaw`SELECT id FROM "CustomerAccount" WHERE id = ${customerAccount.id} FOR UPDATE`;
@@ -556,14 +659,17 @@ export const reservationStation = {
           });
 
           initialPaymentState = ReservationPaymentState.PAID;
-          if (gamingCenter.settings?.onlineBookingAutoConfirm) {
-            initialStatus = ReservationStatus.CONFIRMED;
-          }
         }
+
+        const isPaid = initialPaymentState === ReservationPaymentState.PAID;
+        const initialStatus =
+          isPaid && gamingCenter.settings?.onlineBookingAutoConfirm
+            ? ReservationStatus.CONFIRMED
+            : ReservationStatus.PENDING;
 
         const timeoutMinutes = gamingCenter.settings?.reservationConfirmationTimeoutMinutes ?? 30;
         const unpaidReleaseMinutes = gamingCenter.settings?.autoReleaseUnpaidMinutes ?? 15;
-        const effectiveTimeout = isPayable && initialPaymentState !== ReservationPaymentState.PAID
+        const effectiveTimeout = !isPaid
           ? Math.min(unpaidReleaseMinutes, timeoutMinutes)
           : timeoutMinutes;
         const confirmationExpiresAt = initialStatus === ReservationStatus.PENDING
@@ -655,8 +761,6 @@ export const reservationStation = {
             currency: 'IRR',
             description: `Wallet payment collection for reservation ${reservation.id}`,
           });
-
-          await commissionsStation.calculateCommission(reservation.id, tx).catch(() => {});
         }
 
         if (financials.campaignId) {
@@ -679,17 +783,23 @@ export const reservationStation = {
           actorType: SessionActorType.CUSTOMER,
         }, tx);
 
-        return { reservation, gamingCenter, customerAccount };
+        return { reservation, gamingCenter, customerAccount, isWalletPayment, isPayable };
       }, {
         isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
       });
 
-      // Emit event
-      eventEmitter.emit(AppEvents.RESERVATION_CREATED, {
-        reservation: result.reservation,
-        gamingCenter: result.gamingCenter,
-        customerAccount: result.customerAccount,
-      });
+      if (result.isWalletPayment) {
+        await commissionsStation.calculateCommission(result.reservation.id).catch(() => {});
+      }
+
+      // Emit event only when the reservation does not require payment or has already been paid
+      if (!result.isPayable || result.isWalletPayment || result.reservation.paymentState === ReservationPaymentState.PAID) {
+        eventEmitter.emit(AppEvents.RESERVATION_CREATED, {
+          reservation: result.reservation,
+          gamingCenter: result.gamingCenter,
+          customerAccount: result.customerAccount,
+        });
+      }
 
       return result.reservation;
     } catch (error: unknown) {

@@ -3,6 +3,8 @@ import { toZonedTime } from 'date-fns-tz';
 import {
   Reservation,
   ReservationStatus,
+  ReservationPaymentState,
+  ReservationSource,
   GamingSessionStatus,
   PaymentStatus,
   Prisma,
@@ -44,6 +46,47 @@ const findAndValidateReservation = async (
   return reservation;
 };
 
+const assertReservationPayableEligibility = (
+  reservation: {
+    paymentState?: ReservationPaymentState | null;
+    source?: ReservationSource | null;
+    customerPayableAmount?: number | null;
+    totalPrice?: number | null;
+  },
+  actionLabel: 'confirm' | 'start'
+) => {
+  if (
+    reservation.paymentState === ReservationPaymentState.FAILED ||
+    reservation.paymentState === ReservationPaymentState.CANCELED
+  ) {
+    throw new AppError(
+      `Cannot ${actionLabel} a reservation with failed or canceled payment.`,
+      httpStatus.CONFLICT,
+      { code: 'PAYMENT_FAILED' }
+    );
+  }
+
+  let payableAmount = 0;
+  if (typeof reservation.customerPayableAmount === 'number' && reservation.customerPayableAmount > 0) {
+    payableAmount = reservation.customerPayableAmount;
+  } else if (typeof reservation.totalPrice === 'number') {
+    payableAmount = reservation.totalPrice;
+  }
+
+  if (
+    reservation.source === ReservationSource.ONLINE &&
+    payableAmount > 0 &&
+    reservation.paymentState &&
+    reservation.paymentState !== ReservationPaymentState.PAID
+  ) {
+    throw new AppError(
+      `Cannot ${actionLabel} an unpaid online reservation.`,
+      httpStatus.CONFLICT,
+      { code: 'PAYMENT_REQUIRED' }
+    );
+  }
+};
+
 export const reservationLifecycle = {
   async confirmReservation(reservationId: string, gamingCenterId: string) {
     const now = new Date();
@@ -67,6 +110,8 @@ export const reservationLifecycle = {
       if (reservation.status !== ReservationStatus.PENDING) {
         ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.CONFIRMED);
       }
+
+      assertReservationPayableEligibility(reservation, 'confirm');
 
       // Check confirmation deadline
       const deadline = reservation.confirmationExpiresAt || reservation.expiresAt;
@@ -295,6 +340,7 @@ export const reservationLifecycle = {
       }
 
       ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.IN_PROGRESS);
+      assertReservationPayableEligibility(reservation, 'start');
 
       const updatedReservation = await ReservationRepo.updateReservation(reservationId, gamingCenterId, {
         status: ReservationStatus.IN_PROGRESS,

@@ -59,6 +59,12 @@ export const BookingHoldStation = {
       throw new AppError('GamingCenter not found.', httpStatus.NOT_FOUND);
     }
 
+    if (gamingCenter.isActive === false) {
+      throw new AppError('GamingCenter is currently inactive.', httpStatus.FORBIDDEN, {
+        code: 'GAMING_CENTER_INACTIVE',
+      });
+    }
+
     if (!gamingCenter.settings?.allowOnlineBooking) {
       throw new AppError('Online reservation is disabled.', httpStatus.FORBIDDEN, {
         code: 'ONLINE_RESERVATION_DISABLED',
@@ -468,6 +474,26 @@ export const BookingHoldStation = {
       }
     }
 
+    const releaseHoldSafely = async (holdId: string) => {
+      try {
+        await PaymentsRepo.transaction(async (tx) => {
+          if (typeof tx.bookingHold?.updateMany === 'function') {
+            await tx.bookingHold.updateMany({
+              where: { id: holdId, status: BookingHoldStatus.ACTIVE },
+              data: { status: BookingHoldStatus.RELEASED },
+            });
+          } else if (typeof tx.bookingHold?.update === 'function') {
+            await tx.bookingHold.update({
+              where: { id: holdId },
+              data: { status: BookingHoldStatus.RELEASED },
+            });
+          }
+        });
+      } catch (releaseErr) {
+        logger.warn({ err: releaseErr, holdId }, 'Failed to release booking hold after checkout error');
+      }
+    };
+
     // 2. Create ACTIVE BookingHold (authoritative validation & pricing)
     const hold = await this.createBookingHold(gamingCenterSlug, input);
 
@@ -479,82 +505,170 @@ export const BookingHoldStation = {
         where: { id: input.actor.id },
       });
     }
+    if (customerAccount?.id && typeof PaymentsRepo.reapStaleCustomerInitiatedPayments === 'function') {
+      await Promise.resolve(PaymentsRepo.reapStaleCustomerInitiatedPayments(customerAccount.id)).catch(() => {});
+      if (typeof ReservationRepo.findCustomerAccountById === 'function') {
+        const refreshedAccount = await Promise.resolve(ReservationRepo.findCustomerAccountById(customerAccount.id)).catch(() => null);
+        if (refreshedAccount) {
+          customerAccount = refreshedAccount;
+        }
+      }
+    }
     const availableBalance = customerAccount?.walletBalance ?? 0;
 
-    // Full Wallet Payment Scenario
-    if (input.useWallet && customerAccount && availableBalance >= hold.totalAmount) {
-      const fullPayment = await PaymentsRepo.transaction(async (tx) => {
-        if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
-          await tx.$executeRaw`SELECT id FROM "CustomerAccount" WHERE id = ${customerAccount.id} FOR UPDATE`;
-        }
+    const isWalletOnlyProvider = input.provider?.toUpperCase() === 'WALLET';
+    const effectiveUseWallet = Boolean(input.useWallet || isWalletOnlyProvider);
 
-        // Decrement wallet balance
-        await tx.customerAccount.update({
-          where: { id: customerAccount.id },
-          data: { walletBalance: { decrement: hold.totalAmount } },
-        });
+    // Zero-amount hold checkout (e.g. 100% discount)
+    if (hold.totalAmount <= 0) {
+      try {
+        const freePayment = await PaymentsRepo.transaction(async (tx) => {
+          if (input.idempotencyKey && typeof tx.payment?.findFirst === 'function') {
+            const priorPayment = await tx.payment.findFirst({
+              where: {
+                gamingCenterId: hold.gamingCenterId,
+                idempotencyKey: input.idempotencyKey,
+              },
+            });
+            if (priorPayment) {
+              await tx.payment.update({
+                where: { id: priorPayment.id },
+                data: { idempotencyKey: `archived_${priorPayment.id}_${Date.now()}` },
+              });
+            }
+          }
 
-        if (input.idempotencyKey) {
-          const priorPayment = await tx.payment.findFirst({
-            where: {
+          const paymentRecord = await tx.payment.create({
+            data: {
               gamingCenterId: hold.gamingCenterId,
+              bookingHoldId: hold.id,
+              amount: 0,
+              walletAmount: 0,
+              currency: hold.currency,
+              provider: PaymentProvider.MANUAL,
+              method: PaymentMethod.ONLINE,
+              status: PaymentStatus.PAID,
+              paidAt: new Date(),
+              referenceCode: `FREE-HOLD-${hold.id.slice(-8).toUpperCase()}`,
               idempotencyKey: input.idempotencyKey,
             },
           });
-          if (priorPayment) {
-            await tx.payment.update({
-              where: { id: priorPayment.id },
-              data: { idempotencyKey: `archived_${priorPayment.id}_${Date.now()}` },
+
+          const convertedGroup = await BookingHoldRepo.convertHoldToGroupBookingAndReservations(hold.id, tx);
+          return { payment: paymentRecord, groupBooking: convertedGroup };
+        });
+
+        return {
+          holdId: hold.id,
+          paymentId: freePayment.payment.id,
+          paymentStatus: PaymentStatus.PAID,
+          holdExpiresAt: hold.expiresAt,
+          paymentUrl: null,
+          checkoutUrl: null,
+          totalAmount: 0,
+          walletAmount: 0,
+          gatewayAmount: 0,
+          currency: hold.currency,
+          groupBookingId: freePayment.groupBooking?.id,
+          reservations: freePayment.groupBooking?.reservations,
+        };
+      } catch (error) {
+        await releaseHoldSafely(hold.id);
+        throw error;
+      }
+    }
+
+    // Full Wallet Payment Scenario
+    if (effectiveUseWallet && customerAccount && availableBalance >= hold.totalAmount) {
+      let fullPayment;
+      try {
+        fullPayment = await PaymentsRepo.transaction(async (tx) => {
+          if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
+            await tx.$executeRaw`SELECT id FROM "CustomerAccount" WHERE id = ${customerAccount.id} FOR UPDATE`;
+          }
+
+          const freshAccount = await tx.customerAccount.findUnique({
+            where: { id: customerAccount.id },
+            select: { walletBalance: true },
+          });
+
+          if (!freshAccount || freshAccount.walletBalance < hold.totalAmount) {
+            throw new AppError('Insufficient wallet balance.', httpStatus.BAD_REQUEST, {
+              code: 'INSUFFICIENT_WALLET_BALANCE',
             });
           }
-        }
 
-        const paymentRecord = await tx.payment.create({
-          data: {
-            gamingCenterId: hold.gamingCenterId,
-            bookingHoldId: hold.id,
-            amount: hold.totalAmount,
-            walletAmount: hold.totalAmount,
-            currency: hold.currency,
-            provider: PaymentProvider.MANUAL,
-            method: PaymentMethod.WALLET,
-            status: PaymentStatus.PAID,
-            paidAt: new Date(),
-            referenceCode: `WALLET-HOLD-${hold.id.slice(-8).toUpperCase()}`,
-            idempotencyKey: input.idempotencyKey,
-          },
-        });
+          // Decrement wallet balance
+          await tx.customerAccount.update({
+            where: { id: customerAccount.id },
+            data: { walletBalance: { decrement: hold.totalAmount } },
+          });
 
-        await tx.walletTransaction.create({
-          data: {
-            customerAccountId: customerAccount.id,
-            amount: -hold.totalAmount,
-            currency: hold.currency,
-            type: WalletTransactionType.RESERVATION_PAYMENT,
-            paymentId: paymentRecord.id,
-            note: `پرداخت کامل هولد رزرو گروهی ${hold.id} از طریق کیف پول`,
-            idempotencyKey: input.idempotencyKey ? `wallet_debit:${input.idempotencyKey}` : undefined,
-          },
-        });
-
-        const convertedGroup = await BookingHoldRepo.convertHoldToGroupBookingAndReservations(hold.id, tx);
-
-        await LedgerRepo.createCollectionEntry(tx, {
-          gamingCenterId: hold.gamingCenterId,
-          paymentId: paymentRecord.id,
-          amount: hold.totalAmount,
-          currency: hold.currency,
-          description: `Wallet collection for group hold ${hold.id}`,
-        });
-
-        if (convertedGroup?.reservations) {
-          for (const res of convertedGroup.reservations) {
-            await commissionsStation.calculateCommission(res.id, tx).catch(() => {});
+          if (input.idempotencyKey) {
+            const priorPayment = await tx.payment.findFirst({
+              where: {
+                gamingCenterId: hold.gamingCenterId,
+                idempotencyKey: input.idempotencyKey,
+              },
+            });
+            if (priorPayment) {
+              await tx.payment.update({
+                where: { id: priorPayment.id },
+                data: { idempotencyKey: `archived_${priorPayment.id}_${Date.now()}` },
+              });
+            }
           }
-        }
 
-        return { payment: paymentRecord, groupBooking: convertedGroup };
-      });
+          const paymentRecord = await tx.payment.create({
+            data: {
+              gamingCenterId: hold.gamingCenterId,
+              bookingHoldId: hold.id,
+              amount: hold.totalAmount,
+              walletAmount: hold.totalAmount,
+              currency: hold.currency,
+              provider: PaymentProvider.MANUAL,
+              method: PaymentMethod.WALLET,
+              status: PaymentStatus.PAID,
+              paidAt: new Date(),
+              referenceCode: `WALLET-HOLD-${hold.id.slice(-8).toUpperCase()}`,
+              idempotencyKey: input.idempotencyKey,
+            },
+          });
+
+          await tx.walletTransaction.create({
+            data: {
+              customerAccountId: customerAccount.id,
+              amount: -hold.totalAmount,
+              currency: hold.currency,
+              type: WalletTransactionType.RESERVATION_PAYMENT,
+              paymentId: paymentRecord.id,
+              note: `پرداخت کامل هولد رزرو گروهی ${hold.id} از طریق کیف پول`,
+              idempotencyKey: input.idempotencyKey ? `wallet_debit:${input.idempotencyKey}` : undefined,
+            },
+          });
+
+          const convertedGroup = await BookingHoldRepo.convertHoldToGroupBookingAndReservations(hold.id, tx);
+
+          await LedgerRepo.createCollectionEntry(tx, {
+            gamingCenterId: hold.gamingCenterId,
+            paymentId: paymentRecord.id,
+            amount: hold.totalAmount,
+            currency: hold.currency,
+            description: `Wallet collection for group hold ${hold.id}`,
+          });
+
+          return { payment: paymentRecord, groupBooking: convertedGroup };
+        });
+      } catch (error) {
+        await releaseHoldSafely(hold.id);
+        throw error;
+      }
+
+      if (fullPayment.groupBooking?.reservations) {
+        for (const res of fullPayment.groupBooking.reservations) {
+          await commissionsStation.calculateCommission(res.id).catch(() => {});
+        }
+      }
 
       return {
         holdId: hold.id,
@@ -572,86 +686,100 @@ export const BookingHoldStation = {
       };
     }
 
+    if (isWalletOnlyProvider) {
+      await releaseHoldSafely(hold.id);
+      throw new AppError('Insufficient wallet balance.', httpStatus.BAD_REQUEST, {
+        code: 'INSUFFICIENT_WALLET_BALANCE',
+      });
+    }
+
     // Partial Wallet or Gateway Checkout Scenario
-    const isPartialWallet = Boolean(input.useWallet && customerAccount && availableBalance > 0);
+    const isPartialWallet = Boolean(effectiveUseWallet && customerAccount && availableBalance > 0);
     const walletContribution = isPartialWallet ? Math.min(availableBalance, hold.totalAmount) : 0;
     const gatewayAmount = hold.totalAmount - walletContribution;
 
     // 3. Resolve provider & initiate payment
-    const providerName = input.provider;
-    const provider = PaymentProviderFactory.getProvider(providerName);
+    let provider;
+    let payment;
+    try {
+      const providerName = input.provider;
+      provider = PaymentProviderFactory.getProvider(providerName);
 
-    const payment = await PaymentsRepo.transaction(async (tx) => {
-      if (input.idempotencyKey) {
-        const priorPayment = await tx.payment.findFirst({
-          where: {
-            gamingCenterId: hold.gamingCenterId,
-            idempotencyKey: input.idempotencyKey,
-            status: { in: [PaymentStatus.FAILED] },
-          },
-        });
-        if (priorPayment) {
-          await tx.payment.update({
-            where: { id: priorPayment.id },
-            data: { idempotencyKey: `archived_${priorPayment.id}_${Date.now()}` },
+      payment = await PaymentsRepo.transaction(async (tx) => {
+        if (input.idempotencyKey) {
+          const priorPayment = await tx.payment.findFirst({
+            where: {
+              gamingCenterId: hold.gamingCenterId,
+              idempotencyKey: input.idempotencyKey,
+              status: { in: [PaymentStatus.FAILED, PaymentStatus.CANCELED] },
+            },
+          });
+          if (priorPayment) {
+            await tx.payment.update({
+              where: { id: priorPayment.id },
+              data: { idempotencyKey: `archived_${priorPayment.id}_${Date.now()}` },
+            });
+          }
+        }
+
+        if (walletContribution > 0 && customerAccount) {
+          if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
+            try {
+              await tx.$executeRaw`SELECT id FROM "CustomerAccount" WHERE id = ${customerAccount.id} FOR UPDATE`;
+            } catch {}
+          }
+
+          const freshAccount = await tx.customerAccount.findUnique({
+            where: { id: customerAccount.id },
+            select: { walletBalance: true },
+          });
+
+          if (!freshAccount || freshAccount.walletBalance < walletContribution) {
+            throw new AppError('Insufficient wallet balance.', httpStatus.BAD_REQUEST, {
+              code: 'INSUFFICIENT_WALLET_BALANCE',
+            });
+          }
+
+          await tx.customerAccount.update({
+            where: { id: customerAccount.id },
+            data: { walletBalance: { decrement: walletContribution } },
           });
         }
-      }
 
-      if (walletContribution > 0 && customerAccount) {
-        if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
-          try {
-            await tx.$executeRaw`SELECT id FROM "CustomerAccount" WHERE id = ${customerAccount.id} FOR UPDATE`;
-          } catch {}
-        }
-
-        const freshAccount = await tx.customerAccount.findUnique({
-          where: { id: customerAccount.id },
-          select: { walletBalance: true },
-        });
-
-        if (!freshAccount || freshAccount.walletBalance < walletContribution) {
-          throw new AppError('Insufficient wallet balance.', httpStatus.BAD_REQUEST, {
-            code: 'INSUFFICIENT_WALLET_BALANCE',
-          });
-        }
-
-        await tx.customerAccount.update({
-          where: { id: customerAccount.id },
-          data: { walletBalance: { decrement: walletContribution } },
-        });
-      }
-
-      const p = await tx.payment.create({
-        data: {
-          gamingCenterId: hold.gamingCenterId,
-          bookingHoldId: hold.id,
-          amount: hold.totalAmount,
-          walletAmount: walletContribution,
-          currency: hold.currency,
-          provider: provider.name as any, // eslint-disable-line @typescript-eslint/no-explicit-any
-          method: walletContribution > 0 ? PaymentMethod.ONLINE : PaymentMethod.ONLINE,
-          status: PaymentStatus.INITIATED,
-          idempotencyKey: input.idempotencyKey,
-        },
-      });
-
-      if (walletContribution > 0 && customerAccount) {
-        await tx.walletTransaction.create({
+        const p = await tx.payment.create({
           data: {
-            customerAccountId: customerAccount.id,
-            amount: -walletContribution,
+            gamingCenterId: hold.gamingCenterId,
+            bookingHoldId: hold.id,
+            amount: hold.totalAmount,
+            walletAmount: walletContribution,
             currency: hold.currency,
-            type: WalletTransactionType.RESERVATION_PAYMENT,
-            paymentId: p.id,
-            note: `کسر سهم کیف پول برای هولد رزرو گروهی ${hold.id}`,
-            idempotencyKey: input.idempotencyKey ? `wallet_debit:${input.idempotencyKey}` : undefined,
+            provider: provider.name as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+            method: walletContribution > 0 ? PaymentMethod.ONLINE : PaymentMethod.ONLINE,
+            status: PaymentStatus.INITIATED,
+            idempotencyKey: input.idempotencyKey,
           },
         });
-      }
 
-      return p;
-    });
+        if (walletContribution > 0 && customerAccount) {
+          await tx.walletTransaction.create({
+            data: {
+              customerAccountId: customerAccount.id,
+              amount: -walletContribution,
+              currency: hold.currency,
+              type: WalletTransactionType.RESERVATION_PAYMENT,
+              paymentId: p.id,
+              note: `کسر سهم کیف پول برای هولد رزرو گروهی ${hold.id}`,
+              idempotencyKey: input.idempotencyKey ? `wallet_debit:${input.idempotencyKey}` : undefined,
+            },
+          });
+        }
+
+        return p;
+      });
+    } catch (error) {
+      await releaseHoldSafely(hold.id);
+      throw error;
+    }
 
     // 4. Generate payment gateway request
     try {

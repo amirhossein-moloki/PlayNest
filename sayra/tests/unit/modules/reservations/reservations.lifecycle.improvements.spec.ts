@@ -5,7 +5,14 @@ import { GamingSessionsRepo } from '../../../../src/modules/gamingSessions/gamin
 import { gamingSessionsStation } from '../../../../src/modules/gamingSessions/gamingSessions.station';
 import { walletService } from '../../../../src/modules/wallet/wallet.station';
 import { eventEmitter, AppEvents } from '../../../../src/common/events/event-emitter';
-import { GamingSessionStatus, ReservationStatus, SessionActorType, UserRole } from '@prisma/client';
+import {
+  GamingSessionStatus,
+  ReservationPaymentState,
+  ReservationSource,
+  ReservationStatus,
+  SessionActorType,
+  UserRole,
+} from '@prisma/client';
 import AppError from '../../../../src/common/errors/AppError';
 
 jest.mock('../../../../src/modules/reservation/reservation.repo');
@@ -137,5 +144,83 @@ describe('Reservation Lifecycle Improvements', () => {
 
     expect(res.status).toBe(ReservationStatus.COMPLETED);
     expect(MockedGamingSessionsStation.endSession).not.toHaveBeenCalled();
+  });
+
+  it('confirmReservation and startReservation should reject unpaid online reservations (PAYMENT_REQUIRED)', async () => {
+    MockedReservationRepo.findReservationById.mockResolvedValue({
+      id: 'res-unpaid-online',
+      gamingCenterId: 'gc-1',
+      status: ReservationStatus.PENDING,
+      source: ReservationSource.ONLINE,
+      paymentState: ReservationPaymentState.UNPAID,
+      customerPayableAmount: 100000,
+      totalPrice: 100000,
+      confirmationExpiresAt: new Date(Date.now() + 600_000),
+    } as any);
+
+    await expect(reservationLifecycle.confirmReservation('res-unpaid-online', 'gc-1')).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'PAYMENT_REQUIRED',
+    });
+
+    MockedReservationRepo.findReservationById.mockResolvedValue({
+      id: 'res-unpaid-online-start',
+      gamingCenterId: 'gc-1',
+      status: ReservationStatus.CONFIRMED,
+      source: ReservationSource.ONLINE,
+      paymentState: ReservationPaymentState.UNPAID,
+      customerPayableAmount: 100000,
+      totalPrice: 100000,
+    } as any);
+
+    await expect(
+      reservationLifecycle.startReservation('res-unpaid-online-start', 'gc-1', {
+        id: 'mgr-1',
+        role: UserRole.MANAGER,
+        actorType: SessionActorType.USER,
+      })
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'PAYMENT_REQUIRED',
+    });
+  });
+
+  it('confirmReservation and startReservation should reject reservations with FAILED or CANCELED paymentState (PAYMENT_FAILED)', async () => {
+    MockedReservationRepo.findReservationById.mockResolvedValue({
+      id: 'res-failed-pay',
+      gamingCenterId: 'gc-1',
+      status: ReservationStatus.PENDING,
+      source: ReservationSource.ONLINE,
+      paymentState: ReservationPaymentState.FAILED,
+      customerPayableAmount: 100000,
+      totalPrice: 100000,
+      confirmationExpiresAt: new Date(Date.now() + 600_000),
+    } as any);
+
+    await expect(reservationLifecycle.confirmReservation('res-failed-pay', 'gc-1')).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'PAYMENT_FAILED',
+    });
+
+    MockedReservationRepo.findReservationById.mockResolvedValue({
+      id: 'res-canceled-pay',
+      gamingCenterId: 'gc-1',
+      status: ReservationStatus.CONFIRMED,
+      source: ReservationSource.WALK_IN,
+      paymentState: ReservationPaymentState.CANCELED,
+      customerPayableAmount: 100000,
+      totalPrice: 100000,
+    } as any);
+
+    await expect(
+      reservationLifecycle.startReservation('res-canceled-pay', 'gc-1', {
+        id: 'mgr-1',
+        role: UserRole.MANAGER,
+        actorType: SessionActorType.USER,
+      })
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'PAYMENT_FAILED',
+    });
   });
 });

@@ -114,6 +114,7 @@ export const ReservationRepo = {
       where: {
         gamingCenterId,
         id: excludeReservationId ? { not: excludeReservationId } : undefined,
+        paymentState: { notIn: [ReservationPaymentState.FAILED, ReservationPaymentState.CANCELED] },
         ...(conditions.length > 0 ? { OR: conditions } : {}),
         AND: [
           {

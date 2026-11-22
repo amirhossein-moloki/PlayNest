@@ -4,8 +4,30 @@ import { GroupBookingRepo } from '../../../../src/modules/group-booking/group-bo
 import { ReservationRepo } from '../../../../src/modules/reservation/reservation.repo';
 import { discountsStation } from '../../../../src/modules/discounts/discounts.station';
 import { walletService } from '../../../../src/modules/wallet/wallet.station';
-import { ReservationStatus, SessionActorType, UserRole } from '@prisma/client';
+import { ReservationStatus, ReservationPaymentState, SessionActorType, UserRole } from '@prisma/client';
 
+jest.mock('../../../../src/config/prisma', () => ({
+  prisma: {
+    customerAccount: {
+      findUnique: jest.fn(),
+    },
+  },
+}));
+jest.mock('../../../../src/modules/payments/payments.repo', () => ({
+  PaymentsRepo: {
+    reapStaleCustomerInitiatedPayments: jest.fn().mockImplementation(() => Promise.resolve()),
+  },
+}));
+jest.mock('../../../../src/modules/payments/ledger.repo', () => ({
+  LedgerRepo: {
+    createCollectionEntry: jest.fn().mockImplementation(() => Promise.resolve({})),
+  },
+}));
+jest.mock('../../../../src/modules/commissions/commissions.station', () => ({
+  commissionsStation: {
+    calculateCommission: jest.fn().mockImplementation(() => Promise.resolve()),
+  },
+}));
 jest.mock('../../../../src/modules/group-booking/group-booking.repo');
 jest.mock('../../../../src/modules/reservation/reservation.repo');
 jest.mock('../../../../src/modules/discounts/discounts.station');
@@ -188,6 +210,169 @@ describe('GroupBookingStation', () => {
       await expect(
         GroupBookingStation.getGroupBookingById(groupBookingId, gamingCenterId, actor)
       ).rejects.toThrow('Group booking not found.');
+    });
+  });
+
+  describe('createPublicGroupBooking', () => {
+    const startTime = '2027-06-06T14:00:00Z';
+    const items = [{ stationId: 'st-ps5-1' }, { stationId: 'st-ps5-2' }];
+    const stations = [
+      { id: 'st-ps5-1', name: 'PS5 #1', hourlyPrice: 100000, minRentHours: 1, maxRentHours: 8, stationType: 'PLAYSTATION' },
+      { id: 'st-ps5-2', name: 'PS5 #2', hourlyPrice: 100000, minRentHours: 1, maxRentHours: 8, stationType: 'PLAYSTATION' },
+    ];
+
+    it('should reject with INSUFFICIENT_WALLET_BALANCE without creating group booking when useWallet=true or provider=WALLET', async () => {
+      MockedReservationRepo.findGamingCenterBySlugWithSettings.mockResolvedValue({
+        id: gamingCenterId,
+        slug: 'center-1',
+        isActive: true,
+        settings: { allowOnlineBooking: true, onlineBookingAutoConfirm: true, timeZone: 'UTC' },
+      } as any);
+
+      const txMock = {
+        $executeRaw: jest.fn().mockImplementation(() => Promise.resolve(1)),
+        user: { findFirst: jest.fn().mockImplementation(() => Promise.resolve({ id: 'sys-user-1' })) },
+        customerAccount: {
+          findUnique: jest.fn().mockImplementation(() => Promise.resolve({ walletBalance: 50000 })),
+          update: jest.fn(),
+        },
+      };
+
+      MockedGroupBookingRepo.transaction.mockImplementation(async (fn) => fn(txMock as any));
+      MockedGroupBookingRepo.findStationsBatch.mockResolvedValue(stations as any);
+      MockedGroupBookingRepo.findOverlappingReservationsForStations.mockResolvedValue([]);
+      MockedReservationRepo.findCustomerAccountByPhone.mockResolvedValue({ id: 'ca-1', phone: '+989123456789' } as any);
+      MockedReservationRepo.findCustomerProfile.mockResolvedValue({ id: 'cp-1' } as any);
+
+      await expect(
+        GroupBookingStation.createPublicGroupBooking('center-1', {
+          startTime,
+          durationMinutes: 60,
+          items,
+          customer,
+          useWallet: true,
+        })
+      ).rejects.toMatchObject({ statusCode: 400, code: 'INSUFFICIENT_WALLET_BALANCE' });
+
+      await expect(
+        GroupBookingStation.createPublicGroupBooking('center-1', {
+          startTime,
+          durationMinutes: 60,
+          items,
+          customer,
+          provider: 'WALLET',
+        })
+      ).rejects.toMatchObject({ statusCode: 400, code: 'INSUFFICIENT_WALLET_BALANCE' });
+
+      expect(MockedGroupBookingRepo.createGroupBookingWithDetails).not.toHaveBeenCalled();
+      expect(txMock.customerAccount.update).not.toHaveBeenCalled();
+    });
+
+    it('should deduct wallet and set PAID/CONFIRMED when useWallet=true with sufficient balance', async () => {
+      MockedReservationRepo.findGamingCenterBySlugWithSettings.mockResolvedValue({
+        id: gamingCenterId,
+        slug: 'center-1',
+        isActive: true,
+        settings: { allowOnlineBooking: true, onlineBookingAutoConfirm: true, timeZone: 'UTC' },
+      } as any);
+
+      const txMock = {
+        $executeRaw: jest.fn().mockImplementation(() => Promise.resolve(1)),
+        user: { findFirst: jest.fn().mockImplementation(() => Promise.resolve({ id: 'sys-user-1' })) },
+        customerAccount: {
+          findUnique: jest.fn().mockImplementation(() => Promise.resolve({ walletBalance: 500000 })),
+          update: jest.fn().mockImplementation(() => Promise.resolve({ walletBalance: 300000 })),
+        },
+        payment: {
+          create: jest.fn().mockImplementation(() => Promise.resolve({ id: 'pay-gb-1' })),
+        },
+        walletTransaction: {
+          create: jest.fn().mockImplementation(() => Promise.resolve({ id: 'wtx-gb-1' })),
+        },
+      };
+
+      MockedGroupBookingRepo.transaction.mockImplementationOnce(async (fn) => fn(txMock as any));
+      MockedGroupBookingRepo.findStationsBatch.mockResolvedValue(stations as any);
+      MockedGroupBookingRepo.findOverlappingReservationsForStations.mockResolvedValue([]);
+      MockedReservationRepo.findCustomerAccountByPhone.mockResolvedValue({ id: 'ca-1', phone: '+989123456789' } as any);
+      MockedReservationRepo.findCustomerProfile.mockResolvedValue({ id: 'cp-1' } as any);
+
+      const createdBooking = {
+        id: 'gb-paid-1',
+        status: ReservationStatus.CONFIRMED,
+        paymentState: ReservationPaymentState.PAID,
+        reservations: [{ id: 'res-c1' }, { id: 'res-c2' }],
+      };
+      MockedGroupBookingRepo.createGroupBookingWithDetails.mockResolvedValue(createdBooking as any);
+
+      const result = await GroupBookingStation.createPublicGroupBooking('center-1', {
+        startTime,
+        durationMinutes: 60,
+        items,
+        customer,
+        useWallet: true,
+      });
+
+      expect(result?.status).toBe(ReservationStatus.CONFIRMED);
+      expect(result?.paymentState).toBe(ReservationPaymentState.PAID);
+      expect(txMock.customerAccount.update).toHaveBeenCalledWith({
+        where: { id: 'ca-1' },
+        data: { walletBalance: { decrement: 200000 } },
+      });
+      expect(MockedGroupBookingRepo.createGroupBookingWithDetails).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: ReservationStatus.CONFIRMED,
+          paymentState: ReservationPaymentState.PAID,
+        }),
+        expect.anything()
+      );
+    });
+
+    it('should keep unpaid payable online group booking PENDING with expiresAt even when onlineBookingAutoConfirm is true', async () => {
+      MockedReservationRepo.findGamingCenterBySlugWithSettings.mockResolvedValue({
+        id: gamingCenterId,
+        slug: 'center-1',
+        isActive: true,
+        settings: {
+          allowOnlineBooking: true,
+          onlineBookingAutoConfirm: true,
+          autoReleaseUnpaidMinutes: 15,
+          reservationConfirmationTimeoutMinutes: 30,
+          timeZone: 'UTC',
+        },
+      } as any);
+
+      const txMock = {
+        user: { findFirst: jest.fn().mockImplementation(() => Promise.resolve({ id: 'sys-user-1' })) },
+      };
+
+      MockedGroupBookingRepo.transaction.mockImplementationOnce(async (fn) => fn(txMock as any));
+      MockedGroupBookingRepo.findStationsBatch.mockResolvedValue(stations as any);
+      MockedGroupBookingRepo.findOverlappingReservationsForStations.mockResolvedValue([]);
+      MockedReservationRepo.findCustomerAccountByPhone.mockResolvedValue({ id: 'ca-1', phone: '+989123456789' } as any);
+      MockedReservationRepo.findCustomerProfile.mockResolvedValue({ id: 'cp-1' } as any);
+      MockedGroupBookingRepo.createGroupBookingWithDetails.mockResolvedValue({
+        id: 'gb-unpaid-1',
+        status: ReservationStatus.PENDING,
+        paymentState: ReservationPaymentState.UNPAID,
+      } as any);
+
+      await GroupBookingStation.createPublicGroupBooking('center-1', {
+        startTime,
+        durationMinutes: 60,
+        items,
+        customer,
+      });
+
+      expect(MockedGroupBookingRepo.createGroupBookingWithDetails).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: ReservationStatus.PENDING,
+          paymentState: ReservationPaymentState.UNPAID,
+          expiresAt: expect.any(Date),
+          confirmationExpiresAt: expect.any(Date),
+        }),
+        expect.anything()
+      );
     });
   });
 });
