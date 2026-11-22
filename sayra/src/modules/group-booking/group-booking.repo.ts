@@ -51,6 +51,11 @@ export const GroupBookingRepo = {
     return client.groupBooking.findFirst({
       where: { id, gamingCenterId },
       include: {
+        gamingCenter: {
+          include: {
+            settings: true,
+          },
+        },
         items: {
           include: {
             station: true,
@@ -195,6 +200,11 @@ export const GroupBookingRepo = {
     return tx.groupBooking.findUnique({
       where: { id: groupBooking.id },
       include: {
+        gamingCenter: {
+          include: {
+            settings: true,
+          },
+        },
         items: {
           include: {
             station: true,
@@ -226,6 +236,11 @@ export const GroupBookingRepo = {
     return client.groupBooking.findFirst({
       where: { id, gamingCenterId },
       include: {
+        gamingCenter: {
+          include: {
+            settings: true,
+          },
+        },
         items: {
           include: {
             station: true,
@@ -274,6 +289,11 @@ export const GroupBookingRepo = {
     return client.groupBooking.findFirst({
       where: { id, gamingCenterId },
       include: {
+        gamingCenter: {
+          include: {
+            settings: true,
+          },
+        },
         items: {
           include: {
             station: true,

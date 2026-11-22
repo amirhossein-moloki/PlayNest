@@ -301,6 +301,7 @@ describe('GamingCenterRepository', () => {
       expect(transformed.coverImages).toEqual([]);
       expect(transformed.coverImageUrl).toBeNull();
       expect(transformed.cancellationHours).toBe(2);
+      expect(transformed.cancellationWindowMinutes).toBe(15);
       expect(transformed.allowOnlineBooking).toBe(false);
       expect(typeof transformed.allowOnlineBooking).toBe('boolean');
     });
@@ -369,6 +370,32 @@ describe('GamingCenterRepository', () => {
       } as any);
 
       expect(transformed.cancellationHours).toBe(5);
+      expect(transformed.cancellationWindowMinutes).toBe(300);
+
+      const withExplicitMinutes = transformGamingCenter({
+        id: 'gc-custom-minutes',
+        name: 'Custom Minutes Center',
+        isActive: true,
+        slug: 'custom-minutes',
+        description: null,
+        pcCount: 2,
+        consoleCount: 2,
+        hourlyRate: 50000,
+        openingTime: null,
+        closingTime: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        addresses: [],
+        stations: [],
+        ratings: [],
+        settings: {
+          cancellationHours: 2,
+          cancellationWindowMinutes: 15,
+        },
+      } as any);
+
+      expect(withExplicitMinutes.cancellationHours).toBe(2);
+      expect(withExplicitMinutes.cancellationWindowMinutes).toBe(15);
     });
 
     it('should detect active discount and extract cover images', () => {

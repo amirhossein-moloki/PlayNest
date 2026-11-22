@@ -186,6 +186,7 @@ export async function seedFromDataset(
               maxAdvanceBookingDays: s.maxAdvanceBookingDays ?? 14,
               minAdvanceBookingMinutes: 15,
               cancellationHours: s.cancellationWindowHours ?? 2,
+              cancellationWindowMinutes: 15,
               autoReleaseUnpaidMinutes: 15,
             },
           });

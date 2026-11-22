@@ -95,4 +95,43 @@ describe('SettingsRepo', () => {
       }),
     });
   });
+
+  it('updateByGamingCenterId preserves minute-level cancellationWindowMinutes and syncs cancellationHours', async () => {
+    settingsMock.upsert.mockResolvedValue({ id: 's-3', cancellationWindowMinutes: 15, cancellationHours: 0 });
+    gamingCenterMock.update.mockResolvedValue({ id: 'gc-3' });
+
+    await SettingsRepo.updateByGamingCenterId('gc-3', {
+      cancellationWindowMinutes: 15,
+    });
+
+    expect(settingsMock.upsert).toHaveBeenCalledWith({
+      where: { gamingCenterId: 'gc-3' },
+      update: expect.objectContaining({
+        cancellationWindowMinutes: 15,
+        cancellationHours: 0,
+      }),
+      create: expect.objectContaining({
+        gamingCenterId: 'gc-3',
+        cancellationWindowMinutes: 15,
+        cancellationHours: 0,
+      }),
+    });
+
+    await SettingsRepo.updateByGamingCenterId('gc-4', {
+      cancellationHours: 2,
+    });
+
+    expect(settingsMock.upsert).toHaveBeenCalledWith({
+      where: { gamingCenterId: 'gc-4' },
+      update: expect.objectContaining({
+        cancellationHours: 2,
+        cancellationWindowMinutes: 120,
+      }),
+      create: expect.objectContaining({
+        gamingCenterId: 'gc-4',
+        cancellationHours: 2,
+        cancellationWindowMinutes: 120,
+      }),
+    });
+  });
 });

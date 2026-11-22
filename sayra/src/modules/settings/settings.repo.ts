@@ -33,9 +33,18 @@ export async function updateByGamingCenterId(gamingCenterId: string, data: Updat
   const resolvedTimeZone = timeZone ?? timezone;
   const resolvedWorkStartTime = workStartTime ?? openingTime;
   const resolvedWorkEndTime = workEndTime ?? closingTime;
-  const resolvedCancellationHours =
-    cancellationHours ??
-    (cancellationWindowMinutes !== undefined ? Math.round(cancellationWindowMinutes / 60) : undefined);
+
+  let resolvedCancellationWindowMinutes: number | undefined;
+  let resolvedCancellationHours: number | undefined;
+
+  if (cancellationWindowMinutes !== undefined) {
+    resolvedCancellationWindowMinutes = cancellationWindowMinutes;
+    resolvedCancellationHours =
+      cancellationHours !== undefined ? cancellationHours : Math.round(cancellationWindowMinutes / 60);
+  } else if (cancellationHours !== undefined) {
+    resolvedCancellationHours = cancellationHours;
+    resolvedCancellationWindowMinutes = cancellationHours * 60;
+  }
 
   const updateData: Prisma.SettingsUpdateInput = {};
   if (resolvedTimeZone !== undefined) updateData.timeZone = resolvedTimeZone;
@@ -48,6 +57,9 @@ export async function updateByGamingCenterId(gamingCenterId: string, data: Updat
   if (maxAdvanceBookingDays !== undefined) updateData.maxAdvanceBookingDays = maxAdvanceBookingDays;
   if (minAdvanceBookingMinutes !== undefined) updateData.minAdvanceBookingMinutes = minAdvanceBookingMinutes;
   if (resolvedCancellationHours !== undefined) updateData.cancellationHours = resolvedCancellationHours;
+  if (resolvedCancellationWindowMinutes !== undefined) {
+    updateData.cancellationWindowMinutes = resolvedCancellationWindowMinutes;
+  }
   if (noShowPenaltyAmount !== undefined) updateData.noShowPenaltyAmount = noShowPenaltyAmount;
   if (autoReleaseUnpaidMinutes !== undefined) updateData.autoReleaseUnpaidMinutes = autoReleaseUnpaidMinutes;
   if (reservationConfirmationTimeoutMinutes !== undefined) {
@@ -69,6 +81,9 @@ export async function updateByGamingCenterId(gamingCenterId: string, data: Updat
       ...(maxAdvanceBookingDays !== undefined && { maxAdvanceBookingDays }),
       ...(minAdvanceBookingMinutes !== undefined && { minAdvanceBookingMinutes }),
       ...(resolvedCancellationHours !== undefined && { cancellationHours: resolvedCancellationHours }),
+      ...(resolvedCancellationWindowMinutes !== undefined && {
+        cancellationWindowMinutes: resolvedCancellationWindowMinutes,
+      }),
       ...(noShowPenaltyAmount !== undefined && { noShowPenaltyAmount }),
       ...(autoReleaseUnpaidMinutes !== undefined && { autoReleaseUnpaidMinutes }),
       ...(reservationConfirmationTimeoutMinutes !== undefined && { reservationConfirmationTimeoutMinutes }),

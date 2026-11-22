@@ -1388,6 +1388,7 @@ model Settings {
   maxAdvanceBookingDays                  Int   @default(7)
   minAdvanceBookingMinutes               Int   @default(30)
   cancellationHours                      Int   @default(2)
+  cancellationWindowMinutes              Int   @default(15)
   noShowPenaltyAmount                    Float @default(0)
   autoReleaseUnpaidMinutes               Int   @default(15)
   reservationConfirmationTimeoutMinutes  Int   @default(30)

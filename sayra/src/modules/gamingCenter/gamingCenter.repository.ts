@@ -4,6 +4,7 @@ import { Prisma, GameStation, Rating, Settings, Address, DiscountValueType, Gami
 import { ListGamingCentersQuery, GetGamingCenterDetailsQuery } from './gamingCenter.validation';
 import { getPaginationParams, formatPaginatedResult } from '../../common/utils/pagination';
 import { toZonedTime } from 'date-fns-tz';
+import { resolveCancellationWindowMinutes } from '../reservation/reservation.validation';
 
 export function checkIsOpen(
   openingTime?: string | null,
@@ -386,6 +387,7 @@ export function transformGamingCenter(
 
   const effectiveHasDiscount = pricing.hasDiscount || hasDiscount;
   const cancellationHours = settings?.cancellationHours ?? 2;
+  const cancellationWindowMinutes = resolveCancellationWindowMinutes(settings);
   const allowOnlineBooking = settings?.allowOnlineBooking === true;
 
   return {
@@ -414,6 +416,7 @@ export function transformGamingCenter(
     banner: resolvedBanner,
     pricing,
     cancellationHours,
+    cancellationWindowMinutes,
     allowOnlineBooking,
     ...(manager
       ? {

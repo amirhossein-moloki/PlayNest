@@ -26,7 +26,11 @@ import { calculateBasePrice } from '../../common/utils/money';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { normalizePhone } from '../../common/utils/phone';
-import { validateOperatingHours } from '../reservation/reservation.validation';
+import {
+  resolveCancellationWindowMinutes,
+  validateCancellationWindowMinutes,
+  validateOperatingHours,
+} from '../reservation/reservation.validation';
 import { RequestActor } from '../../types/express';
 import { prisma } from '../../config/prisma';
 import { eventEmitter, AppEvents } from '../../common/events/event-emitter';
@@ -833,6 +837,25 @@ export const GroupBookingStation = {
       throw new AppError('Group booking is already canceled.', httpStatus.CONFLICT);
     }
 
+    if (isCustomer && groupBooking.startTime) {
+      const settings =
+        (
+          groupBooking as {
+            gamingCenter?: {
+              settings?: {
+                cancellationWindowMinutes?: number | null;
+                cancellationHours?: number | null;
+              } | null;
+            } | null;
+          }
+        ).gamingCenter?.settings ||
+        (typeof ReservationRepo.findSettings === 'function'
+          ? await Promise.resolve(ReservationRepo.findSettings(gamingCenterId))
+          : null);
+      const cancellationWindowMinutes = resolveCancellationWindowMinutes(settings);
+      validateCancellationWindowMinutes(new Date(groupBooking.startTime), cancellationWindowMinutes);
+    }
+
     const updated = await GroupBookingRepo.transaction(async (tx) => {
       const canceled = await GroupBookingRepo.cancelGroupBookingAndReservations(
         id,
@@ -878,6 +901,25 @@ export const GroupBookingStation = {
       { old: groupBooking, new: updated },
       context
     );
+
+    const updatedWithRelations = updated as unknown as {
+      gamingCenter?: unknown;
+      customerAccount?: unknown;
+      reservations?: unknown[];
+    } | null;
+    if (
+      updatedWithRelations?.gamingCenter &&
+      updatedWithRelations?.customerAccount &&
+      Array.isArray(updatedWithRelations.reservations)
+    ) {
+      for (const res of updatedWithRelations.reservations) {
+        eventEmitter.emit(AppEvents.RESERVATION_CANCELED, {
+          reservation: res,
+          gamingCenter: updatedWithRelations.gamingCenter,
+          customerAccount: updatedWithRelations.customerAccount,
+        });
+      }
+    }
 
     return updated;
   },

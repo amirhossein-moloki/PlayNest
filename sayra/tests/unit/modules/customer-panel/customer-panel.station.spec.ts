@@ -6,6 +6,7 @@ import { walletService } from '../../../../src/modules/wallet/wallet.station';
 import { auditService } from '../../../../src/modules/audit/audit.station';
 import { updateCustomerProfileSchema } from '../../../../src/modules/customer-panel/customer-panel.validators';
 import AppError from '../../../../src/common/errors/AppError';
+import { AppEvents, eventEmitter } from '../../../../src/common/events/event-emitter';
 
 describe('CustomerPanelStation updateProfile and validation', () => {
   beforeEach(() => {
@@ -146,6 +147,115 @@ describe('CustomerPanelStation updateProfile and validation', () => {
 
       await expect(
         CustomerPanelStation.cancelReservation('res-2', 'ca-1', 'Emergency')
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        code: 'CANCELLATION_DEADLINE_EXCEEDED',
+      });
+    });
+
+    it('should default to 15-minute window when settings are null (allow at 20m, reject at 10m)', async () => {
+      const now = new Date();
+      const twentyMinutesAway = new Date(now.getTime() + 20 * 60 * 1000);
+      const tenMinutesAway = new Date(now.getTime() + 10 * 60 * 1000);
+
+      const allowedReservation = {
+        id: 'res-default-ok',
+        customerAccountId: 'ca-1',
+        gamingCenterId: 'gc-1',
+        status: 'CONFIRMED',
+        startTime: twentyMinutesAway,
+        endTime: new Date(twentyMinutesAway.getTime() + 60 * 60 * 1000),
+        gamingCenter: null,
+      };
+
+      jest.spyOn(ReservationRepo, 'findSettings').mockResolvedValue(null);
+      jest.spyOn(CustomerPanelRepo, 'findReservationById').mockResolvedValueOnce(allowedReservation as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      jest.spyOn(CustomerPanelRepo, 'transaction').mockImplementation(async (callback) => callback({} as any)); // eslint-disable-line @typescript-eslint/no-explicit-any
+      jest.spyOn(ReservationRepo, 'createHistory').mockResolvedValue({} as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      jest.spyOn(walletService, 'refundReservationToWallet').mockResolvedValue({} as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      jest.spyOn(auditService, 'log').mockResolvedValue({} as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      jest.spyOn(CustomerPanelRepo, 'updateReservation').mockResolvedValue({
+        ...allowedReservation,
+        status: 'CANCELED',
+      } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+      const res = await CustomerPanelStation.cancelReservation('res-default-ok', 'ca-1', 'Late cancel');
+      expect(res.status).toBe('CANCELED');
+
+      const blockedReservation = {
+        ...allowedReservation,
+        id: 'res-default-fail',
+        startTime: tenMinutesAway,
+        endTime: new Date(tenMinutesAway.getTime() + 60 * 60 * 1000),
+      };
+      jest.spyOn(CustomerPanelRepo, 'findReservationById').mockResolvedValueOnce(blockedReservation as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+      await expect(
+        CustomerPanelStation.cancelReservation('res-default-fail', 'ca-1', 'Too late')
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        code: 'CANCELLATION_DEADLINE_EXCEEDED',
+      });
+    });
+
+    it('should allow cancellation at 15+ minutes when cancellationWindowMinutes=15 even with legacy cancellationHours=2, and emit RESERVATION_CANCELED', async () => {
+      const now = new Date();
+      const twentyMinutesAway = new Date(now.getTime() + 20 * 60 * 1000);
+      const tenMinutesAway = new Date(now.getTime() + 10 * 60 * 1000);
+      const gamingCenter = {
+        id: 'gc-1',
+        name: 'Arena',
+        settings: {
+          cancellationWindowMinutes: 15,
+          cancellationHours: 2,
+        },
+      };
+      const customerAccount = { id: 'ca-1', phone: '09123456789', fullName: 'Ali' };
+
+      const mockReservation = {
+        id: 'res-min-15',
+        customerAccountId: 'ca-1',
+        gamingCenterId: 'gc-1',
+        status: 'CONFIRMED',
+        startTime: twentyMinutesAway,
+        endTime: new Date(twentyMinutesAway.getTime() + 60 * 60 * 1000),
+        gamingCenter,
+        customerAccount,
+      };
+      const updatedReservation = {
+        ...mockReservation,
+        status: 'CANCELED',
+        canceledAt: new Date(),
+      };
+
+      jest.spyOn(CustomerPanelRepo, 'findReservationById').mockResolvedValueOnce(mockReservation as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      jest.spyOn(CustomerPanelRepo, 'transaction').mockImplementation(async (callback) => callback({} as any)); // eslint-disable-line @typescript-eslint/no-explicit-any
+      jest.spyOn(ReservationRepo, 'createHistory').mockResolvedValue({} as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      jest.spyOn(walletService, 'refundReservationToWallet').mockResolvedValue({} as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      jest.spyOn(auditService, 'log').mockResolvedValue({} as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      jest.spyOn(CustomerPanelRepo, 'updateReservation').mockResolvedValue(updatedReservation as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+      const canceledSpy = jest.fn();
+      eventEmitter.once(AppEvents.RESERVATION_CANCELED, canceledSpy);
+
+      const result = await CustomerPanelStation.cancelReservation('res-min-15', 'ca-1', 'Leaving early');
+      expect(result.status).toBe('CANCELED');
+      expect(canceledSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reservation: updatedReservation,
+          gamingCenter,
+          customerAccount,
+        })
+      );
+
+      jest.spyOn(CustomerPanelRepo, 'findReservationById').mockResolvedValueOnce({
+        ...mockReservation,
+        id: 'res-min-10',
+        startTime: tenMinutesAway,
+      } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+      await expect(
+        CustomerPanelStation.cancelReservation('res-min-10', 'ca-1', 'Too late')
       ).rejects.toMatchObject({
         statusCode: 400,
         code: 'CANCELLATION_DEADLINE_EXCEEDED',

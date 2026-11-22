@@ -262,6 +262,7 @@ export async function seedGamingCenters(prisma: PrismaClient) {
             requireOtpForPublicBooking: true,
             maxAdvanceBookingDays: 14,
             cancellationHours: 2,
+            cancellationWindowMinutes: 15,
             minAdvanceBookingMinutes: 15,
             autoReleaseUnpaidMinutes: 15,
           },

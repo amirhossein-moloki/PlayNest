@@ -6,6 +6,9 @@ import {
   validateStaffShiftHours,
   resolveValidTimeZone,
   validateCancellationDeadline,
+  validateCancellationWindowMinutes,
+  resolveCancellationWindowMinutes,
+  DEFAULT_CANCELLATION_WINDOW_MINUTES,
 } from '../../../../src/modules/reservation/reservation.validation';
 import AppError from '../../../../src/common/errors/AppError';
 import { addMinutes } from 'date-fns';
@@ -70,6 +73,60 @@ describe('Operational Reservation Validation Rules', () => {
 
       expect(() => validateCancellationDeadline(startTime, 5, now)).toThrow(AppError); // requires 5 hours -> fails
       expect(() => validateCancellationDeadline(startTime, 3, now)).not.toThrow(); // requires 3 hours -> passes
+    });
+  });
+
+  describe('validateCancellationWindowMinutes & resolveCancellationWindowMinutes', () => {
+    it('should default DEFAULT_CANCELLATION_WINDOW_MINUTES to 15', () => {
+      expect(DEFAULT_CANCELLATION_WINDOW_MINUTES).toBe(15);
+    });
+
+    it('should allow cancellation at 20 minutes and at exactly 15 minutes before start time', () => {
+      const startTime = new Date('2026-12-01T10:30:00Z');
+      const twentyMinsBefore = new Date('2026-12-01T10:10:00Z');
+      const fifteenMinsBefore = new Date('2026-12-01T10:15:00Z');
+
+      expect(() => validateCancellationWindowMinutes(startTime, 15, twentyMinsBefore)).not.toThrow();
+      expect(() => validateCancellationWindowMinutes(startTime, 15, fifteenMinsBefore)).not.toThrow();
+    });
+
+    it('should reject cancellation at 14 minutes before start time and after start time with 400 CANCELLATION_DEADLINE_EXCEEDED', () => {
+      const startTime = new Date('2026-12-01T10:30:00Z');
+      const fourteenMinsBefore = new Date('2026-12-01T10:16:00Z');
+      const afterStart = new Date('2026-12-01T10:35:00Z');
+
+      for (const now of [fourteenMinsBefore, afterStart]) {
+        expect(() => validateCancellationWindowMinutes(startTime, 15, now)).toThrow(AppError);
+        try {
+          validateCancellationWindowMinutes(startTime, 15, now);
+        } catch (err: unknown) {
+          const error = err as AppError;
+          expect(error.statusCode).toBe(400);
+          expect(error.code).toBe('CANCELLATION_DEADLINE_EXCEEDED');
+          expect(error.message).toContain('15 minutes');
+          expect(error.details).toEqual(
+            expect.objectContaining({
+              cancellationWindowMinutes: 15,
+            })
+          );
+        }
+      }
+    });
+
+    it('should resolve cancellationWindowMinutes over cancellationHours, fall back to cancellationHours * 60, and default to 15', () => {
+      expect(
+        resolveCancellationWindowMinutes({ cancellationWindowMinutes: 15, cancellationHours: 2 })
+      ).toBe(15);
+      expect(
+        resolveCancellationWindowMinutes({ cancellationWindowMinutes: 0, cancellationHours: 2 })
+      ).toBe(0);
+      expect(
+        resolveCancellationWindowMinutes({ cancellationWindowMinutes: null, cancellationHours: 2 })
+      ).toBe(120);
+      expect(resolveCancellationWindowMinutes({ cancellationHours: 3 })).toBe(180);
+      expect(resolveCancellationWindowMinutes(null)).toBe(15);
+      expect(resolveCancellationWindowMinutes(undefined)).toBe(15);
+      expect(resolveCancellationWindowMinutes({})).toBe(15);
     });
   });
 

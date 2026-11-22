@@ -38,6 +38,12 @@ export const CustomerPanelRepo = {
             id: true,
             name: true,
             slug: true,
+            settings: {
+              select: {
+                cancellationWindowMinutes: true,
+                cancellationHours: true,
+              },
+            },
           },
         },
         staff: {
@@ -95,6 +101,7 @@ export const CustomerPanelRepo = {
             settings: true,
           },
         },
+        customerAccount: true,
         staff: {
           select: {
             id: true,

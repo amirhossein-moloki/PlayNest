@@ -4,7 +4,15 @@ import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { CustomerPanelRepo } from './customer-panel.repo';
 import { GetCustomerReservationQuery, CustomerSubmitReviewInput, UpdateCustomerProfileInput } from './customer-panel.validators';
-import { ReservationStatus, ReservationProposalStatus, PaymentStatus, Prisma, SessionActorType } from '@prisma/client';
+import {
+  ReservationStatus,
+  ReservationProposalStatus,
+  PaymentStatus,
+  Prisma,
+  SessionActorType,
+  CancellationCategory,
+  CancellationActor,
+} from '@prisma/client';
 import { auditService } from '../audit/audit.station';
 import { walletService } from '../wallet/wallet.station';
 import { PaymentsRepo } from '../payments/payments.repo';
@@ -16,9 +24,13 @@ import { reservationStation } from '../reservation/reservation.station';
 import { RescheduleReservationInput } from '../reservation/reservation.dto';
 import { getZonedStartAndEnd } from '../../common/utils/date';
 import { calculateBasePrice } from '../../common/utils/money';
-import { validateCancellationDeadline } from '../reservation/reservation.validation';
+import {
+  resolveCancellationWindowMinutes,
+  validateCancellationWindowMinutes,
+} from '../reservation/reservation.validation';
 import { prisma } from '../../config/prisma';
 import { GroupBookingStation } from '../group-booking/group-booking.station';
+import { AppEvents, eventEmitter } from '../../common/events/event-emitter';
 
 export const CustomerPanelStation = {
   async getProfile(customerAccountId: string) {
@@ -130,6 +142,14 @@ export const CustomerPanelStation = {
         if (groupBooking.status === ReservationStatus.CANCELED) {
           return groupBooking;
         }
+        const gbSettings =
+          groupBooking.gamingCenter?.settings ||
+          (typeof ReservationRepo.findSettings === 'function'
+            ? await Promise.resolve(ReservationRepo.findSettings(groupBooking.gamingCenterId))
+            : null);
+        const gbCancellationWindowMinutes = resolveCancellationWindowMinutes(gbSettings);
+        validateCancellationWindowMinutes(new Date(groupBooking.startTime), gbCancellationWindowMinutes);
+
         return GroupBookingStation.cancelGroupBooking(
           reservationId,
           groupBooking.gamingCenterId,
@@ -145,9 +165,13 @@ export const CustomerPanelStation = {
       return reservation;
     }
 
-    const settings = reservation.gamingCenter?.settings || await ReservationRepo.findSettings(reservation.gamingCenterId);
-    const cancellationHours = settings?.cancellationHours ?? 2;
-    validateCancellationDeadline(reservation.startTime, cancellationHours);
+    const settings =
+      reservation.gamingCenter?.settings ||
+      (typeof ReservationRepo.findSettings === 'function'
+        ? await Promise.resolve(ReservationRepo.findSettings(reservation.gamingCenterId))
+        : null);
+    const cancellationWindowMinutes = resolveCancellationWindowMinutes(settings);
+    validateCancellationWindowMinutes(new Date(reservation.startTime), cancellationWindowMinutes);
 
     ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.CANCELED);
 
@@ -156,6 +180,8 @@ export const CustomerPanelStation = {
         status: ReservationStatus.CANCELED,
         canceledAt: new Date(),
         cancelReason: reason || 'Canceled by customer',
+        cancelCategory: CancellationCategory.CUSTOMER_CANCEL,
+        cancelActor: CancellationActor.CUSTOMER,
       }, tx);
 
       await ReservationRepo.createHistory({
@@ -202,6 +228,15 @@ export const CustomerPanelStation = {
     );
 
     AnalyticsRepo.syncAllStatsForReservation(reservationId).catch(console.error);
+
+    const customerAccount = (reservation as { customerAccount?: unknown }).customerAccount;
+    if (updatedReservation && reservation.gamingCenter && customerAccount) {
+      eventEmitter.emit(AppEvents.RESERVATION_CANCELED, {
+        reservation: updatedReservation,
+        gamingCenter: reservation.gamingCenter,
+        customerAccount,
+      });
+    }
 
     return updatedReservation;
   },

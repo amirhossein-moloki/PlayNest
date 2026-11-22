@@ -19,6 +19,7 @@ export async function getSettings(gamingCenterId: string) {
       maxAdvanceBookingDays: 7,
       minAdvanceBookingMinutes: 30,
       cancellationHours: 2,
+      cancellationWindowMinutes: 15,
       noShowPenaltyAmount: 0,
       autoReleaseUnpaidMinutes: 15,
     };

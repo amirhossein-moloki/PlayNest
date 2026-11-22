@@ -199,6 +199,68 @@ export const validateStationAvailability = (
   }
 };
 
+export const DEFAULT_CANCELLATION_WINDOW_MINUTES = 15;
+
+/**
+ * Resolves cancellation cutoff window in minutes from settings.
+ * Prefers explicit cancellationWindowMinutes, falls back to legacy cancellationHours * 60,
+ * and defaults to 15 minutes when neither is set.
+ */
+export const resolveCancellationWindowMinutes = (
+  settings?: {
+    cancellationWindowMinutes?: number | null;
+    cancellationHours?: number | null;
+  } | null
+): number => {
+  if (
+    typeof settings?.cancellationWindowMinutes === 'number' &&
+    !Number.isNaN(settings.cancellationWindowMinutes) &&
+    settings.cancellationWindowMinutes >= 0
+  ) {
+    return settings.cancellationWindowMinutes;
+  }
+
+  if (
+    typeof settings?.cancellationHours === 'number' &&
+    !Number.isNaN(settings.cancellationHours) &&
+    settings.cancellationHours >= 0
+  ) {
+    return settings.cancellationHours * 60;
+  }
+
+  return DEFAULT_CANCELLATION_WINDOW_MINUTES;
+};
+
+/**
+ * Validates whether cancellation is permitted prior to reservation start time.
+ * Cancellation is allowed if current time is at least cancellationWindowMinutes before startTime.
+ */
+export const validateCancellationWindowMinutes = (
+  startTime: Date,
+  cancellationWindowMinutes: number = DEFAULT_CANCELLATION_WINDOW_MINUTES,
+  now: Date = new Date()
+): void => {
+  const deadline = new Date(startTime.getTime() - cancellationWindowMinutes * 60 * 1000);
+  if (now.getTime() > deadline.getTime()) {
+    const isExactHours = cancellationWindowMinutes >= 60 && cancellationWindowMinutes % 60 === 0;
+    const durationLabel = isExactHours
+      ? `${cancellationWindowMinutes / 60} ${cancellationWindowMinutes / 60 === 1 ? 'hour' : 'hours'}`
+      : `${cancellationWindowMinutes} ${cancellationWindowMinutes === 1 ? 'minute' : 'minutes'}`;
+
+    throw new AppError(
+      `Reservations can only be cancelled at least ${durationLabel} before start time.`,
+      httpStatus.BAD_REQUEST,
+      {
+        code: 'CANCELLATION_DEADLINE_EXCEEDED',
+        details: {
+          cancellationWindowMinutes,
+          deadline: deadline.toISOString(),
+        },
+      }
+    );
+  }
+};
+
 /**
  * Validates whether cancellation is permitted prior to reservation start time.
  * Cancellation is allowed if current time is at least cancellationHours before startTime.
@@ -208,14 +270,7 @@ export const validateCancellationDeadline = (
   cancellationHours: number = 2,
   now: Date = new Date()
 ): void => {
-  const deadline = new Date(startTime.getTime() - cancellationHours * 60 * 60 * 1000);
-  if (now.getTime() > deadline.getTime()) {
-    throw new AppError(
-      `Reservations can only be cancelled at least ${cancellationHours} hours before start time.`,
-      httpStatus.BAD_REQUEST,
-      { code: 'CANCELLATION_DEADLINE_EXCEEDED' }
-    );
-  }
+  validateCancellationWindowMinutes(startTime, cancellationHours * 60, now);
 };
 
 /**

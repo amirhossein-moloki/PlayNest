@@ -47,6 +47,7 @@ export interface GamingCenterListItem {
   banner: string | null;
   pricing: GamingCenterPricing;
   cancellationHours?: number;
+  cancellationWindowMinutes?: number;
   allowOnlineBooking: boolean;
   deviceCounts?: DeviceTypeCounts;
   owner?: {

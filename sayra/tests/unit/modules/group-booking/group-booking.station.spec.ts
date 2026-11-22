@@ -190,6 +190,90 @@ describe('GroupBookingStation', () => {
         GroupBookingStation.cancelGroupBooking(groupBookingId, gamingCenterId, actor)
       ).rejects.toThrow('Group booking is already canceled.');
     });
+
+    it('should allow customer to cancel group booking 20 minutes before startTime under default 15-minute window and emit RESERVATION_CANCELED', async () => {
+      const startTime = new Date(Date.now() + 20 * 60 * 1000);
+      const gamingCenter = {
+        id: gamingCenterId,
+        name: 'Arena',
+        settings: { cancellationWindowMinutes: 15, cancellationHours: 2 },
+      };
+      const customerAccount = { id: 'ca-cust-1', phone: '09123456789' };
+      const existingBooking = {
+        id: groupBookingId,
+        gamingCenterId,
+        customerAccountId: 'ca-cust-1',
+        status: ReservationStatus.CONFIRMED,
+        startTime,
+        gamingCenter,
+        customerAccount,
+        reservations: [{ id: 'res-1' }, { id: 'res-2' }],
+      };
+      const canceledBooking = {
+        ...existingBooking,
+        status: ReservationStatus.CANCELED,
+      };
+
+      MockedGroupBookingRepo.findGroupBookingById.mockResolvedValue(existingBooking as any);
+      MockedGroupBookingRepo.cancelGroupBookingAndReservations.mockResolvedValue(canceledBooking as any);
+
+      const canceledSpy = jest.fn();
+      eventEmitter.on(AppEvents.RESERVATION_CANCELED, canceledSpy);
+
+      const actor = { id: 'ca-cust-1', actorType: SessionActorType.CUSTOMER, customerAccountId: 'ca-cust-1' };
+      const result = await GroupBookingStation.cancelGroupBooking(groupBookingId, gamingCenterId, actor, 'Plans changed');
+
+      eventEmitter.removeListener(AppEvents.RESERVATION_CANCELED, canceledSpy);
+
+      expect(result.status).toBe(ReservationStatus.CANCELED);
+      expect(MockedWalletService.refundReservationToWallet).toHaveBeenCalledTimes(2);
+      expect(canceledSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('should reject customer cancelling group booking 10 minutes before startTime with CANCELLATION_DEADLINE_EXCEEDED', async () => {
+      const startTime = new Date(Date.now() + 10 * 60 * 1000);
+      const existingBooking = {
+        id: groupBookingId,
+        gamingCenterId,
+        customerAccountId: 'ca-cust-1',
+        status: ReservationStatus.CONFIRMED,
+        startTime,
+        gamingCenter: { settings: { cancellationWindowMinutes: 15, cancellationHours: 2 } },
+      };
+
+      MockedGroupBookingRepo.findGroupBookingById.mockResolvedValue(existingBooking as any);
+
+      const actor = { id: 'ca-cust-1', actorType: SessionActorType.CUSTOMER, customerAccountId: 'ca-cust-1' };
+      await expect(
+        GroupBookingStation.cancelGroupBooking(groupBookingId, gamingCenterId, actor, 'Late')
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        code: 'CANCELLATION_DEADLINE_EXCEEDED',
+      });
+    });
+
+    it('should allow MANAGER to cancel group booking even 5 minutes before startTime', async () => {
+      const startTime = new Date(Date.now() + 5 * 60 * 1000);
+      const existingBooking = {
+        id: groupBookingId,
+        gamingCenterId,
+        customerAccountId: 'ca-cust-1',
+        status: ReservationStatus.CONFIRMED,
+        startTime,
+        gamingCenter: { settings: { cancellationWindowMinutes: 15 } },
+        reservations: [{ id: 'res-1' }],
+      };
+
+      MockedGroupBookingRepo.findGroupBookingById.mockResolvedValue(existingBooking as any);
+      MockedGroupBookingRepo.cancelGroupBookingAndReservations.mockResolvedValue({
+        ...existingBooking,
+        status: ReservationStatus.CANCELED,
+      } as any);
+
+      const actor = { id: 'u-mgr-1', role: UserRole.MANAGER, actorType: SessionActorType.USER };
+      const result = await GroupBookingStation.cancelGroupBooking(groupBookingId, gamingCenterId, actor, 'Admin override');
+      expect(result.status).toBe(ReservationStatus.CANCELED);
+    });
   });
 
   describe('getGroupBookingById', () => {
