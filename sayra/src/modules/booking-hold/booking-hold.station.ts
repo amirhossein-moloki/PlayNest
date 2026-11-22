@@ -29,6 +29,7 @@ import {
   validateAndPriceExtraControllers,
 } from '../station/extra-controller.service';
 import { RequestActor } from '../../types/express';
+import { eventEmitter, AppEvents } from '../../common/events/event-emitter';
 
 export const DEFAULT_HOLD_EXPIRATION_MINUTES = 10;
 export const OTP_POST_VERIFICATION_WINDOW_MINUTES = 15;
@@ -432,6 +433,27 @@ export const BookingHoldStation = {
         }
       }
 
+      // Emit RESERVATION_CONFIRMED for all created reservations
+      try {
+        const gamingCenter = typeof t.gamingCenter?.findUnique === 'function'
+          ? await t.gamingCenter.findUnique({
+            where: { id: hold.gamingCenterId },
+            include: { settings: true },
+          })
+          : null;
+        if (gamingCenter && groupBooking?.customerAccount && Array.isArray(groupBooking.reservations)) {
+          for (const res of groupBooking.reservations) {
+            eventEmitter.emit(AppEvents.RESERVATION_CONFIRMED, {
+              reservation: res,
+              gamingCenter,
+              customerAccount: groupBooking.customerAccount,
+            });
+          }
+        }
+      } catch (evtErr) {
+        logger.warn({ err: evtErr, holdId: hold.id }, 'Failed to emit reservation confirmation events in convertHoldToReservations');
+      }
+
       return groupBooking;
     };
 
@@ -558,6 +580,19 @@ export const BookingHoldStation = {
           return { payment: paymentRecord, groupBooking: convertedGroup };
         });
 
+        try {
+          const refreshedPayment = typeof prisma.payment?.findUnique === 'function'
+            ? await prisma.payment.findUnique({ where: { id: freePayment.payment.id } }).catch(() => null)
+            : null;
+          eventEmitter.emit(AppEvents.PAYMENT_SUCCESS, {
+            payment: refreshedPayment || freePayment.payment,
+          });
+        } catch (evtErr) {
+          eventEmitter.emit(AppEvents.PAYMENT_SUCCESS, {
+            payment: freePayment.payment,
+          });
+        }
+
         return {
           holdId: hold.id,
           paymentId: freePayment.payment.id,
@@ -668,6 +703,19 @@ export const BookingHoldStation = {
         for (const res of fullPayment.groupBooking.reservations) {
           await commissionsStation.calculateCommission(res.id).catch(() => {});
         }
+      }
+
+      try {
+        const refreshedPayment = typeof prisma.payment?.findUnique === 'function'
+          ? await prisma.payment.findUnique({ where: { id: fullPayment.payment.id } }).catch(() => null)
+          : null;
+        eventEmitter.emit(AppEvents.PAYMENT_SUCCESS, {
+          payment: refreshedPayment || fullPayment.payment,
+        });
+      } catch (evtErr) {
+        eventEmitter.emit(AppEvents.PAYMENT_SUCCESS, {
+          payment: fullPayment.payment,
+        });
       }
 
       return {

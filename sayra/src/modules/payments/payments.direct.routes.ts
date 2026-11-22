@@ -11,6 +11,8 @@ import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { IdempotencyRepo } from '../../common/repositories/idempotency.repo';
 import { IdempotencyStatus } from '../../types/idempotency';
+import { eventEmitter, AppEvents } from '../../common/events/event-emitter';
+import { prisma } from '../../config/prisma';
 
 const router = Router();
 
@@ -153,6 +155,8 @@ router.post(
       }
 
       try {
+        const normalizedStatus = eventStatus.toUpperCase();
+
         await PaymentsRepo.transaction(async (tx) => {
           const payment = await tx.payment.findUnique({
             where: { id: paymentId },
@@ -162,8 +166,6 @@ router.post(
           if (!payment) {
             throw new AppError('Payment not found.', httpStatus.NOT_FOUND);
           }
-
-          const normalizedStatus = eventStatus.toUpperCase();
 
           if (normalizedStatus === 'PAID' || normalizedStatus === 'SUCCEEDED' || normalizedStatus === 'OK') {
             await PaymentsRepo.handleSuccessfulPayment(tx, payment.id, refId);
@@ -176,6 +178,25 @@ router.post(
             await PaymentsRepo.handleFailedPayment(tx, payment.id, PaymentStatus.FAILED, 'Webhook reported failure');
           }
         });
+
+        if (normalizedStatus === 'PAID' || normalizedStatus === 'SUCCEEDED' || normalizedStatus === 'OK') {
+          const refreshed = typeof prisma.payment?.findUnique === 'function'
+            ? await prisma.payment.findUnique({ where: { id: paymentId } })
+            : null;
+          if (refreshed) {
+            eventEmitter.emit(AppEvents.PAYMENT_SUCCESS, { payment: refreshed });
+          }
+        } else if (normalizedStatus === 'FAILED' || normalizedStatus === 'NOK' || normalizedStatus === 'CANCELLED') {
+          const refreshed = typeof prisma.payment?.findUnique === 'function'
+            ? await prisma.payment.findUnique({ where: { id: paymentId } })
+            : null;
+          if (refreshed) {
+            eventEmitter.emit(AppEvents.PAYMENT_FAILED, {
+              payment: refreshed,
+              failureReason: 'Webhook reported failure',
+            });
+          }
+        }
 
         await IdempotencyRepo.updateKey(idempotencyScope, idempotencyKey, { status: IdempotencyStatus.COMPLETED });
         res.ok({ message: 'Webhook processed successfully.' });

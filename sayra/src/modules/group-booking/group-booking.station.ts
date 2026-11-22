@@ -6,6 +6,7 @@ import {
   PaymentStatus,
   PaymentMethod,
   PaymentProvider,
+  Payment,
   WalletTransactionType,
   Prisma,
   SessionActorType,
@@ -28,6 +29,7 @@ import { normalizePhone } from '../../common/utils/phone';
 import { validateOperatingHours } from '../reservation/reservation.validation';
 import { RequestActor } from '../../types/express';
 import { prisma } from '../../config/prisma';
+import { eventEmitter, AppEvents } from '../../common/events/event-emitter';
 
 const OTP_POST_VERIFICATION_WINDOW_MINUTES = 5;
 
@@ -299,8 +301,9 @@ export const GroupBookingStation = {
         tx
       );
 
+      let payment: Payment | null = null;
       if (isWalletPayment && createdGroupBooking) {
-        const payment = await tx.payment.create({
+        payment = await tx.payment.create({
           data: {
             gamingCenter: { connect: { id: gamingCenterId } },
             groupBooking: { connect: { id: createdGroupBooking.id } },
@@ -335,7 +338,7 @@ export const GroupBookingStation = {
         });
       }
 
-      return { groupBooking: createdGroupBooking, isWalletPayment };
+      return { groupBooking: createdGroupBooking, isWalletPayment, payment };
     }, {
       isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
     });
@@ -344,6 +347,37 @@ export const GroupBookingStation = {
       for (const res of result.groupBooking.reservations) {
         await commissionsStation.calculateCommission(res.id).catch(() => {});
       }
+    }
+
+    try {
+      const gamingCenter = typeof prisma.gamingCenter?.findUnique === 'function'
+        ? await prisma.gamingCenter.findUnique({
+          where: { id: result.groupBooking.gamingCenterId },
+          include: { settings: true },
+        })
+        : null;
+
+      if (gamingCenter && result.groupBooking?.customerAccount) {
+        if (result.isWalletPayment && result.payment) {
+          eventEmitter.emit(AppEvents.PAYMENT_SUCCESS, {
+            payment: result.payment,
+          });
+        }
+
+        const isConfirmed = result.groupBooking.status === ReservationStatus.CONFIRMED;
+        for (const res of result.groupBooking.reservations || []) {
+          eventEmitter.emit(
+            isConfirmed ? AppEvents.RESERVATION_CONFIRMED : AppEvents.RESERVATION_CREATED,
+            {
+              reservation: res,
+              gamingCenter,
+              customerAccount: result.groupBooking.customerAccount,
+            }
+          );
+        }
+      }
+    } catch (evtErr) {
+      // Safe fallback
     }
 
     return result.groupBooking;
@@ -622,8 +656,9 @@ export const GroupBookingStation = {
         tx
       );
 
+      let payment: Payment | null = null;
       if (isWalletPayment && createdGroupBooking) {
-        const payment = await tx.payment.create({
+        payment = await tx.payment.create({
           data: {
             gamingCenter: { connect: { id: gamingCenter.id } },
             groupBooking: { connect: { id: createdGroupBooking.id } },
@@ -658,7 +693,7 @@ export const GroupBookingStation = {
         });
       }
 
-      return { groupBooking: createdGroupBooking, isWalletPayment };
+      return { groupBooking: createdGroupBooking, isWalletPayment, payment };
     }, {
       isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
     });
@@ -667,6 +702,37 @@ export const GroupBookingStation = {
       for (const res of result.groupBooking.reservations) {
         await commissionsStation.calculateCommission(res.id).catch(() => {});
       }
+    }
+
+    try {
+      const gc = typeof prisma.gamingCenter?.findUnique === 'function'
+        ? await prisma.gamingCenter.findUnique({
+          where: { id: result.groupBooking.gamingCenterId },
+          include: { settings: true },
+        })
+        : gamingCenter;
+
+      if (gc && result.groupBooking?.customerAccount) {
+        if (result.isWalletPayment && result.payment) {
+          eventEmitter.emit(AppEvents.PAYMENT_SUCCESS, {
+            payment: result.payment,
+          });
+        }
+
+        const isConfirmed = result.groupBooking.status === ReservationStatus.CONFIRMED;
+        for (const res of result.groupBooking.reservations || []) {
+          eventEmitter.emit(
+            isConfirmed ? AppEvents.RESERVATION_CONFIRMED : AppEvents.RESERVATION_CREATED,
+            {
+              reservation: res,
+              gamingCenter: gc,
+              customerAccount: result.groupBooking.customerAccount,
+            }
+          );
+        }
+      }
+    } catch (evtErr) {
+      // Safe fallback
     }
 
     return result.groupBooking;

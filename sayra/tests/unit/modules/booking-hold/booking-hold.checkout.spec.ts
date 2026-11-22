@@ -7,6 +7,7 @@ import { PaymentsRepo } from '../../../../src/modules/payments/payments.repo';
 import { PaymentProviderFactory } from '../../../../src/modules/payments/providers';
 import { BookingHoldStatus, PaymentStatus } from '@prisma/client';
 import AppError from '../../../../src/common/errors/AppError';
+import { eventEmitter, AppEvents } from '../../../../src/common/events/event-emitter';
 
 jest.mock('../../../../src/modules/booking-hold/booking-hold.repo');
 jest.mock('../../../../src/modules/reservation/reservation.repo');
@@ -422,5 +423,105 @@ describe('BookingHoldStation - Checkout & Idempotency Retries', () => {
       where: { id: 'hold-bad-provider', status: BookingHoldStatus.ACTIVE },
       data: { status: BookingHoldStatus.RELEASED },
     });
+  });
+
+  it('should emit AppEvents.PAYMENT_SUCCESS on successful full wallet hold checkout', async () => {
+    MockedReservationRepo.findGamingCenterBySlugWithSettings.mockResolvedValue({
+      id: gamingCenterId,
+      slug: gamingCenterSlug,
+      settings: { allowOnlineBooking: true, minAdvanceBookingMinutes: 30 },
+    } as any);
+
+    MockedBookingHoldRepo.findHoldByIdempotencyKey.mockResolvedValue(null);
+    MockedReservationRepo.findCustomerAccountByPhone.mockResolvedValue({
+      id: 'ca-full-wallet',
+      phone: '+989981385514',
+      walletBalance: 300000,
+    } as any);
+
+    const txMock = {
+      $executeRaw: jest.fn().mockImplementation(() => Promise.resolve(1)),
+      customerAccount: {
+        findUnique: (jest.fn() as any).mockResolvedValue({ id: 'ca-full-wallet', walletBalance: 300000 }),
+        update: jest.fn(),
+      },
+      customerProfile: {
+        findUnique: (jest.fn() as any).mockResolvedValue({ id: 'cp-1', customerAccountId: 'ca-full-wallet' }),
+      },
+      gameStation: {
+        findMany: (jest.fn() as any).mockResolvedValue([
+          { id: 'station-1', name: 'Station 1', hourlyPrice: 185000, minRentHours: 1, maxRentHours: 8, stationType: 'PC' },
+        ]),
+      },
+      payment: {
+        create: (jest.fn() as any).mockResolvedValue({
+          id: 'pay-wallet-succ-1',
+          status: PaymentStatus.PAID,
+          amount: 185000,
+        }),
+        findFirst: jest.fn().mockImplementation(() => Promise.resolve(null)),
+      },
+      walletTransaction: {
+        create: jest.fn().mockImplementation(() => Promise.resolve({ id: 'wt-1' })),
+      },
+      ledgerEntry: {
+        findUnique: jest.fn().mockImplementation(() => Promise.resolve(null)),
+        create: jest.fn().mockImplementation(() => Promise.resolve({ id: 'le-1' })),
+      },
+      bookingHold: {
+        updateMany: jest.fn().mockImplementation(() => Promise.resolve({ count: 1 })),
+      },
+      gamingCenter: {
+        findUnique: (jest.fn() as any).mockResolvedValue({
+          id: gamingCenterId,
+          name: 'Kian Gaming',
+          settings: { timeZone: 'Asia/Tehran' },
+        }),
+      },
+    };
+
+    MockedBookingHoldRepo.transaction.mockImplementation(async (fn: any) => fn(txMock));
+    MockedBookingHoldRepo.findOverlappingReservationsAndHoldsForStations.mockResolvedValue([]);
+
+    const createdHold = {
+      id: 'hold-full-wallet-1',
+      gamingCenterId,
+      status: BookingHoldStatus.ACTIVE,
+      totalAmount: 185000,
+      currency: 'IRR',
+      expiresAt: new Date(Date.now() + 600000),
+      items: [{ stationId: 'station-1', price: 185000 }],
+    };
+    MockedBookingHoldRepo.createBookingHold.mockResolvedValue(createdHold as any);
+
+    const convertedGroup = {
+      id: 'gb-converted-succ',
+      reservations: [{ id: 'res-child-1', status: 'CONFIRMED' }],
+      customerAccount: { id: 'ca-full-wallet', phone: '+989981385514' },
+    };
+    MockedBookingHoldRepo.convertHoldToGroupBookingAndReservations.mockResolvedValue(convertedGroup as any);
+    MockedPaymentsRepo.transaction.mockImplementation(async (fn: any) => fn(txMock));
+
+    const paymentSuccessSpy = jest.fn();
+    eventEmitter.on(AppEvents.PAYMENT_SUCCESS, paymentSuccessSpy);
+
+    const result = await BookingHoldStation.checkoutGroupReservation(gamingCenterSlug, {
+      startTime: '2027-01-01T16:00:00Z',
+      durationMinutes: 60,
+      items,
+      customer,
+      useWallet: true,
+      idempotencyKey: 'idemp-wallet-succ-1',
+    });
+
+    expect(result.paymentStatus).toBe(PaymentStatus.PAID);
+    expect(paymentSuccessSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payment: expect.objectContaining({
+          id: 'pay-wallet-succ-1',
+          status: PaymentStatus.PAID,
+        }),
+      })
+    );
   });
 });

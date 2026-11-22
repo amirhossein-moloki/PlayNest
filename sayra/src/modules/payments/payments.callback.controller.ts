@@ -189,10 +189,18 @@ export async function handlePaymentCallback(req: Request, res: Response): Promis
   try {
     const finalPayment = await PaymentsRepo.transaction(async (tx) => {
       if (verifyResult.success) {
-        const updated = await PaymentsRepo.handleSuccessfulPayment(tx, payment.id, verifyResult.refId);
+        let updated = await PaymentsRepo.handleSuccessfulPayment(tx, payment.id, verifyResult.refId);
         if (payment.bookingHoldId) {
           const { BookingHoldStation } = await import('../booking-hold/booking-hold.station');
           await BookingHoldStation.convertHoldToReservations(payment.bookingHoldId, payment.id, tx);
+          if (typeof tx.payment?.findUnique === 'function') {
+            const refreshed = await tx.payment.findUnique({
+              where: { id: payment.id },
+            });
+            if (refreshed) {
+              updated = refreshed;
+            }
+          }
         }
         return updated;
       } else {
@@ -434,10 +442,18 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
   try {
     const finalPayment = await PaymentsRepo.transaction(async (tx) => {
       if (verifyResult.success) {
-        const updated = await PaymentsRepo.handleSuccessfulPayment(tx, payment.id, verifyResult.refId);
+        let updated = await PaymentsRepo.handleSuccessfulPayment(tx, payment.id, verifyResult.refId);
         if (payment.bookingHoldId) {
           const { BookingHoldStation } = await import('../booking-hold/booking-hold.station');
           await BookingHoldStation.convertHoldToReservations(payment.bookingHoldId, payment.id, tx);
+          if (typeof tx.payment?.findUnique === 'function') {
+            const refreshed = await tx.payment.findUnique({
+              where: { id: payment.id },
+            });
+            if (refreshed) {
+              updated = refreshed;
+            }
+          }
         }
         return updated;
       } else {

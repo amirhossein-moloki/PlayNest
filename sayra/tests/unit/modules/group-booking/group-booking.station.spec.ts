@@ -4,7 +4,8 @@ import { GroupBookingRepo } from '../../../../src/modules/group-booking/group-bo
 import { ReservationRepo } from '../../../../src/modules/reservation/reservation.repo';
 import { discountsStation } from '../../../../src/modules/discounts/discounts.station';
 import { walletService } from '../../../../src/modules/wallet/wallet.station';
-import { ReservationStatus, ReservationPaymentState, SessionActorType, UserRole } from '@prisma/client';
+import { ReservationStatus, ReservationPaymentState, SessionActorType, UserRole, PaymentStatus } from '@prisma/client';
+import { eventEmitter, AppEvents } from '../../../../src/common/events/event-emitter';
 
 jest.mock('../../../../src/config/prisma', () => ({
   prisma: {
@@ -299,11 +300,18 @@ describe('GroupBookingStation', () => {
 
       const createdBooking = {
         id: 'gb-paid-1',
+        gamingCenterId,
         status: ReservationStatus.CONFIRMED,
         paymentState: ReservationPaymentState.PAID,
+        customerAccount: { id: 'ca-1', phone: '09121112233' },
         reservations: [{ id: 'res-c1' }, { id: 'res-c2' }],
       };
       MockedGroupBookingRepo.createGroupBookingWithDetails.mockResolvedValue(createdBooking as any);
+
+      const paymentSuccessSpy = jest.fn();
+      const resConfirmedSpy = jest.fn();
+      eventEmitter.on(AppEvents.PAYMENT_SUCCESS, paymentSuccessSpy);
+      eventEmitter.on(AppEvents.RESERVATION_CONFIRMED, resConfirmedSpy);
 
       const result = await GroupBookingStation.createPublicGroupBooking('center-1', {
         startTime,
@@ -315,6 +323,14 @@ describe('GroupBookingStation', () => {
 
       expect(result?.status).toBe(ReservationStatus.CONFIRMED);
       expect(result?.paymentState).toBe(ReservationPaymentState.PAID);
+      expect(paymentSuccessSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payment: expect.objectContaining({
+            id: 'pay-gb-1',
+          }),
+        })
+      );
+      expect(resConfirmedSpy).toHaveBeenCalledTimes(2);
       expect(txMock.customerAccount.update).toHaveBeenCalledWith({
         where: { id: 'ca-1' },
         data: { walletBalance: { decrement: 200000 } },

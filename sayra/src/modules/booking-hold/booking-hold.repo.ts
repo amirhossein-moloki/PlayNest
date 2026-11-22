@@ -423,14 +423,15 @@ export const BookingHoldRepo = {
     });
 
     // 4. Update Payment to associate with groupBookingId (and reservationId for single-station bookings) if present
-    if (hold.payment) {
+    const paymentRecord = hold.payment || (typeof tx.payment?.findFirst === 'function' ? await tx.payment.findFirst({ where: { bookingHoldId: hold.id } }) : null);
+    if (paymentRecord && typeof tx.payment?.update === 'function') {
       await tx.payment.update({
-        where: { id: hold.payment.id },
+        where: { id: paymentRecord.id },
         data: {
           groupBookingId: groupBooking.id,
           ...(createdReservationIds.length === 1 ? { reservationId: createdReservationIds[0] } : {}),
           status: PaymentStatus.PAID,
-          paidAt: hold.payment.paidAt || new Date(),
+          paidAt: paymentRecord.paidAt || new Date(),
         },
       });
     }

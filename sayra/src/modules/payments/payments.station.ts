@@ -2,6 +2,7 @@ import {
   ReservationPaymentState,
   PaymentProvider,
   PaymentStatus,
+  Payment,
   ReservationStatus,
   SessionActorType,
   CancellationCategory,
@@ -294,6 +295,19 @@ const initiatePayment = async ({
         idempotencyKey,
       });
 
+      let refreshedPayment: Payment | null = null;
+      try {
+        refreshedPayment = typeof PaymentsRepo.findPaymentByIdempotencyKey === 'function' && idempotencyKey
+          ? await PaymentsRepo.findPaymentByIdempotencyKey(gamingCenterId, idempotencyKey)
+          : (typeof prisma.payment?.findUnique === 'function' ? await prisma.payment.findUnique({ where: { id: payment.id } }).catch(() => null) : null);
+      } catch {
+        refreshedPayment = null;
+      }
+
+      eventEmitter.emit(AppEvents.PAYMENT_SUCCESS, {
+        payment: refreshedPayment || payment,
+      });
+
       return {
         paymentId: payment.id,
         paymentStatus: payment.status,
@@ -563,12 +577,20 @@ const verifyPayment = async ({
   // 5. Atomic database status update based on provider result
   const finalPayment = await PaymentsRepo.transaction(async (tx) => {
     if (verifyResult.success) {
-      const updated = await PaymentsRepo.handleSuccessfulPayment(tx, payment.id, verifyResult.refId);
+      let updated = await PaymentsRepo.handleSuccessfulPayment(tx, payment.id, verifyResult.refId);
 
       // If linked to BookingHold, convert to reservations atomically inside same transaction or right after
       if (payment.bookingHoldId) {
         const { BookingHoldStation } = await import('../booking-hold/booking-hold.station');
         await BookingHoldStation.convertHoldToReservations(payment.bookingHoldId, payment.id, tx);
+        if (typeof tx.payment?.findUnique === 'function') {
+          const refreshed = await tx.payment.findUnique({
+            where: { id: payment.id },
+          });
+          if (refreshed) {
+            updated = refreshed;
+          }
+        }
       }
 
       return updated;

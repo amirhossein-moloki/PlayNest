@@ -590,6 +590,10 @@ export const NotificationStation = {
   },
 
   async notifyManagers(input: NotifyManagersInput) {
+    if (typeof prisma.user?.findMany !== 'function') {
+      return [];
+    }
+
     const managers = (await prisma.user.findMany({
       where: {
         isActive: true,

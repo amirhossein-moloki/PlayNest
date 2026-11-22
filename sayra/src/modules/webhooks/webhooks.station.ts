@@ -6,6 +6,8 @@ import { IdempotencyRepo } from '../../common/repositories/idempotency.repo';
 import { PaymentsRepo } from '../payments/payments.repo';
 import { queueAnalyticsSync } from '../../jobs/producers/analytics.producer';
 import logger from '../../config/logger';
+import { eventEmitter, AppEvents } from '../../common/events/event-emitter';
+import { prisma } from '../../config/prisma';
 
 const processPaymentWebhook = async ({
   provider,
@@ -101,6 +103,23 @@ const processPaymentWebhook = async ({
       }
 
     });
+
+    try {
+      const refreshedPayment = typeof prisma.payment?.findUnique === 'function'
+        ? await prisma.payment.findUnique({ where: { id: paymentId } })
+        : null;
+
+      if (eventStatus === 'SUCCEEDED' && refreshedPayment) {
+        eventEmitter.emit(AppEvents.PAYMENT_SUCCESS, { payment: refreshedPayment });
+      } else if (eventStatus === 'FAILED' && refreshedPayment) {
+        eventEmitter.emit(AppEvents.PAYMENT_FAILED, {
+          payment: refreshedPayment,
+          failureReason: 'Webhook reported failure',
+        });
+      }
+    } catch (evtErr) {
+      logger.warn({ err: evtErr, paymentId }, 'Failed to emit payment webhook event');
+    }
 
     // Sync analytics - properly awaited with structured logger
     try {

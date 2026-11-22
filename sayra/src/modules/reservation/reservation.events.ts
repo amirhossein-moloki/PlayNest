@@ -3,6 +3,7 @@ import { queueAnalyticsSync } from '../../jobs/producers/analytics.producer';
 import {
   Reservation,
   GamingCenter,
+  CustomerAccount,
   Settings,
   ReservationStatus,
   UserRole,
@@ -34,13 +35,17 @@ const notifyOwnerAndStaff = async (
   smsParams?: Array<{ name: string; value: string }>
 ) => {
   try {
-    const managers = await prisma.user.findMany({
-      where: {
-        gamingCenterId,
-        role: UserRole.MANAGER,
-        isActive: true,
-      },
-    });
+    const managers = (typeof prisma.user?.findMany === 'function'
+      ? await prisma.user.findMany({
+        where: {
+          gamingCenterId,
+          role: UserRole.MANAGER,
+          isActive: true,
+        },
+      })
+      : []) || [];
+
+    if (!Array.isArray(managers)) return;
 
     for (const manager of managers) {
       const language = getRecipientPreferredLanguage(manager);
@@ -409,42 +414,126 @@ export const initReservationEvents = () => {
     if (!payment) return;
 
     try {
-      const reservation = payment.reservationId
-        ? await prisma.reservation.findUnique({
-          where: { id: payment.reservationId },
-          include: { customerAccount: true, gamingCenter: true },
-        })
-        : null;
+      let customerAccount: (CustomerAccount & { preferredLanguage?: string | null }) | null = null;
+      let gamingCenter: GamingCenterWithSettings | null = null;
+      let reservationId: string | undefined = payment.reservationId || undefined;
+      let groupBookingId: string | undefined = payment.groupBookingId || undefined;
+      const reservationsToConfirm: Reservation[] = [];
 
-      if (reservation && reservation.customerAccount) {
-        const customerLang = getRecipientPreferredLanguage(reservation.customerAccount);
+      // 1. Try resolving via reservationId
+      if (payment.reservationId && typeof prisma.reservation?.findUnique === 'function') {
+        const reservation = await prisma.reservation.findUnique({
+          where: { id: payment.reservationId },
+          include: { customerAccount: true, gamingCenter: { include: { settings: true } } },
+        });
+        if (reservation) {
+          customerAccount = reservation.customerAccount;
+          gamingCenter = reservation.gamingCenter;
+          if (reservation.status === ReservationStatus.CONFIRMED) {
+            reservationsToConfirm.push(reservation);
+          }
+        }
+      }
+
+      // 2. Try resolving via groupBookingId
+      if (payment.groupBookingId && typeof prisma.groupBooking?.findUnique === 'function') {
+        const groupBooking = await prisma.groupBooking.findUnique({
+          where: { id: payment.groupBookingId },
+          include: {
+            customerAccount: true,
+            gamingCenter: { include: { settings: true } },
+            reservations: true,
+          },
+        });
+        if (groupBooking) {
+          if (!customerAccount) customerAccount = groupBooking.customerAccount;
+          if (!gamingCenter) gamingCenter = groupBooking.gamingCenter;
+          if (!reservationId && groupBooking.reservations?.length > 0) {
+            reservationId = groupBooking.reservations[0].id;
+          }
+          if (groupBooking.status === ReservationStatus.CONFIRMED && Array.isArray(groupBooking.reservations)) {
+            for (const res of groupBooking.reservations) {
+              if (!reservationsToConfirm.some((r) => r.id === res.id)) {
+                reservationsToConfirm.push(res);
+              }
+            }
+          }
+        }
+      }
+
+      // 3. Try resolving via bookingHoldId
+      if ((!customerAccount || !groupBookingId) && payment.bookingHoldId && typeof prisma.bookingHold?.findUnique === 'function') {
+        const hold = await prisma.bookingHold.findUnique({
+          where: { id: payment.bookingHoldId },
+          include: {
+            customerAccount: true,
+            gamingCenter: { include: { settings: true } },
+          },
+        });
+        if (hold) {
+          if (!customerAccount) customerAccount = hold.customerAccount;
+          if (!gamingCenter) gamingCenter = hold.gamingCenter;
+          if (!groupBookingId && hold.convertedGroupBookingId) {
+            groupBookingId = hold.convertedGroupBookingId;
+            if (typeof prisma.groupBooking?.findUnique === 'function') {
+              const gb = await prisma.groupBooking.findUnique({
+                where: { id: hold.convertedGroupBookingId },
+                include: { reservations: true, gamingCenter: { include: { settings: true } } },
+              });
+              if (gb && Array.isArray(gb.reservations)) {
+                if (!gamingCenter && gb.gamingCenter) gamingCenter = gb.gamingCenter;
+                for (const res of gb.reservations) {
+                  if (!reservationsToConfirm.some((r) => r.id === res.id)) {
+                    reservationsToConfirm.push(res);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // 4. Try resolving via gamingCenterId directly if needed
+      if (!gamingCenter && payment.gamingCenterId && typeof prisma.gamingCenter?.findUnique === 'function') {
+        gamingCenter = await prisma.gamingCenter.findUnique({
+          where: { id: payment.gamingCenterId },
+          include: { settings: true },
+        });
+      }
+
+      if (customerAccount) {
+        const customerLang = getRecipientPreferredLanguage(customerAccount);
         const formattedAmount = formatCurrencyAmount(payment.amount, payment.currency, customerLang);
 
-        if (reservation.customerAccount.id) {
+        if (customerAccount.id && typeof prisma.customerNotification?.create === 'function') {
           await notifyCustomerInApp(
-            reservation.customerAccount.id,
+            customerAccount.id,
             'PAYMENT_SUCCESS',
             'PAYMENT_SUCCESS_CUSTOMER',
             {
               formattedAmount,
               refCode: payment.referenceCode || payment.id,
             },
-            { paymentId: payment.id, reservationId: reservation.id },
+            {
+              paymentId: payment.id,
+              ...(reservationId ? { reservationId } : {}),
+              ...(groupBookingId ? { groupBookingId } : {}),
+            },
             customerLang
           );
         }
 
-        if (reservation.customerAccount.phone) {
+        if (customerAccount.phone && typeof NotificationStation?.enqueueNotificationLog === 'function') {
           const templateId = env.SMSIR_PAYMENT_SUCCESS_TEMPLATE_ID;
           const parameters = [
-            { name: 'CUSTOMER_NAME', value: reservation.customerAccount.fullName || 'Customer' },
+            { name: 'CUSTOMER_NAME', value: customerAccount.fullName || 'Customer' },
             { name: 'AMOUNT', value: String(payment.amount) },
             { name: 'REF_CODE', value: payment.referenceCode || payment.id },
           ];
 
           await NotificationStation.enqueueNotificationLog({
             gamingCenterId: payment.gamingCenterId,
-            recipient: reservation.customerAccount.phone,
+            recipient: customerAccount.phone,
             channel: 'SMS',
             type: NotificationType.PAYMENT_SUCCESS,
             templateKey: 'PAYMENT_SUCCESS_CUSTOMER',
@@ -461,6 +550,17 @@ export const initReservationEvents = () => {
           });
         }
       }
+
+      // Emit RESERVATION_CONFIRMED for any confirmed reservations linked to this payment
+      if (gamingCenter && customerAccount && reservationsToConfirm.length > 0) {
+        for (const res of reservationsToConfirm) {
+          eventEmitter.emit(AppEvents.RESERVATION_CONFIRMED, {
+            reservation: res,
+            gamingCenter,
+            customerAccount,
+          });
+        }
+      }
     } catch (error) {
       console.error('Failed to handle PAYMENT_SUCCESS notification event:', error);
     }
@@ -470,42 +570,82 @@ export const initReservationEvents = () => {
     if (!payment) return;
 
     try {
-      const reservation = payment.reservationId
-        ? await prisma.reservation.findUnique({
+      let customerAccount: (CustomerAccount & { preferredLanguage?: string | null }) | null = null;
+      let reservationId: string | undefined = payment.reservationId || undefined;
+      let groupBookingId: string | undefined = payment.groupBookingId || undefined;
+
+      // 1. Try resolving via reservationId
+      if (payment.reservationId && typeof prisma.reservation?.findUnique === 'function') {
+        const reservation = await prisma.reservation.findUnique({
           where: { id: payment.reservationId },
           include: { customerAccount: true, gamingCenter: true },
-        })
-        : null;
+        });
+        if (reservation) {
+          customerAccount = reservation.customerAccount;
+        }
+      }
 
-      if (reservation && reservation.customerAccount) {
-        const customerLang = getRecipientPreferredLanguage(reservation.customerAccount);
+      // 2. Try resolving via groupBookingId
+      if (!customerAccount && payment.groupBookingId && typeof prisma.groupBooking?.findUnique === 'function') {
+        const groupBooking = await prisma.groupBooking.findUnique({
+          where: { id: payment.groupBookingId },
+          include: { customerAccount: true, gamingCenter: true, reservations: { select: { id: true } } },
+        });
+        if (groupBooking) {
+          customerAccount = groupBooking.customerAccount;
+          if (!reservationId && groupBooking.reservations?.length > 0) {
+            reservationId = groupBooking.reservations[0].id;
+          }
+        }
+      }
+
+      // 3. Try resolving via bookingHoldId
+      if (!customerAccount && payment.bookingHoldId && typeof prisma.bookingHold?.findUnique === 'function') {
+        const hold = await prisma.bookingHold.findUnique({
+          where: { id: payment.bookingHoldId },
+          include: { customerAccount: true, gamingCenter: true },
+        });
+        if (hold) {
+          customerAccount = hold.customerAccount;
+          if (!groupBookingId && hold.convertedGroupBookingId) {
+            groupBookingId = hold.convertedGroupBookingId;
+          }
+        }
+      }
+
+      if (customerAccount) {
+        const customerLang = getRecipientPreferredLanguage(customerAccount);
         const formattedAmount = formatCurrencyAmount(payment.amount, payment.currency, customerLang);
 
-        if (reservation.customerAccount.id) {
+        if (customerAccount.id && typeof prisma.customerNotification?.create === 'function') {
           await notifyCustomerInApp(
-            reservation.customerAccount.id,
+            customerAccount.id,
             'PAYMENT_FAILED',
             'PAYMENT_FAILED_CUSTOMER',
             {
               formattedAmount,
               reason: failureReason || (customerLang === 'en' ? 'Declined' : 'تراکنش ناموفق'),
             },
-            { paymentId: payment.id, reservationId: reservation.id },
+            {
+              paymentId: payment.id,
+              ...(reservationId ? { reservationId } : {}),
+              ...(groupBookingId ? { groupBookingId } : {}),
+            },
             customerLang
           );
         }
 
-        if (reservation.customerAccount.phone) {
+        if (customerAccount.phone && typeof NotificationStation?.enqueueNotificationLog === 'function') {
           const templateId = env.SMSIR_PAYMENT_FAILED_TEMPLATE_ID;
           const parameters = [
-            { name: 'CUSTOMER_NAME', value: reservation.customerAccount.fullName || 'Customer' },
+            { name: 'CUSTOMER_NAME', value: customerAccount.fullName || 'Customer' },
             { name: 'AMOUNT', value: String(payment.amount) },
             { name: 'REASON', value: failureReason || (customerLang === 'en' ? 'Payment failed' : 'پرداخت ناموفق') },
           ];
 
           await NotificationStation.enqueueNotificationLog({
             gamingCenterId: payment.gamingCenterId,
-            recipient: reservation.customerAccount.phone,
+            recipient: customerAccount.phone,
             channel: 'SMS',
             type: NotificationType.PAYMENT_FAILED,
             templateKey: 'PAYMENT_FAILED_CUSTOMER',
@@ -524,19 +664,21 @@ export const initReservationEvents = () => {
       }
 
       // Notify managers In-App of failed payment
-      const formattedAmount = `${payment.amount} ${payment.currency}`;
-      await NotificationStation.notifyManagers({
-        type: NotificationType.PAYMENT_FAILED,
-        templateKey: 'PAYMENT_FAILED',
-        templateParams: {
-          paymentId: payment.id,
-          formattedAmount,
-          errorMessage: failureReason || 'Payment failed',
-        },
-        gamingCenterId: payment.gamingCenterId || undefined,
-        entityType: 'Payment',
-        entityId: payment.id,
-      });
+      if (typeof NotificationStation?.notifyManagers === 'function') {
+        const formattedAmount = `${payment.amount} ${payment.currency}`;
+        await NotificationStation.notifyManagers({
+          type: NotificationType.PAYMENT_FAILED,
+          templateKey: 'PAYMENT_FAILED',
+          templateParams: {
+            paymentId: payment.id,
+            formattedAmount,
+            errorMessage: failureReason || 'Payment failed',
+          },
+          gamingCenterId: payment.gamingCenterId || undefined,
+          entityType: 'Payment',
+          entityId: payment.id,
+        });
+      }
     } catch (error) {
       console.error('Failed to handle PAYMENT_FAILED notification event:', error);
     }
