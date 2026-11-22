@@ -471,7 +471,7 @@ components:
           nullable: true
         category:
           type: string
-          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+          enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
         isActive:
           type: boolean
         extraControllerEnabled:
@@ -499,7 +499,7 @@ components:
           type: string
         category:
           type: string
-          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+          enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
           default: PC
         isActive:
           type: boolean
@@ -521,7 +521,7 @@ components:
           type: string
         category:
           type: string
-          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+          enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
         isActive:
           type: boolean
         extraControllerEnabled:
@@ -536,7 +536,7 @@ components:
           type: string
         deviceType:
           type: string
-          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+          enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
         deviceTypeId:
           type: string
           nullable: true
@@ -571,7 +571,7 @@ components:
           type: array
           items:
             type: string
-            enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+            enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
         genre:
           type: string
           nullable: true
@@ -597,7 +597,7 @@ components:
           type: string
         deviceType:
           type: string
-          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+          enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
           default: PC
         coverImageUrl:
           type: string
@@ -615,7 +615,7 @@ components:
           type: string
         deviceType:
           type: string
-          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+          enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
         coverImageUrl:
           type: string
           format: uri
@@ -640,7 +640,7 @@ components:
           type: array
           items:
             type: string
-            enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+            enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
           default: [PC]
         genre:
           type: string
@@ -662,7 +662,7 @@ components:
           type: array
           items:
             type: string
-            enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+            enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
         genre:
           type: string
           nullable: true
@@ -1580,7 +1580,9 @@ components:
           properties:
             PC:
               type: integer
-            PLAYSTATION:
+            'PLAYSTATION 4':
+              type: integer
+            'PLAYSTATION 5':
               type: integer
             XBOX:
               type: integer
@@ -1604,7 +1606,8 @@ components:
           type: string
           enum:
           - PC
-          - PLAYSTATION
+          - 'PLAYSTATION 4'
+          - 'PLAYSTATION 5'
           - XBOX
           - SWITCH
           - VR
@@ -2562,7 +2565,7 @@ components:
           maxLength: 100
           nullable: true
           description: Required when adType is CATEGORY
-          example: PS5
+          example: PLAYSTATION 5
         destinationUrl:
           type: string
           format: uri
@@ -3720,7 +3723,7 @@ paths:
         in: query
         schema:
           type: string
-          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+          enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
       - name: isActive
         in: query
         schema:
@@ -3799,7 +3802,7 @@ paths:
         in: query
         schema:
           type: string
-          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+          enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
       - name: isActive
         in: query
         schema:
@@ -3877,7 +3880,7 @@ paths:
         in: query
         schema:
           type: string
-          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+          enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
       - name: genre
         in: query
         schema:
@@ -3996,7 +3999,7 @@ paths:
         in: query
         schema:
           type: string
-          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+          enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
       - name: isActive
         in: query
         schema:
@@ -4134,7 +4137,7 @@ paths:
         in: query
         schema:
           type: string
-          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+          enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
       - name: isActive
         in: query
         schema:
@@ -4260,7 +4263,7 @@ paths:
                   type: string
                 deviceType:
                   type: string
-                  enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+                  enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
                 coverImageUrl:
                   type: string
                 file:
@@ -4312,7 +4315,7 @@ paths:
         in: query
         schema:
           type: string
-          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+          enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
       - name: isActive
         in: query
         schema:
@@ -4485,7 +4488,7 @@ paths:
                   type: array
                   items:
                     type: string
-                    enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+                    enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
                 genre:
                   type: string
                 description:
@@ -4534,7 +4537,7 @@ paths:
         in: query
         schema:
           type: string
-          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+          enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
       - name: genre
         in: query
         schema:
@@ -8064,7 +8067,8 @@ paths:
                   type: string
                   enum:
                   - PC
-                  - PLAYSTATION
+                  - 'PLAYSTATION 4'
+                  - 'PLAYSTATION 5'
                   - XBOX
                   - SWITCH
                   - VR
@@ -8346,7 +8350,7 @@ paths:
         description: Filter by station hardware type
         schema:
           type: string
-          enum: [PC, PLAYSTATION, XBOX, SWITCH, VR]
+          enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
       - name: minStationCount
         in: query
         description: Minimum count of stations for the specified hardware type

@@ -455,7 +455,7 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:flex-end;">
         <div>
           <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Name</label>
-          <input id="dt-name" type="text" placeholder="e.g. PS5 Pro" style="padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:white;">
+          <input id="dt-name" type="text" placeholder="e.g. PLAYSTATION 5 Pro" style="padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:white;">
         </div>
         <div>
           <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Slug (optional)</label>
@@ -465,7 +465,8 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
           <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Category</label>
           <select id="dt-category" style="padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:white;">
             <option value="PC">PC</option>
-            <option value="PLAYSTATION">PLAYSTATION</option>
+            <option value="PLAYSTATION 4">PLAYSTATION 4</option>
+            <option value="PLAYSTATION 5">PLAYSTATION 5</option>
             <option value="XBOX">XBOX</option>
             <option value="SWITCH">SWITCH</option>
             <option value="VR">VR</option>
@@ -635,7 +636,7 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
         </div>
         <div class="form-group" id="adCategoryGroup" style="display:none;">
           <label>نام دسته‌بندی (Category)</label>
-          <input type="text" id="adNewCategory" class="form-control" placeholder="مثلاً: PC, VR, PLAYSTATION" />
+          <input type="text" id="adNewCategory" class="form-control" placeholder="مثلاً: PC, VR, PLAYSTATION 4, PLAYSTATION 5" />
         </div>
         <div class="form-group" id="adGamingCenterGroup" style="display:none;">
           <label>گیم‌نت مربوطه (در صورت خالی بودن، تبلیغ مستقل خواهد بود)</label>

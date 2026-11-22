@@ -65,9 +65,9 @@ describe('GroupBookingStation', () => {
 
     it('should create a group booking with multiple stations successfully', async () => {
       const stations = [
-        { id: 'st-ps5-1', name: 'PS5 #1', hourlyPrice: 100, minRentHours: 1, maxRentHours: 8, stationType: 'PLAYSTATION' },
-        { id: 'st-ps5-2', name: 'PS5 #2', hourlyPrice: 100, minRentHours: 1, maxRentHours: 8, stationType: 'PLAYSTATION' },
-        { id: 'st-ps5-3', name: 'PS5 #3', hourlyPrice: 100, minRentHours: 1, maxRentHours: 8, stationType: 'PLAYSTATION' },
+        { id: 'st-ps5-1', name: 'PS5 #1', hourlyPrice: 100, minRentHours: 1, maxRentHours: 8, stationType: 'PLAYSTATION_5' },
+        { id: 'st-ps5-2', name: 'PS5 #2', hourlyPrice: 100, minRentHours: 1, maxRentHours: 8, stationType: 'PLAYSTATION_5' },
+        { id: 'st-ps5-3', name: 'PS5 #3', hourlyPrice: 100, minRentHours: 1, maxRentHours: 8, stationType: 'PLAYSTATION_5' },
         { id: 'st-pc-1', name: 'PC #1', hourlyPrice: 150, minRentHours: 1, maxRentHours: 8, stationType: 'PC' },
         { id: 'st-pc-2', name: 'PC #2', hourlyPrice: 150, minRentHours: 1, maxRentHours: 8, stationType: 'PC' },
       ];
@@ -302,8 +302,8 @@ describe('GroupBookingStation', () => {
     const startTime = '2027-06-06T14:00:00Z';
     const items = [{ stationId: 'st-ps5-1' }, { stationId: 'st-ps5-2' }];
     const stations = [
-      { id: 'st-ps5-1', name: 'PS5 #1', hourlyPrice: 100000, minRentHours: 1, maxRentHours: 8, stationType: 'PLAYSTATION' },
-      { id: 'st-ps5-2', name: 'PS5 #2', hourlyPrice: 100000, minRentHours: 1, maxRentHours: 8, stationType: 'PLAYSTATION' },
+      { id: 'st-ps5-1', name: 'PS5 #1', hourlyPrice: 100000, minRentHours: 1, maxRentHours: 8, stationType: 'PLAYSTATION_5' },
+      { id: 'st-ps5-2', name: 'PS5 #2', hourlyPrice: 100000, minRentHours: 1, maxRentHours: 8, stationType: 'PLAYSTATION_5' },
     ];
 
     it('should reject with INSUFFICIENT_WALLET_BALANCE without creating group booking when useWallet=true or provider=WALLET', async () => {

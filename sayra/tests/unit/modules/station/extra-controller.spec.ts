@@ -23,7 +23,7 @@ describe('Extra Controller Management System', () => {
   describe('1. Admin DeviceType extraControllerEnabled configuration', () => {
     it('should validate extraControllerEnabled on create and update DeviceType schemas', () => {
       const created = createDeviceTypeSchema.parse({
-        body: { name: 'PS5', category: 'PLAYSTATION', extraControllerEnabled: true },
+        body: { name: 'PS5', category: 'PLAYSTATION 5', extraControllerEnabled: true },
       });
       expect(created.body.extraControllerEnabled).toBe(true);
 
@@ -40,7 +40,7 @@ describe('Extra Controller Management System', () => {
           findUnique: jest
             .fn<(...args: any[]) => Promise<any>>()
             .mockResolvedValueOnce({
-              stationType: 'PLAYSTATION',
+              stationType: 'PLAYSTATION_5',
               deviceTypeId: 'dt-ps5',
               deviceTypeRef: { extraControllerEnabled: true },
               catalogDevice: null,
@@ -97,7 +97,7 @@ describe('Extra Controller Management System', () => {
         gameStation: {
           findFirst: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({ id: 'st-ps5' }),
           findUnique: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({
-            stationType: 'PLAYSTATION',
+            stationType: 'PLAYSTATION_5',
             deviceTypeId: 'dt-ps5',
             deviceTypeRef: { extraControllerEnabled: true },
             catalogDevice: null,
@@ -153,7 +153,7 @@ describe('Extra Controller Management System', () => {
       const mockClient = {
         gameStation: {
           findUnique: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({
-            stationType: 'PLAYSTATION',
+            stationType: 'PLAYSTATION_5',
             deviceTypeId: 'dt-ps5',
             deviceTypeRef: { extraControllerEnabled: true },
             catalogDevice: null,
@@ -199,7 +199,7 @@ describe('Extra Controller Management System', () => {
       const mockClient = {
         gameStation: {
           findUnique: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({
-            stationType: 'PLAYSTATION',
+            stationType: 'PLAYSTATION_5',
             deviceTypeId: 'dt-ps5',
             deviceTypeRef: { extraControllerEnabled: true },
             catalogDevice: null,
@@ -269,7 +269,7 @@ describe('Extra Controller Management System', () => {
       const mockClient = {
         gameStation: {
           findUnique: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({
-            stationType: 'PLAYSTATION',
+            stationType: 'PLAYSTATION_5',
             deviceTypeId: 'dt-ps5',
             deviceTypeRef: { extraControllerEnabled: true },
             catalogDevice: null,
@@ -309,7 +309,7 @@ describe('Extra Controller Management System', () => {
       const mockClient = {
         gameStation: {
           findUnique: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({
-            stationType: 'PLAYSTATION',
+            stationType: 'PLAYSTATION_5',
             deviceTypeId: 'dt-ps5',
             deviceTypeRef: { extraControllerEnabled: true },
             catalogDevice: null,

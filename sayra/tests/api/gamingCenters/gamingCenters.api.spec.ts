@@ -56,7 +56,7 @@ describe('Gaming Centers API - Retrieval by ID and Slug', () => {
     ],
     stations: [
       { id: 'st_1', stationType: 'PC', name: 'PC-VIP-1' },
-      { id: 'st_2', stationType: 'PLAYSTATION', name: 'PS5-Pro' },
+      { id: 'st_2', stationType: 'PLAYSTATION_5', name: 'PS5-Pro' },
     ],
     ratings: [
       { rating: 5, comment: 'Awesome', status: 'PUBLISHED' },

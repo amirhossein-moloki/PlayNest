@@ -263,7 +263,8 @@ enum OtpChannel {
 
 enum GameStationType {
   PC
-  PLAYSTATION
+  PLAYSTATION_4 @map("PLAYSTATION 4")
+  PLAYSTATION_5 @map("PLAYSTATION 5")
   XBOX
   SWITCH
   VR

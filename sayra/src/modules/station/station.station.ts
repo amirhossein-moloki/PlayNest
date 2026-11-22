@@ -14,6 +14,7 @@ import { discountsStation } from '../discounts/discounts.station';
 import { calculateStationPricing, StationPricing } from '../../common/utils/money';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
+import { isConsoleStationType } from '../../common/utils/station-type';
 import {
   ExtraControllerConfigInput,
   getStationExtraControllers,
@@ -79,7 +80,7 @@ export async function createStationsFromCatalog(
       where: { id: gamingCenterId },
       data: { pcCount: { increment: input.quantity } },
     });
-  } else if (['PLAYSTATION', 'XBOX', 'SWITCH', 'VR'].includes(catalogDevice.deviceType)) {
+  } else if (isConsoleStationType(catalogDevice.deviceType)) {
     await prisma.gamingCenter.update({
       where: { id: gamingCenterId },
       data: { consoleCount: { increment: input.quantity } },

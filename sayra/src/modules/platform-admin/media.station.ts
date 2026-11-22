@@ -90,7 +90,7 @@ export class PlatformMediaStation {
    * Safely deletes an existing stored image by its URL when replacing or deleting catalog items.
    */
   static async deleteMediaByUrl(url: string, thumbUrl?: string | null): Promise<void> {
-    if (!url || !url.startsWith('/uploads/')) {
+    if (!url || (!url.startsWith('/uploads/') && !url.includes('/uploads/'))) {
       return;
     }
     await uploadStation.deleteStoredImage(url, thumbUrl);

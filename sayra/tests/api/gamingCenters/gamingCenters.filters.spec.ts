@@ -74,7 +74,7 @@ describe('Gaming Centers Advanced Filters & Station Custom Selection API', () =>
       id: 'st_2',
       gamingCenterId: 'center_10',
       name: 'PS5-Console-1',
-      stationType: 'PLAYSTATION',
+      stationType: 'PLAYSTATION_5',
       hourlyPrice: 120000,
       isVip: false,
       isActive: true,
@@ -201,7 +201,7 @@ describe('Gaming Centers Advanced Filters & Station Custom Selection API', () =>
       (prisma.gamingCenter.count as jest.Mock).mockResolvedValue(1);
       (prisma.gameStation.groupBy as jest.Mock).mockResolvedValue([
         { gamingCenterId: 'center_10', stationType: 'PC', _count: { _all: 8 }, _min: { hourlyPrice: 55000 } },
-        { gamingCenterId: 'center_10', stationType: 'PLAYSTATION', _count: { _all: 5 }, _min: { hourlyPrice: 75000 } },
+        { gamingCenterId: 'center_10', stationType: 'PLAYSTATION_5', _count: { _all: 5 }, _min: { hourlyPrice: 75000 } },
         { gamingCenterId: 'center_10', stationType: 'XBOX', _count: { _all: 3 }, _min: { hourlyPrice: 60000 } },
       ]);
 
@@ -214,7 +214,8 @@ describe('Gaming Centers Advanced Filters & Station Custom Selection API', () =>
       const center = res.body.data.data[0];
       expect(center.deviceCounts).toEqual({
         PC: 8,
-        PLAYSTATION: 5,
+        'PLAYSTATION 4': 0,
+        'PLAYSTATION 5': 5,
         XBOX: 3,
         SWITCH: 0,
         VR: 0,
@@ -230,7 +231,7 @@ describe('Gaming Centers Advanced Filters & Station Custom Selection API', () =>
       (prisma.gamingCenter.count as jest.Mock).mockResolvedValue(0);
 
       await request(app).get(
-        '/api/v1/gamingCenters?city=تبریز&province=آذربایجان شرقی&district=باغمیشه&minHourlyRate=50000&maxHourlyRate=150000&hasFoodService=true&stationType=PLAYSTATION&minRating=4&sortBy=hourlyRate&sortOrder=asc'
+        '/api/v1/gamingCenters?city=تبریز&province=آذربایجان شرقی&district=باغمیشه&minHourlyRate=50000&maxHourlyRate=150000&hasFoodService=true&stationType=PLAYSTATION%205&minRating=4&sortBy=hourlyRate&sortOrder=asc'
       );
 
       expect(prisma.gamingCenter.findMany).toHaveBeenCalledWith(
@@ -250,7 +251,7 @@ describe('Gaming Centers Advanced Filters & Station Custom Selection API', () =>
             hasFoodService: true,
             stations: {
               some: {
-                stationType: 'PLAYSTATION',
+                stationType: 'PLAYSTATION_5',
                 isActive: true,
               },
             },

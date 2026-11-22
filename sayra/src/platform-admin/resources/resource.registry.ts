@@ -4,6 +4,7 @@ import { getReadOnlyResources } from './read-only.resources';
 import { getPrismaModelTarget } from '../utils/model-access';
 import { buildSensitivePropertiesConfiguration } from './resource.defaults';
 import { ADMIN_NAVIGATION_GROUPS } from '../config/admin.navigation';
+import { STATION_TYPE_AVAILABLE_VALUES } from '../../common/utils/station-type';
 
 /**
  * Builds the complete explicit resource registry for Phase 1 according to the 12 IA Groups.
@@ -70,6 +71,7 @@ export function buildResourceRegistry(components?: { coverImageComponentId?: str
         properties: {
           ...buildSensitivePropertiesConfiguration(),
           id: { isVisible: { list: true, show: true, edit: false, filter: true } },
+          stationType: { availableValues: STATION_TYPE_AVAILABLE_VALUES },
           createdAt: { isVisible: { list: true, show: true, edit: false, filter: true } },
           updatedAt: { isVisible: { list: false, show: true, edit: false, filter: false } },
         },

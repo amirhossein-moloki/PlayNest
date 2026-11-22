@@ -679,7 +679,7 @@ export const platformAnalyticsDashboardTemplate = () => `<!DOCTYPE html>
         </div>
         <div class="state-container" style="padding: 24px;">
           <i class="fa-solid fa-server"></i>
-          <p>Gaming stations across centers are categorized by PC, PS4, PS5, and Xbox.</p>
+          <p>Gaming stations across centers are categorized by PC, PLAYSTATION 4, PLAYSTATION 5, and Xbox.</p>
           <div class="notice-box">
             <i class="fa-solid fa-triangle-exclamation"></i>
             <span>Real-time device utilization telemetry and per-game execution hours require active station agent integration and are not fabricated when no direct stream is present.</span>

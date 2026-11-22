@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { serializeStationTypesDeep } from './station-type';
 
 export type PaginationMeta = {
   page: number;
@@ -43,7 +44,7 @@ const withMeta = (req: any, meta?: Omit<ApiMeta, 'requestId'>): ApiMeta | undefi
 export const sendOk = <T>(res: Response, data: T, meta?: Omit<ApiMeta, 'requestId'>) => {
   const body: ApiSuccess<T> = {
     success: true,
-    data,
+    data: serializeStationTypesDeep(data),
     meta: withMeta(res.req, meta)
   };
   return res.status(200).json(body);
@@ -52,7 +53,7 @@ export const sendOk = <T>(res: Response, data: T, meta?: Omit<ApiMeta, 'requestI
 export const sendCreated = <T>(res: Response, data: T, meta?: Omit<ApiMeta, 'requestId'>) => {
   const body: ApiSuccess<T> = {
     success: true,
-    data,
+    data: serializeStationTypesDeep(data),
     meta: withMeta(res.req, meta)
   };
   return res.status(201).json(body);

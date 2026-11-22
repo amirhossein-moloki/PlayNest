@@ -4,6 +4,14 @@ import logger from '../../config/logger';
 
 let isAdapterRegistered = false;
 
+function normalizeAdminStationType(val: unknown): unknown {
+  if (typeof val !== 'string') return val;
+  const normalized = val.trim().replace(/\s+/g, ' ').toUpperCase();
+  if (normalized === 'PLAYSTATION 4') return 'PLAYSTATION_4';
+  if (normalized === 'PLAYSTATION 5') return 'PLAYSTATION_5';
+  return val;
+}
+
 /**
  * Creates an enhanced Resource class that extends AdminJS Prisma Resource
  * to properly coerce data types (boolean, numbers, json/enum arrays)
@@ -52,23 +60,38 @@ export function createCustomPrismaResource(BaseResourceClass: any, ValidationErr
         }
 
         // 3. Coerce array of enums or strings (e.g. supportedPlatforms)
-        else if (col.isList && typeof prepared[key] === 'string') {
-          try {
-            const parsed = JSON.parse(prepared[key]);
-            if (Array.isArray(parsed)) {
-              prepared[key] = parsed;
-            } else {
-              prepared[key] = [prepared[key]];
+        else if (col.isList) {
+          let listVal: unknown[] | null = null;
+          if (typeof prepared[key] === 'string') {
+            try {
+              const parsed = JSON.parse(prepared[key]);
+              if (Array.isArray(parsed)) {
+                listVal = parsed;
+              } else {
+                listVal = [prepared[key]];
+              }
+            } catch {
+              if (prepared[key].includes(',')) {
+                listVal = prepared[key].split(',').map((s: string) => s.trim()).filter(Boolean);
+              } else if (prepared[key].trim() !== '') {
+                listVal = [prepared[key].trim()];
+              } else {
+                listVal = [];
+              }
             }
-          } catch {
-            if (prepared[key].includes(',')) {
-              prepared[key] = prepared[key].split(',').map((s: string) => s.trim()).filter(Boolean);
-            } else if (prepared[key].trim() !== '') {
-              prepared[key] = [prepared[key].trim()];
-            } else {
-              prepared[key] = [];
-            }
+          } else if (Array.isArray(prepared[key])) {
+            listVal = prepared[key];
           }
+          if (listVal !== null) {
+            prepared[key] = col.type === 'GameStationType'
+              ? listVal.map((item) => normalizeAdminStationType(item))
+              : listVal;
+          }
+        }
+
+        // 4. Normalize single GameStationType enum values ('PLAYSTATION 4' -> 'PLAYSTATION_4', etc.)
+        else if (col.type === 'GameStationType' && typeof prepared[key] === 'string') {
+          prepared[key] = normalizeAdminStationType(prepared[key]);
         }
       }
 

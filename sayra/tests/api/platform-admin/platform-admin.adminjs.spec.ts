@@ -392,14 +392,14 @@ describe('PlayNest Platform Admin Panel - Phase 1 Test Suite', () => {
 
       const coerced = resource.prepareParams({
         name: 'PS5 Test Unit',
-        deviceType: 'PLAYSTATION',
+        deviceType: 'PLAYSTATION 5',
         isActive: 'true',
-        supportedPlatforms: 'PLAYSTATION',
+        supportedPlatforms: 'PLAYSTATION 5',
       });
 
       expect(coerced.isActive).toBe(true);
       expect(typeof coerced.isActive).toBe('boolean');
-      expect(coerced.supportedPlatforms).toEqual(['PLAYSTATION']);
+      expect(coerced.supportedPlatforms).toEqual(['PLAYSTATION_5']);
 
       const coercedFalse = resource.prepareParams({
         isActive: 'false',

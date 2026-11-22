@@ -115,7 +115,7 @@ describe('Catalog API & Station From Catalog Flow', () => {
       const mockDevice = {
         id: 'cldevice1234567890123456',
         name: 'PlayStation 5 Pro',
-        deviceType: 'PLAYSTATION',
+        deviceType: 'PLAYSTATION 5',
         coverImageUrl: 'https://cdn.example.com/ps5-pro.jpg',
         description: 'Next-gen console with 2TB storage',
         isActive: true,
@@ -129,7 +129,7 @@ describe('Catalog API & Station From Catalog Flow', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           name: 'PlayStation 5 Pro',
-          deviceType: 'PLAYSTATION',
+          deviceType: 'PLAYSTATION 5',
           coverImageUrl: 'https://cdn.example.com/ps5-pro.jpg',
           description: 'Next-gen console with 2TB storage',
         });
@@ -137,7 +137,7 @@ describe('Catalog API & Station From Catalog Flow', () => {
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
       expect(res.body.data.name).toBe('PlayStation 5 Pro');
-      expect(res.body.data.deviceType).toBe('PLAYSTATION');
+      expect(res.body.data.deviceType).toBe('PLAYSTATION 5');
       expect(res.body.data.coverImageUrl).toBe('https://cdn.example.com/ps5-pro.jpg');
     });
 
@@ -175,7 +175,7 @@ describe('Catalog API & Station From Catalog Flow', () => {
         {
           id: 'cldevice1234567890123456',
           name: 'PlayStation 5 Pro',
-          deviceType: 'PLAYSTATION',
+          deviceType: 'PLAYSTATION 5',
           coverImageUrl: 'https://cdn.example.com/ps5-pro.jpg',
           isActive: true,
         },
@@ -200,7 +200,7 @@ describe('Catalog API & Station From Catalog Flow', () => {
         id: 'clgame123456789012345678',
         title: 'EA Sports FC 24',
         coverImageUrl: 'https://cdn.example.com/fc24.jpg',
-        supportedPlatforms: ['PLAYSTATION', 'XBOX', 'PC'],
+        supportedPlatforms: ['PLAYSTATION 5', 'XBOX', 'PC'],
         genre: 'Sports',
         description: 'Football simulation game',
         isActive: true,
@@ -215,7 +215,7 @@ describe('Catalog API & Station From Catalog Flow', () => {
         .send({
           title: 'EA Sports FC 24',
           coverImageUrl: 'https://cdn.example.com/fc24.jpg',
-          supportedPlatforms: ['PLAYSTATION', 'XBOX', 'PC'],
+          supportedPlatforms: ['PLAYSTATION 5', 'XBOX', 'PC'],
           genre: 'Sports',
           description: 'Football simulation game',
         });
@@ -260,7 +260,7 @@ describe('Catalog API & Station From Catalog Flow', () => {
           id: 'clgame123456789012345678',
           title: 'EA Sports FC 24',
           coverImageUrl: 'https://cdn.example.com/fc24.jpg',
-          supportedPlatforms: ['PLAYSTATION', 'XBOX', 'PC'],
+          supportedPlatforms: ['PLAYSTATION 5', 'XBOX', 'PC'],
           isActive: true,
         },
       ];
@@ -282,7 +282,7 @@ describe('Catalog API & Station From Catalog Flow', () => {
       (prisma.deviceCatalog.findUnique as jest.Mock).mockResolvedValue({
         id: catalogDeviceId,
         name: 'PlayStation 5 Pro',
-        deviceType: 'PLAYSTATION',
+        deviceType: 'PLAYSTATION 5',
         coverImageUrl: 'https://cdn.example.com/ps5-pro.jpg',
         isActive: true,
       });
@@ -294,7 +294,7 @@ describe('Catalog API & Station From Catalog Flow', () => {
           id: 'clstation111111111111111',
           gamingCenterId,
           name: 'PlayStation 5 Pro #1',
-          stationType: 'PLAYSTATION',
+          stationType: 'PLAYSTATION_5',
           catalogDeviceId,
           coverImageUrl: 'https://cdn.example.com/ps5-pro.jpg',
           hourlyPrice: 120000,
@@ -304,7 +304,7 @@ describe('Catalog API & Station From Catalog Flow', () => {
           id: 'clstation222222222222222',
           gamingCenterId,
           name: 'PlayStation 5 Pro #2',
-          stationType: 'PLAYSTATION',
+          stationType: 'PLAYSTATION_5',
           catalogDeviceId,
           coverImageUrl: 'https://cdn.example.com/ps5-pro.jpg',
           hourlyPrice: 120000,

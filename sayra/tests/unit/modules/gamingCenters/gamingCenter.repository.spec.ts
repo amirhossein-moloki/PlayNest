@@ -33,7 +33,7 @@ describe('GamingCenterRepository', () => {
         addresses: [],
         stations: [
           { id: 'st-1', stationType: 'PC', name: 'PC-1', hourlyPrice: 65000, isActive: true },
-          { id: 'st-2', stationType: 'PLAYSTATION', name: 'PS5-Console', hourlyPrice: 85000, isActive: true },
+          { id: 'st-2', stationType: 'PLAYSTATION_5', name: 'PS5-Console', hourlyPrice: 85000, isActive: true },
         ],
         ratings: [
           { rating: 5, comment: 'عالی', status: 'PUBLISHED' },
@@ -168,7 +168,7 @@ describe('GamingCenterRepository', () => {
             },
           ],
           stations: [
-            { id: 'st-1', stationType: 'PLAYSTATION', name: 'PS4-Pro' },
+            { id: 'st-1', stationType: 'PLAYSTATION_4', name: 'PS4-Pro' },
             { id: 'st-2', stationType: 'PC', name: 'PC-VIP' },
           ],
           ratings: [
@@ -504,7 +504,7 @@ describe('GamingCenterRepository', () => {
         addresses: [],
         stations: [
           { id: 'st-1', stationType: 'PC', name: 'PC-1', hourlyPrice: 75000, isActive: true },
-          { id: 'st-2', stationType: 'PLAYSTATION', name: 'PS-1', hourlyPrice: 50000, isActive: true },
+          { id: 'st-2', stationType: 'PLAYSTATION_5', name: 'PS-1', hourlyPrice: 50000, isActive: true },
           { id: 'st-3', stationType: 'PC', name: 'PC-VIP', hourlyPrice: 30000, isActive: false }, // inactive, should be ignored
         ],
         ratings: [],

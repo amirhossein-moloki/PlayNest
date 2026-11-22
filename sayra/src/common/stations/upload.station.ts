@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
+import { env } from '../../config/env';
 
 const UPLOAD_ROOT = 'uploads';
 const THUMB_DIR_NAME = 'thumbnails';
@@ -50,9 +51,13 @@ export async function processAndStoreImage(file: Express.Multer.File) {
     })
     .toFile(thumbPath);
 
+  const baseUrl = env.NODE_ENV !== 'test' && env.MEDIA_PUBLIC_BASE_URL
+    ? env.MEDIA_PUBLIC_BASE_URL.replace(/\/$/, '')
+    : '';
+
   return {
-    url: `/uploads/${fileName}`,
-    thumbUrl: `/uploads/${THUMB_DIR_NAME}/${fileName}`,
+    url: `${baseUrl}/uploads/${fileName}`,
+    thumbUrl: `${baseUrl}/uploads/${THUMB_DIR_NAME}/${fileName}`,
     fileName: fileName,
   };
 }
@@ -62,12 +67,12 @@ export async function processAndStoreImage(file: Express.Multer.File) {
  */
 export async function deleteStoredImage(url: string, thumbUrl?: string | null) {
   try {
-    const fileName = path.basename(url);
+    const fileName = path.basename(url.split('?')[0]);
     const filePath = path.join(UPLOAD_ROOT, fileName);
     await fs.unlink(filePath);
 
     if (thumbUrl) {
-      const thumbFileName = path.basename(thumbUrl);
+      const thumbFileName = path.basename(thumbUrl.split('?')[0]);
       const thumbPath = path.join(THUMB_ROOT, thumbFileName);
       await fs.unlink(thumbPath);
     }
