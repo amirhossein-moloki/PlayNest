@@ -17,7 +17,7 @@ import { discountsStation } from '../discounts/discounts.station';
 import { calculateBasePrice } from '../../common/utils/money';
 import { normalizePhone } from '../../common/utils/phone';
 import { AuthRepository } from '../auth/auth.repository';
-import { validateLeadTime } from '../reservation/reservation.validation';
+import { validateLeadTime, validateOperatingHours } from '../reservation/reservation.validation';
 import { PaymentsRepo } from '../payments/payments.repo';
 import { PaymentProviderFactory } from '../payments/providers';
 import { LedgerRepo } from '../payments/ledger.repo';
@@ -130,6 +130,15 @@ export const BookingHoldStation = {
         code: 'DUPLICATE_STATIONS_SELECTED',
       });
     }
+
+    validateOperatingHours(startTime, endTime, {
+      openingTime: gamingCenter.settings?.workStartTime || gamingCenter.openingTime,
+      closingTime: gamingCenter.settings?.workEndTime || gamingCenter.closingTime,
+      timeZone: gamingCenter.settings?.timeZone || gamingCenter.timezone,
+      closedDays: gamingCenter.closedDays,
+      schedules: gamingCenter.schedules,
+      closures: gamingCenter.closures,
+    });
 
     // Check idempotency if key provided
     if (idempotencyKey) {

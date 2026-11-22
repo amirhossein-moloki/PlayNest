@@ -75,13 +75,14 @@ export const waitlistStation = {
 
       validateLeadTime(startTime, gamingCenter.settings?.minAdvanceBookingMinutes ?? 30);
 
-      validateOperatingHours(
-        startTime,
-        endTime,
-        gamingCenter.settings?.workStartTime || gamingCenter.openingTime,
-        gamingCenter.settings?.workEndTime || gamingCenter.closingTime,
-        gamingCenter.settings?.timeZone
-      );
+      validateOperatingHours(startTime, endTime, {
+        openingTime: gamingCenter.settings?.workStartTime || gamingCenter.openingTime,
+        closingTime: gamingCenter.settings?.workEndTime || gamingCenter.closingTime,
+        timeZone: gamingCenter.settings?.timeZone || gamingCenter.timezone,
+        closedDays: gamingCenter.closedDays,
+        schedules: gamingCenter.schedules,
+        closures: gamingCenter.closures,
+      });
 
       // Check maintenance
       const maintenances = await ReservationRepo.findOverlappingMaintenance(stationId, startTime, endTime, tx);

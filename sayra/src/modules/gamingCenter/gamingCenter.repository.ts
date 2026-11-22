@@ -5,6 +5,7 @@ import { ListGamingCentersQuery, GetGamingCenterDetailsQuery } from './gamingCen
 import { getPaginationParams, formatPaginatedResult } from '../../common/utils/pagination';
 import { toZonedTime } from 'date-fns-tz';
 import { resolveCancellationWindowMinutes } from '../reservation/reservation.validation';
+import { resolveActiveClosureSummary } from '../closures/closures.validators';
 
 export function checkIsOpen(
   openingTime?: string | null,
@@ -87,6 +88,13 @@ type GamingCenterWithRelations = Prisma.GamingCenterGetPayload<{
   coverImageUrl?: string | null;
   banner?: string | null;
   pricing?: GamingCenterPricing;
+  closures?: Array<{
+    id: string;
+    title: string | null;
+    reason: string | null;
+    startDate: Date;
+    endDate: Date;
+  }>;
 };
 
 export function checkHasActiveDiscount(
@@ -389,6 +397,11 @@ export function transformGamingCenter(
   const cancellationHours = settings?.cancellationHours ?? 2;
   const cancellationWindowMinutes = resolveCancellationWindowMinutes(settings);
   const allowOnlineBooking = settings?.allowOnlineBooking === true;
+  const {
+    isBookingTemporarilyClosed,
+    bookingClosedUntil,
+    activeClosure,
+  } = resolveActiveClosureSummary(gc.closures);
 
   return {
     id: gc.id,
@@ -418,6 +431,9 @@ export function transformGamingCenter(
     cancellationHours,
     cancellationWindowMinutes,
     allowOnlineBooking,
+    isBookingTemporarilyClosed,
+    bookingClosedUntil,
+    activeClosure,
     ...(manager
       ? {
         owner: {
@@ -537,6 +553,15 @@ export const gamingCenterRepository = {
                 { status: 'ACTIVE' },
                 { status: null },
               ],
+            },
+          },
+          closures: {
+            where: {
+              startDate: { lte: now },
+              endDate: { gt: now },
+            },
+            orderBy: {
+              endDate: 'desc',
             },
           },
         },
@@ -753,6 +778,15 @@ export const gamingCenterRepository = {
                 { status: 'ACTIVE' },
                 { status: null },
               ],
+            },
+          },
+          closures: {
+            where: {
+              startDate: { lte: now },
+              endDate: { gt: now },
+            },
+            orderBy: {
+              endDate: 'desc',
             },
           },
         },

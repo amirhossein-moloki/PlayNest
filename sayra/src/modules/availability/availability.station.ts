@@ -5,6 +5,7 @@ import httpStatus from 'http-status';
 import { addDays, addMinutes } from 'date-fns';
 import { formatInTimeZone, fromZonedTime, toZonedTime } from 'date-fns-tz';
 import { resolveValidTimeZone } from '../reservation/reservation.validation';
+import { ActiveClosureSummary, resolveActiveClosureSummary } from '../closures/closures.validators';
 
 export interface TimeSlotItem {
   startTime: string; // ISO 8601 UTC string
@@ -28,6 +29,9 @@ export interface DayAvailabilitySlots {
     timeZone: string;
     isOpen: boolean;
     isCenterActive: boolean;
+    isBookingTemporarilyClosed: boolean;
+    bookingClosedUntil: string | null;
+    activeClosure: ActiveClosureSummary | null;
     operatingHours: {
       openingTime: string;
       closingTime: string;
@@ -205,6 +209,7 @@ export const getAvailableSlots = async (
   const now = queryNow ? new Date(queryNow) : new Date();
   const minLeadTimeMinutes = gamingCenter.settings?.minAdvanceBookingMinutes ?? DEFAULT_MIN_LEAD_TIME_MINUTES;
   const minAllowedSlotStart = addMinutes(now, minLeadTimeMinutes);
+  const temporaryClosureMeta = resolveActiveClosureSummary(closures, now);
 
   // Ensure cursor starts at beginning of the day in local timezone
   const cursorDateStr = formatInTimeZone(startZonedDate, timeZone, 'yyyy-MM-dd');
@@ -333,6 +338,9 @@ export const getAvailableSlots = async (
         timeZone,
         isOpen: !isClosedDay,
         isCenterActive: gamingCenter.isActive,
+        isBookingTemporarilyClosed: temporaryClosureMeta.isBookingTemporarilyClosed,
+        bookingClosedUntil: temporaryClosureMeta.bookingClosedUntil,
+        activeClosure: temporaryClosureMeta.activeClosure,
         operatingHours: {
           openingTime: openTime,
           closingTime: closeTime,

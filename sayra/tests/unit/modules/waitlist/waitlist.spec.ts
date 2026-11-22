@@ -123,6 +123,35 @@ describe('Waitlist Unit Tests', () => {
       expect(result).toEqual(createdEntry);
       expect(MockedWaitlistRepo.createWaitlistEntry).toHaveBeenCalled();
     });
+
+    it('should throw 409 CENTER_CLOSED when requested waitlist slot overlaps an active closure', async () => {
+      MockedReservationRepo.findStation.mockResolvedValue({ id: stationId, name: 'Station 1' } as any);
+      MockedReservationRepo.findGamingCenterWithSettings.mockResolvedValue({
+        id: gamingCenterId,
+        settings: { minAdvanceBookingMinutes: 30, timeZone: 'UTC' },
+        closures: [
+          {
+            id: 'closure-wl-1',
+            reason: 'Private event',
+            startDate: new Date('2026-12-10T12:00:00.000Z'),
+            endDate: new Date('2026-12-10T18:00:00.000Z'),
+          },
+        ],
+      } as any);
+
+      await expect(
+        waitlistStation.createEntry(gamingCenterId, {
+          stationId,
+          startTime,
+          endTime,
+          customer: { fullName: 'John', phone: '09123456789' },
+        })
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        code: 'CENTER_CLOSED',
+      });
+      expect(MockedWaitlistRepo.createWaitlistEntry).not.toHaveBeenCalled();
+    });
   });
 
   describe('processAvailableSlot & Matching', () => {

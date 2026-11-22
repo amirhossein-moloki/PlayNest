@@ -500,5 +500,79 @@ describe('AvailabilityStation 60-Minute Slots', () => {
       expect(slots[3].isAvailable).toBe(false); // 13:00-14:00 is < 30 min away
       expect(slots[3].unavailableReason).toBe('PAST');
     });
+
+    it('should block 9-hour temporary closure from Saturday 10:00 to 19:00 and expose activeClosure metadata while keeping 19:00+ open', async () => {
+      // Saturday 2026-11-14 10:00:00 UTC -> 9h closure until 19:00:00 UTC
+      const closureStart = new Date('2026-11-14T10:00:00.000Z');
+      const closureEnd = new Date('2026-11-14T19:00:00.000Z');
+      jest.setSystemTime(closureStart);
+
+      const stationWith9hClosure = {
+        ...baseStation,
+        gamingCenter: {
+          ...baseStation.gamingCenter,
+          openingTime: '09:00',
+          closingTime: '22:00',
+          settings: {
+            ...baseStation.gamingCenter.settings,
+            workStartTime: '09:00',
+            workEndTime: '22:00',
+          },
+          closures: [
+            {
+              id: 'closure-sat-9h',
+              title: 'Temporary booking closure',
+              reason: 'Closed for next 9 hours',
+              startDate: closureStart,
+              endDate: closureEnd,
+            },
+          ],
+        },
+      };
+
+      MockedAvailabilityRepo.findStationWithGamingCenter.mockResolvedValue(stationWith9hClosure as any);
+      MockedAvailabilityRepo.findStaffList.mockResolvedValue([]);
+      MockedAvailabilityRepo.findShifts.mockResolvedValue([]);
+      MockedAvailabilityRepo.findReservation.mockResolvedValue([]);
+      MockedAvailabilityRepo.findMaintenances.mockResolvedValue([]);
+
+      const results = await getAvailableSlots({
+        gamingCenterSlug,
+        stationId,
+        date: '2026-11-14',
+      });
+
+      expect(results).toHaveLength(1);
+      const dayResult = results[0];
+      expect(dayResult.gamingCenter.isBookingTemporarilyClosed).toBe(true);
+      expect(dayResult.gamingCenter.bookingClosedUntil).toBe(closureEnd.toISOString());
+      expect(dayResult.gamingCenter.activeClosure).toEqual({
+        id: 'closure-sat-9h',
+        title: 'Temporary booking closure',
+        reason: 'Closed for next 9 hours',
+        startDate: closureStart.toISOString(),
+        endDate: closureEnd.toISOString(),
+      });
+
+      const slots = dayResult.slots;
+      // 10:00-11:00 -> PAST (< 15m lead time at 10:00)
+      const slot10 = slots.find((s) => s.startTime === '2026-11-14T10:00:00.000Z');
+      expect(slot10?.isAvailable).toBe(false);
+      expect(slot10?.unavailableReason).toBe('PAST');
+
+      // 11:00-19:00 slots -> CLOSED
+      const closedHours = [11, 12, 13, 14, 15, 16, 17, 18];
+      for (const h of closedHours) {
+        const slot = slots.find((s) => s.startTime === `2026-11-14T${String(h).padStart(2, '0')}:00:00.000Z`);
+        expect(slot?.isAvailable).toBe(false);
+        expect(slot?.unavailableReason).toBe('CLOSED');
+      }
+
+      // 19:00-20:00 onward -> available
+      const slot19 = slots.find((s) => s.startTime === '2026-11-14T19:00:00.000Z');
+      const slot20 = slots.find((s) => s.startTime === '2026-11-14T20:00:00.000Z');
+      expect(slot19?.isAvailable).toBe(true);
+      expect(slot20?.isAvailable).toBe(true);
+    });
   });
 });

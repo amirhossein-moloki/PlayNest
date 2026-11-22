@@ -146,6 +146,72 @@ describe('BookingHoldStation', () => {
         })
       ).rejects.toThrow('One or more selected stations are not available for the requested time.');
     });
+
+    it('should throw 409 CENTER_CLOSED when requested slot overlaps an active temporary closure, and allow slots right at endDate', async () => {
+      const closureStart = new Date('2027-01-01T10:00:00Z');
+      const closureEnd = new Date('2027-01-01T19:00:00Z');
+      const mockCenter = {
+        id: gamingCenterId,
+        slug: gamingCenterSlug,
+        openingTime: '09:00',
+        closingTime: '23:00',
+        timezone: 'UTC',
+        settings: { allowOnlineBooking: true, minAdvanceBookingMinutes: 30, timeZone: 'UTC' },
+        closures: [
+          {
+            id: 'closure-temp-1',
+            title: 'Temporary booking closure',
+            reason: 'Emergency closure',
+            startDate: closureStart,
+            endDate: closureEnd,
+          },
+        ],
+      };
+
+      MockedReservationRepo.findGamingCenterBySlugWithSettings.mockResolvedValue(mockCenter as any);
+
+      // Inside [10:00, 19:00] -> rejected with CENTER_CLOSED
+      await expect(
+        BookingHoldStation.createBookingHold(gamingCenterSlug, {
+          startTime: '2027-01-01T16:00:00Z',
+          durationMinutes: 60,
+          items,
+          customer,
+        })
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        code: 'CENTER_CLOSED',
+      });
+      expect(MockedBookingHoldRepo.createBookingHold).not.toHaveBeenCalled();
+
+      // Right at closure endDate (19:00-20:00) -> allowed
+      const stations = [
+        { id: 'st-1', name: 'Station 1', hourlyPrice: 100000, minRentHours: 1, maxRentHours: 8, stationType: 'PC' },
+        { id: 'st-2', name: 'Station 2', hourlyPrice: 150000, minRentHours: 1, maxRentHours: 8, stationType: 'PC' },
+      ];
+      MockedBookingHoldRepo.transaction.mockImplementation(async (fn: any) => {
+        return fn({
+          gameStation: { findMany: (jest.fn() as any).mockResolvedValue(stations) },
+          customerAccount: { findUnique: (jest.fn() as any).mockResolvedValue({ id: 'ca-1', phone: '09121112233' }) },
+          customerProfile: { findUnique: (jest.fn() as any).mockResolvedValue({ id: 'cp-1', customerAccountId: 'ca-1' }) },
+        } as any);
+      });
+      MockedBookingHoldRepo.findOverlappingReservationsAndHoldsForStations.mockResolvedValue([]);
+      MockedBookingHoldRepo.createBookingHold.mockResolvedValue({
+        id: 'hold-after-closure',
+        gamingCenterId,
+        status: BookingHoldStatus.ACTIVE,
+        totalAmount: 250000,
+      } as any);
+
+      const allowedResult = await BookingHoldStation.createBookingHold(gamingCenterSlug, {
+        startTime: '2027-01-01T19:00:00Z',
+        durationMinutes: 60,
+        items,
+        customer,
+      });
+      expect(allowedResult.id).toBe('hold-after-closure');
+    });
   });
 
   describe('convertHoldToReservations', () => {

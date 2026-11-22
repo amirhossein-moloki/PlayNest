@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Address } from '@prisma/client';
 import { createGamingCenterSchema, updateGamingCenterSchema } from './gamingCenter.validation';
+import { ActiveClosureSummary } from '../closures/closures.validators';
 
 export type CreateGamingCenterInput = z.infer<typeof createGamingCenterSchema>;
 export type UpdateGamingCenterInput = z.infer<typeof updateGamingCenterSchema>;
@@ -49,6 +50,9 @@ export interface GamingCenterListItem {
   cancellationHours?: number;
   cancellationWindowMinutes?: number;
   allowOnlineBooking: boolean;
+  isBookingTemporarilyClosed?: boolean;
+  bookingClosedUntil?: string | null;
+  activeClosure?: ActiveClosureSummary | null;
   deviceCounts?: DeviceTypeCounts;
   owner?: {
     id: string;

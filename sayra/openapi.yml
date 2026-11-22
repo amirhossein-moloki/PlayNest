@@ -627,6 +627,117 @@ components:
         playMode:
           $ref: '#/components/schemas/GamePlayMode'
 
+    GamingCenterClosure:
+      type: object
+      properties:
+        id:
+          type: string
+        gamingCenterId:
+          type: string
+        title:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TemporaryBookingClosureInput:
+      type: object
+      description: Close reservations starting now for the next N hours or minutes (provide hours, durationHours, minutes, or durationMinutes; max 168 hours / 10080 minutes).
+      properties:
+        hours:
+          type: number
+          minimum: 0.01
+          maximum: 168
+          description: Number of hours from now to close bookings (e.g., 9 closes bookings for the next 9 hours)
+        durationHours:
+          type: number
+          minimum: 0.01
+          maximum: 168
+          description: Alias for hours
+        minutes:
+          type: integer
+          minimum: 1
+          maximum: 10080
+          description: Additional or standalone closure duration in minutes
+        durationMinutes:
+          type: integer
+          minimum: 1
+          maximum: 10080
+          description: Alias for minutes
+        title:
+          type: string
+          maxLength: 200
+        reason:
+          type: string
+          maxLength: 500
+        replaceActive:
+          type: boolean
+          default: false
+          description: When true, ends any currently active temporary closures immediately before creating the new closure
+
+    TemporaryBookingClosureResponse:
+      allOf:
+        - $ref: '#/components/schemas/GamingCenterClosure'
+        - type: object
+          properties:
+            durationHours:
+              type: number
+            durationMinutes:
+              type: integer
+            affectedReservationsCount:
+              type: integer
+              description: Count of existing pending/confirmed/in-progress reservations overlapping this closure window (not auto-canceled)
+            replacedActiveClosuresCount:
+              type: integer
+
+    ActiveClosureStatus:
+      type: object
+      properties:
+        isClosed:
+          type: boolean
+        closedUntil:
+          type: string
+          format: date-time
+          nullable: true
+        remainingMinutes:
+          type: integer
+        activeClosures:
+          type: array
+          items:
+            $ref: '#/components/schemas/GamingCenterClosure'
+        primaryClosure:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/GamingCenterClosure'
+
+    ReopenBookingsResponse:
+      type: object
+      properties:
+        reopened:
+          type: boolean
+        reopenedCount:
+          type: integer
+        reopenedAt:
+          type: string
+          format: date-time
+        endedClosureIds:
+          type: array
+          items:
+            type: string
+
     CreateDeviceCatalogInput:
       type: object
       required:
@@ -3463,7 +3574,7 @@ paths:
         '400':
           description: Validation error or insufficient wallet balance (hold is released on payment failure)
         '409':
-          description: Slot not available
+          description: Slot not available or overlaps with a temporary closure (SLOT_NOT_AVAILABLE / CENTER_CLOSED)
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -7364,7 +7475,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
       operationId: get_public_gamingCenters_gamingCenterSlug_availability_slots
-      description: Returns 60-minute bookable slots according to gaming center operating hours, active status, minimum advance lead time (default 15 minutes or settings.minAdvanceBookingMinutes), and reservation/maintenance availability separated by 24-hour intervals.
+      description: Returns 60-minute bookable slots according to gaming center operating hours, temporary booking closures (marking overlapped slots unavailableReason=CLOSED and exposing isBookingTemporarilyClosed/bookingClosedUntil/activeClosure), active status, minimum advance lead time (default 15 minutes or settings.minAdvanceBookingMinutes), and reservation/maintenance availability separated by 24-hour intervals.
   /public/gamingCenters/{gamingCenterSlug}/reservation:
     post:
       summary: Create an online reservation
@@ -15440,7 +15551,7 @@ paths:
   /gamingCenters/{gamingCenterId}/closures:
     get:
       summary: List temporary closures/exceptions for a gaming center
-      description: Returns scheduled temporary closures or holiday exceptions for the gaming center.
+      description: Returns scheduled temporary closures or holiday exceptions for the gaming center. Supports filtering by startDate/endDate, activeOnly, or upcomingOnly.
       tags:
       - GamingCenters
       operationId: get_gamingCenters_gamingCenterId_closures
@@ -15462,20 +15573,36 @@ paths:
         schema:
           type: string
           format: date-time
+      - name: activeOnly
+        in: query
+        schema:
+          type: boolean
+      - name: upcomingOnly
+        in: query
+        schema:
+          type: boolean
       responses:
         '200':
           description: List of closures
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GamingCenterClosure'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
     post:
       summary: Create a temporary closure/exception for a gaming center
-      description: Registers a planned closure window for the gaming center.
+      description: Registers a closure window either by explicit startDate/endDate or by duration starting from now (or optional startDate) using hours/durationHours/minutes/durationMinutes (max 168 hours).
       tags:
       - GamingCenters
       operationId: post_gamingCenters_gamingCenterId_closures
@@ -15493,9 +15620,6 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-              - startDate
-              - endDate
               properties:
                 title:
                   type: string
@@ -15509,19 +15633,156 @@ paths:
                 endDate:
                   type: string
                   format: date-time
+                hours:
+                  type: number
+                  minimum: 0.01
+                  maximum: 168
+                durationHours:
+                  type: number
+                  minimum: 0.01
+                  maximum: 168
+                minutes:
+                  type: integer
+                  minimum: 1
+                  maximum: 10080
+                durationMinutes:
+                  type: integer
+                  minimum: 1
+                  maximum: 10080
+                replaceActive:
+                  type: boolean
+                  default: false
       responses:
         '201':
           description: Closure created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TemporaryBookingClosureResponse'
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /gamingCenters/{gamingCenterId}/closures/temporary:
+    post:
+      summary: Close bookings starting now for the next N hours
+      description: Creates a temporary booking closure starting at the current timestamp for the specified duration (hours/durationHours/minutes/durationMinutes, up to 168 hours) in a single request and returns affectedReservationsCount.
+      tags:
+      - GamingCenters
+      operationId: post_gamingCenters_gamingCenterId_closures_temporary
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemporaryBookingClosureInput'
+      responses:
+        '201':
+          description: Temporary booking closure created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TemporaryBookingClosureResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /gamingCenters/{gamingCenterId}/closures/active:
+    get:
+      summary: Get currently active temporary booking closure status
+      description: Returns whether bookings are currently closed temporarily, when they reopen (closedUntil), remainingMinutes, and active closures.
+      tags:
+      - GamingCenters
+      operationId: get_gamingCenters_gamingCenterId_closures_active
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Active closure status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ActiveClosureStatus'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /gamingCenters/{gamingCenterId}/closures/reopen:
+    post:
+      summary: End active temporary booking closures early and reopen bookings
+      description: Sets endDate=now on all currently active closures for this gaming center so slots reopen immediately.
+      tags:
+      - GamingCenters
+      operationId: post_gamingCenters_gamingCenterId_closures_reopen
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Active closures ended / reopened result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ReopenBookingsResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
   /gamingCenters/{gamingCenterId}/closures/{closureId}:
     delete:
       summary: Delete a temporary closure
@@ -15558,7 +15819,7 @@ paths:
   /public/gamingCenters/{gamingCenterSlug}/closures:
     get:
       summary: Get public upcoming closures for a gaming center
-      description: Returns upcoming temporary closures for a verified gaming center.
+      description: Returns upcoming or currently active temporary closures for a verified gaming center.
       tags:
       - Public
       operationId: get_public_gamingCenters_gamingCenterSlug_closures
@@ -15569,13 +15830,68 @@ paths:
         required: true
         schema:
           type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: activeOnly
+        in: query
+        schema:
+          type: boolean
+      - name: upcomingOnly
+        in: query
+        schema:
+          type: boolean
       responses:
         '200':
           description: Public closures list
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GamingCenterClosure'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /public/gamingCenters/{gamingCenterSlug}/closures/active:
+    get:
+      summary: Get public active temporary booking closure status
+      description: Returns whether bookings for this gaming center are currently closed temporarily, closedUntil timestamp, and remainingMinutes.
+      tags:
+      - Public
+      operationId: get_public_gamingCenters_gamingCenterSlug_closures_active
+      security: []
+      parameters:
+      - name: gamingCenterSlug
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Public active closure status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ActiveClosureStatus'
         '404':
           $ref: '#/components/responses/NotFoundError'
   /gamingCenters/{gamingCenterId}/group-reservations:

@@ -8,9 +8,13 @@ import { UserRole } from '@prisma/client';
 import { AppRequest } from '../../types/express';
 import * as closuresController from './closures.controller';
 import {
+  closeForNextHoursSchema,
   createClosureSchema,
   deleteClosureSchema,
+  gamingCenterIdParamSchema,
   getClosuresSchema,
+  getPublicClosuresSchema,
+  publicGamingCenterSlugParamSchema,
 } from './closures.validators';
 
 export const privateClosuresRouter = Router({ mergeParams: true });
@@ -24,6 +28,27 @@ privateClosuresRouter.get(
   requireRole([UserRole.MANAGER, UserRole.ADMIN]),
   validate(getClosuresSchema),
   asyncHandler<AppRequest>(closuresController.getClosures)
+);
+
+privateClosuresRouter.get(
+  '/active',
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
+  validate(gamingCenterIdParamSchema),
+  asyncHandler<AppRequest>(closuresController.getActiveClosureStatus)
+);
+
+privateClosuresRouter.post(
+  '/temporary',
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
+  validate(closeForNextHoursSchema),
+  asyncHandler<AppRequest>(closuresController.closeForNextHours)
+);
+
+privateClosuresRouter.post(
+  '/reopen',
+  requireRole([UserRole.MANAGER, UserRole.ADMIN]),
+  validate(gamingCenterIdParamSchema),
+  asyncHandler<AppRequest>(closuresController.reopenBookings)
 );
 
 privateClosuresRouter.post(
@@ -40,8 +65,15 @@ privateClosuresRouter.delete(
   asyncHandler<AppRequest>(closuresController.deleteClosure)
 );
 
-// Public route
+// Public routes
 publicClosuresRouter.get(
   '/',
+  validate(getPublicClosuresSchema),
   asyncHandler<AppRequest>(closuresController.getPublicClosures)
+);
+
+publicClosuresRouter.get(
+  '/active',
+  validate(publicGamingCenterSlugParamSchema),
+  asyncHandler<AppRequest>(closuresController.getPublicActiveClosureStatus)
 );

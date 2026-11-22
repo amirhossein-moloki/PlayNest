@@ -690,4 +690,64 @@ describe('GamingCenterRepository', () => {
       });
     });
   });
+
+  describe('transformGamingCenter temporary closures metadata', () => {
+    const baseGc: any = {
+      id: 'center_closure_1',
+      name: 'Closure Arena',
+      isActive: true,
+      slug: 'closure-arena',
+      description: 'Test center',
+      pcCount: 5,
+      consoleCount: 2,
+      hourlyRate: 80000,
+      openingTime: '10:00',
+      closingTime: '23:00',
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      addresses: [],
+      stations: [],
+      ratings: [],
+      settings: null,
+    };
+
+    it('exposes isBookingTemporarilyClosed=true, bookingClosedUntil, and activeClosure when an active closure exists', () => {
+      const start = new Date(Date.now() - 60 * 60 * 1000);
+      const end = new Date(Date.now() + 8 * 60 * 60 * 1000);
+
+      const transformed = transformGamingCenter({
+        ...baseGc,
+        closures: [
+          {
+            id: 'c-active',
+            title: 'Temporary booking closure',
+            reason: 'Private event',
+            startDate: start,
+            endDate: end,
+          },
+        ],
+      });
+
+      expect(transformed.isBookingTemporarilyClosed).toBe(true);
+      expect(transformed.bookingClosedUntil).toBe(end.toISOString());
+      expect(transformed.activeClosure).toEqual({
+        id: 'c-active',
+        title: 'Temporary booking closure',
+        reason: 'Private event',
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
+      });
+    });
+
+    it('exposes isBookingTemporarilyClosed=false and nulls when no active closure exists', () => {
+      const transformed = transformGamingCenter({
+        ...baseGc,
+        closures: [],
+      });
+
+      expect(transformed.isBookingTemporarilyClosed).toBe(false);
+      expect(transformed.bookingClosedUntil).toBeNull();
+      expect(transformed.activeClosure).toBeNull();
+    });
+  });
 });
