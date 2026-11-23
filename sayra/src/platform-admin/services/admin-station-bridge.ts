@@ -37,7 +37,7 @@ export class AdminStationBridge {
     const actor = {
       id: context.platformAdminId,
       role: UserRole.ADMIN,
-      actorType: SessionActorType.USER,
+      actorType: SessionActorType.PLATFORM_ADMIN,
     };
 
     const result = await reservationStation.cancelReservation(
@@ -99,7 +99,7 @@ export class AdminStationBridge {
     const actor = {
       id: context.platformAdminId,
       role: UserRole.ADMIN,
-      actorType: SessionActorType.USER,
+      actorType: SessionActorType.PLATFORM_ADMIN,
     };
 
     const result = await reservationStation.startReservation(
@@ -135,7 +135,7 @@ export class AdminStationBridge {
     const actor = {
       id: context.platformAdminId,
       role: UserRole.ADMIN,
-      actorType: SessionActorType.USER,
+      actorType: SessionActorType.PLATFORM_ADMIN,
     };
 
     const result = await reservationStation.completeReservation(
@@ -171,7 +171,7 @@ export class AdminStationBridge {
     const actor = {
       id: context.platformAdminId,
       role: UserRole.ADMIN,
-      actorType: SessionActorType.USER,
+      actorType: SessionActorType.PLATFORM_ADMIN,
     };
 
     const result = await reservationStation.markAsNoShow(
@@ -321,7 +321,7 @@ export class AdminStationBridge {
     const actor = {
       id: context.platformAdminId,
       role: UserRole.ADMIN,
-      actorType: SessionActorType.USER,
+      actorType: SessionActorType.PLATFORM_ADMIN,
     };
 
     let result;

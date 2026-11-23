@@ -233,7 +233,7 @@ export const reservationLifecycle = {
         {
           status: ReservationStatus.CANCELED,
           canceledAt: new Date(),
-          canceledByUserId: actor.id,
+          canceledByUserId: actor.actorType === SessionActorType.USER ? actor.id : null,
           cancelReason: data.reason,
           cancelCategory: data.cancelCategory || CancellationCategory.UNKNOWN,
           cancelActor: data.cancelActor || (actor.actorType === SessionActorType.CUSTOMER ? CancellationActor.CUSTOMER : CancellationActor.STAFF),

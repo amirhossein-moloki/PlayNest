@@ -1,4 +1,11 @@
-import { Prisma, ReservationStatus, ReservationPaymentState, ReservationSource } from '@prisma/client';
+import {
+  Prisma,
+  ReservationStatus,
+  ReservationPaymentState,
+  ReservationSource,
+  CancellationActor,
+  CancellationCategory,
+} from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { generateUniqueCheckInCode } from '../reservation/reservation.code';
 
@@ -257,9 +264,13 @@ export const GroupBookingRepo = {
   async cancelGroupBookingAndReservations(
     id: string,
     gamingCenterId: string,
-    canceledByUserId: string,
+    canceledByUserId: string | null | undefined,
     reason?: string,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
+    options?: {
+      cancelCategory?: CancellationCategory;
+      cancelActor?: CancellationActor;
+    }
   ) {
     const client = tx || prisma;
     const now = new Date();
@@ -271,7 +282,7 @@ export const GroupBookingRepo = {
         status: ReservationStatus.CANCELED,
         canceledAt: now,
         cancelReason: reason,
-        canceledByUserId,
+        canceledByUserId: canceledByUserId ?? null,
       },
     });
 
@@ -282,7 +293,9 @@ export const GroupBookingRepo = {
         status: ReservationStatus.CANCELED,
         canceledAt: now,
         cancelReason: reason,
-        canceledByUserId,
+        canceledByUserId: canceledByUserId ?? null,
+        ...(options?.cancelCategory ? { cancelCategory: options.cancelCategory } : {}),
+        ...(options?.cancelActor ? { cancelActor: options.cancelActor } : {}),
       },
     });
 

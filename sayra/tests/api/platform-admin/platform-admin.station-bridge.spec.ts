@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { SessionActorType } from '@prisma/client';
 import { AdminStationBridge } from '../../../src/platform-admin/services/admin-station-bridge';
 import { AdminAuditService } from '../../../src/platform-admin/services/admin-audit.service';
 import { reservationStation } from '../../../src/modules/reservation/reservation.station';
@@ -58,7 +59,7 @@ describe('AdminStationBridge and AdminAuditService Security Tests', () => {
     expect(reservationStation.cancelReservation).toHaveBeenCalledWith(
       'res_123',
       'gc_1',
-      expect.objectContaining({ id: 'pa_super_1' }),
+      expect.objectContaining({ id: 'pa_super_1', actorType: SessionActorType.PLATFORM_ADMIN }),
       expect.objectContaining({ reason: expect.stringContaining('Customer requested cancellation') }),
       expect.any(Object)
     );

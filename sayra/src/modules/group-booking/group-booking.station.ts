@@ -12,9 +12,12 @@ import {
   SessionActorType,
   UserRole,
   OtpPurpose,
+  CancellationActor,
+  CancellationCategory,
 } from '@prisma/client';
 import { GroupBookingRepo } from './group-booking.repo';
 import { ReservationRepo } from '../reservation/reservation.repo';
+import { ReservationStateMachine } from '../reservation/reservation.state-machine';
 import { AuthRepository } from '../auth/auth.repository';
 import { discountsStation } from '../discounts/discounts.station';
 import { walletService } from '../wallet/wallet.station';
@@ -825,7 +828,15 @@ export const GroupBookingStation = {
       throw new AppError('Group booking not found.', httpStatus.NOT_FOUND);
     }
 
-    const isCustomer = actor?.actorType === SessionActorType.CUSTOMER || (!actor?.role && actor?.actorType !== SessionActorType.USER);
+    const isPlatformAdmin = actor?.actorType === SessionActorType.PLATFORM_ADMIN;
+    const isCustomer =
+      actor?.actorType === SessionActorType.CUSTOMER ||
+      (!isPlatformAdmin && !actor?.role && actor?.actorType !== SessionActorType.USER);
+    const isUserActor =
+      actor?.actorType === SessionActorType.USER ||
+      (!actor?.actorType && Boolean(actor?.role));
+    const canceledByUserId = isUserActor ? actor.id : null;
+
     if (isCustomer) {
       const effectiveCustomerId = actor?.customerAccountId || actor?.id;
       if (groupBooking.customerAccountId !== effectiveCustomerId) {
@@ -835,6 +846,10 @@ export const GroupBookingStation = {
 
     if (groupBooking.status === ReservationStatus.CANCELED) {
       throw new AppError('Group booking is already canceled.', httpStatus.CONFLICT);
+    }
+
+    if (groupBooking.status) {
+      ReservationStateMachine.validateTransition(groupBooking.status, ReservationStatus.CANCELED);
     }
 
     if (isCustomer && groupBooking.startTime) {
@@ -856,13 +871,22 @@ export const GroupBookingStation = {
       validateCancellationWindowMinutes(new Date(groupBooking.startTime), cancellationWindowMinutes);
     }
 
+    const effectiveReason = reason || (isCustomer ? 'Canceled by customer' : undefined);
+    const cancelCategory = isCustomer
+      ? CancellationCategory.CUSTOMER_CANCEL
+      : CancellationCategory.UNKNOWN;
+    const cancelActor = isCustomer
+      ? CancellationActor.CUSTOMER
+      : CancellationActor.STAFF;
+
     const updated = await GroupBookingRepo.transaction(async (tx) => {
       const canceled = await GroupBookingRepo.cancelGroupBookingAndReservations(
         id,
         gamingCenterId,
-        actor.id,
-        reason,
-        tx
+        canceledByUserId,
+        effectiveReason,
+        tx,
+        { cancelCategory, cancelActor }
       );
 
       // Cancel any initiated payments for this group booking, restoring deducted wallet funds
@@ -893,9 +917,15 @@ export const GroupBookingStation = {
       return canceled;
     });
 
+    const auditActorType =
+      actor.actorType ??
+      (isCustomer ? SessionActorType.CUSTOMER : SessionActorType.USER);
     await auditService.log(
       gamingCenterId,
-      actor as { id: string; role: UserRole; actorType: SessionActorType },
+      {
+        id: isCustomer ? (actor.customerAccountId || actor.id) : actor.id,
+        actorType: auditActorType,
+      },
       'GROUP_BOOKING_CANCEL',
       { name: 'GroupBooking', id },
       { old: groupBooking, new: updated },

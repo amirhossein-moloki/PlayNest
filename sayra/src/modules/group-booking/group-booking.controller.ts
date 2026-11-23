@@ -2,7 +2,6 @@ import { Response, NextFunction } from 'express';
 import { GroupBookingStation } from './group-booking.station';
 import { BookingHoldStation } from '../booking-hold/booking-hold.station';
 import { AppRequest } from '../../types/express';
-import { UserRole } from '@prisma/client';
 
 export const checkoutGroupReservation = async (
   req: AppRequest,
@@ -73,7 +72,7 @@ export const getGroupBookingById = async (
     const groupBooking = await GroupBookingStation.getGroupBookingById(
       id,
       gamingCenterId,
-      req.actor as { id: string; role?: UserRole }
+      req.actor
     );
     res.ok(groupBooking);
   } catch (error) {
@@ -91,7 +90,7 @@ export const listGroupBookings = async (
     const result = await GroupBookingStation.listGroupBookings(
       gamingCenterId,
       req.query as any, // eslint-disable-line @typescript-eslint/no-explicit-any
-      req.actor as { id: string; role?: UserRole }
+      req.actor
     );
     res.ok(result.data, { pagination: result.meta });
   } catch (error) {
@@ -111,7 +110,7 @@ export const cancelGroupBooking = async (
     const canceled = await GroupBookingStation.cancelGroupBooking(
       id,
       gamingCenterId,
-      req.actor as { id: string; role?: UserRole },
+      req.actor,
       reason,
       { ip: req.ip, userAgent: req.headers['user-agent'] }
     );

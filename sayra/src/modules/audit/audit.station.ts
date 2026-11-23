@@ -28,11 +28,13 @@ export const auditService = {
     data: { old?: any; new?: any }, // eslint-disable-line @typescript-eslint/no-explicit-any
     context?: { ip?: string; userAgent?: string }
   ) {
-    const isPlatformAdmin = actor.actorType === 'PLATFORM_ADMIN';
+    const isPlatformAdmin = actor.actorType === SessionActorType.PLATFORM_ADMIN;
+    const isCustomer = actor.actorType === SessionActorType.CUSTOMER;
     return this.recordLog({
       gamingCenterId: gamingCenterId || undefined,
-      userId: !isPlatformAdmin ? actor.id : undefined,
+      userId: !isPlatformAdmin && !isCustomer ? actor.id : undefined,
       platformAdminId: isPlatformAdmin ? actor.id : undefined,
+      customerId: isCustomer ? actor.id : undefined,
       actorType: actor.actorType,
       action,
       entity: entity.name,

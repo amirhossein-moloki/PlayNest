@@ -4,7 +4,15 @@ import { GroupBookingRepo } from '../../../../src/modules/group-booking/group-bo
 import { ReservationRepo } from '../../../../src/modules/reservation/reservation.repo';
 import { discountsStation } from '../../../../src/modules/discounts/discounts.station';
 import { walletService } from '../../../../src/modules/wallet/wallet.station';
-import { ReservationStatus, ReservationPaymentState, SessionActorType, UserRole, PaymentStatus } from '@prisma/client';
+import {
+  ReservationStatus,
+  ReservationPaymentState,
+  SessionActorType,
+  UserRole,
+  CancellationActor,
+  CancellationCategory,
+} from '@prisma/client';
+import { auditService } from '../../../../src/modules/audit/audit.station';
 import { eventEmitter, AppEvents } from '../../../../src/common/events/event-emitter';
 
 jest.mock('../../../../src/config/prisma', () => ({
@@ -173,6 +181,17 @@ describe('GroupBookingStation', () => {
       const result = await GroupBookingStation.cancelGroupBooking(groupBookingId, gamingCenterId, actor, 'Customer requested cancel');
 
       expect(result.status).toBe(ReservationStatus.CANCELED);
+      expect(MockedGroupBookingRepo.cancelGroupBookingAndReservations).toHaveBeenCalledWith(
+        groupBookingId,
+        gamingCenterId,
+        'u-mgr-1',
+        'Customer requested cancel',
+        expect.anything(),
+        {
+          cancelCategory: CancellationCategory.UNKNOWN,
+          cancelActor: CancellationActor.STAFF,
+        }
+      );
       expect(MockedWalletService.refundReservationToWallet).toHaveBeenCalledTimes(2);
     });
 
@@ -226,8 +245,105 @@ describe('GroupBookingStation', () => {
       eventEmitter.removeListener(AppEvents.RESERVATION_CANCELED, canceledSpy);
 
       expect(result.status).toBe(ReservationStatus.CANCELED);
+      expect(MockedGroupBookingRepo.cancelGroupBookingAndReservations).toHaveBeenCalledWith(
+        groupBookingId,
+        gamingCenterId,
+        null,
+        'Plans changed',
+        expect.anything(),
+        {
+          cancelCategory: CancellationCategory.CUSTOMER_CANCEL,
+          cancelActor: CancellationActor.CUSTOMER,
+        }
+      );
+      expect(auditService.log).toHaveBeenCalledWith(
+        gamingCenterId,
+        expect.objectContaining({ id: 'ca-cust-1', actorType: SessionActorType.CUSTOMER }),
+        'GROUP_BOOKING_CANCEL',
+        { name: 'GroupBooking', id: groupBookingId },
+        expect.any(Object),
+        undefined
+      );
       expect(MockedWalletService.refundReservationToWallet).toHaveBeenCalledTimes(2);
       expect(canceledSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('should pass canceledByUserId=null and default reason when customer cancels without explicit reason', async () => {
+      const startTime = new Date(Date.now() + 60 * 60 * 1000);
+      const existingBooking = {
+        id: groupBookingId,
+        gamingCenterId,
+        customerAccountId: 'ca-cust-1',
+        status: ReservationStatus.CONFIRMED,
+        startTime,
+        gamingCenter: { settings: { cancellationWindowMinutes: 15 } },
+        reservations: [{ id: 'res-1' }],
+      };
+
+      MockedGroupBookingRepo.findGroupBookingById.mockResolvedValue(existingBooking as any);
+      MockedGroupBookingRepo.cancelGroupBookingAndReservations.mockResolvedValue({
+        ...existingBooking,
+        status: ReservationStatus.CANCELED,
+      } as any);
+
+      const actor = { id: 'ca-cust-1', actorType: SessionActorType.CUSTOMER, customerAccountId: 'ca-cust-1' };
+      const result = await GroupBookingStation.cancelGroupBooking(groupBookingId, gamingCenterId, actor);
+
+      expect(result?.status).toBe(ReservationStatus.CANCELED);
+      expect(MockedGroupBookingRepo.cancelGroupBookingAndReservations).toHaveBeenCalledWith(
+        groupBookingId,
+        gamingCenterId,
+        null,
+        'Canceled by customer',
+        expect.anything(),
+        {
+          cancelCategory: CancellationCategory.CUSTOMER_CANCEL,
+          cancelActor: CancellationActor.CUSTOMER,
+        }
+      );
+    });
+
+    it('should pass canceledByUserId=null and log PLATFORM_ADMIN audit when platform admin cancels group booking', async () => {
+      const startTime = new Date(Date.now() + 5 * 60 * 1000);
+      const existingBooking = {
+        id: groupBookingId,
+        gamingCenterId,
+        customerAccountId: 'ca-cust-1',
+        status: ReservationStatus.CONFIRMED,
+        startTime,
+        gamingCenter: { settings: { cancellationWindowMinutes: 15 } },
+        reservations: [{ id: 'res-1' }],
+      };
+
+      MockedGroupBookingRepo.findGroupBookingById.mockResolvedValue(existingBooking as any);
+      MockedGroupBookingRepo.cancelGroupBookingAndReservations.mockResolvedValue({
+        ...existingBooking,
+        status: ReservationStatus.CANCELED,
+      } as any);
+
+      const actor = { id: 'pa-admin-1', role: UserRole.ADMIN, actorType: SessionActorType.PLATFORM_ADMIN };
+      const result = await GroupBookingStation.cancelGroupBooking(groupBookingId, gamingCenterId, actor, 'Platform override');
+
+      expect(result?.status).toBe(ReservationStatus.CANCELED);
+      expect(MockedGroupBookingRepo.cancelGroupBookingAndReservations).toHaveBeenCalledWith(
+        groupBookingId,
+        gamingCenterId,
+        null,
+        'Platform override',
+        expect.anything(),
+        {
+          cancelCategory: CancellationCategory.UNKNOWN,
+          cancelActor: CancellationActor.STAFF,
+        }
+      );
+      expect(auditService.log).toHaveBeenCalledWith(
+        gamingCenterId,
+        expect.objectContaining({ id: 'pa-admin-1', actorType: SessionActorType.PLATFORM_ADMIN }),
+        'GROUP_BOOKING_CANCEL',
+        { name: 'GroupBooking', id: groupBookingId },
+        expect.any(Object),
+        undefined
+      );
     });
 
     it('should reject customer cancelling group booking 10 minutes before startTime with CANCELLATION_DEADLINE_EXCEEDED', async () => {

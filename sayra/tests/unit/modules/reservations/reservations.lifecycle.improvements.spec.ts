@@ -122,6 +122,68 @@ describe('Reservation Lifecycle Improvements', () => {
     expect(MockedWalletService.refundReservationToWallet).toHaveBeenCalledWith('res-prog', expect.anything());
   });
 
+  it('cancelReservation should set canceledByUserId only for USER actors and null for CUSTOMER/PLATFORM_ADMIN', async () => {
+    const baseReservation = {
+      id: 'res-actor-check',
+      gamingCenterId: 'gc-1',
+      status: ReservationStatus.CONFIRMED,
+    };
+    const canceledReservation = {
+      ...baseReservation,
+      status: ReservationStatus.CANCELED,
+      gamingCenter: {},
+      customerAccount: {},
+    };
+
+    MockedReservationRepo.findReservationById.mockResolvedValue(baseReservation as any);
+    MockedReservationRepo.updateReservationWithInclude.mockResolvedValue(canceledReservation as any);
+    MockedReservationRepo.createHistory.mockResolvedValue({} as any);
+    MockedReservationRepo.cancelPendingProposals.mockResolvedValue({ count: 0 } as any);
+    MockedWalletService.refundReservationToWallet.mockResolvedValue(undefined as any);
+
+    await reservationLifecycle.cancelReservation(
+      'res-actor-check',
+      'gc-1',
+      { id: 'mgr-1', role: UserRole.MANAGER, actorType: SessionActorType.USER },
+      { reason: 'Staff cancel' }
+    );
+    expect(MockedReservationRepo.updateReservationWithInclude).toHaveBeenLastCalledWith(
+      'res-actor-check',
+      'gc-1',
+      expect.objectContaining({ canceledByUserId: 'mgr-1' }),
+      expect.any(Object),
+      expect.anything()
+    );
+
+    await reservationLifecycle.cancelReservation(
+      'res-actor-check',
+      'gc-1',
+      { id: 'ca-1', role: UserRole.STAFF, actorType: SessionActorType.CUSTOMER },
+      { reason: 'Customer cancel' }
+    );
+    expect(MockedReservationRepo.updateReservationWithInclude).toHaveBeenLastCalledWith(
+      'res-actor-check',
+      'gc-1',
+      expect.objectContaining({ canceledByUserId: null }),
+      expect.any(Object),
+      expect.anything()
+    );
+
+    await reservationLifecycle.cancelReservation(
+      'res-actor-check',
+      'gc-1',
+      { id: 'pa-1', role: UserRole.ADMIN, actorType: SessionActorType.PLATFORM_ADMIN },
+      { reason: 'Admin cancel' }
+    );
+    expect(MockedReservationRepo.updateReservationWithInclude).toHaveBeenLastCalledWith(
+      'res-actor-check',
+      'gc-1',
+      expect.objectContaining({ canceledByUserId: null }),
+      expect.any(Object),
+      expect.anything()
+    );
+  });
+
   it('completeReservation on IN_PROGRESS should not fail if no active GamingSession exists', async () => {
     MockedReservationRepo.findReservationById.mockResolvedValue({
       id: 'res-prog-2',
