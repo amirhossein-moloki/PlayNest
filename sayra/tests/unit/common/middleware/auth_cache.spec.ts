@@ -145,4 +145,63 @@ describe('authMiddleware Redis Caching (FIND-05)', () => {
     await invalidateActorCache('user-123', 'USER');
     expect(redis.del).toHaveBeenCalledWith(getActorCacheKey('user-123', 'USER'));
   });
+
+  it('should cache safe USER profile fields and serve req.actorProfile on warm hit without DB calls in /auth/me', async () => {
+    const token = generateAccessToken({ actorId: 'user-full', actorType: 'USER', sessionId: 'sess-full' });
+    req.headers = { authorization: `Bearer ${token}` };
+
+    (redis.get as jest.Mock).mockResolvedValueOnce(null);
+    (prisma.user.findUnique as jest.Mock).mockResolvedValueOnce({
+      id: 'user-full',
+      role: UserRole.MANAGER,
+      gamingCenterId: 'gc-1',
+      isActive: true,
+      username: 'manager_one',
+      fullName: 'Sara Karimi',
+      email: 'sara@example.com',
+      passwordHash: '$argon2id$secret',
+    });
+
+    await authMiddleware(req as Request, res as Response, next);
+
+    expect(req.actorProfile).toEqual({
+      username: 'manager_one',
+      fullName: 'Sara Karimi',
+      email: 'sara@example.com',
+    });
+    const cachedPayload = JSON.parse((redis.set as jest.Mock).mock.calls[0][1] as string);
+    expect(cachedPayload.profile).toEqual({
+      username: 'manager_one',
+      fullName: 'Sara Karimi',
+      email: 'sara@example.com',
+    });
+    expect(JSON.stringify(cachedPayload)).not.toContain('$argon2id$secret');
+
+    // Warm hit executes 0 DB queries and populates req.actorProfile
+    const hitReq: Partial<Request> = { headers: { authorization: `Bearer ${token}` } };
+    const hitNext = jest.fn();
+    (redis.get as jest.Mock).mockResolvedValueOnce(JSON.stringify(cachedPayload));
+    await authMiddleware(hitReq as Request, res as Response, hitNext);
+
+    expect(prisma.user.findUnique).toHaveBeenCalledTimes(1);
+    expect(hitReq.actorProfile).toEqual({
+      username: 'manager_one',
+      fullName: 'Sara Karimi',
+      email: 'sara@example.com',
+    });
+
+    const { me } = await import('../../../../src/modules/auth/auth.controller');
+    const jsonSpy = jest.fn();
+    await me(hitReq as Request, { ok: jsonSpy } as unknown as Response);
+    expect(jsonSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'user-full',
+        username: 'manager_one',
+        fullName: 'Sara Karimi',
+        firstName: 'Sara',
+        lastName: 'Karimi',
+        email: 'sara@example.com',
+      })
+    );
+  });
 });

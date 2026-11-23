@@ -7,6 +7,7 @@ import { SessionActorType, UserRole, NotificationType } from '@prisma/client';
 import { auditService } from '../audit/audit.station';
 import { invalidateActorCache } from '../../common/middleware/auth';
 import { NotificationStation } from '../notifications/notifications.station';
+import { invalidateTenantCache } from '../../common/utils/tenantCache';
 
 export interface OwnerInfo {
   id: string;
@@ -226,6 +227,12 @@ export const gamingCenterStation = {
 
     const updatedGamingCenter = await gamingCenterRepository.update(id, data);
 
+    void invalidateTenantCache(
+      id,
+      typeof gamingCenter.slug === 'string' ? gamingCenter.slug : undefined,
+      updatedGamingCenter.slug
+    );
+
     await auditService.log(
       id,
       actor,
@@ -248,6 +255,11 @@ export const gamingCenterStation = {
       throw new AppError('GamingCenter not found', httpStatus.NOT_FOUND);
     }
     const result = await gamingCenterRepository.softDelete(id);
+
+    void invalidateTenantCache(
+      id,
+      typeof gamingCenter.slug === 'string' ? gamingCenter.slug : undefined
+    );
 
     await auditService.log(
       id,

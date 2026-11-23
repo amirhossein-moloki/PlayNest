@@ -630,8 +630,13 @@ describe('Unified OTP Authentication & Security Hardening Test Suite', () => {
 
       await OtpService.requestOtp('+989121111111');
 
+      const { verifyOtpCode } = await import('../../../src/modules/auth/otp-security');
       const createCall = (prisma.phoneOtp.create as any).mock.calls[0][0];
-      const is000000 = await argon2.verify(createCall.data.codeHash, '000000');
+      expect(createCall.data.codeHash).toMatch(/^hmac256:[0-9a-f]{32}:[0-9a-f]{64}$/);
+      const is000000 = await verifyOtpCode('000000', createCall.data.codeHash, {
+        phone: '+989121111111',
+        purpose: 'LOGIN',
+      });
       expect(is000000).toBe(false);
     } finally {
       (env as any).NODE_ENV = origEnv;

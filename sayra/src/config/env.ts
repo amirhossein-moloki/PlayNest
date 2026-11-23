@@ -52,6 +52,7 @@ const EnvSchema = z.object({
   OTP_EXPIRATION_MINUTES: z.coerce.number().int().positive().default(2),
   OTP_REQUEST_RATE_LIMIT_PHONE: z.coerce.number().int().positive().default(3),
   OTP_REQUEST_RATE_LIMIT_IP: z.coerce.number().int().positive().default(10),
+  OTP_HMAC_SECRET: z.string().min(16).optional(),
 
   // Rate Limiting
   RATE_LIMIT_ENABLED: z.preprocess(toBool, z.boolean()).default(true),

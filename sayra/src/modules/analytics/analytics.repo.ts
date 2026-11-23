@@ -53,6 +53,29 @@ export const AnalyticsRepo = {
     });
   },
 
+  async getFunnelEventCounts(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
+    const grouped = await prisma.analyticsEvent.groupBy({
+      by: ['eventType'],
+      where: {
+        timestamp: { gte: dayStart, lte: dayEnd },
+        OR: [{ gamingCenterId }, { gamingCenterId: null }],
+      },
+      _count: { _all: true },
+    });
+
+    const byEventType: Record<string, number> = {};
+    let totalEvents = 0;
+    for (const row of grouped || []) {
+      const count = row?._count?._all || 0;
+      if (row?.eventType) {
+        byEventType[row.eventType] = (byEventType[row.eventType] || 0) + count;
+      }
+      totalEvents += count;
+    }
+
+    return { totalEvents, byEventType };
+  },
+
   async getSummaryStats(gamingCenterId: string, startDate: Date, endDate: Date) {
     const stats = await prisma.gamingCenterAnalytics.aggregate({
       where: {
@@ -296,6 +319,47 @@ export const AnalyticsRepo = {
       },
       orderBy: { startTime: 'asc' },
     });
+  },
+
+  async getDailyReservationTrends(
+    gamingCenterId: string,
+    dayStart: Date,
+    dayEnd: Date,
+    timeZone: string
+  ): Promise<Array<{ date: string; total: number; completed: number; canceled: number; revenue: number }>> {
+    if (typeof prisma?.$queryRaw !== 'function') {
+      return [];
+    }
+    const rows = await prisma.$queryRaw<
+      Array<{
+        date: string;
+        total: number | bigint;
+        completed: number | bigint;
+        canceled: number | bigint;
+        revenue: number | string | null;
+      }>
+    >`
+      SELECT
+        TO_CHAR("startTime" AT TIME ZONE ${timeZone}, 'YYYY-MM-DD') AS "date",
+        COUNT(*)::int AS "total",
+        COUNT(*) FILTER (WHERE "status" = 'COMPLETED')::int AS "completed",
+        COUNT(*) FILTER (WHERE "status" = 'CANCELED')::int AS "canceled",
+        COALESCE(SUM("totalPrice") FILTER (WHERE "status" = 'COMPLETED'), 0)::float8 AS "revenue"
+      FROM "Reservation"
+      WHERE "gamingCenterId" = ${gamingCenterId}
+        AND "startTime" >= ${dayStart}
+        AND "startTime" <= ${dayEnd}
+      GROUP BY 1
+      ORDER BY 1 ASC
+    `;
+
+    return (rows || []).map((row) => ({
+      date: String(row.date),
+      total: Number(row.total) || 0,
+      completed: Number(row.completed) || 0,
+      canceled: Number(row.canceled) || 0,
+      revenue: Number(row.revenue) || 0,
+    }));
   },
 
   async getStaffPerformanceStats(gamingCenterId: string, startDate: Date, endDate: Date) {
@@ -1105,6 +1169,49 @@ export const AnalyticsRepo = {
     });
   },
 
+  async getReservationLeadTimeSummary(
+    gamingCenterId: string,
+    dayStart: Date,
+    dayEnd: Date
+  ): Promise<{ count: number; averageLeadTimeMinutes: number; medianLeadTimeMinutes: number }> {
+    if (typeof prisma?.$queryRaw !== 'function') {
+      return { count: 0, averageLeadTimeMinutes: 0, medianLeadTimeMinutes: 0 };
+    }
+    const rows = await prisma.$queryRaw<
+      Array<{
+        count: number | bigint;
+        averageLeadTimeMinutes: number | bigint | null;
+        medianLeadTimeMinutes: number | bigint | null;
+      }>
+    >`
+      SELECT
+        COUNT(*)::int AS "count",
+        COALESCE(
+          ROUND(AVG(GREATEST(0, ROUND(EXTRACT(EPOCH FROM ("startTime" - ("createdAt" AT TIME ZONE 'UTC'))) / 60.0)))),
+          0
+        )::int AS "averageLeadTimeMinutes",
+        COALESCE(
+          ROUND(
+            PERCENTILE_CONT(0.5) WITHIN GROUP (
+              ORDER BY GREATEST(0, ROUND(EXTRACT(EPOCH FROM ("startTime" - ("createdAt" AT TIME ZONE 'UTC'))) / 60.0))
+            )
+          ),
+          0
+        )::int AS "medianLeadTimeMinutes"
+      FROM "Reservation"
+      WHERE "gamingCenterId" = ${gamingCenterId}
+        AND "startTime" >= ${dayStart}
+        AND "startTime" <= ${dayEnd}
+    `;
+
+    const row = rows?.[0];
+    return {
+      count: Number(row?.count) || 0,
+      averageLeadTimeMinutes: Number(row?.averageLeadTimeMinutes) || 0,
+      medianLeadTimeMinutes: Number(row?.medianLeadTimeMinutes) || 0,
+    };
+  },
+
   async getCancellationAnalyticsStats(gamingCenterId: string, dayStart: Date, dayEnd: Date) {
     const [canceledReservations, totalReservationsCount] = await Promise.all([
       prisma.reservation.findMany({
@@ -1302,6 +1409,57 @@ export const AnalyticsRepo = {
       orderBy: { createdAt: 'asc' },
     });
     return res || [];
+  },
+
+  async getFunnelReservationCounts(
+    gamingCenterId: string,
+    dayStart: Date,
+    dayEnd: Date
+  ): Promise<{ totalCreated: number; paidCount: number; completedCount: number; sessionStartedCount: number }> {
+    if (typeof prisma?.$queryRaw !== 'function') {
+      return { totalCreated: 0, paidCount: 0, completedCount: 0, sessionStartedCount: 0 };
+    }
+    const rows = await prisma.$queryRaw<
+      Array<{
+        totalCreated: number | bigint;
+        paidCount: number | bigint;
+        completedCount: number | bigint;
+        sessionStartedCount: number | bigint;
+      }>
+    >`
+      SELECT
+        COUNT(*)::int AS "totalCreated",
+        COUNT(*) FILTER (
+          WHERE r."paymentState" = 'PAID'
+             OR EXISTS (
+               SELECT 1 FROM "Payment" p
+               WHERE p."reservationId" = r."id"
+                 AND p."status" = 'PAID'
+                 AND p."paidAt" IS NOT NULL
+             )
+        )::int AS "paidCount",
+        COUNT(*) FILTER (
+          WHERE r."status" IN ('COMPLETED', 'CONFIRMED')
+        )::int AS "completedCount",
+        COUNT(*) FILTER (
+          WHERE EXISTS (
+            SELECT 1 FROM "GamingSession" gs
+            WHERE gs."reservationId" = r."id"
+          )
+        )::int AS "sessionStartedCount"
+      FROM "Reservation" r
+      WHERE r."gamingCenterId" = ${gamingCenterId}
+        AND r."createdAt" >= ${dayStart}
+        AND r."createdAt" <= ${dayEnd}
+    `;
+
+    const row = rows?.[0];
+    return {
+      totalCreated: Number(row?.totalCreated) || 0,
+      paidCount: Number(row?.paidCount) || 0,
+      completedCount: Number(row?.completedCount) || 0,
+      sessionStartedCount: Number(row?.sessionStartedCount) || 0,
+    };
   },
 
   async getDiscountCohortReservations(gamingCenterId: string, dayEnd: Date) {

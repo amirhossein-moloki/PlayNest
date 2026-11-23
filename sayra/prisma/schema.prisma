@@ -637,9 +637,9 @@ model GamingCenter {
   advertisements AdvertisementRequest[]
   tickets        Ticket[]
 
-  @@index([slug])
   @@index([verificationStatus])
-  @@index([isActive, verificationStatus, createdAt])
+  @@index([isActive, verificationStatus, createdAt(sort: Desc)])
+  @@index([updatedAt, id])
 }
 
 model User {
@@ -752,6 +752,7 @@ model CustomerAccount {
   waitlistEntries WaitlistEntry[]
 
   @@index([phone])
+  @@index([updatedAt, id])
 }
 
 model CustomerProfile {
@@ -907,7 +908,6 @@ model Category {
   posts Post[]
 
   @@unique([gamingCenterId, slug])
-  @@index([gamingCenterId, slug])
 }
 
 model Tag {
@@ -924,7 +924,6 @@ model Tag {
   posts PostTag[]
 
   @@unique([gamingCenterId, slug])
-  @@index([gamingCenterId, slug])
 }
 
 model Series {
@@ -942,7 +941,6 @@ model Series {
   posts Post[]
 
   @@unique([gamingCenterId, slug])
-  @@index([gamingCenterId, slug])
 }
 
 model Post {
@@ -1362,7 +1360,6 @@ model Address {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([gamingCenterId])
   @@index([gamingCenterId, isPrimary])
   @@index([province])
   @@index([city])
@@ -1433,7 +1430,6 @@ model GamingCenterClosure {
   updatedAt DateTime @updatedAt
 
   @@index([gamingCenterId, startDate, endDate])
-  @@index([gamingCenterId])
 }
 
 model DeviceType {
@@ -1556,8 +1552,10 @@ model GameStation {
   updatedAt DateTime @updatedAt
 
   @@index([gamingCenterId, isActive])
+  @@index([gamingCenterId, isActive, stationType])
   @@index([gamingCenterId, name])
   @@index([gamingCenterId, catalogDeviceId])
+  @@index([updatedAt, id])
 }
 
 model StaffStationSkill {
@@ -1685,12 +1683,15 @@ model Reservation {
   @@index([gamingCenterId, status, startTime])
   @@index([gamingCenterId, checkInCode])
   @@index([gamingCenterId, staffId, status, startTime, endTime])
+  @@index([gamingCenterId, stationId, status, startTime, endTime], map: "Reservation_gc_station_status_start_end_idx")
+  @@index([customerAccountId, status])
   @@index([customerAccountId, startTime])
   @@index([customerProfileId, startTime])
   @@index([gamingCenterId, paymentState, startTime])
   @@index([groupBookingId])
   @@index([status, expiresAt])
   @@index([status, confirmationExpiresAt])
+  @@index([updatedAt, id])
 }
 
 model GroupBooking {
@@ -1965,6 +1966,8 @@ model GamingSession {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([updatedAt, id])
 }
 
 model StationMaintenance {
@@ -2157,6 +2160,8 @@ model Payment {
   @@index([groupBookingId, paidAt])
   @@index([status, paidAt])
   @@index([gamingCenterId, status, paidAt])
+  @@index([gamingCenterId, createdAt])
+  @@index([updatedAt, id])
 }
 
 model WalletTransaction {
@@ -2675,7 +2680,6 @@ model DiscountCampaign {
   updatedAt DateTime @updatedAt
 
   @@index([gamingCenterId, isActive, startAt, endAt])
-  @@index([code])
   @@index([status])
   @@index([deletedAt])
 }
@@ -2801,7 +2805,6 @@ model NotificationLog {
   @@index([status, nextRetryAt])
   @@index([category, status, scheduledAt])
   @@index([entityType, entityId])
-  @@index([idempotencyKey])
   @@index([gamingCenterId, createdAt])
 }
 
@@ -2838,6 +2841,7 @@ model Refund {
   @@index([paymentId, status])
   @@index([gamingCenterId, status, createdAt])
   @@index([providerRefundId])
+  @@index([updatedAt, id])
 }
 
 model LedgerEntry {
@@ -2867,6 +2871,7 @@ model LedgerEntry {
   @@index([paymentId])
   @@index([refundId])
   @@index([entryType])
+  @@index([createdAt, id])
 }
 
 model ReconciliationRecord {

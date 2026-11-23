@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router } from 'express';
 import healthRouter from './health.routes';
 import authRouter from '../modules/auth/auth.routes';
 import gamingCenterRouter from '../modules/gamingCenter/gamingCenter.routes';
@@ -30,9 +30,7 @@ import {
 import * as StationController from '../modules/station/station.controller';
 import { publicApiRateLimiter, publicAnalyticsRateLimiter } from '../common/middleware/rateLimit';
 import { asyncHandler } from '../common/middleware/asyncHandler';
-import { prisma } from '../config/prisma';
-import AppError from '../common/errors/AppError';
-import httpStatus from 'http-status';
+import { resolveGamingCenterParam } from '../common/middleware/resolveGamingCenterParam';
 import { cmsRouter } from '../modules/cms/cms.routes';
 import { cmsAdminUiRouter } from '../modules/cms/admin-ui.routes';
 import { dashboardAdminUiRouter } from '../modules/analytics/dashboard-ui.routes';
@@ -92,31 +90,6 @@ router.use('/catalog', publicCatalogRouter);
 router.use('/gamingCenters', gamingCenterRouter);
 
 // --- GameStation Module Routes ---
-// Helper middleware to resolve gamingCenter by id or slug
-const resolveGamingCenterParam = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const centerIdentifier = req.params.gamingCenterId;
-  if (!centerIdentifier) {
-    return next(new AppError('GamingCenter ID is missing from request params.', httpStatus.BAD_REQUEST));
-  }
-  let gamingCenter = await prisma.gamingCenter.findUnique({
-    where: { id: centerIdentifier },
-  });
-  if (!gamingCenter) {
-    gamingCenter = await prisma.gamingCenter.findFirst({
-      where: {
-        OR: [{ id: centerIdentifier }, { slug: centerIdentifier }],
-        isActive: true,
-      },
-    });
-  }
-  if (!gamingCenter) {
-    return next(new AppError('GamingCenter not found', httpStatus.NOT_FOUND));
-  }
-  req.tenant = { gamingCenterId: gamingCenter.id, gamingCenterSlug: gamingCenter.slug };
-  req.gamingCenterId = gamingCenter.id;
-  next();
-});
-
 // Device categories direct endpoints
 router.get(
   '/gamingCenters/:gamingCenterId/device-categories',

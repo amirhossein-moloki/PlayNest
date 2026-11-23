@@ -79,18 +79,19 @@ describe('AnalyticsStation', () => {
         totalCount: 10,
       } as any);
 
-      MockedRepo.getReservationListForTrends.mockResolvedValue([
-        { startTime: new Date('2026-01-01T10:00:00Z'), status: 'COMPLETED', totalPrice: 100, totalHours: 2 },
-      ] as any);
+      MockedRepo.getDailyReservationTrends.mockResolvedValue([
+        { date: '2026-01-01', total: 1, completed: 1, canceled: 0, revenue: 100 },
+      ]);
 
       MockedRepo.getStationDetails.mockResolvedValue([
         { id: 'st-1', name: 'PC 1', stationType: 'PC', isActive: true, hourlyPrice: 50 },
       ] as any);
 
-      MockedRepo.getReservationLeadTimeStats.mockResolvedValue([
-        { id: 'res-1', createdAt: new Date('2026-01-01T08:00:00Z'), startTime: new Date('2026-01-01T10:00:00Z'), status: 'COMPLETED', totalHours: 2 },
-        { id: 'res-2', createdAt: new Date('2026-01-01T09:00:00Z'), startTime: new Date('2026-01-01T10:00:00Z'), status: 'COMPLETED', totalHours: 2 },
-      ] as any);
+      MockedRepo.getReservationLeadTimeSummary.mockResolvedValue({
+        count: 2,
+        averageLeadTimeMinutes: 90,
+        medianLeadTimeMinutes: 90,
+      });
 
       MockedRepo.getCanceledWithPaidStats.mockResolvedValue([
         {
@@ -131,9 +132,13 @@ describe('AnalyticsStation', () => {
         totalCount: 0,
       } as any);
 
-      MockedRepo.getReservationListForTrends.mockResolvedValue([]);
+      MockedRepo.getDailyReservationTrends.mockResolvedValue([]);
       MockedRepo.getStationDetails.mockResolvedValue([]);
-      MockedRepo.getReservationLeadTimeStats.mockResolvedValue([]);
+      MockedRepo.getReservationLeadTimeSummary.mockResolvedValue({
+        count: 0,
+        averageLeadTimeMinutes: 0,
+        medianLeadTimeMinutes: 0,
+      });
       MockedRepo.getCanceledWithPaidStats.mockResolvedValue([]);
       MockedRepo.getStationGamingSessionStats.mockResolvedValue([]);
 

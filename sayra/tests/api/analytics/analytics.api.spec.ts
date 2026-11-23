@@ -14,6 +14,7 @@ jest.mock('../../../src/config/redis', () => ({
 
 jest.mock('../../../src/config/prisma', () => ({
   prisma: {
+    $queryRaw: jest.fn().mockImplementation(() => Promise.resolve([])),
     settings: {
       findUnique: jest.fn(),
     },

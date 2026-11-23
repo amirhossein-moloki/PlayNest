@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import argon2 from 'argon2';
 import crypto from 'crypto';
 import httpStatus from 'http-status';
 import { OnboardingStep, OtpPurpose, UserRole, NotificationType } from '@prisma/client';
@@ -11,7 +10,7 @@ import { NotificationStation } from '../notifications/notifications.station';
 import { env } from '../../config/env';
 import AppError from '../../common/errors/AppError';
 import { normalizePhone } from '../../common/utils/phone';
-import { isSkipOtp, getEffectiveOtpCode, verifyOtpCode, STATIC_OTP_CODE } from '../auth/otp-security';
+import { isSkipOtp, getEffectiveOtpCode, hashOtpCode, verifyOtpCode, STATIC_OTP_CODE } from '../auth/otp-security';
 
 const OTP_LENGTH = 6;
 const OTP_EXPIRATION_MINUTES = 2;
@@ -57,7 +56,7 @@ export const OnboardingStation = {
 
     // Generate & save OTP
     const code = getEffectiveOtpCode(OTP_LENGTH);
-    const codeHash = await argon2.hash(code);
+    const codeHash = hashOtpCode(code, { phone: normalizedPhone, purpose: OtpPurpose.SIGNUP });
     const expiresAt = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
 
     await AuthRepository.createOtp({
@@ -106,7 +105,10 @@ export const OnboardingStation = {
       throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
     }
 
-    const isCodeValid = await verifyOtpCode(code, otp.codeHash);
+    const isCodeValid = await verifyOtpCode(code, otp.codeHash, {
+      phone: draft.managerPhone,
+      purpose: OtpPurpose.SIGNUP,
+    });
     if (!isCodeValid) {
       throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
     }

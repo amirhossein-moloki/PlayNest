@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { subDays, differenceInDays } from 'date-fns';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
-import { prisma } from '../../config/prisma';
+import { getCachedCenterTimezone } from './analytics.cache';
 
 export const AnalyticsQuerySchema = z.object({
   query: z
@@ -87,12 +87,7 @@ export async function resolveTimezoneAndBoundaries(
   startDateInput: Date,
   endDateInput: Date
 ): Promise<{ timeZone: string; dayStart: Date; dayEnd: Date }> {
-  const settings = await prisma.settings.findUnique({
-    where: { gamingCenterId },
-    select: { timeZone: true },
-  });
-
-  const timeZone = settings?.timeZone || 'UTC';
+  const timeZone = await getCachedCenterTimezone(gamingCenterId);
 
   const startStr = formatInTimeZone(startDateInput, timeZone, 'yyyy-MM-dd');
   const endStr = formatInTimeZone(endDateInput, timeZone, 'yyyy-MM-dd');

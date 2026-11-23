@@ -18,10 +18,8 @@ import { authMiddleware } from '../../common/middleware/auth';
 import { requireRole } from '../../common/middleware/requireRole';
 import { tenantGuard } from '../../common/middleware/tenantGuard';
 import { resolveGamingCenterBySlug } from '../../common/middleware/resolveGamingCenterBySlug';
+import { resolveGamingCenterParam } from '../../common/middleware/resolveGamingCenterParam';
 import { UserRole } from '@prisma/client';
-import { prisma } from '../../config/prisma';
-import AppError from '../../common/errors/AppError';
-import httpStatus from 'http-status';
 import {
   privateApiRateLimiter,
   publicApiRateLimiter,
@@ -35,29 +33,7 @@ export const privateStationRouter = Router({ mergeParams: true });
 privateStationRouter.get(
   '/',
   publicApiRateLimiter,
-  asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    const centerIdentifier = req.params.gamingCenterId;
-    if (!centerIdentifier) {
-      return next(new AppError('GamingCenter ID is missing from request params.', httpStatus.BAD_REQUEST));
-    }
-    let gamingCenter = await prisma.gamingCenter.findUnique({
-      where: { id: centerIdentifier },
-    });
-    if (!gamingCenter) {
-      gamingCenter = await prisma.gamingCenter.findFirst({
-        where: {
-          OR: [{ id: centerIdentifier }, { slug: centerIdentifier }],
-          isActive: true,
-        },
-      });
-    }
-    if (!gamingCenter) {
-      return next(new AppError('GamingCenter not found', httpStatus.NOT_FOUND));
-    }
-    req.tenant = { gamingCenterId: gamingCenter.id, gamingCenterSlug: gamingCenter.slug };
-    req.gamingCenterId = gamingCenter.id;
-    next();
-  }),
+  resolveGamingCenterParam,
   asyncHandler(StationController.getStations)
 );
 

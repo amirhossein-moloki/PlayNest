@@ -1,11 +1,17 @@
-import argon2 from 'argon2';
 import { OtpPurpose, PhoneOtp } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { env } from '../../config/env';
 import { queueSms } from '../../jobs/producers/sms.producer';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
-import { enforceRateLimit, progressiveDelay, isSkipOtp, getEffectiveOtpCode, verifyOtpCode } from './otp-security';
+import {
+  enforceRateLimit,
+  progressiveDelay,
+  isSkipOtp,
+  getEffectiveOtpCode,
+  hashOtpCode,
+  verifyOtpCode,
+} from './otp-security';
 import logger from '../../config/logger';
 
 const getOtpTemplateId = (): number => {
@@ -55,7 +61,7 @@ export const OtpService = {
     });
 
     const code = getEffectiveOtpCode(6);
-    const codeHash = await argon2.hash(code);
+    const codeHash = hashOtpCode(code, { phone: normalizedPhone, purpose });
     const expiresAt = new Date(Date.now() + env.OTP_EXPIRATION_MINUTES * 60 * 1000);
 
     const otp = await prisma.phoneOtp.create({
@@ -142,7 +148,7 @@ export const OtpService = {
     }
 
     // Check code validity via unified OTP verification
-    const isValid = await verifyOtpCode(code, otp.codeHash);
+    const isValid = await verifyOtpCode(code, otp.codeHash, { phone: normalizedPhone, purpose });
 
     if (!isValid) {
       const newAttempts = otp.attempts + 1;

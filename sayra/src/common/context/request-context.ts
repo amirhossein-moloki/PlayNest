@@ -28,14 +28,20 @@ export function getRequestContext(): RequestContext {
  * Useful for global periodic cleanup workers (e.g. reservation holds expiry, waitlist expiry)
  * which legitimately operate across all tenants with audit logging.
  */
-export function runWithSystemContext<T>(jobName: string, fn: () => Promise<T>): Promise<T> {
-  const correlationId = `sys-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+export function runWithSystemContext<T>(
+  jobName: string,
+  fn: () => Promise<T>,
+  options?: { correlationId?: string; requestId?: string }
+): Promise<T> {
+  const generatedId = `sys-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  const correlationId = options?.correlationId || generatedId;
+  const requestId = options?.requestId || correlationId;
   return requestContext.run(
     {
       isSystemContext: true,
       systemJobName: jobName,
       correlationId,
-      requestId: correlationId,
+      requestId,
     },
     fn
   );

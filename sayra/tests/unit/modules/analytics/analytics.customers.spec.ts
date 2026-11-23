@@ -199,32 +199,16 @@ describe('AnalyticsStation - Phase 3 Customer Analytics', () => {
 
   describe('getConversionFunnel', () => {
     it('should compute operational state transitions, stage conversion rates, and handle missing web tracking notice', async () => {
-      const createdAt = new Date('2026-03-01T10:00:00Z');
-      const paidAt = new Date('2026-03-01T10:05:00Z');
-      const sessionStart = new Date('2026-03-01T10:15:00Z');
-
-      const mockFunnelReservations = [
-        {
-          id: 'res_1',
-          createdAt,
-          status: 'COMPLETED',
-          paymentState: 'PAID',
-          completedAt: new Date('2026-03-01T12:00:00Z'),
-          payments: [{ id: 'p_1', paidAt, amount: 100000 }],
-          gamingSessions: [{ id: 'gs_1', startTime: sessionStart, actualHours: 2 }],
-        },
-        {
-          id: 'res_2',
-          createdAt,
-          status: 'CANCELED',
-          paymentState: 'UNPAID',
-          completedAt: null,
-          payments: [],
-          gamingSessions: [],
-        },
-      ];
-
-      (AnalyticsRepo.getFunnelReservations as jest.Mock).mockResolvedValue(mockFunnelReservations);
+      (AnalyticsRepo.getFunnelEventCounts as jest.Mock).mockResolvedValue({
+        totalEvents: 0,
+        byEventType: {},
+      });
+      (AnalyticsRepo.getFunnelReservationCounts as jest.Mock).mockResolvedValue({
+        totalCreated: 2,
+        paidCount: 1,
+        completedCount: 1,
+        sessionStartedCount: 1,
+      });
 
       const res = await AnalyticsStation.getConversionFunnel(gamingCenterId, startDate, endDate);
 
@@ -256,7 +240,16 @@ describe('AnalyticsStation - Phase 3 Customer Analytics', () => {
     });
 
     it('should handle zero reservations safely without division by zero', async () => {
-      (AnalyticsRepo.getFunnelReservations as jest.Mock).mockResolvedValue([]);
+      (AnalyticsRepo.getFunnelEventCounts as jest.Mock).mockResolvedValue({
+        totalEvents: 0,
+        byEventType: {},
+      });
+      (AnalyticsRepo.getFunnelReservationCounts as jest.Mock).mockResolvedValue({
+        totalCreated: 0,
+        paidCount: 0,
+        completedCount: 0,
+        sessionStartedCount: 0,
+      });
 
       const res = await AnalyticsStation.getConversionFunnel(gamingCenterId, startDate, endDate);
 
@@ -265,29 +258,32 @@ describe('AnalyticsStation - Phase 3 Customer Analytics', () => {
       expect(res.funnel[0].count).toBe(0);
     });
 
-    it('should safely process out-of-order timestamps and late arriving events', async () => {
-      const createdAt = new Date('2026-03-01T10:00:00Z');
-      // paidAt before createdAt due to clock drift (should be ignored for lead time calculation)
-      const paidAt = new Date('2026-03-01T09:59:00Z');
-
-      const mockFunnelReservations = [
-        {
-          id: 'res_late',
-          createdAt,
-          status: 'COMPLETED',
-          paymentState: 'PAID',
-          completedAt: new Date('2026-03-01T11:00:00Z'),
-          payments: [{ id: 'p_late', paidAt, amount: 50000 }],
-          gamingSessions: [{ id: 'gs_late', startTime: new Date('2026-03-01T10:10:00Z'), actualHours: 1 }],
+    it('should build 7-stage instrumented funnel when web traffic events exist', async () => {
+      (AnalyticsRepo.getFunnelEventCounts as jest.Mock).mockResolvedValue({
+        totalEvents: 15,
+        byEventType: {
+          page_view: 10,
+          center_view: 8,
+          station_view: 6,
+          booking_started: 4,
+          checkout_started: 2,
         },
-      ];
-
-      (AnalyticsRepo.getFunnelReservations as jest.Mock).mockResolvedValue(mockFunnelReservations);
+      });
+      (AnalyticsRepo.getFunnelReservationCounts as jest.Mock).mockResolvedValue({
+        totalCreated: 2,
+        paidCount: 1,
+        completedCount: 1,
+        sessionStartedCount: 1,
+      });
 
       const res = await AnalyticsStation.getConversionFunnel(gamingCenterId, startDate, endDate);
 
-      expect(res.funnel[0].count).toBe(1);
-      expect(res.summary.overallConversionRate).toBe(100);
+      expect(res.webTrafficFunnelStatus).toBe('INSTRUMENTED');
+      expect(res.funnel).toHaveLength(7);
+      expect(res.funnel[0].count).toBe(10);
+      expect(res.funnel[5].count).toBe(1);
+      expect(res.funnel[6].count).toBe(1);
+      expect(res.summary.overallConversionRate).toBe(10);
     });
   });
 

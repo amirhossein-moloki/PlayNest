@@ -109,14 +109,83 @@ export function getEffectiveOtpCode(digits = 6): string {
   return isSkipOtp() ? STATIC_OTP_CODE : generateSecureNumericOtp(digits);
 }
 
+export const OTP_HMAC_PREFIX = 'hmac256:';
+
+export interface OtpHashContext {
+  phone?: string;
+  purpose?: string;
+}
+
+function getOtpHmacKey(): Buffer {
+  if (env.OTP_HMAC_SECRET) {
+    return Buffer.from(env.OTP_HMAC_SECRET, 'utf8');
+  }
+  return crypto
+    .createHmac('sha256', env.JWT_ACCESS_SECRET)
+    .update('playnest:otp-hmac-key:v1')
+    .digest();
+}
+
+function computeOtpDigestHex(saltHex: string, code: string, context?: OtpHashContext): string {
+  const phone = context?.phone ?? '';
+  const purpose = context?.purpose ?? '';
+  return crypto
+    .createHmac('sha256', getOtpHmacKey())
+    .update(`${saltHex}:${phone}:${purpose}:${code}`)
+    .digest('hex');
+}
+
+/**
+ * Generates a salted, keyed HMAC-SHA256 hash for ephemeral 2-minute OTPs.
+ * Avoids 64 MiB memory-hard Argon2 allocations on short-lived rate-limited OTP flows.
+ */
+export function hashOtpCode(code: string, context?: OtpHashContext): string {
+  const saltHex = crypto.randomBytes(16).toString('hex');
+  const digestHex = computeOtpDigestHex(saltHex, code, context);
+  return `${OTP_HMAC_PREFIX}${saltHex}:${digestHex}`;
+}
+
 /**
  * Unified OTP code verification.
  * When SKIP_OTP is active, strictly requires '000000'.
- * When SKIP_OTP is inactive, verifies input against argon2 codeHash.
+ * Verifies `hmac256:` hashes via constant-time `crypto.timingSafeEqual`, while keeping
+ * Argon2 fallback for any in-flight legacy hashes during rolling deployment.
  */
-export async function verifyOtpCode(inputCode: string, codeHash: string): Promise<boolean> {
+export async function verifyOtpCode(
+  inputCode: string,
+  codeHash: string,
+  context?: OtpHashContext
+): Promise<boolean> {
   if (isSkipOtp()) {
     return inputCode === STATIC_OTP_CODE;
   }
-  return argon2.verify(codeHash, inputCode);
+  if (!codeHash || typeof codeHash !== 'string') {
+    return false;
+  }
+
+  if (codeHash.startsWith(OTP_HMAC_PREFIX)) {
+    const rest = codeHash.slice(OTP_HMAC_PREFIX.length);
+    const sepIdx = rest.indexOf(':');
+    if (sepIdx <= 0) {
+      return false;
+    }
+    const saltHex = rest.slice(0, sepIdx);
+    const storedHex = rest.slice(sepIdx + 1);
+    if (!/^[0-9a-f]{64}$/i.test(storedHex)) {
+      return false;
+    }
+    const expectedHex = computeOtpDigestHex(saltHex, inputCode, context);
+    const storedBuf = Buffer.from(storedHex, 'hex');
+    const expectedBuf = Buffer.from(expectedHex, 'hex');
+    if (storedBuf.length !== expectedBuf.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(storedBuf, expectedBuf);
+  }
+
+  try {
+    return await argon2.verify(codeHash, inputCode);
+  } catch {
+    return false;
+  }
 }

@@ -8,6 +8,7 @@ import redis from '../../config/redis';
 import logger from '../../config/logger';
 import { SessionActorType, UserRole } from '@prisma/client';
 import { ADMIN_CONSTANTS } from '../../platform-admin/config/admin.constants';
+import { CachedActorProfile } from '../../types/express';
 
 const AUTH_CACHE_TTL_SECONDS = 60;
 
@@ -32,6 +33,23 @@ interface CachedActor {
   actorType: SessionActorType;
   isActive?: boolean;
   isSuperuser?: boolean;
+  profile?: CachedActorProfile;
+}
+
+function extractActorProfile(actorType: SessionActorType, user: Record<string, unknown>): CachedActorProfile | undefined {
+  if (actorType === 'PLATFORM_ADMIN') {
+    const { passwordHash: _passwordHash, ...safeAdmin } = user;
+    void _passwordHash;
+    return { adminProfile: safeAdmin };
+  }
+  if (actorType === 'USER' && ('username' in user || 'fullName' in user || 'email' in user)) {
+    return {
+      username: typeof user.username === 'string' && user.username.trim() !== '' ? user.username : null,
+      fullName: typeof user.fullName === 'string' ? user.fullName : null,
+      email: typeof user.email === 'string' ? user.email : null,
+    };
+  }
+  return undefined;
 }
 
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
@@ -113,6 +131,9 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       sessionId: sessionId as string | undefined,
       isSuperuser: cachedActor.isSuperuser,
     };
+    if (cachedActor.profile) {
+      req.actorProfile = cachedActor.profile;
+    }
     return next();
   }
 
@@ -147,6 +168,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
 
   const role = 'role' in user ? (user as { role?: UserRole }).role : (isSuperuser ? UserRole.ADMIN : undefined);
   const gamingCenterId = 'gamingCenterId' in user ? (user as { gamingCenterId?: string }).gamingCenterId : undefined;
+  const profile = extractActorProfile(actorType, user as unknown as Record<string, unknown>);
 
   const actorData: CachedActor = {
     id: user.id,
@@ -156,6 +178,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     actorType,
     isActive: true,
     ...(isSuperuser ? { isSuperuser: true } : {}),
+    ...(profile ? { profile } : {}),
   };
 
   // 4. Attempt Redis write (non-blocking errors)
@@ -174,6 +197,9 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     sessionId: sessionId as string | undefined,
     isSuperuser: isSuperuser ? true : undefined,
   };
+  if (profile) {
+    req.actorProfile = profile;
+  }
 
   next();
 };
@@ -221,6 +247,9 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
         sessionId: sessionId as string | undefined,
         isSuperuser: cachedActor.isSuperuser,
       };
+      if (cachedActor.profile) {
+        req.actorProfile = cachedActor.profile;
+      }
     }
     return next();
   }
@@ -250,6 +279,7 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
     if (user) {
       const role = 'role' in user ? (user as { role?: UserRole }).role : (isSuperuser ? UserRole.ADMIN : undefined);
       const gamingCenterId = 'gamingCenterId' in user ? (user as { gamingCenterId?: string }).gamingCenterId : undefined;
+      const profile = extractActorProfile(actorType, user as unknown as Record<string, unknown>);
 
       const actorData: CachedActor = {
         id: user.id,
@@ -259,6 +289,7 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
         actorType,
         isActive: true,
         ...(isSuperuser ? { isSuperuser: true } : {}),
+        ...(profile ? { profile } : {}),
       };
 
       try {
@@ -276,6 +307,9 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
         sessionId: sessionId as string | undefined,
         isSuperuser: isSuperuser ? true : undefined,
       };
+      if (profile) {
+        req.actorProfile = profile;
+      }
     }
   } catch (dbErr) {
     logger.warn({ dbErr, actorId }, 'DB query error in optionalAuth');

@@ -4,7 +4,7 @@ import { env } from '../../config/env';
 import { AnalyticsRepo } from '../../modules/analytics/analytics.repo';
 import { AnalyticsSyncJobData } from '../producers/analytics.producer';
 import logger from '../../config/logger';
-import { requestContext } from '../../common/context/request-context';
+import { runWithSystemContext } from '../../common/context/request-context';
 import { Metrics } from '../../common/metrics/metrics';
 
 export const analyticsWorker = new Worker(
@@ -12,27 +12,34 @@ export const analyticsWorker = new Worker(
   async (job: Job<AnalyticsSyncJobData>) => {
     const { type, entityId, correlationId } = job.data;
 
-    return requestContext.run({ correlationId, requestId: job.id }, async () => {
-      logger.info({ msg: 'Processing Analytics sync job', jobId: job.id, type, entityId });
+    return runWithSystemContext(
+      'AnalyticsWorker',
+      async () => {
+        logger.info({ msg: 'Processing Analytics sync job', jobId: job.id, type, entityId });
 
-      try {
-        switch (type) {
-        case 'RESERVATION':
-          await AnalyticsRepo.syncAllStatsForReservation(entityId);
-          break;
-        case 'PAYMENT':
-          await AnalyticsRepo.syncAllStatsForPayment(entityId);
-          break;
-        case 'REVIEW':
-          await AnalyticsRepo.syncAllStatsForReview(entityId);
-          break;
+        try {
+          switch (type) {
+          case 'RESERVATION':
+            await AnalyticsRepo.syncAllStatsForReservation(entityId);
+            break;
+          case 'PAYMENT':
+            await AnalyticsRepo.syncAllStatsForPayment(entityId);
+            break;
+          case 'REVIEW':
+            await AnalyticsRepo.syncAllStatsForReview(entityId);
+            break;
+          }
+        } catch (error) {
+          Metrics.recordWorkerError(ANALYTICS_QUEUE_NAME, error instanceof Error ? error.message : String(error));
+          logger.error({ msg: 'Analytics sync job failed', jobId: job.id, error });
+          throw error;
         }
-      } catch (error) {
-        Metrics.recordWorkerError(ANALYTICS_QUEUE_NAME, error instanceof Error ? error.message : String(error));
-        logger.error({ msg: 'Analytics sync job failed', jobId: job.id, error });
-        throw error;
+      },
+      {
+        correlationId: correlationId || undefined,
+        requestId: job.id !== undefined ? String(job.id) : undefined,
       }
-    });
+    );
   },
   {
     connection: {

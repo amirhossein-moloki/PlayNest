@@ -7,6 +7,8 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { auditService } from '../audit/audit.station';
 import { invalidateActorCache } from '../../common/middleware/auth';
+import { invalidateTenantCache } from '../../common/utils/tenantCache';
+import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
 
 export const PlatformAdminStation = {
   async getAllGamingCenters(query?: { page?: number; limit?: number; search?: string }) {
@@ -106,6 +108,9 @@ export const PlatformAdminStation = {
 
     const updated = await PlatformAdminRepo.updateGamingCenter(gamingCenterId, data);
 
+    void invalidateTenantCache(gamingCenterId, center.slug, updated?.slug);
+    void invalidatePublicCacheByPrefix('public:gc:');
+
     await auditService.recordLog({
       gamingCenterId,
       platformAdminId: adminActor.id || (adminActor as any).actorId,
@@ -138,6 +143,9 @@ export const PlatformAdminStation = {
     }
 
     const updated = await PlatformAdminRepo.updateGamingCenter(gamingCenterId, data);
+
+    void invalidateTenantCache(gamingCenterId, center.slug, updated?.slug);
+    void invalidatePublicCacheByPrefix('public:gc:');
 
     await auditService.recordLog({
       gamingCenterId,

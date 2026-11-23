@@ -10,6 +10,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
+    command: ["postgres", "-c", "statement_timeout=${POSTGRES_STATEMENT_TIMEOUT:-15000}"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-playenest_admin} -d ${POSTGRES_DB:-playenest_prod}"]
       interval: 5s
@@ -47,7 +48,9 @@ services:
       - NODE_ENV=${NODE_ENV:-production}
       - PORT=3000
       - TRUST_PROXY=${TRUST_PROXY:-1}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@db:5432/${POSTGRES_DB:-playenest_prod}
+      # NOTE: Each concurrent Argon2 password hash allocates ~64 MiB native RAM; size container RAM >= 1 GiB when tuning UV_THREADPOOL_SIZE.
+      - UV_THREADPOOL_SIZE=${UV_THREADPOOL_SIZE:-8}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@db:5432/${POSTGRES_DB:-playenest_prod}?connection_limit=${DB_CONNECTION_LIMIT:-15}&pool_timeout=${DB_POOL_TIMEOUT:-10}
       - REDIS_URL=redis://redis:6379
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET environment variable is required}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET environment variable is required}

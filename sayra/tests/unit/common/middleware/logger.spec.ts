@@ -72,4 +72,34 @@ describe('Logger Middleware', () => {
     const res2 = await request(app).get('/error');
     expect(res2.status).toBe(500);
   });
+
+  it('should contain zero JSON.parse(JSON.stringify calls and ignore /health in pino-http autoLogging', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const source = fs.readFileSync(
+      path.resolve(__dirname, '../../../../src/common/middleware/logger.ts'),
+      'utf8'
+    );
+    expect(source).not.toContain('JSON.parse(JSON.stringify');
+    expect(source).not.toContain('Metrics.recordApiLatency');
+
+    const { Metrics } = await import('../../../../src/common/metrics/metrics');
+    const metricSpy = jest.spyOn(Metrics, 'recordApiLatency');
+
+    const loggerModule = await import('../../../../src/common/middleware/logger');
+    const loggerMiddleware: RequestHandler = loggerModule.default;
+
+    const app = express();
+    app.use(loggerMiddleware);
+    app.get('/health', (_req: Request, res: Response) => res.status(200).json({ status: 'ok' }));
+    app.get('/api/v1/sample', (_req: Request, res: Response) => res.status(200).json({ ok: true }));
+
+    const healthRes = await request(app).get('/health');
+    expect(healthRes.status).toBe(200);
+    const sampleRes = await request(app).get('/api/v1/sample');
+    expect(sampleRes.status).toBe(200);
+
+    expect(metricSpy).not.toHaveBeenCalled();
+    metricSpy.mockRestore();
+  });
 });

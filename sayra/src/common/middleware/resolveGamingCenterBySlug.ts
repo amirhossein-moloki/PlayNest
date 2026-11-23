@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import AppError from '../errors/AppError';
 import httpStatus from 'http-status';
-import { prisma } from '../../config/prisma';
+import { resolveTenantBySlug } from '../utils/tenantCache';
 
 /**
  * Middleware to resolve a gamingCenter from a public slug and attach its tenant
@@ -14,7 +14,7 @@ import { prisma } from '../../config/prisma';
  */
 export const resolveGamingCenterBySlug = async (
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ) => {
   const { gamingCenterSlug } = req.params;
@@ -24,10 +24,12 @@ export const resolveGamingCenterBySlug = async (
     return next(new AppError('GamingCenter slug is missing from the request params.', httpStatus.BAD_REQUEST));
   }
 
-  const gamingCenter = await prisma.gamingCenter.findUnique({
-    where: { slug: gamingCenterSlug, isActive: true },
-  });
-  if (!gamingCenter || (gamingCenter.verificationStatus && gamingCenter.verificationStatus !== 'APPROVED')) {
+  const gamingCenter = await resolveTenantBySlug(gamingCenterSlug);
+  if (
+    !gamingCenter ||
+    gamingCenter.isActive === false ||
+    (gamingCenter.verificationStatus && gamingCenter.verificationStatus !== 'APPROVED')
+  ) {
     return next(new AppError('GamingCenter not found', httpStatus.NOT_FOUND));
   }
 

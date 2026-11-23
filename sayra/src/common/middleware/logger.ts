@@ -3,9 +3,12 @@ import pinoHttp from 'pino-http';
 import { createId as cuid } from '@paralleldrive/cuid2';
 import { env } from '../../config/env';
 import logger from '../../config/logger';
-import { sanitizeLog } from '../utils/sanitizer';
+import {
+  sanitizeLogCopy,
+  pickSafeRequestHeaders,
+  pickSafeResponseHeaders,
+} from '../utils/sanitizer';
 import { requestContext } from '../context/request-context';
-import { Metrics } from '../metrics/metrics';
 
 export interface CustomIncomingMessage {
   id?: unknown;
@@ -28,6 +31,7 @@ export interface CustomServerResponse {
   statusCode?: number;
   raw?: CustomServerResponse;
   headers?: Record<string, unknown>;
+  getHeader?: (name: string) => unknown;
   getHeaders?: () => Record<string, unknown>;
   _headers?: Record<string, unknown>;
 }
@@ -42,6 +46,17 @@ if (env.NODE_ENV === 'test' && process.env.ENABLE_TEST_LOGGER !== 'true') {
     /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     logger: logger as any,
     genReqId: (req: CustomIncomingMessage) => (req.id ? String(req.id) : cuid()),
+    autoLogging: {
+      ignore: (req: CustomIncomingMessage) => {
+        const url = req.url || '';
+        return (
+          url === '/health' ||
+          url.startsWith('/health?') ||
+          url === '/api/v1/health' ||
+          url.startsWith('/api/v1/health?')
+        );
+      },
+    },
     customAttributeKeys: {
       req: 'request',
       res: 'response',
@@ -59,8 +74,12 @@ if (env.NODE_ENV === 'test' && process.env.ENABLE_TEST_LOGGER !== 'true') {
       req(req: CustomIncomingMessage) {
         try {
           const rawReq = req.raw || req;
-          const headers = rawReq.headers ? sanitizeLog(JSON.parse(JSON.stringify(rawReq.headers))) : {};
-          const body = rawReq.body ? sanitizeLog(JSON.parse(JSON.stringify(rawReq.body))) : undefined;
+          const headers = pickSafeRequestHeaders(rawReq.headers);
+          const hasBody =
+            rawReq.body &&
+            typeof rawReq.body === 'object' &&
+            Object.keys(rawReq.body as Record<string, unknown>).length > 0;
+          const body = hasBody ? sanitizeLogCopy(rawReq.body) : undefined;
 
           return {
             id: req.id || rawReq.id,
@@ -69,7 +88,7 @@ if (env.NODE_ENV === 'test' && process.env.ENABLE_TEST_LOGGER !== 'true') {
             query: rawReq.query,
             params: rawReq.params,
             headers,
-            body,
+            ...(body !== undefined ? { body } : {}),
             remoteAddress: rawReq.socket?.remoteAddress,
             remotePort: rawReq.socket?.remotePort,
           };
@@ -84,19 +103,10 @@ if (env.NODE_ENV === 'test' && process.env.ENABLE_TEST_LOGGER !== 'true') {
       res(res: CustomServerResponse) {
         try {
           const statusCode = res.statusCode || res.raw?.statusCode || 200;
-          let headers: Record<string, unknown> = {};
-
           const targetRes = res.raw || res;
-
-          if (typeof targetRes.getHeaders === 'function') {
-            headers = targetRes.getHeaders() || {};
-          } else if (res.headers && typeof res.headers === 'object') {
-            headers = res.headers;
-          } else if (targetRes._headers && typeof targetRes._headers === 'object') {
-            headers = targetRes._headers;
-          }
-
-          const sanitizedHeaders = sanitizeLog(JSON.parse(JSON.stringify(headers)));
+          const sanitizedHeaders = pickSafeResponseHeaders(
+            typeof targetRes.getHeader === 'function' ? targetRes : res
+          );
 
           return {
             statusCode,
@@ -120,11 +130,7 @@ if (env.NODE_ENV === 'test' && process.env.ENABLE_TEST_LOGGER !== 'true') {
       return 'info';
     },
     customSuccessMessage: function (req: CustomIncomingMessage, res: CustomServerResponse) {
-      const startTime = req.startTime || Date.now();
-      const duration = Date.now() - startTime;
       const statusCode = res.statusCode || res.raw?.statusCode || 200;
-      Metrics.recordApiLatency(req.method || 'UNKNOWN', req.url || 'UNKNOWN', statusCode, duration);
-
       if (statusCode === 404) {
         return 'resource not found';
       }

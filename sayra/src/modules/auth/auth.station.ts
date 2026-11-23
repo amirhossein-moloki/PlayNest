@@ -8,7 +8,7 @@ import httpStatus from 'http-status';
 import { env } from '../../config/env';
 import { queueSms } from '../../jobs/producers/sms.producer';
 import { normalizePhone } from '../../common/utils/phone';
-import { isSkipOtp, getEffectiveOtpCode, verifyOtpCode, STATIC_OTP_CODE } from './otp-security';
+import { isSkipOtp, getEffectiveOtpCode, hashOtpCode, verifyOtpCode, STATIC_OTP_CODE } from './otp-security';
 
 const hashToken = (token: string) => {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -101,7 +101,7 @@ export const authService = {
 
     // If SKIP_OTP is enabled, use static code '000000' and skip sending real SMS
     const code = getEffectiveOtpCode(OTP_LENGTH);
-    const codeHash = await argon2.hash(code);
+    const codeHash = hashOtpCode(code, { phone: normalizedPhone, purpose: OtpPurpose.LOGIN });
     const expiresAt = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
 
     await AuthRepository.createOtp({
@@ -133,7 +133,7 @@ export const authService = {
       throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
     }
 
-    const isCodeValid = await verifyOtpCode(code, otp.codeHash);
+    const isCodeValid = await verifyOtpCode(code, otp.codeHash, { phone: normalizedPhone, purpose: OtpPurpose.LOGIN });
 
     if (!isCodeValid) {
       throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
@@ -157,7 +157,7 @@ export const authService = {
 
     // If SKIP_OTP is enabled, use static code '000000' and skip sending real SMS
     const code = getEffectiveOtpCode(OTP_LENGTH);
-    const codeHash = await argon2.hash(code);
+    const codeHash = hashOtpCode(code, { phone: normalizedPhone, purpose: OtpPurpose.LOGIN });
     const expiresAt = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
 
     await AuthRepository.createOtp({
@@ -189,7 +189,7 @@ export const authService = {
       throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
     }
 
-    const isCodeValid = await verifyOtpCode(code, otp.codeHash);
+    const isCodeValid = await verifyOtpCode(code, otp.codeHash, { phone: normalizedPhone, purpose: OtpPurpose.LOGIN });
 
     if (!isCodeValid) {
       throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);

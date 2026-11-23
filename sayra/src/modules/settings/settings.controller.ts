@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as settingsStation from './settings.station';
 import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
+import { invalidateAnalyticsTimezoneCache } from '../analytics/analytics.cache';
 
 export async function getSettings(req: Request, res: Response, next: NextFunction) {
   try {
@@ -31,6 +32,7 @@ export async function updateSettings(req: Request, res: Response, next: NextFunc
     );
     if (gamingCenterId) {
       void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
+      void invalidateAnalyticsTimezoneCache(gamingCenterId);
     }
     void invalidatePublicCacheByPrefix('public:gc:');
     res.ok(settings);

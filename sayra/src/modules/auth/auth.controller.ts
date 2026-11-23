@@ -4,6 +4,7 @@ import { authService } from './auth.station';
 import { AuthRepository } from './auth.repository';
 import { UpdateProfileInput } from './auth.validators';
 import AppError from '../../common/errors/AppError';
+import { invalidateActorCache } from '../../common/middleware/auth';
 import httpStatus from 'http-status';
 
 export const login = async (req: Request, res: Response) => {
@@ -112,6 +113,13 @@ export const me = async (req: Request, res: Response) => {
   }
 
   if (req.actor.actorType === 'PLATFORM_ADMIN') {
+    if (req.actorProfile?.adminProfile) {
+      return res.ok({
+        ...req.actor,
+        username: null,
+        profile: req.actorProfile.adminProfile,
+      });
+    }
     const adminId = req.actor.id || req.actor.actorId || '';
     const admin = await AuthRepository.findPlatformAdminById(adminId);
     if (admin) {
@@ -136,7 +144,17 @@ export const me = async (req: Request, res: Response) => {
     let fullName: string | null = null;
     let email: string | null = null;
 
-    if (userId) {
+    if (req.actorProfile) {
+      username =
+        typeof req.actorProfile.username === 'string' && req.actorProfile.username.trim() !== ''
+          ? req.actorProfile.username
+          : null;
+      fullName = req.actorProfile.fullName ?? null;
+      const split = splitFullName(fullName);
+      firstName = split.firstName;
+      lastName = split.lastName;
+      email = req.actorProfile.email ?? null;
+    } else if (userId) {
       const user = await AuthRepository.findUserById(userId);
       if (user) {
         if (typeof user.username === 'string' && user.username.trim() !== '') {
@@ -208,6 +226,7 @@ export const updateMe = async (req: Request, res: Response) => {
     if (body.isPublic !== undefined) updateData.isPublic = body.isPublic;
 
     const updatedUser = await AuthRepository.updateUser(actorId, updateData);
+    await invalidateActorCache(actorId, 'USER');
     const { firstName, lastName } = splitFullName(updatedUser.fullName);
 
     return res.ok({
@@ -248,6 +267,7 @@ export const updateMe = async (req: Request, res: Response) => {
     const updatedCustomer = await AuthRepository.updateCustomerAccount(actorId, {
       fullName: resolvedFullName || null,
     });
+    await invalidateActorCache(actorId, 'CUSTOMER');
     const { firstName, lastName } = splitFullName(updatedCustomer.fullName);
 
     return res.ok({

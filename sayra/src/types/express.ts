@@ -15,6 +15,13 @@ export interface RequestActor {
   username?: string | null;
 }
 
+export interface CachedActorProfile {
+  username?: string | null;
+  fullName?: string | null;
+  email?: string | null;
+  adminProfile?: Record<string, unknown>;
+}
+
 export interface RequestTenant {
   gamingCenterId: string;
   gamingCenterSlug?: string;
@@ -25,6 +32,7 @@ declare global {
   namespace Express {
     export interface Request {
       actor?: RequestActor;
+      actorProfile?: CachedActorProfile;
       gamingCenterId?: string;
       id: ReqId;
       requestId?: string;

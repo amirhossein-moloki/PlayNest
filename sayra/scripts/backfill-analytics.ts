@@ -5,6 +5,7 @@ import { AnalyticsRepo } from '../src/modules/analytics/analytics.repo';
 
 async function backfill() {
   console.log('Starting backfill of analytics summary tables...');
+  await prisma.$executeRawUnsafe("SET statement_timeout = '300s'");
 
   // 1. Get all unique (gamingCenterId, date) combinations from Reservations
   const reservationGroups = await prisma.reservation.groupBy({

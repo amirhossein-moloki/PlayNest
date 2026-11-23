@@ -8,7 +8,27 @@ import { getRequestContext } from '../common/context/request-context';
 const logger = pino({
   level: env.LOG_LEVEL,
   redact: {
-    paths: ['password', 'token', 'authorization', 'body.password', 'headers.authorization'],
+    paths: [
+      'password',
+      'token',
+      'accessToken',
+      'refreshToken',
+      'authorization',
+      'cookie',
+      'body.password',
+      'body.token',
+      'body.accessToken',
+      'body.refreshToken',
+      'headers.authorization',
+      'headers.cookie',
+      'headers["set-cookie"]',
+      'request.headers.authorization',
+      'request.headers.cookie',
+      'request.body.password',
+      'request.body.token',
+      'request.body.accessToken',
+      'request.body.refreshToken',
+    ],
     censor: '[REDACTED]',
   },
   mixin() {

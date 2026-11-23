@@ -5,6 +5,8 @@ import { VerificationRepo } from './verification.repo';
 import AppError from '../../common/errors/AppError';
 import { auditService } from '../audit/audit.station';
 import { prisma } from '../../config/prisma';
+import { invalidateTenantCache } from '../../common/utils/tenantCache';
+import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
 
 export const VerificationStation = {
   /**
@@ -219,6 +221,9 @@ export const VerificationStation = {
       return record;
     });
 
+    void invalidateTenantCache(verification.gamingCenterId);
+    void invalidatePublicCacheByPrefix('public:gc:');
+
     if (actor) {
       await auditService.log(
         verification.gamingCenterId,
@@ -284,6 +289,9 @@ export const VerificationStation = {
 
       return record;
     });
+
+    void invalidateTenantCache(verification.gamingCenterId);
+    void invalidatePublicCacheByPrefix('public:gc:');
 
     if (actor) {
       await auditService.log(

@@ -3,6 +3,7 @@ import app from './app';
 import { env } from './config/env';
 import { initWorkers } from './jobs/workers';
 import { initPlatformAdminPanel } from './platform-admin';
+import { initPlatformSettingsCacheSync, stopPlatformSettingsCacheSync } from './modules/platform-admin/settings.station';
 import logger from './config/logger';
 
 const PORT = env.PORT;
@@ -10,6 +11,7 @@ const PORT = env.PORT;
 let server: Server;
 
 async function bootstrap() {
+  initPlatformSettingsCacheSync();
   initWorkers();
 
   // Initialize Platform Admin Panel before starting listener
@@ -28,6 +30,7 @@ bootstrap();
 
 const gracefulShutdown = (signal: string) => {
   logger.info(`${signal} signal received: closing HTTP server`);
+  void stopPlatformSettingsCacheSync();
   server.close(() => {
     logger.info('HTTP server closed');
     process.exit(0);

@@ -177,9 +177,18 @@ describe('Comprehensive Unified SKIP_OTP Test Suite', () => {
         expect(reqRes.body.success).toBe(true);
         expect(queueSms).not.toHaveBeenCalled();
 
-        // Verify stored codeHash is for 000000
+        // Verify stored codeHash is keyed HMAC-SHA256 for 000000
         const createCall = (prisma.phoneOtp.create as any).mock.calls[0][0];
-        expect(await argon2.verify(createCall.data.codeHash, '000000')).toBe(true);
+        expect(createCall.data.codeHash).toMatch(/^hmac256:[0-9a-f]{32}:[0-9a-f]{64}$/);
+        const { verifyOtpCode } = await import('../../../src/modules/auth/otp-security');
+        (env as any).SKIP_OTP = false;
+        expect(
+          await verifyOtpCode('000000', createCall.data.codeHash, {
+            phone: normalizedPhone,
+            purpose: OtpPurpose.LOGIN,
+          })
+        ).toBe(true);
+        (env as any).SKIP_OTP = true;
 
         // Login with 000000
         const mockCustomer = {

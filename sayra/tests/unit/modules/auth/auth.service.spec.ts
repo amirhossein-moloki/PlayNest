@@ -105,7 +105,7 @@ describe('authService', () => {
         expect(MockedAuthRepository.createOtp).toHaveBeenCalledWith(
           expect.objectContaining({
             phone: NORMALIZED_T_P,
-            codeHash: 'h_000000',
+            codeHash: expect.stringMatching(/^hmac256:[0-9a-f]{32}:[0-9a-f]{64}$/),
             targetActorType: 'USER',
           })
         );
@@ -196,7 +196,7 @@ describe('authService', () => {
         expect(MockedAuthRepository.createOtp).toHaveBeenCalledWith(
           expect.objectContaining({
             phone: NORMALIZED_T_P,
-            codeHash: 'h_000000',
+            codeHash: expect.stringMatching(/^hmac256:[0-9a-f]{32}:[0-9a-f]{64}$/),
             targetActorType: 'CUSTOMER',
           })
         );

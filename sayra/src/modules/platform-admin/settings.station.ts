@@ -3,14 +3,109 @@ import fs from 'fs';
 import path from 'path';
 import { prisma } from '../../config/prisma';
 import { env } from '../../config/env';
+import redis from '../../config/redis';
+import logger from '../../config/logger';
 import { auditService } from '../audit/audit.station';
 import { RequestActor } from '../../types/express';
 import { UpdatePlatformSettingsInput } from './settings.validators';
 
 const DEFAULT_SETTINGS_ID = 'default';
+export const PLATFORM_SETTINGS_CACHE_KEY = 'platform:settings';
+export const PLATFORM_SETTINGS_REDIS_TTL_SECONDS = 30;
+export const PLATFORM_SETTINGS_L1_TTL_MS = 5000;
+export const PLATFORM_SETTINGS_REDIS_TIMEOUT_MS = 150;
+export const PLATFORM_SETTINGS_INVALIDATE_CHANNEL = 'cache:invalidate:platform:settings';
+
+let l1SettingsCache: { value: any; expiresAt: number } | null = null;
+let subscriberRedis: typeof redis | null = null;
+
+function isPlatformSettingsCacheEnabled(): boolean {
+  return process.env.NODE_ENV !== 'test' || process.env.ENABLE_SETTINGS_CACHE_IN_TEST === 'true';
+}
+
+function isRedisReady(): boolean {
+  return redis?.status === 'ready' || (process.env.ENABLE_SETTINGS_CACHE_IN_TEST === 'true' && typeof redis?.get === 'function');
+}
+
+export function clearPlatformSettingsCache(): void {
+  l1SettingsCache = null;
+}
+
+export function initPlatformSettingsCacheSync(): void {
+  if (process.env.NODE_ENV === 'test' || subscriberRedis) {
+    return;
+  }
+  if (!redis || typeof redis.duplicate !== 'function') {
+    return;
+  }
+
+  try {
+    const sub = redis.duplicate();
+    subscriberRedis = sub;
+    sub.on('error', (err) => {
+      logger.warn({ err }, 'PlatformSettings cache subscriber error');
+    });
+    sub.on('message', (channel) => {
+      if (channel === PLATFORM_SETTINGS_INVALIDATE_CHANNEL) {
+        l1SettingsCache = null;
+      }
+    });
+    void sub.subscribe(PLATFORM_SETTINGS_INVALIDATE_CHANNEL).catch((err) => {
+      logger.warn({ err }, 'Failed to subscribe to PlatformSettings invalidation channel');
+    });
+  } catch (err) {
+    logger.warn({ err }, 'Failed to initialize PlatformSettings cache subscriber');
+  }
+}
+
+export async function stopPlatformSettingsCacheSync(): Promise<void> {
+  if (!subscriberRedis) {
+    return;
+  }
+  const sub = subscriberRedis;
+  subscriberRedis = null;
+  try {
+    await sub.unsubscribe(PLATFORM_SETTINGS_INVALIDATE_CHANNEL).catch(() => undefined);
+    await sub.quit().catch(() => undefined);
+  } catch {
+    // Ignore cleanup errors during shutdown
+  }
+}
 
 export const PlatformSettingsRepo = {
   async getSettings() {
+    if (isPlatformSettingsCacheEnabled()) {
+      if (l1SettingsCache && Date.now() < l1SettingsCache.expiresAt) {
+        return l1SettingsCache.value;
+      }
+
+      if (isRedisReady()) {
+        let timeoutHandle: NodeJS.Timeout | undefined;
+        try {
+          const cached = await Promise.race([
+            redis.get(PLATFORM_SETTINGS_CACHE_KEY),
+            new Promise<null>((resolve) => {
+              timeoutHandle = setTimeout(() => resolve(null), PLATFORM_SETTINGS_REDIS_TIMEOUT_MS);
+            }),
+          ]);
+          if (typeof cached === 'string' && cached.length > 0) {
+            const parsed = JSON.parse(cached);
+            l1SettingsCache = {
+              value: parsed,
+              expiresAt: Date.now() + PLATFORM_SETTINGS_L1_TTL_MS,
+            };
+            return parsed;
+          }
+        } catch {
+          // Fail-open to DB lookup
+        } finally {
+          if (timeoutHandle) {
+            clearTimeout(timeoutHandle);
+          }
+        }
+      }
+    }
+
     let settings = await (prisma as any).platformSetting.findUnique({
       where: { id: DEFAULT_SETTINGS_ID },
     });
@@ -23,11 +118,23 @@ export const PlatformSettingsRepo = {
       });
     }
 
+    if (isPlatformSettingsCacheEnabled() && settings) {
+      l1SettingsCache = {
+        value: settings,
+        expiresAt: Date.now() + PLATFORM_SETTINGS_L1_TTL_MS,
+      };
+      if (isRedisReady() && typeof redis.set === 'function') {
+        void redis
+          .set(PLATFORM_SETTINGS_CACHE_KEY, JSON.stringify(settings), 'EX', PLATFORM_SETTINGS_REDIS_TTL_SECONDS)
+          .catch(() => undefined);
+      }
+    }
+
     return settings;
   },
 
   async updateSettings(data: UpdatePlatformSettingsInput) {
-    return (prisma as any).platformSetting.upsert({
+    const updated = await (prisma as any).platformSetting.upsert({
       where: { id: DEFAULT_SETTINGS_ID },
       create: {
         id: DEFAULT_SETTINGS_ID,
@@ -35,6 +142,19 @@ export const PlatformSettingsRepo = {
       },
       update: data,
     });
+
+    l1SettingsCache = null;
+
+    if (isPlatformSettingsCacheEnabled() && isRedisReady()) {
+      if (typeof redis.del === 'function') {
+        await redis.del(PLATFORM_SETTINGS_CACHE_KEY).catch(() => undefined);
+      }
+      if (typeof redis.publish === 'function') {
+        await redis.publish(PLATFORM_SETTINGS_INVALIDATE_CHANNEL, 'invalidate').catch(() => undefined);
+      }
+    }
+
+    return updated;
   },
 };
 
