@@ -14,6 +14,7 @@ import { errorHandler } from './common/errors/errorHandler';
 import { notFoundHandler } from './common/errors/notFoundHandler';
 import { responseMiddleware } from './common/middleware/response';
 import { env } from './config/env';
+import logger from './config/logger';
 import { initReservationEvents } from './modules/reservation/reservation.events';
 import { maintenanceModeMiddleware } from './common/middleware/maintenanceMode';
 
@@ -34,6 +35,12 @@ if (env.SENTRY_ENABLED && env.SENTRY_DSN) {
 const app = express();
 
 app.set('trust proxy', env.TRUST_PROXY);
+
+if (env.NODE_ENV === 'production' && env.TRUST_PROXY === 0) {
+  logger.warn(
+    'TRUST_PROXY is 0 in production; if behind Nginx/reverse proxy, Express per-IP rate limiting will collapse to the proxy IP.'
+  );
+}
 
 app.use(cors({
   origin: env.CORS_ORIGIN,
@@ -90,23 +97,26 @@ app.get('/robots.txt', (_req, res) => {
 // Health Check (Public - root level)
 app.use('/health', healthRouter);
 
-// Swagger Documentation & OpenAPI Spec (Public)
+// Swagger Documentation & OpenAPI Spec (Public / Configurable)
 const openapiFilePath = path.join(__dirname, 'docs/openapi.yaml');
 const swaggerDocument = YAML.load(openapiFilePath);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-app.use('/swagger', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-app.get('/openapi.yaml', (req, res) => {
-  res.sendFile(openapiFilePath);
-});
+const enableDocs = env.NODE_ENV !== 'production' || process.env.ENABLE_API_DOCS === 'true';
+if (enableDocs) {
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+  app.use('/swagger', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+  app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-app.get('/openapi.json', (req, res) => {
-  res.json(swaggerDocument);
-});
+  app.get('/openapi.yaml', (_req, res) => {
+    res.sendFile(openapiFilePath);
+  });
 
-// ReDoc Documentation (Public)
-const redocHtml = `<!DOCTYPE html>
+  app.get('/openapi.json', (_req, res) => {
+    res.json(swaggerDocument);
+  });
+
+  // ReDoc Documentation (Public)
+  const redocHtml = `<!DOCTYPE html>
 <html>
   <head>
     <title>PlayNest API Documentation - ReDoc</title>
@@ -126,13 +136,25 @@ const redocHtml = `<!DOCTYPE html>
   </body>
 </html>`;
 
-const renderRedoc: express.RequestHandler = (_req, res) => {
-  res.type('html');
-  res.send(redocHtml);
-};
+  const renderRedoc: express.RequestHandler = (_req, res) => {
+    res.type('html');
+    res.send(redocHtml);
+  };
 
-app.get('/redoc', renderRedoc);
-app.get('/redoc/*', renderRedoc);
+  app.get('/redoc', renderRedoc);
+  app.get('/redoc/*', renderRedoc);
+} else {
+  const disabledDocsHandler: express.RequestHandler = (_req, res) => {
+    res.status(404).json({
+      success: false,
+      error: {
+        code: 'NOT_FOUND',
+        message: 'API documentation is disabled in this environment',
+      },
+    });
+  };
+  app.use(['/api-docs', '/swagger', '/docs', '/redoc', '/openapi.yaml', '/openapi.json'], disabledDocsHandler);
+}
 
 // API Routes
 app.use('/api/v1', routes);
