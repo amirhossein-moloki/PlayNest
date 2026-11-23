@@ -2,6 +2,7 @@ import { Prisma, WalletTransactionType, ReservationPaymentState, PaymentStatus }
 import { WalletRepo } from './wallet.repo';
 import { prisma } from '../../config/prisma';
 import logger from '../../config/logger';
+import { commissionsStation } from '../commissions/commissions.station';
 
 export const walletService = {
   async credit(
@@ -100,6 +101,15 @@ export const walletService = {
 
         // Mark successful payments as REFUNDED
         await WalletRepo.updatePaymentsStatus(reservationId, PaymentStatus.PAID, PaymentStatus.REFUNDED, t);
+
+        // Reverse any calculated commission for this refunded reservation
+        if (typeof commissionsStation?.reverseCommissionForReservation === 'function') {
+          await commissionsStation.reverseCommissionForReservation(
+            reservationId,
+            { reason: 'Reservation refunded to customer wallet' },
+            t
+          );
+        }
 
         logger.info({
           msg: 'Refunded reservation successfully to customer wallet',

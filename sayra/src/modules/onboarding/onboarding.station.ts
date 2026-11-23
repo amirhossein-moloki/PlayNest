@@ -11,6 +11,7 @@ import { env } from '../../config/env';
 import AppError from '../../common/errors/AppError';
 import { normalizePhone } from '../../common/utils/phone';
 import { isSkipOtp, getEffectiveOtpCode, hashOtpCode, verifyOtpCode, STATIC_OTP_CODE } from '../auth/otp-security';
+import { CommissionsRepo } from '../commissions/commissions.repo';
 
 const OTP_LENGTH = 6;
 const OTP_EXPIRATION_MINUTES = 2;
@@ -371,6 +372,11 @@ export const OnboardingStation = {
           workEndTime: draft.closingTime || '23:00',
         },
       });
+
+      // 3b. Provision default CommissionPolicy based on PlatformSetting.platformCommissionPercent
+      if (typeof CommissionsRepo?.ensureDefaultPolicyForGamingCenter === 'function') {
+        await CommissionsRepo.ensureDefaultPolicyForGamingCenter(createdCenter.id, tx);
+      }
 
       // 4. Check 1-to-1 manager constraint & create or reassign Manager User
       let managerUser = await tx.user.findFirst({

@@ -937,6 +937,13 @@ export const GroupBookingStation = {
       if (groupBooking.reservations) {
         for (const res of groupBooking.reservations) {
           await walletService.refundReservationToWallet(res.id, tx);
+          if (typeof commissionsStation?.reverseCommissionForReservation === 'function') {
+            await commissionsStation.reverseCommissionForReservation(
+              res.id,
+              { reason: effectiveReason || 'Group booking canceled' },
+              tx
+            );
+          }
         }
       }
 

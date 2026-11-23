@@ -1,7 +1,7 @@
 import { describe, it, expect } from '@jest/globals';
 import { prismaMock } from '../../../mocks/prisma';
 import { CommissionsRepo } from '../../../../src/modules/commissions/commissions.repo';
-import { CommissionType, CommissionStatus } from '@prisma/client';
+import { CommissionType, CommissionStatus, CommissionPaymentStatus } from '@prisma/client';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -10,12 +10,44 @@ describe('CommissionsRepo', () => {
   const earningMock = prismaMock.earning /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
   const paymentMock = prismaMock.earningPayment /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
   const resMock = prismaMock.reservation /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
+  const platformSettingMock = (prismaMock as any).platformSetting;
 
   describe('Policy operations', () => {
     it('findPolicyByGamingCenterId', async () => {
       policyMock.findUnique.mockResolvedValue({ id: 'pol-1' });
       await CommissionsRepo.findPolicyByGamingCenterId('gc-1');
       expect(policyMock.findUnique).toHaveBeenCalledWith({ where: { gamingCenterId: 'gc-1' } });
+    });
+
+    it('findPlatformDefaultCommissionPercent', async () => {
+      platformSettingMock.findUnique.mockResolvedValue({ platformCommissionPercent: 6.5 });
+      const percent = await CommissionsRepo.findPlatformDefaultCommissionPercent();
+      expect(percent).toBe(6.5);
+      expect(platformSettingMock.findUnique).toHaveBeenCalledWith({
+        where: { id: 'default' },
+        select: { platformCommissionPercent: true },
+      });
+    });
+
+    it('ensureDefaultPolicyForGamingCenter uses PlatformSetting.platformCommissionPercent', async () => {
+      platformSettingMock.findUnique.mockResolvedValue({ platformCommissionPercent: 7.5 });
+      policyMock.upsert.mockResolvedValue({ id: 'pol-def', gamingCenterId: 'gc-1', percentBps: 750 });
+
+      const policy = await CommissionsRepo.ensureDefaultPolicyForGamingCenter('gc-1');
+
+      expect(policy?.percentBps).toBe(750);
+      expect(policyMock.upsert).toHaveBeenCalledWith({
+        where: { gamingCenterId: 'gc-1' },
+        create: {
+          gamingCenterId: 'gc-1',
+          type: CommissionType.PERCENT,
+          percentBps: 750,
+          currency: 'IRR',
+          applyToOnlineOnly: true,
+          isActive: true,
+        },
+        update: {},
+      });
     });
 
     it('upsertPolicy', async () => {
@@ -37,6 +69,22 @@ describe('CommissionsRepo', () => {
       expect(earningMock.findUnique).toHaveBeenCalledWith({ where: { reservationId: 'res-1' } });
     });
 
+    it('countTargetContributions excludes REFUNDED and WAIVED earnings', async () => {
+      earningMock.count.mockResolvedValue(3);
+      const count = await CommissionsRepo.countTargetContributions('gc-1', '2026-10');
+      expect(count).toBe(3);
+      expect(earningMock.count).toHaveBeenCalledWith({
+        where: {
+          gamingCenterId: 'gc-1',
+          targetPeriod: '2026-10',
+          targetContribution: true,
+          status: {
+            notIn: [CommissionStatus.REFUNDED, CommissionStatus.WAIVED],
+          },
+        },
+      });
+    });
+
     it('createEarning', async () => {
       const data = { reservationId: 'res-1', gamingCenterId: 'gc-1', baseAmount: 1000, commissionAmount: 25, type: CommissionType.PERCENT } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
       earningMock.create.mockResolvedValue({ id: 'e-1', ...data });
@@ -56,6 +104,12 @@ describe('CommissionsRepo', () => {
       await CommissionsRepo.listEarnings('gc-1', {}, 0, 10);
       expect((prismaMock /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).$transaction).toHaveBeenCalled();
     });
+
+    it('listAllEarnings', async () => {
+      (prismaMock /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).$transaction.mockResolvedValue([[], 0]);
+      await CommissionsRepo.listAllEarnings({ gamingCenterId: 'gc-1' }, 0, 10);
+      expect((prismaMock /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).$transaction).toHaveBeenCalled();
+    });
   });
 
   describe('Payment operations', () => {
@@ -71,13 +125,43 @@ describe('CommissionsRepo', () => {
       await CommissionsRepo.findEarningPayments('e-1');
       expect(paymentMock.findMany).toHaveBeenCalled();
     });
+
+    it('updateEarningPaymentsStatus', async () => {
+      paymentMock.updateMany.mockResolvedValue({ count: 1 });
+      await CommissionsRepo.updateEarningPaymentsStatus(
+        'e-1',
+        CommissionPaymentStatus.PAID,
+        CommissionPaymentStatus.REFUNDED
+      );
+      expect(paymentMock.updateMany).toHaveBeenCalledWith({
+        where: { earningId: 'e-1', status: CommissionPaymentStatus.PAID },
+        data: { status: CommissionPaymentStatus.REFUNDED },
+      });
+    });
   });
 
   describe('Reservation operations', () => {
-    it('findReservationForEarning', async () => {
+    it('findReservationForEarning includes direct payments and groupBooking.payments', async () => {
       resMock.findUnique.mockResolvedValue({ id: 'res-1' });
       await CommissionsRepo.findReservationForEarning('res-1');
-      expect(resMock.findUnique).toHaveBeenCalled();
+      expect(resMock.findUnique).toHaveBeenCalledWith({
+        where: { id: 'res-1' },
+        include: {
+          earning: true,
+          payments: {
+            where: { status: 'PAID' },
+            orderBy: { paidAt: 'desc' },
+          },
+          groupBooking: {
+            include: {
+              payments: {
+                where: { status: 'PAID' },
+                orderBy: { paidAt: 'desc' },
+              },
+            },
+          },
+        },
+      });
     });
   });
 

@@ -61,6 +61,29 @@ export const recordCommissionPaymentSchema = z.object({
   }),
 });
 
+export const waiveCommissionSchema = z.object({
+  params: z.object({
+    earningId: idSchema(CUID_MESSAGE),
+  }),
+  body: z.object({
+    reason: z.string().trim().min(1).max(500).optional(),
+  }).optional().default({}),
+});
+
+export const listPlatformCommissionsQuerySchema = z.object({
+  query: z.object({
+    page: z.preprocess((val) => Number(val), z.number().int().min(1)).optional(),
+    pageSize: z.preprocess((val) => Number(val), z.number().int().min(1).max(100)).optional(),
+    gamingCenterId: idSchema(CUID_MESSAGE).optional(),
+    status: z.nativeEnum(CommissionStatus).optional(),
+    targetPeriod: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+    dateFrom: z.string().datetime().optional(),
+    dateTo: z.string().datetime().optional(),
+  }),
+});
+
 export type UpsertPolicyInput = z.infer<typeof upsertPolicySchema>['body'];
 export type ListCommissionsQuery = z.infer<typeof listEarningsQuerySchema>['query'];
 export type RecordCommissionPaymentInput = z.infer<typeof recordCommissionPaymentSchema>['body'];
+export type WaiveCommissionInput = z.infer<typeof waiveCommissionSchema>['body'];
+export type ListPlatformCommissionsQuery = z.infer<typeof listPlatformCommissionsQuerySchema>['query'];

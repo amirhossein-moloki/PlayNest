@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { CommissionType, DiscountCampaign, DiscountFundingSource, DiscountTargetType, DiscountValueType } from '@prisma/client';
+import {
+  CommissionType,
+  DiscountCampaign,
+  DiscountFundingSource,
+  DiscountTargetType,
+  DiscountValueType,
+  ReservationSource,
+} from '@prisma/client';
 import {
   calculateCampaignDiscountAmount,
   validateCampaignForReservation,
@@ -274,6 +281,89 @@ describe('Campaign Discount Engine & Merchant Revenue Protection Tests', () => {
 
       // Merchant payout = (Original 1M - 100k merchant discount) - 100k commission = 800,000
       expect(financials.merchantPayoutAmount).toBe(800000);
+    });
+
+    it('UNIFIED COMMISSION CONSISTENCY: WALK_IN with applyToOnlineOnly=true, monthlyTarget reached, and platform default fallback', async () => {
+      MockedDiscountsRepo.findActiveApplicableDiscounts.mockResolvedValue([]);
+
+      // 1. WALK_IN reservation when policy.applyToOnlineOnly = true -> 0 commission
+      MockedCommissionsRepo.findPolicyByGamingCenterId.mockResolvedValue({
+        id: 'pol-1',
+        gamingCenterId,
+        type: CommissionType.PERCENT,
+        percentBps: 1000,
+        fixedAmount: null,
+        currency: 'IRR',
+        monthlyTarget: null,
+        maxPercentBps: 10000,
+        applyToOnlineOnly: true,
+        minimumFeeAmount: null,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const walkInFinancials = await calculateReservationFinancials(
+        gamingCenterId,
+        stationId,
+        1000000,
+        new Date(),
+        customerAccountId,
+        null,
+        undefined,
+        ReservationSource.WALK_IN
+      );
+      expect(walkInFinancials.platformCommission).toBe(0);
+      expect(walkInFinancials.merchantPayoutAmount).toBe(1000000);
+
+      // 2. ONLINE reservation when monthlyTarget is already reached -> 0 commission
+      MockedCommissionsRepo.findPolicyByGamingCenterId.mockResolvedValue({
+        id: 'pol-2',
+        gamingCenterId,
+        type: CommissionType.PERCENT,
+        percentBps: 1000,
+        fixedAmount: null,
+        currency: 'IRR',
+        monthlyTarget: 5,
+        maxPercentBps: 10000,
+        applyToOnlineOnly: true,
+        minimumFeeAmount: null,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      MockedCommissionsRepo.findSettingsByGamingCenterId.mockResolvedValue({ timeZone: 'UTC' } as never);
+      MockedCommissionsRepo.countTargetContributions.mockResolvedValue(5);
+
+      const targetReachedFinancials = await calculateReservationFinancials(
+        gamingCenterId,
+        stationId,
+        1000000,
+        new Date(),
+        customerAccountId,
+        null,
+        undefined,
+        ReservationSource.ONLINE
+      );
+      expect(targetReachedFinancials.platformCommission).toBe(0);
+      expect(targetReachedFinancials.merchantPayoutAmount).toBe(1000000);
+
+      // 3. Fallback to PlatformSetting.platformCommissionPercent when no center policy exists
+      MockedCommissionsRepo.findPolicyByGamingCenterId.mockResolvedValue(null);
+      MockedCommissionsRepo.findPlatformDefaultCommissionPercent.mockResolvedValue(5);
+
+      const defaultFallbackFinancials = await calculateReservationFinancials(
+        gamingCenterId,
+        stationId,
+        1000000,
+        new Date(),
+        customerAccountId,
+        null,
+        undefined,
+        ReservationSource.ONLINE
+      );
+      expect(defaultFallbackFinancials.platformCommission).toBe(50000);
+      expect(defaultFallbackFinancials.merchantPayoutAmount).toBe(950000);
     });
   });
 });

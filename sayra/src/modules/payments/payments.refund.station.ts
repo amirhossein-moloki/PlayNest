@@ -6,6 +6,7 @@ import { RefundsRepo } from './payments.refund.repo';
 import { LedgerRepo } from './ledger.repo';
 import { PaymentProviderFactory } from './providers';
 import { NotificationStation } from '../notifications/notifications.station';
+import { commissionsStation } from '../commissions/commissions.station';
 
 export interface RequestRefundInput {
   gamingCenterId: string;
@@ -189,6 +190,54 @@ const requestRefund = async (input: RequestRefundInput) => {
             where: { id: payment.reservationId },
             data: { paymentState: newPaymentState },
           });
+
+          if (
+            newPaymentState === ReservationPaymentState.REFUNDED &&
+            typeof commissionsStation?.reverseCommissionForReservation === 'function'
+          ) {
+            await commissionsStation.reverseCommissionForReservation(
+              payment.reservationId,
+              { reason: reason || `Payment ${payment.id} fully refunded` },
+              tx
+            );
+          }
+        } else if (payment.groupBookingId) {
+          const { totalRefundedOrPending } = await RefundsRepo.calculateRefundableBalance(
+            tx,
+            payment.id,
+            payment.amount
+          );
+
+          if (totalRefundedOrPending >= payment.amount) {
+            if (typeof tx.groupBooking?.update === 'function') {
+              await tx.groupBooking.update({
+                where: { id: payment.groupBookingId },
+                data: { paymentState: ReservationPaymentState.REFUNDED },
+              });
+            }
+            if (typeof tx.reservation?.updateMany === 'function') {
+              await tx.reservation.updateMany({
+                where: { groupBookingId: payment.groupBookingId },
+                data: { paymentState: ReservationPaymentState.REFUNDED },
+              });
+            }
+            if (
+              typeof tx.reservation?.findMany === 'function' &&
+              typeof commissionsStation?.reverseCommissionForReservation === 'function'
+            ) {
+              const children = await tx.reservation.findMany({
+                where: { groupBookingId: payment.groupBookingId },
+                select: { id: true },
+              });
+              for (const child of children) {
+                await commissionsStation.reverseCommissionForReservation(
+                  child.id,
+                  { reason: reason || `Group payment ${payment.id} fully refunded` },
+                  tx
+                );
+              }
+            }
+          }
         }
 
         return updated;

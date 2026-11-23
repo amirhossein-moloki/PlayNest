@@ -26,6 +26,13 @@ import {
   rejectPlatformWithdrawalSchema,
   updatePlatformWithdrawalPaymentSchema,
 } from './withdrawals.validators';
+import * as commissionsController from '../commissions/commissions.controller';
+import {
+  upsertPolicySchema,
+  recordCommissionPaymentSchema,
+  waiveCommissionSchema,
+  listPlatformCommissionsQuerySchema,
+} from '../commissions/commissions.validators';
 import multer from 'multer';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
@@ -170,6 +177,32 @@ router.get('/financials/refunds', asyncHandler(PlatformAdminController.listRefun
 router.post('/financials/refunds/:id/retry', asyncHandler(PlatformAdminController.retryRefund));
 router.post('/financials/payments/:id/reconcile', asyncHandler(PlatformAdminController.reconcilePayment));
 router.get('/financials/export', asyncHandler(PlatformAdminController.exportFinancialCsv));
+
+// Platform Commissions Management
+router.get(
+  '/gaming-centers/:gamingCenterId/commission-policy',
+  asyncHandler(commissionsController.platformGetPolicy)
+);
+router.put(
+  '/gaming-centers/:gamingCenterId/commission-policy',
+  validate(upsertPolicySchema),
+  asyncHandler(commissionsController.platformUpsertPolicy)
+);
+router.get(
+  '/commissions',
+  validate(listPlatformCommissionsQuerySchema),
+  asyncHandler(commissionsController.platformListEarnings)
+);
+router.post(
+  '/commissions/:earningId/pay',
+  validate(recordCommissionPaymentSchema),
+  asyncHandler(commissionsController.platformPayCommission)
+);
+router.post(
+  '/commissions/:earningId/waive',
+  validate(waiveCommissionSchema),
+  asyncHandler(commissionsController.platformWaiveCommission)
+);
 
 // System-wide Audit Logs
 router.get('/audit-logs', asyncHandler(PlatformAdminController.listAuditLogs));

@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { CommissionStatus, CommissionType, Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 
@@ -750,9 +750,10 @@ export const AnalyticsRepo = {
       ...(currencyFilter ? { currency: currencyFilter } : {}),
     };
 
-    const earningWhere = {
+    const earningWhere: Prisma.EarningWhereInput = {
       gamingCenterId,
       createdAt: { gte: dayStart, lte: dayEnd },
+      status: { notIn: [CommissionStatus.REFUNDED, CommissionStatus.WAIVED] },
     };
 
     const customerWhere = {
@@ -994,23 +995,46 @@ export const AnalyticsRepo = {
     }
 
     // Rule 6: Commission Policy & Calculation Consistency
-    if (commissionPolicy && commissionPolicy.percentBps) {
-      for (const earning of earnings) {
-        const expectedCommission = Math.round((earning.baseAmount * commissionPolicy.percentBps) / 10000);
-        if (Math.abs(earning.commissionAmount - expectedCommission) > 1) {
-          findings.push({
-            ruleId: 'REC-006',
-            ruleName: 'Commission Calculation Mismatch',
-            severity: 'MEDIUM',
-            status: 'MISMATCH',
-            sourceEntity: 'Earning',
-            sourceId: earning.id,
-            details: `Earning ${earning.id} commission amount (${earning.commissionAmount}) differs from policy calculated commission (${expectedCommission}).`,
-            expectedAmount: expectedCommission,
-            actualAmount: earning.commissionAmount,
-            timestamp: earning.createdAt,
-          });
+    for (const earning of earnings) {
+      if (
+        earning.status === CommissionStatus.REFUNDED ||
+        earning.status === CommissionStatus.WAIVED
+      ) {
+        continue;
+      }
+
+      let expectedCommission = 0;
+      if (!earning.targetReached) {
+        if (earning.type === CommissionType.PERCENT) {
+          const effectivePercentBps = earning.percentBps ?? commissionPolicy?.percentBps;
+          if (effectivePercentBps) {
+            expectedCommission = Math.round((earning.baseAmount * effectivePercentBps) / 10000);
+          }
+        } else if (earning.type === CommissionType.FIXED) {
+          const effectiveFixedAmount = earning.fixedAmount ?? commissionPolicy?.fixedAmount;
+          if (effectiveFixedAmount) {
+            expectedCommission = effectiveFixedAmount;
+          }
         }
+
+        if (commissionPolicy?.minimumFeeAmount && expectedCommission < commissionPolicy.minimumFeeAmount) {
+          expectedCommission = commissionPolicy.minimumFeeAmount;
+        }
+      }
+
+      if (Math.abs(earning.commissionAmount - expectedCommission) > 1) {
+        findings.push({
+          ruleId: 'REC-006',
+          ruleName: 'Commission Calculation Mismatch',
+          severity: 'MEDIUM',
+          status: 'MISMATCH',
+          sourceEntity: 'Earning',
+          sourceId: earning.id,
+          details: `Earning ${earning.id} commission amount (${earning.commissionAmount}) differs from policy calculated commission (${expectedCommission}).`,
+          expectedAmount: expectedCommission,
+          actualAmount: earning.commissionAmount,
+          timestamp: earning.createdAt,
+        });
       }
     }
 

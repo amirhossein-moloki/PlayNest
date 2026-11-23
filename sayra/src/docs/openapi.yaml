@@ -2158,6 +2158,7 @@ components:
       properties:
         id:
           type: string
+          nullable: true
         gamingCenterId:
           type: string
         type:
@@ -2167,17 +2168,136 @@ components:
           - FIXED
         percentBps:
           type: integer
+          nullable: true
         fixedAmount:
           type: integer
+          nullable: true
         currency:
           type: string
+          nullable: true
         monthlyTarget:
           type: integer
           nullable: true
         maxPercentBps:
           type: integer
+        applyToOnlineOnly:
+          type: boolean
+        minimumFeeAmount:
+          type: integer
+          nullable: true
         isActive:
           type: boolean
+        isPlatformDefault:
+          type: boolean
+    CommissionPolicyUpsertInput:
+      type: object
+      required:
+      - type
+      properties:
+        type:
+          type: string
+          enum:
+          - PERCENT
+          - FIXED
+        percentBps:
+          type: integer
+          minimum: 0
+          maximum: 10000
+        fixedAmount:
+          type: integer
+          minimum: 0
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        monthlyTarget:
+          type: integer
+          minimum: 0
+          nullable: true
+        maxPercentBps:
+          type: integer
+          minimum: 0
+          maximum: 10000
+        applyToOnlineOnly:
+          type: boolean
+        minimumFeeAmount:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+    CommissionPaymentInput:
+      type: object
+      required:
+      - amount
+      - currency
+      properties:
+        amount:
+          type: integer
+          minimum: 1
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        status:
+          type: string
+          enum:
+          - PENDING
+          - PAID
+          - VOID
+          - REFUNDED
+          default: PAID
+        method:
+          type: string
+          enum:
+          - CASH
+          - CARD
+          - ONLINE
+          - TRANSFER
+        referenceCode:
+          type: string
+        paidAt:
+          type: string
+          format: date-time
+    CommissionWaiveInput:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    EarningPayment:
+      type: object
+      properties:
+        id:
+          type: string
+        earningId:
+          type: string
+        amount:
+          type: integer
+        currency:
+          type: string
+        status:
+          type: string
+          enum:
+          - PENDING
+          - PAID
+          - VOID
+          - REFUNDED
+        method:
+          type: string
+          nullable: true
+          enum:
+          - CASH
+          - CARD
+          - ONLINE
+          - TRANSFER
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        referenceCode:
+          type: string
+          nullable: true
     Earning:
       type: object
       properties:
@@ -2195,10 +2315,23 @@ components:
           - CHARGED
           - WAIVED
           - REFUNDED
-        commissionAmount:
+        baseAmount:
           type: integer
         currency:
           type: string
+        type:
+          type: string
+          enum:
+          - PERCENT
+          - FIXED
+        percentBps:
+          type: integer
+          nullable: true
+        fixedAmount:
+          type: integer
+          nullable: true
+        commissionAmount:
+          type: integer
         targetPeriod:
           type: string
           nullable: true
@@ -2206,6 +2339,17 @@ components:
           type: boolean
         targetContribution:
           type: boolean
+        calculatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        chargedAt:
+          type: string
+          format: date-time
+          nullable: true
+        note:
+          type: string
+          nullable: true
     Rating:
       type: object
       properties:
@@ -6495,6 +6639,22 @@ paths:
           - CHARGED
           - WAIVED
           - REFUNDED
+      - name: targetPeriod
+        in: query
+        schema:
+          type: string
+          pattern: '^\d{4}-\d{2}$'
+          example: 2026-10
+      - name: dateFrom
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: dateTo
+        in: query
+        schema:
+          type: string
+          format: date-time
       responses:
         '200':
           description: List of earnings
@@ -6512,6 +6672,10 @@ paths:
                       $ref: '#/components/schemas/Earning'
                   meta:
                     $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
       operationId: get_gamingCenters_gamingCenterId_commissions
       description: List reservation earnings (commissions)
   /gamingCenters/{gamingCenterId}/commissions/target-progress:
@@ -6539,6 +6703,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
       operationId: get_gamingCenters_gamingCenterId_commissions_target-progress
       description: Get monthly commission target progress
   /gamingCenters/{gamingCenterId}/commissions/policy:
@@ -6556,7 +6724,7 @@ paths:
           type: string
       responses:
         '200':
-          description: Policy details
+          description: Effective policy details (center policy or platform default fallback)
           content:
             application/json:
               schema:
@@ -6567,10 +6735,16 @@ paths:
                     example: true
                   data:
                     $ref: '#/components/schemas/CommissionPolicy'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
       operationId: get_gamingCenters_gamingCenterId_commissions_policy
-      description: Get commission policy
+      description: Returns the center's CommissionPolicy, falling back to the active platform default rate if no center policy exists.
     post:
-      summary: Upsert commission policy
+      summary: Upsert commission policy (Platform Admin only)
       tags:
       - Commissions
       security:
@@ -6586,39 +6760,33 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-              - type
-              properties:
-                type:
-                  type: string
-                  enum:
-                  - PERCENT
-                  - FIXED
-                percentBps:
-                  type: integer
-                fixedAmount:
-                  type: integer
-                currency:
-                  type: string
-                applyToOnlineOnly:
-                  type: boolean
-                minimumFeeAmount:
-                  type: integer
-                isActive:
-                  type: boolean
+              $ref: '#/components/schemas/CommissionPolicyUpsertInput'
       responses:
         '200':
           description: Policy updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/CommissionPolicy'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
       operationId: post_gamingCenters_gamingCenterId_commissions_policy
-      description: Upsert commission policy
+      description: Upsert commission policy for gaming center (Platform Admin only)
     put:
-      summary: Upsert commission policy for gaming center
-      description: Upsert commission policy for gaming center
+      summary: Upsert commission policy for gaming center (Platform Admin only)
+      description: Upsert commission policy for gaming center (Platform Admin only)
       tags:
       - Commissions
       operationId: put_gamingCenters_gamingCenterId_commissions_policy
@@ -6635,32 +6803,31 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-              - baseRatePercent
-              - monthlyTarget
-              properties:
-                baseRatePercent:
-                  type: number
-                  example: 10
-                monthlyTarget:
-                  type: number
-                  example: 100000000
-                targetReachedRatePercent:
-                  type: number
-                  example: 7.5
+              $ref: '#/components/schemas/CommissionPolicyUpsertInput'
       responses:
         '200':
           description: Policy upserted
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CommissionPolicy'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/CommissionPolicy'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
   /gamingCenters/{gamingCenterId}/commissions/{earningId}/pay:
     post:
-      summary: Record commission payment
+      summary: Record commission payment (Platform Admin only)
       tags:
       - Commissions
       security:
@@ -6681,44 +6848,81 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-              - amount
-              - currency
-              properties:
-                amount:
-                  type: integer
-                currency:
-                  type: string
-                status:
-                  type: string
-                  enum:
-                  - PENDING
-                  - PAID
-                  - VOID
-                  - REFUNDED
-                  default: PAID
-                method:
-                  type: string
-                  enum:
-                  - CASH
-                  - CARD
-                  - ONLINE
-                  - TRANSFER
-                referenceCode:
-                  type: string
-                paidAt:
-                  type: string
-                  format: date-time
+              $ref: '#/components/schemas/CommissionPaymentInput'
       responses:
-        '200':
+        '201':
           description: Payment recorded
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/EarningPayment'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
       operationId: post_gamingCenters_gamingCenterId_commissions_earningId_pay
-      description: Record commission payment
+      description: Record commission payment (Platform Admin only)
+  /gamingCenters/{gamingCenterId}/commissions/{earningId}/waive:
+    post:
+      summary: Waive a pending commission (Platform Admin only)
+      description: Marks an unpaid/pending commission earning as WAIVED and voids pending payment records (Platform Admin only).
+      tags:
+      - Commissions
+      operationId: post_gamingCenters_gamingCenterId_commissions_earningId_waive
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: earningId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommissionWaiveInput'
+      responses:
+        '200':
+          description: Commission waived
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Earning'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
   /gamingCenters/{gamingCenterId}/audit-logs:
     get:
       summary: List audit logs
@@ -15177,6 +15381,242 @@ paths:
                 type: string
         '403':
           $ref: '#/components/responses/ForbiddenError'
+  /platform-admin/gaming-centers/{gamingCenterId}/commission-policy:
+    get:
+      summary: Get gaming center commission policy (Platform Admin)
+      description: Retrieves the effective CommissionPolicy for a specific gaming center (falling back to platform default).
+      tags:
+      - PlatformAdmin
+      operationId: get_platform_admin_gaming_centers_gamingCenterId_commission_policy
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Effective commission policy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/CommissionPolicy'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    put:
+      summary: Upsert gaming center commission policy (Platform Admin)
+      description: Creates or updates the CommissionPolicy for a specific gaming center.
+      tags:
+      - PlatformAdmin
+      operationId: put_platform_admin_gaming_centers_gamingCenterId_commission_policy
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommissionPolicyUpsertInput'
+      responses:
+        '200':
+          description: Commission policy upserted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/CommissionPolicy'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /platform-admin/commissions:
+    get:
+      summary: List commission earnings across all gaming centers (Platform Admin)
+      description: Returns paginated commission earnings across the platform with optional gamingCenterId, status, targetPeriod, and date filters.
+      tags:
+      - PlatformAdmin
+      operationId: get_platform_admin_commissions
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+      - name: pageSize
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+      - name: gamingCenterId
+        in: query
+        schema:
+          type: string
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum:
+          - PENDING
+          - ACCRUED
+          - CHARGED
+          - WAIVED
+          - REFUNDED
+      - name: targetPeriod
+        in: query
+        schema:
+          type: string
+          pattern: '^\d{4}-\d{2}$'
+      - name: dateFrom
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: dateTo
+        in: query
+        schema:
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: Paginated list of commission earnings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Earning'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /platform-admin/commissions/{earningId}/pay:
+    post:
+      summary: Record commission settlement payment (Platform Admin)
+      description: Records a manual payment against an unpaid commission earning and transitions it to CHARGED once fully paid.
+      tags:
+      - PlatformAdmin
+      operationId: post_platform_admin_commissions_earningId_pay
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: earningId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommissionPaymentInput'
+      responses:
+        '201':
+          description: Commission payment recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/EarningPayment'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+  /platform-admin/commissions/{earningId}/waive:
+    post:
+      summary: Waive a pending commission (Platform Admin)
+      description: Marks an unpaid/pending commission earning as WAIVED and voids pending payment records.
+      tags:
+      - PlatformAdmin
+      operationId: post_platform_admin_commissions_earningId_waive
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: earningId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommissionWaiveInput'
+      responses:
+        '200':
+          description: Commission waived
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Earning'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
   /locations/provinces:
     get:
       summary: List all Iranian provinces

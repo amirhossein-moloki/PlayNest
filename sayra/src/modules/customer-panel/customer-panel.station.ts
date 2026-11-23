@@ -31,6 +31,7 @@ import {
 import { prisma } from '../../config/prisma';
 import { GroupBookingStation } from '../group-booking/group-booking.station';
 import { AppEvents, eventEmitter } from '../../common/events/event-emitter';
+import { commissionsStation } from '../commissions/commissions.station';
 
 export const CustomerPanelStation = {
   async getProfile(customerAccountId: string) {
@@ -214,6 +215,13 @@ export const CustomerPanelStation = {
 
       // Trigger refund if there are successful payments
       await walletService.refundReservationToWallet(reservationId, tx);
+      if (typeof commissionsStation?.reverseCommissionForReservation === 'function') {
+        await commissionsStation.reverseCommissionForReservation(
+          reservationId,
+          { reason: reason || 'Canceled by customer' },
+          tx
+        );
+      }
 
       return result;
     });
@@ -376,7 +384,8 @@ export const CustomerPanelStation = {
         proposal.proposedStartTime,
         reservation.customerAccountId,
         reservation.voucherCode,
-        tx
+        tx,
+        reservation.source
       );
 
       const updatedReservation = await ReservationRepo.updateReservation(

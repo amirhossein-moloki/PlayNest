@@ -133,6 +133,13 @@ export const reservationLifecycle = {
           reason: 'عدم تأیید رزرو توسط صاحب گیمنت در مهلت تعیین‌شده',
         }, tx);
         await walletService.refundReservationToWallet(reservationId, tx);
+        if (typeof commissionsStation?.reverseCommissionForReservation === 'function') {
+          await commissionsStation.reverseCommissionForReservation(
+            reservationId,
+            { reason: 'Reservation expired before confirmation' },
+            tx
+          );
+        }
 
         return { expiredOnConfirm: true as const, reservation: expiredRes || reservation };
       }
@@ -305,6 +312,13 @@ export const reservationLifecycle = {
 
       // Trigger refund if there are successful payments
       await walletService.refundReservationToWallet(reservationId, tx);
+      if (typeof commissionsStation?.reverseCommissionForReservation === 'function') {
+        await commissionsStation.reverseCommissionForReservation(
+          reservationId,
+          { reason: data.reason || 'Reservation canceled' },
+          tx
+        );
+      }
 
       return result;
     });
@@ -603,7 +617,8 @@ export const reservationLifecycle = {
           newStartTime,
           reservation.customerAccountId,
           reservation.voucherCode,
-          tx
+          tx,
+          reservation.source
         );
 
         const updateData: Prisma.ReservationUncheckedUpdateInput = {
@@ -723,6 +738,13 @@ export const reservationLifecycle = {
             }
             // Trigger refund to wallet if paid
             await walletService.refundReservationToWallet(candidate.id, tx);
+            if (typeof commissionsStation?.reverseCommissionForReservation === 'function') {
+              await commissionsStation.reverseCommissionForReservation(
+                candidate.id,
+                { reason: 'Reservation expired' },
+                tx
+              );
+            }
           }
           return success;
         });
@@ -780,6 +802,13 @@ export const reservationLifecycle = {
             });
             for (const child of children) {
               await walletService.refundReservationToWallet(child.id, tx);
+              if (typeof commissionsStation?.reverseCommissionForReservation === 'function') {
+                await commissionsStation.reverseCommissionForReservation(
+                  child.id,
+                  { reason: 'Group booking expired' },
+                  tx
+                );
+              }
             }
           }
           return success;

@@ -1,9 +1,9 @@
-
 import { Router } from 'express';
 import * as commissionsController from './commissions.controller';
 import { authMiddleware } from '../../common/middleware/auth';
 import { tenantGuard } from '../../common/middleware/tenantGuard';
 import { requireRole } from '../../common/middleware/requireRole';
+import { requirePlatformAdmin } from '../../common/middleware/requirePlatformAdmin';
 import { validate } from '../../common/middleware/validate';
 import { UserRole } from '@prisma/client';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
@@ -12,6 +12,7 @@ import {
   listEarningsQuerySchema,
   recordCommissionPaymentSchema,
   getTargetProgressQuerySchema,
+  waiveCommissionSchema,
 } from './commissions.validators';
 
 const router = Router({ mergeParams: true });
@@ -19,25 +20,11 @@ const router = Router({ mergeParams: true });
 router.use(authMiddleware);
 router.use(tenantGuard);
 
-// Only Managers can view/manage policies and record payments
+// Managers (and Platform Admins) can view policies, target progress, and commission earnings
 router.get(
   '/policy',
   requireRole([UserRole.MANAGER]),
   asyncHandler(commissionsController.getPolicy)
-);
-
-router.post(
-  '/policy',
-  requireRole([UserRole.MANAGER]),
-  validate(upsertPolicySchema),
-  asyncHandler(commissionsController.upsertPolicy)
-);
-
-router.put(
-  '/policy',
-  requireRole([UserRole.MANAGER]),
-  validate(upsertPolicySchema),
-  asyncHandler(commissionsController.upsertPolicy)
 );
 
 router.get(
@@ -54,11 +41,33 @@ router.get(
   asyncHandler(commissionsController.listEarnings)
 );
 
+// Only Platform Admins can mutate policies, record manual commission settlements, or waive commissions
+router.post(
+  '/policy',
+  requirePlatformAdmin,
+  validate(upsertPolicySchema),
+  asyncHandler(commissionsController.upsertPolicy)
+);
+
+router.put(
+  '/policy',
+  requirePlatformAdmin,
+  validate(upsertPolicySchema),
+  asyncHandler(commissionsController.upsertPolicy)
+);
+
 router.post(
   '/:earningId/pay',
-  requireRole([UserRole.MANAGER]),
+  requirePlatformAdmin,
   validate(recordCommissionPaymentSchema),
   asyncHandler(commissionsController.payCommission)
+);
+
+router.post(
+  '/:earningId/waive',
+  requirePlatformAdmin,
+  validate(waiveCommissionSchema),
+  asyncHandler(commissionsController.waiveCommission)
 );
 
 export const commissionsRoutes = router;

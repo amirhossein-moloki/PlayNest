@@ -9,6 +9,7 @@ import { auditService } from '../audit/audit.station';
 import { invalidateActorCache } from '../../common/middleware/auth';
 import { NotificationStation } from '../notifications/notifications.station';
 import { invalidateTenantCache } from '../../common/utils/tenantCache';
+import { CommissionsRepo } from '../commissions/commissions.repo';
 
 export interface OwnerInfo {
   id: string;
@@ -44,6 +45,11 @@ export const gamingCenterStation = {
     const gamingCenter = await gamingCenterRepository.transaction(async (tx) => {
       // 1. Create the GamingCenter record without the invalid ownerId scalar
       const createdCenter = await gamingCenterRepository.create(data, tx);
+
+      // 1b. Provision default CommissionPolicy based on PlatformSetting.platformCommissionPercent
+      if (typeof CommissionsRepo?.ensureDefaultPolicyForGamingCenter === 'function') {
+        await CommissionsRepo.ensureDefaultPolicyForGamingCenter(createdCenter.id, tx);
+      }
 
       if (userRecord) {
         // Validation & Reassignment check

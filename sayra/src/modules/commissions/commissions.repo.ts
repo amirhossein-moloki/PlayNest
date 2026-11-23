@@ -1,11 +1,11 @@
 
-import { Prisma, CommissionPaymentStatus } from '@prisma/client';
+import { Prisma, CommissionPaymentStatus, CommissionStatus, CommissionType } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
 export const CommissionsRepo = {
   // Policy operations
   async findPolicyByGamingCenterId(gamingCenterId: string, tx?: Prisma.TransactionClient) {
-    const client = (tx && tx.commissionPolicy) ? tx : prisma;
+    const client = tx || prisma;
     if (!client?.commissionPolicy?.findUnique) {
       return null;
     }
@@ -16,6 +16,52 @@ export const CommissionsRepo = {
     } catch {
       return null;
     }
+  },
+
+  async findPlatformDefaultCommissionPercent(tx?: Prisma.TransactionClient): Promise<number | null> {
+    const client = (tx || prisma) as unknown as {
+      platformSetting?: {
+        findUnique?: (args: {
+          where: { id: string };
+          select: { platformCommissionPercent: true };
+        }) => Promise<{ platformCommissionPercent?: number | null } | null>;
+      };
+    };
+    if (!client?.platformSetting?.findUnique) {
+      return null;
+    }
+    try {
+      const row = await client.platformSetting.findUnique({
+        where: { id: 'default' },
+        select: { platformCommissionPercent: true },
+      });
+      return typeof row?.platformCommissionPercent === 'number' && Number.isFinite(row.platformCommissionPercent)
+        ? row.platformCommissionPercent
+        : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async ensureDefaultPolicyForGamingCenter(gamingCenterId: string, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    if (!client?.commissionPolicy?.upsert) {
+      return null;
+    }
+    const defaultPercent = (await this.findPlatformDefaultCommissionPercent(tx)) ?? 5.0;
+    const percentBps = Math.min(10000, Math.max(0, Math.round(defaultPercent * 100)));
+    return client.commissionPolicy.upsert({
+      where: { gamingCenterId },
+      create: {
+        gamingCenterId,
+        type: CommissionType.PERCENT,
+        percentBps,
+        currency: 'IRR',
+        applyToOnlineOnly: true,
+        isActive: true,
+      },
+      update: {},
+    });
   },
 
   async upsertPolicy(gamingCenterId: string, data: Prisma.CommissionPolicyCreateInput) {
@@ -40,6 +86,9 @@ export const CommissionsRepo = {
         gamingCenterId,
         targetPeriod,
         targetContribution: true,
+        status: {
+          notIn: [CommissionStatus.REFUNDED, CommissionStatus.WAIVED],
+        },
       },
     });
   },
@@ -101,6 +150,38 @@ export const CommissionsRepo = {
     return { commissions, totalItems };
   },
 
+  async listAllEarnings(where: Prisma.EarningWhereInput, skip: number, take: number) {
+    const [commissions, totalItems] = await prisma.$transaction([
+      prisma.earning.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          gamingCenter: {
+            select: { id: true, name: true, slug: true },
+          },
+          reservation: {
+            select: {
+              id: true,
+              startTime: true,
+              status: true,
+              paymentState: true,
+              stationSnapshot: true,
+              customerProfile: {
+                select: { displayName: true },
+              },
+            },
+          },
+          payments: true,
+        },
+      }),
+      prisma.earning.count({ where }),
+    ]);
+
+    return { commissions, totalItems };
+  },
+
   // Commission Payment operations
   async createEarningPayment(data: Prisma.EarningPaymentUncheckedCreateInput, tx?: Prisma.TransactionClient) {
     const client = tx || prisma;
@@ -116,9 +197,47 @@ export const CommissionsRepo = {
     });
   },
 
+  async updateEarningPaymentsStatus(
+    earningId: string,
+    fromStatus: CommissionPaymentStatus,
+    toStatus: CommissionPaymentStatus,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx || prisma;
+    if (!client?.earningPayment?.updateMany) {
+      return { count: 0 };
+    }
+    return client.earningPayment.updateMany({
+      where: { earningId, status: fromStatus },
+      data: { status: toStatus },
+    });
+  },
+
   async findEarningWithPayments(id: string) {
     return prisma.earning.findUnique({
       where: { id },
+      include: { payments: true },
+    });
+  },
+
+  async findEarningByIdWithPayments(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    if (!client?.earning?.findUnique) {
+      return null;
+    }
+    return client.earning.findUnique({
+      where: { id },
+      include: { payments: true },
+    });
+  },
+
+  async findEarningWithPaymentsByReservationId(reservationId: string, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    if (!client?.earning?.findUnique) {
+      return null;
+    }
+    return client.earning.findUnique({
+      where: { reservationId },
       include: { payments: true },
     });
   },
@@ -130,8 +249,17 @@ export const CommissionsRepo = {
       include: {
         earning: true,
         payments: {
-          where: { status: 'PAID' }
-        }
+          where: { status: 'PAID' },
+          orderBy: { paidAt: 'desc' },
+        },
+        groupBooking: {
+          include: {
+            payments: {
+              where: { status: 'PAID' },
+              orderBy: { paidAt: 'desc' },
+            },
+          },
+        },
       },
     });
   },

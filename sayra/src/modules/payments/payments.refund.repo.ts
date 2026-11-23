@@ -20,9 +20,10 @@ const findPaymentForRefundLock = async (
       providerPaymentId: string | null;
       status: PaymentStatus;
       reservationId: string | null;
+      groupBookingId?: string | null;
     }>
   >`
-    SELECT id, "gamingCenterId", amount, currency, provider, "providerPaymentId", status, "reservationId"
+    SELECT id, "gamingCenterId", amount, currency, provider, "providerPaymentId", status, "reservationId", "groupBookingId"
     FROM "Payment"
     WHERE id = ${paymentId} AND "gamingCenterId" = ${gamingCenterId}
     FOR UPDATE

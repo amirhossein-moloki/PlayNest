@@ -14,14 +14,18 @@ import {
   UserRole,
   OtpPurpose,
   DiscountFundingSource,
-  CommissionType,
 } from '@prisma/client';
 import { LedgerRepo } from '../payments/ledger.repo';
 import { PaymentsRepo } from '../payments/payments.repo';
 import { prisma } from '../../config/prisma';
 import { commissionsStation } from '../commissions/commissions.station';
 import { ReservationRepo } from './reservation.repo';
-import { CommissionsRepo } from '../commissions/commissions.repo';
+import {
+  resolveEffectiveCommissionPolicy,
+  evaluateMonthlyTarget,
+  computeCommissionAmount,
+  computeMerchantPayoutAmount,
+} from '../commissions/commission-calculator';
 import { AuthRepository } from '../auth/auth.repository';
 import AppError from '../../common/errors/AppError';
 import { isReservationOverlapDbError } from '../../common/errors/dbErrors';
@@ -67,7 +71,8 @@ export async function calculateReservationFinancials(
   startTime: Date,
   customerAccountId?: string,
   voucherCode?: string | null,
-  tx?: Prisma.TransactionClient
+  tx?: Prisma.TransactionClient,
+  source: ReservationSource = ReservationSource.ONLINE
 ) {
   const originalAmount = basePrice;
   let discountAmount = 0;
@@ -110,24 +115,24 @@ export async function calculateReservationFinancials(
     }
   }
 
-  const policy = await CommissionsRepo.findPolicyByGamingCenterId(gamingCenterId, tx);
+  const effectivePolicy = await resolveEffectiveCommissionPolicy(gamingCenterId, tx);
   let platformCommission = 0;
-  if (policy && policy.isActive) {
-    if (policy.type === CommissionType.PERCENT && policy.percentBps) {
-      platformCommission = Math.round((originalAmount * policy.percentBps) / 10000);
-    } else if (policy.type === CommissionType.FIXED && policy.fixedAmount) {
-      platformCommission = policy.fixedAmount;
-    }
-    if (policy.minimumFeeAmount && platformCommission < policy.minimumFeeAmount) {
-      platformCommission = policy.minimumFeeAmount;
-    }
+  if (effectivePolicy && (!effectivePolicy.applyToOnlineOnly || source === ReservationSource.ONLINE)) {
+    const { targetReached } = await evaluateMonthlyTarget(
+      gamingCenterId,
+      effectivePolicy,
+      new Date(),
+      tx
+    );
+    platformCommission = computeCommissionAmount(originalAmount, effectivePolicy, targetReached);
   }
 
-  let grossMerchantEntitlement = originalAmount;
-  if (discountFundingSource === DiscountFundingSource.MERCHANT_FUNDED) {
-    grossMerchantEntitlement = Math.max(0, originalAmount - discountAmount);
-  }
-  const merchantPayoutAmount = Math.max(0, grossMerchantEntitlement - platformCommission);
+  const merchantPayoutAmount = computeMerchantPayoutAmount(
+    originalAmount,
+    discountAmount,
+    discountFundingSource,
+    platformCommission
+  );
 
   return {
     originalAmount,
@@ -284,7 +289,8 @@ export const reservationStation = {
         startTime,
         customerAccount.id,
         input.voucherCode,
-        tx
+        tx,
+        ReservationSource.WALK_IN
       );
 
       const isPayable = financials.customerPayableAmount > 0;
@@ -631,7 +637,8 @@ export const reservationStation = {
           startTime,
           customerAccount.id,
           input.voucherCode,
-          tx
+          tx,
+          ReservationSource.ONLINE
         );
 
         const isPayable = financials.customerPayableAmount > 0;
@@ -1043,7 +1050,8 @@ export const reservationStation = {
               newStartAt,
               reservation.customerAccountId,
               reservation.voucherCode,
-              tx
+              tx,
+              reservation.source
             );
 
             updateData.discountAmount = financials.discountAmount;

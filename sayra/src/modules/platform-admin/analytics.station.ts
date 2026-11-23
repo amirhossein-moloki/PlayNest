@@ -81,6 +81,7 @@ export const PlatformAnalyticsRepo = {
       (prisma as any).earning.aggregate({
         where: {
           reservation: reservationWhere,
+          status: { notIn: ['REFUNDED', 'WAIVED'] },
         },
         _sum: { commissionAmount: true },
       }),
