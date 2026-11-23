@@ -325,12 +325,13 @@ export const OnboardingStation = {
       throw new AppError('Missing required onboarding details before completion', httpStatus.BAD_REQUEST);
     }
 
-    // Generate slug from name
-    const baseSlug = draft.gameCenterName
-      .toLowerCase()
+    // Generate clean Unicode-aware slug from name (preserving Persian / Arabic letters)
+    const cleanName = draft.gameCenterName
       .trim()
-      .replace(/[\s\W-]+/g, '-')
-      .replace(/^-+|-+$/g, '') || `center-${Date.now()}`;
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, '-')
+      .replace(/^-+|-+$/g, '');
+    const baseSlug = cleanName || `center-${Date.now()}`;
     const slug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
 
     const result = await OnboardingRepo.transaction(async (tx) => {

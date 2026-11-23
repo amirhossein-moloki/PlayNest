@@ -166,7 +166,7 @@ export const renderPageDocument = ({
   const seoMeta = buildSeoMeta({ page: resolvedPage, siteSettings });
 
   return `<!doctype html>
-<html lang="en">
+<html lang="fa" dir="rtl">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

@@ -129,6 +129,7 @@ describe('Gaming Centers API - Retrieval by ID and Slug', () => {
           where: {
             OR: [{ id: 'center_01' }, { slug: 'center_01' }],
             isActive: true,
+            verificationStatus: 'APPROVED',
           },
         })
       );
@@ -148,6 +149,7 @@ describe('Gaming Centers API - Retrieval by ID and Slug', () => {
           where: {
             OR: [{ id: 'rematch-game-net' }, { slug: 'rematch-game-net' }],
             isActive: true,
+            verificationStatus: 'APPROVED',
           },
         })
       );

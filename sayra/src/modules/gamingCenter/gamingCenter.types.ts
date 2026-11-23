@@ -38,6 +38,7 @@ export interface GamingCenterListItem {
   is_open: boolean;
   hourlyRate: number;
   raiting: number;
+  rating?: number;
   comment_count: number;
   createdAt: Date | string;
   updatedAt: Date | string;

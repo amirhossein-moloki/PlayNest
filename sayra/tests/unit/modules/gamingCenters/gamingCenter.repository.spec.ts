@@ -1,4 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
+import { GamingCenterVerificationStatus } from '@prisma/client';
 import { prismaMock } from '../../../mocks/prisma';
 import { gamingCenterRepository, checkIsOpen, transformGamingCenter, calculateGamingCenterPricing } from '../../../../src/modules/gamingCenter/gamingCenter.repository';
 
@@ -52,6 +53,7 @@ describe('GamingCenterRepository', () => {
               { slug: 'center_10' },
             ],
             isActive: true,
+            verificationStatus: GamingCenterVerificationStatus.APPROVED,
           },
           include: expect.objectContaining({
             addresses: true,
@@ -87,6 +89,7 @@ describe('GamingCenterRepository', () => {
       expect(result?.ps4).toBe(false);
       expect(result?.xbox).toBe(false);
       expect(result?.raiting).toBe(4.5);
+      expect(result?.rating).toBe(4.5);
       expect(result?.comment_count).toBe(2);
       expect(typeof result?.is_open).toBe('boolean');
       expect(result?.hasDiscount).toBe(false);
@@ -128,6 +131,7 @@ describe('GamingCenterRepository', () => {
               { slug: 'arsha-cafe-game-net' },
             ],
             isActive: true,
+            verificationStatus: GamingCenterVerificationStatus.APPROVED,
           },
           include: expect.objectContaining({
             addresses: true,
@@ -144,6 +148,42 @@ describe('GamingCenterRepository', () => {
       expect(gcMock.findFirst.mock.calls[0][0].include.ratings).toBeUndefined();
       expect(result).toBeDefined();
       expect(result?.slug).toBe('arsha-cafe-game-net');
+    });
+
+    it('should resolve canonical center via historical slug lookup when direct lookup misses', async () => {
+      const slugHistoryMock = (prismaMock as any).gamingCenterSlugHistory;
+      gcMock.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          id: 'center_10',
+          name: 'کافی گیم نت آرشا',
+          isActive: true,
+          slug: 'arsha-new-slug',
+          description: 'مرکز نمونه',
+          pcCount: 10,
+          consoleCount: 4,
+          hourlyRate: 70000,
+          openingTime: '10:00',
+          closingTime: '23:00',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          addresses: [],
+          stations: [],
+          settings: null,
+        });
+      slugHistoryMock.findUnique.mockResolvedValueOnce({ gamingCenterId: 'center_10' });
+      (prismaMock.rating as any).aggregate.mockResolvedValue({
+        _avg: { rating: 4.0 },
+        _count: { _all: 1, comment: 1 },
+      });
+
+      const result = await gamingCenterRepository.findById('arsha-old-slug') as any;
+      expect(slugHistoryMock.findUnique).toHaveBeenCalledWith({
+        where: { slug: 'arsha-old-slug' },
+        select: { gamingCenterId: true },
+      });
+      expect(result?.id).toBe('center_10');
+      expect(result?.slug).toBe('arsha-new-slug');
     });
 
     it('should return null when not found', async () => {

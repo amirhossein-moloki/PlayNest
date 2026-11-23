@@ -28,6 +28,7 @@ export async function getPublicGamingCenterHome(req: PublicPageRequest, res: Res
 
       res.setHeader('ETag', result.eTag);
       res.setHeader('Last-Modified', result.lastModified);
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
       res.status(200).type('html').send(result.html);
       return;
     } catch {
@@ -75,6 +76,7 @@ export async function getPublicPage(req: PublicPageRequest, res: Response) {
   case 'RENDER':
     res.setHeader('ETag', result.eTag);
     res.setHeader('Last-Modified', result.lastModified);
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     res.status(200).type('html').send(result.html);
     break;
   }

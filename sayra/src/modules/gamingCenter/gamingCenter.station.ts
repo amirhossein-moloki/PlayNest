@@ -1,5 +1,6 @@
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
+import { prisma } from '../../config/prisma';
 import { gamingCenterRepository } from './gamingCenter.repository';
 import { CreateGamingCenterInput, UpdateGamingCenterInput } from './gamingCenter.types';
 import { ListGamingCentersQuery, GetGamingCenterDetailsQuery } from './gamingCenter.validation';
@@ -218,10 +219,24 @@ export const gamingCenterStation = {
       throw new AppError('GamingCenter not found', httpStatus.NOT_FOUND);
     }
 
-    if (data.slug && data.slug !== gamingCenter.slug) {
+    const currentSlug = typeof gamingCenter.slug === 'string' ? gamingCenter.slug : String(gamingCenter.slug || '');
+    if (data.slug && currentSlug && data.slug !== currentSlug) {
       const existingGamingCenter = await gamingCenterRepository.findBySlug(data.slug);
       if (existingGamingCenter) {
         throw new AppError('A gamingCenter with this slug already exists', httpStatus.CONFLICT);
+      }
+      // Record old slug into history for 308 redirect continuity
+      if (typeof prisma.gamingCenterSlugHistory?.upsert === 'function') {
+        await Promise.resolve(
+          prisma.gamingCenterSlugHistory.upsert({
+            where: { slug: currentSlug },
+            update: {},
+            create: {
+              gamingCenterId: id,
+              slug: currentSlug,
+            },
+          })
+        ).catch(() => null);
       }
     }
 

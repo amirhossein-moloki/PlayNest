@@ -445,6 +445,7 @@ export function transformGamingCenter(
     is_open: isOpen,
     hourlyRate: effectiveHourlyRate,
     raiting: avgRating,
+    rating: avgRating,
     comment_count: commentCount > 0 ? commentCount : count,
     createdAt: gc.createdAt,
     updatedAt: gc.updatedAt,
@@ -539,6 +540,19 @@ export const gamingCenterRepository = {
   async findById(id: string, options?: GetGamingCenterDetailsQuery): Promise<GamingCenterListItem | Record<string, unknown> | null> {
     const isCustomSelection = Boolean(options && (options.include !== undefined || options.fields !== undefined));
 
+    const resolveHistoricalSlug = async (): Promise<string | null> => {
+      if (typeof prisma.gamingCenterSlugHistory?.findUnique !== 'function') {
+        return null;
+      }
+      const history = await Promise.resolve(
+        prisma.gamingCenterSlugHistory.findUnique({
+          where: { slug: id },
+          select: { gamingCenterId: true },
+        })
+      ).catch(() => null);
+      return history && history.gamingCenterId !== id ? history.gamingCenterId : null;
+    };
+
     if (!isCustomSelection) {
       const now = new Date();
       const gc = await prisma.gamingCenter.findFirst({
@@ -548,6 +562,7 @@ export const gamingCenterRepository = {
             { slug: id },
           ],
           isActive: true,
+          verificationStatus: GamingCenterVerificationStatus.APPROVED,
         },
         include: {
           addresses: true,
@@ -623,7 +638,13 @@ export const gamingCenterRepository = {
         },
       });
 
-      if (!gc) return null;
+      if (!gc) {
+        const historicalId = await resolveHistoricalSlug();
+        if (historicalId) {
+          return this.findById(historicalId, options);
+        }
+        return null;
+      }
 
       let ratingSummary: { avgRating: number; count: number; commentCount: number } | undefined;
       const rawRatings = (gc as GamingCenterWithRelations).ratings;
@@ -699,11 +720,20 @@ export const gamingCenterRepository = {
             { slug: id },
           ],
           isActive: true,
+          verificationStatus: GamingCenterVerificationStatus.APPROVED,
         },
         select: selectClause,
       });
 
-      return gc as Record<string, unknown> | null;
+      if (!gc) {
+        const historicalId = await resolveHistoricalSlug();
+        if (historicalId) {
+          return this.findById(historicalId, options);
+        }
+        return null;
+      }
+
+      return gc as Record<string, unknown>;
     }
 
     // Only includes were customized, select all base scalar fields of gamingCenter
@@ -714,11 +744,20 @@ export const gamingCenterRepository = {
           { slug: id },
         ],
         isActive: true,
+        verificationStatus: GamingCenterVerificationStatus.APPROVED,
       },
       include: Object.keys(includeClause).length > 0 ? includeClause : undefined,
     });
 
-    return gc as Record<string, unknown> | null;
+    if (!gc) {
+      const historicalId = await resolveHistoricalSlug();
+      if (historicalId) {
+        return this.findById(historicalId, options);
+      }
+      return null;
+    }
+
+    return gc as Record<string, unknown>;
   },
 
   async findBySlug(slug: string, tx?: Prisma.TransactionClient) {
@@ -1040,7 +1079,8 @@ export const gamingCenterRepository = {
       data = data.filter((item) => item.is_open === isOpen);
     }
 
-    return formatPaginatedResult(data, total, page, limit);
+    const effectiveTotal = (minStationCount !== undefined || isOpen !== undefined) ? data.length : total;
+    return formatPaginatedResult(data, effectiveTotal, page, limit);
   },
 
   async update(id: string, data: UpdateGamingCenterInput, tx?: Prisma.TransactionClient) {

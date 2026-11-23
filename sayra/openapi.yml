@@ -1769,6 +1769,9 @@ components:
           description: Current open/closed status according to working hours
         raiting:
           type: number
+          description: Average rating score (legacy typo field)
+        rating:
+          type: number
           description: Average rating score
         comment_count:
           type: integer
@@ -11364,8 +11367,8 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
   /gamingCenters/{id}:
     get:
-      summary: Get gaming center by ID
-      description: Get gaming center by ID
+      summary: Get gaming center by ID or slug
+      description: Get gaming center by ID, CUID, or current/historical slug (resolves canonical center for SEO redirects)
       tags:
       - GamingCenters
       operationId: get_gamingCenters_id
