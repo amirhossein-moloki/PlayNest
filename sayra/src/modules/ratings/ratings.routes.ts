@@ -57,16 +57,18 @@ privateReviewsRouter.delete(
 // --- Public Router (to be mounted under /api/v1/public/gamingCenters/:gamingCenterSlug) ---
 export const publicReviewsRouter = Router({ mergeParams: true });
 
-publicReviewsRouter.use(publicApiRateLimiter, resolveGamingCenterBySlug);
-
 publicReviewsRouter.post(
   '/reservation/:reservationId/ratings',
+  publicApiRateLimiter,
+  resolveGamingCenterBySlug,
   validate(submitReviewSchema),
   asyncHandler(ReviewsController.submitReview)
 );
 
 publicReviewsRouter.get(
   '/ratings',
+  publicApiRateLimiter,
+  resolveGamingCenterBySlug,
   validate(getReviewsSchema),
   asyncHandler(ReviewsController.getReviews)
 );

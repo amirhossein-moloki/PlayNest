@@ -18,13 +18,25 @@ function getRequestId(req: Request): string | undefined {
   return anyReq.id ?? anyReq.requestId ?? anyReq.context?.requestId;
 }
 
+function isValidHttpErrorStatus(status: unknown): status is number {
+  return typeof status === 'number' && Number.isInteger(status) && status >= 400 && status <= 599;
+}
+
 function normalizeError(err: any): NormalizedError { // eslint-disable-line @typescript-eslint/no-explicit-any
+  if (!err || (typeof err !== 'object' && typeof err !== 'function')) {
+    return {
+      status: 500,
+      code: 'INTERNAL_ERROR',
+      message: 'An unexpected internal server error occurred.',
+    };
+  }
+
   // 1. AppError (our custom, preferred error type)
   if (err.isOperational) {
     return {
-      status: err.statusCode,
+      status: isValidHttpErrorStatus(err.statusCode) ? err.statusCode : 500,
       code: err.code || 'APP_ERROR',
-      message: err.message,
+      message: err.message || 'Request failed.',
       details: err.details,
     };
   }
@@ -81,7 +93,7 @@ function normalizeError(err: any): NormalizedError { // eslint-disable-line @typ
   // 3. PostgreSQL Exclusion Constraint Violation (via Prisma Raw Query Error)
   // This is a specific case for our reservation overlap constraint.
   // Prisma doesn't have a specific code for this, so we check the native DB error code.
-  if (err.code === '23P01' && err.message?.includes('Reservation_no_overlap_active')) {
+  if (err.code === '23P01' && typeof err.message === 'string' && err.message.includes('Reservation_no_overlap_active')) {
     return {
       status: 409,
       code: 'RESERVATION_OVERLAP',
@@ -99,16 +111,71 @@ function normalizeError(err: any): NormalizedError { // eslint-disable-line @typ
     };
   }
 
-  // 5. http-errors or similar errors with status codes
-  if (typeof err?.status === 'number' || typeof err?.statusCode === 'number') {
-    const status = err.status ?? err.statusCode;
-    const statusText = (httpStatus as unknown as Record<number, string>)[status] as string | undefined;
-    const code = err.code ?? (statusText ? statusText.replace(/\s+/g, '_').toUpperCase() : 'HTTP_ERROR');
+  // 4.1 Express / body-parser errors (malformed JSON, payload limits, unsupported encoding)
+  if (
+    err.type === 'entity.parse.failed' ||
+    (err instanceof SyntaxError &&
+      'body' in err &&
+      ((err as { status?: unknown }).status === 400 ||
+        (err as { statusCode?: unknown }).statusCode === 400))
+  ) {
+    return {
+      status: 400,
+      code: 'INVALID_JSON',
+      message: 'Malformed JSON payload.',
+    };
+  }
+
+  if (err.type === 'entity.too.large') {
+    return {
+      status: 413,
+      code: 'PAYLOAD_TOO_LARGE',
+      message: 'Request payload is too large.',
+    };
+  }
+
+  if (err.type === 'charset.unsupported' || err.type === 'encoding.unsupported') {
+    return {
+      status: 415,
+      code: 'UNSUPPORTED_MEDIA_TYPE',
+      message: err.message || 'Unsupported request encoding or media type.',
+    };
+  }
+
+  // 4.2 Multer file upload errors
+  if (err.name === 'MulterError') {
+    const details = err.field
+      ? { field: err.field, multerCode: err.code }
+      : { multerCode: err.code };
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return {
+        status: 413,
+        code: 'PAYLOAD_TOO_LARGE',
+        message: err.message || 'Uploaded file exceeds the maximum allowed size.',
+        details,
+      };
+    }
+    return {
+      status: 400,
+      code: 'FILE_UPLOAD_ERROR',
+      message: err.message || 'Invalid file upload request.',
+      details,
+    };
+  }
+
+  // 5. http-errors or similar errors with valid HTTP error status codes
+  const rawStatus = err.status ?? err.statusCode;
+  if (isValidHttpErrorStatus(rawStatus)) {
+    const statusText = (httpStatus as unknown as Record<number, string>)[rawStatus] as string | undefined;
+    const code =
+      typeof err.code === 'string' && err.code.trim()
+        ? err.code
+        : (statusText ? statusText.replace(/\s+/g, '_').toUpperCase() : 'HTTP_ERROR');
 
     return {
-      status,
+      status: rawStatus,
       code,
-      message: err.message ?? statusText ?? 'Request failed.',
+      message: err.message || statusText || 'Request failed.',
       details: err.details,
     };
   }
@@ -125,27 +192,35 @@ function normalizeError(err: any): NormalizedError { // eslint-disable-line @typ
  * Express error-handling middleware
  * Usage: app.use(errorHandler);
  */
-export function errorHandler(err: any, req: Request, res: Response, _next: NextFunction) { // eslint-disable-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+export function errorHandler(err: any, req: Request, res: Response, next: NextFunction) { // eslint-disable-line @typescript-eslint/no-explicit-any
   const requestId = getRequestId(req);
   const normalized = normalizeError(err);
 
   // If headers are already sent, delegate to the default Express handler
-  if (res.headersSent) return;
+  if (res.headersSent) {
+    return next(err);
+  }
 
   // For 5xx errors in production, we don't want to leak implementation details
   const isServerError = normalized.status >= 500;
   const includeDetails = !isServerError || env.NODE_ENV !== 'production';
 
   if (isServerError) {
-    NotificationStation.notifyManagers({
-      type: NotificationType.SYSTEM_ERROR,
-      templateKey: 'SYSTEM_ERROR',
-      templateParams: {
-        component: req.originalUrl || req.url || 'API',
-        errorMessage: normalized.message || 'Internal Server Error',
-      },
-      metadata: { requestId, code: normalized.code, status: normalized.status },
-    }).catch(() => {});
+    try {
+      Promise.resolve(
+        NotificationStation.notifyManagers({
+          type: NotificationType.SYSTEM_ERROR,
+          templateKey: 'SYSTEM_ERROR',
+          templateParams: {
+            component: req.originalUrl || req.url || 'API',
+            errorMessage: normalized.message || 'Internal Server Error',
+          },
+          metadata: { requestId, code: normalized.code, status: normalized.status },
+        })
+      ).catch(() => {});
+    } catch {
+      // Ignore notification failures inside the global error handler
+    }
   }
 
   const body: ApiFailure = {
@@ -158,5 +233,5 @@ export function errorHandler(err: any, req: Request, res: Response, _next: NextF
     meta: { requestId },
   };
 
-  res.status(normalized.status).json(body);
+  res.status(normalized.status).type('application/json').json(body);
 }

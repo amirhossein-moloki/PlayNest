@@ -31,7 +31,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
     NotFoundError:
-      description: The requested resource was not found
+      description: The requested resource or route was not found
       content:
         application/json:
           schema:
@@ -1312,12 +1312,18 @@ components:
           type: object
     Error:
       type: object
+      required:
+      - success
+      - error
       properties:
         success:
           type: boolean
           example: false
         error:
           type: object
+          required:
+          - code
+          - message
           properties:
             code:
               type: string
@@ -1325,12 +1331,19 @@ components:
               enum:
               - INTERNAL_ERROR
               - APP_ERROR
+              - BAD_REQUEST
               - VALIDATION_ERROR
+              - INVALID_JSON
+              - PAYLOAD_TOO_LARGE
+              - UNSUPPORTED_MEDIA_TYPE
+              - FILE_UPLOAD_ERROR
               - DB_REQUEST_FAILED
               - NOT_FOUND
+              - ROUTE_NOT_FOUND
               - CONFLICT
               - UNAUTHORIZED
               - FORBIDDEN
+              - TOO_MANY_REQUESTS
               - SLOT_NOT_AVAILABLE
               - RESERVATION_OVERLAP
               - OVERLAP_CONFLICT
@@ -1348,7 +1361,7 @@ components:
               example: Invalid request payload.
             details:
               type: object
-              description: Optional additional error details (e.g., validation issues)
+              description: Optional additional error details (e.g., validation issues or unmatched route metadata)
               nullable: true
         meta:
           $ref: '#/components/schemas/Meta'

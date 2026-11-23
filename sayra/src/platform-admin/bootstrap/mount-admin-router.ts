@@ -53,8 +53,12 @@ export async function mountAdminRouter(app: Express, packages: AdminJSPackages):
     sessionOptions
   );
 
-  // 6. Mount AdminJS router
-  app.use(ADMIN_CONSTANTS.ROOT_PATH, adminRouter);
+  // 6. Mount AdminJS router (use pre-registered slot in app.ts so it runs before 404/error handlers)
+  if (app.locals?.hasPlatformAdminSlot) {
+    app.locals.platformAdminRouter = adminRouter;
+  } else {
+    app.use(ADMIN_CONSTANTS.ROOT_PATH, adminRouter);
+  }
 
   logger.info(
     `AdminJS successfully mounted at ${ADMIN_CONSTANTS.ROOT_PATH} [Platform Admin Only]`

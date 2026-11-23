@@ -11,6 +11,7 @@ import routes from './routes';
 import { ADMIN_CONSTANTS } from './platform-admin/config/admin.constants';
 import healthRouter from './routes/health.routes';
 import { errorHandler } from './common/errors/errorHandler';
+import { notFoundHandler } from './common/errors/notFoundHandler';
 import { responseMiddleware } from './common/middleware/response';
 import { env } from './config/env';
 import { initReservationEvents } from './modules/reservation/reservation.events';
@@ -34,8 +35,6 @@ const app = express();
 
 app.set('trust proxy', env.TRUST_PROXY);
 
-app.use(express.json());
-app.use(cookieParser(ADMIN_CONSTANTS.COOKIE_SECRET));
 app.use(cors({
   origin: env.CORS_ORIGIN,
   credentials: env.CORS_CREDENTIALS,
@@ -58,6 +57,8 @@ app.use(helmet({
     },
   },
 }));
+app.use(express.json());
+app.use(cookieParser(ADMIN_CONSTANTS.COOKIE_SECRET));
 
 // Serve static files from the uploads directory
 app.use('/uploads', express.static('uploads'));
@@ -125,6 +126,20 @@ app.get('/redoc/*', renderRedoc);
 
 // API Routes
 app.use('/api/v1', routes);
+
+// Platform Admin Panel slot (populated asynchronously during server bootstrap
+// so /platform-admin-panel sits before the 404 and error handlers)
+app.locals.hasPlatformAdminSlot = true;
+app.use(ADMIN_CONSTANTS.ROOT_PATH, (req, res, next) => {
+  const adminRouter = app.locals.platformAdminRouter as express.RequestHandler | undefined;
+  if (adminRouter) {
+    return adminRouter(req, res, next);
+  }
+  return next();
+});
+
+// 404 Handler for unmatched routes and unsupported HTTP methods
+app.use(notFoundHandler);
 
 if (env.SENTRY_ENABLED && env.SENTRY_DSN) {
   Sentry.setupExpressErrorHandler(app);

@@ -1,10 +1,29 @@
 import rateLimit from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import { Request, Response, NextFunction } from 'express';
+import httpStatus from 'http-status';
 import redis from '../../config/redis';
 import { env } from '../../config/env';
+import AppError from '../errors/AppError';
 
 const mockMiddleware = (req: Request, res: Response, next: NextFunction) => next();
+
+const rateLimitHandler = (
+  _req: Request,
+  _res: Response,
+  next: NextFunction,
+  options: { statusCode?: number; message?: unknown }
+) => {
+  const message =
+    typeof options.message === 'string'
+      ? options.message
+      : 'Too many requests, please try again later.';
+  next(
+    new AppError(message, options.statusCode || httpStatus.TOO_MANY_REQUESTS, {
+      code: 'TOO_MANY_REQUESTS',
+    })
+  );
+};
 
 const createStore = (prefix: string) => new RedisStore({
   prefix,
@@ -35,6 +54,7 @@ export const privateApiRateLimiter = env.NODE_ENV === 'test'
     store: createStore('rl:private:'),
     validate: false,
     message: 'Too many requests for this session, please try again after 15 minutes',
+    handler: rateLimitHandler,
   });
 
 /**
@@ -51,6 +71,7 @@ export const publicApiRateLimiter = env.NODE_ENV === 'test'
     keyGenerator: publicApiKeyGenerator,
     validate: false,
     message: 'Too many requests from this IP for this gamingCenter, please try again after 15 minutes',
+    handler: rateLimitHandler,
   });
 
 /**
@@ -67,4 +88,5 @@ export const publicReservationRateLimiter = env.NODE_ENV === 'test'
     keyGenerator: publicApiKeyGenerator,
     validate: false,
     message: 'Too many reservation attempts from this IP for this gamingCenter, please try again after 15 minutes',
+    handler: rateLimitHandler,
   });

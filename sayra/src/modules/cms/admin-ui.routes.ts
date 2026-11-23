@@ -8,8 +8,13 @@ import { pageEditorTemplate, pagesListTemplate } from './admin-ui.templates';
 
 export const cmsAdminUiRouter = Router();
 
-// Secure all admin UI routes
-cmsAdminUiRouter.use(authMiddleware, tenantGuard, requireRole([UserRole.MANAGER]));
+// Secure CMS admin UI routes only under their own prefix
+cmsAdminUiRouter.use(
+  '/gamingCenters/:gamingCenterId/pages',
+  authMiddleware,
+  tenantGuard,
+  requireRole([UserRole.MANAGER])
+);
 
 const buildOptions = (values: string[]) =>
   values.map((value) => `<option value="${value}">${value}</option>`).join('');
