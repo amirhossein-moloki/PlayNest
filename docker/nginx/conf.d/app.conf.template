@@ -6,8 +6,12 @@ upstream blog_backend {
     server blog_web:8000;
 }
 
-# Rate limiting zone for API endpoints
-limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
+# Rate limiting zone for API endpoints (exempting internal SSR requests via x-ssr-secret header)
+map $http_x_ssr_secret $limit_key {
+    "${INTERNAL_SSR_SECRET}" "";
+    default $binary_remote_addr;
+}
+limit_req_zone $limit_key zone=api_limit:10m rate=10r/s;
 
 # ----------------------------------------------------------------------
 # 1. Blog Subdomain Virtual Host (e.g. blog.sayra-booking.ir)
@@ -21,6 +25,8 @@ server {
     ssl_certificate /etc/nginx/ssl/origin.pem;
     ssl_certificate_key /etc/nginx/ssl/origin-key.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
    
     client_max_body_size 100M;
 
@@ -84,6 +90,7 @@ server {
     ssl_certificate /etc/nginx/ssl/origin.pem;
     ssl_certificate_key /etc/nginx/ssl/origin-key.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
 
     # Disallow crawling/indexing of API origin
     location = /robots.txt {
@@ -172,6 +179,7 @@ server {
     ssl_certificate /etc/nginx/ssl/origin.pem;
     ssl_certificate_key /etc/nginx/ssl/origin-key.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
 
     # Static Media Files - Sayra
     location ${MEDIA_LOCAL_PUBLIC_PATH} {

@@ -444,6 +444,7 @@ export function transformGamingCenter(
     is_open: isOpen,
     hourlyRate: effectiveHourlyRate,
     raiting: avgRating,
+    rating: avgRating,
     comment_count: commentCount > 0 ? commentCount : count,
     createdAt: gc.createdAt,
     updatedAt: gc.updatedAt,
@@ -547,6 +548,7 @@ export const gamingCenterRepository = {
             { slug: id },
           ],
           isActive: true,
+          verificationStatus: GamingCenterVerificationStatus.APPROVED,
         },
         include: {
           addresses: true,
@@ -635,6 +637,7 @@ export const gamingCenterRepository = {
             { slug: id },
           ],
           isActive: true,
+          verificationStatus: GamingCenterVerificationStatus.APPROVED,
         },
         select: selectClause,
       });
@@ -976,7 +979,8 @@ export const gamingCenterRepository = {
       data = data.filter((item) => item.is_open === isOpen);
     }
 
-    return formatPaginatedResult(data, total, page, limit);
+    const effectiveTotal = (minStationCount !== undefined || isOpen !== undefined) ? data.length : total;
+    return formatPaginatedResult(data, effectiveTotal, page, limit);
   },
 
   async update(id: string, data: UpdateGamingCenterInput, tx?: Prisma.TransactionClient) {

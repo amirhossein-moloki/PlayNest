@@ -70,6 +70,13 @@ export const publicApiRateLimiter = env.NODE_ENV === 'test'
     store: createStore('rl:public:'),
     keyGenerator: publicApiKeyGenerator,
     validate: false,
+    skip: (req: Request) => {
+      const ssrSecret = process.env.INTERNAL_SSR_SECRET;
+      if (ssrSecret && req.headers['x-ssr-secret'] === ssrSecret) {
+        return true;
+      }
+      return false;
+    },
     message: 'Too many requests from this IP for this gamingCenter, please try again after 15 minutes',
     handler: rateLimitHandler,
   });

@@ -1763,6 +1763,9 @@ components:
           description: Current open/closed status according to working hours
         raiting:
           type: number
+          description: Average rating score (legacy typo field)
+        rating:
+          type: number
           description: Average rating score
         comment_count:
           type: integer
