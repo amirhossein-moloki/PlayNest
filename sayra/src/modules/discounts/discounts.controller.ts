@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AppRequest } from '../../types/express';
 import { discountsStation } from './discounts.station';
+import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
 import {
   CreateCampaignInput,
   CreateDiscountInput,
@@ -23,6 +24,7 @@ export const createCampaign = async (req: AppRequest, res: Response) => {
     { ip: req.ip, userAgent: req.get('user-agent') }
   );
 
+  void invalidatePublicCacheByPrefix('public:gc:');
   res.created(campaign);
 };
 
@@ -55,6 +57,7 @@ export const updateCampaign = async (req: AppRequest, res: Response) => {
     { ip: req.ip, userAgent: req.get('user-agent') }
   );
 
+  void invalidatePublicCacheByPrefix('public:gc:');
   res.ok(campaign);
 };
 
@@ -96,6 +99,7 @@ export const createDiscount = async (req: AppRequest, res: Response) => {
     { ip: req.ip, userAgent: req.get('user-agent') }
   );
 
+  void invalidatePublicCacheByPrefix('public:gc:');
   res.created(discount);
 };
 
@@ -124,6 +128,7 @@ export const updateDiscount = async (req: AppRequest, res: Response) => {
     { ip: req.ip, userAgent: req.get('user-agent') }
   );
 
+  void invalidatePublicCacheByPrefix('public:gc:');
   res.ok(discount);
 };
 
@@ -139,6 +144,7 @@ export const updateDiscountStatus = async (req: AppRequest, res: Response) => {
     { ip: req.ip, userAgent: req.get('user-agent') }
   );
 
+  void invalidatePublicCacheByPrefix('public:gc:');
   res.ok(discount);
 };
 
@@ -152,5 +158,6 @@ export const deleteDiscount = async (req: AppRequest, res: Response) => {
     { ip: req.ip, userAgent: req.get('user-agent') }
   );
 
+  void invalidatePublicCacheByPrefix('public:gc:');
   res.ok(deleted);
 };

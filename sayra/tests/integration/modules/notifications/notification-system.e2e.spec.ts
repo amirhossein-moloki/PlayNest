@@ -281,7 +281,9 @@ describe('Notification System Full End-to-End Test Suite', () => {
       { id: 'mgr-center', role: UserRole.MANAGER, gamingCenterId: 'gc-600' },
     ];
     MockedPrisma.user.findMany.mockResolvedValue(authorizedManagers);
-    MockedRepo.createNotification.mockResolvedValue({ id: 'notif-mgr-1' } as any);
+    (MockedRepo as any).createNotificationsBatch.mockImplementation(async (items: any[]) =>
+      items.map((data) => ({ id: `notif-${data.userId}`, ...data }))
+    );
 
     const notifications = await NotificationStation.notifyManagers({
       type: NotificationType.NEW_GAME_CENTER_REGISTRATION,
@@ -291,19 +293,20 @@ describe('Notification System Full End-to-End Test Suite', () => {
     });
 
     expect(notifications).toHaveLength(2);
-    expect(MockedRepo.createNotification).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 'mgr-admin',
-        category: NotificationCategory.MANAGER,
-        type: NotificationType.NEW_GAME_CENTER_REGISTRATION,
-      })
-    );
-    expect(MockedRepo.createNotification).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 'mgr-center',
-        category: NotificationCategory.MANAGER,
-        type: NotificationType.NEW_GAME_CENTER_REGISTRATION,
-      })
+    expect((MockedRepo as any).createNotificationsBatch).toHaveBeenCalledTimes(1);
+    expect((MockedRepo as any).createNotificationsBatch).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          userId: 'mgr-admin',
+          category: NotificationCategory.MANAGER,
+          type: NotificationType.NEW_GAME_CENTER_REGISTRATION,
+        }),
+        expect.objectContaining({
+          userId: 'mgr-center',
+          category: NotificationCategory.MANAGER,
+          type: NotificationType.NEW_GAME_CENTER_REGISTRATION,
+        }),
+      ])
     );
     // Manager events must be In-App only, never SMS
     expect(sendTemplateSmsSpy).not.toHaveBeenCalled();

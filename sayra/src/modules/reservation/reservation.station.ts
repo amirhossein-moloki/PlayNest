@@ -24,11 +24,13 @@ import { ReservationRepo } from './reservation.repo';
 import { CommissionsRepo } from '../commissions/commissions.repo';
 import { AuthRepository } from '../auth/auth.repository';
 import AppError from '../../common/errors/AppError';
+import { isReservationOverlapDbError } from '../../common/errors/dbErrors';
 import httpStatus from 'http-status';
 import { auditService } from '../audit/audit.station';
 import { normalizePhone } from '../../common/utils/phone';
 import { AppEvents, eventEmitter } from '../../common/events/event-emitter';
 import { Metrics } from '../../common/metrics/metrics';
+import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
 import { ReservationStateMachine } from './reservation.state-machine';
 import { discountsStation } from '../discounts/discounts.station';
 import { calculateBasePrice } from '../../common/utils/money';
@@ -185,7 +187,9 @@ const findOrCreateCustomerProfile = async (
 
 export const reservationStation = {
   async createReservation(input: CreateReservationInput & { gamingCenterId: string; createdByUserId: string; }) {
-    const result = await ReservationRepo.transaction(async (tx) => {
+    let result;
+    try {
+      result = await ReservationRepo.transaction(async (tx) => {
       const { gamingCenterId, stationId, staffId, customer, startTime: startAtString, createdByUserId, note } = input;
       const startTime = new Date(startAtString);
 
@@ -419,10 +423,18 @@ export const reservationStation = {
         actorType: SessionActorType.USER,
       }, tx);
 
-      return { reservation, gamingCenter, customerAccount, isWalletPayment };
-    }, {
-      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
-    });
+        return { reservation, gamingCenter, customerAccount, isWalletPayment };
+      }, {
+        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+      });
+    } catch (error: unknown) {
+      if (isReservationOverlapDbError(error)) {
+        throw new AppError('Selected time is not available.', httpStatus.CONFLICT, {
+          code: 'SLOT_NOT_AVAILABLE',
+        });
+      }
+      throw error;
+    }
 
     if (result.isWalletPayment) {
       await commissionsStation.calculateCommission(result.reservation.id).catch(() => {});
@@ -436,6 +448,7 @@ export const reservationStation = {
     });
 
     Metrics.recordReservationCreated(true, result.reservation.gamingCenterId);
+    void invalidatePublicCacheByPrefix(`public:avail:${result.reservation.gamingCenterId}:`);
 
     return result.reservation;
   },
@@ -785,7 +798,7 @@ export const reservationStation = {
 
         return { reservation, gamingCenter, customerAccount, isWalletPayment, isPayable };
       }, {
-        isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
       });
 
       if (result.isWalletPayment) {
@@ -801,10 +814,12 @@ export const reservationStation = {
         });
       }
 
+      void invalidatePublicCacheByPrefix(`public:avail:${result.reservation.gamingCenterId}:`);
+
       return result.reservation;
     } catch (error: unknown) {
       Metrics.recordReservationCreated(false, gamingCenterSlug);
-      if (error && typeof error === 'object' && 'code' in error && error.code === '23P01' && 'message' in error && typeof error.message === 'string' && error.message.includes('Reservation_no_overlap_active')) {
+      if (isReservationOverlapDbError(error)) {
         throw new AppError('This time slot is already booked.', httpStatus.CONFLICT, {
           code: 'SLOT_NOT_AVAILABLE',
         });
@@ -905,6 +920,10 @@ export const reservationStation = {
 
         const effectiveStationId = stationChanged ? data.stationId! : reservation.stationId;
         const effectiveStaffId = staffChanged ? data.staffId! : reservation.staffId;
+
+        if (hasTimeChange) {
+          await ReservationRepo.lockStationForUpdate(effectiveStationId, tx);
+        }
 
         let effectiveStation = null;
         if (stationChanged) {
@@ -1056,13 +1075,14 @@ export const reservationStation = {
 
         return { updatedReservation, oldReservation: reservation };
       }, {
-        isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
       }).then(({ updatedReservation, oldReservation }) => {
         eventEmitter.emit(AppEvents.RESERVATION_UPDATED, { updatedReservation, oldReservation });
+        void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
         return updatedReservation;
       });
     } catch (error: unknown) {
-      if (error && typeof error === 'object' && 'code' in error && error.code === '23P01' && 'message' in error && typeof error.message === 'string' && error.message.includes('Reservation_no_overlap_active')) {
+      if (isReservationOverlapDbError(error)) {
         throw new AppError('Reservation overlaps with another for the same staff member.', httpStatus.CONFLICT, {
           code: 'OVERLAP_CONFLICT',
         });

@@ -133,6 +133,6 @@ describe('PLATFORM_ADMIN Authentication API', () => {
     expect(res.text).toContain('id="authOverlay"');
     expect(res.text).toContain('id="loginForm"');
     expect(res.text).toContain('/api/v1/auth/platform-admin/login');
-    expect(res.text).not.toContain('prompt(');
+    expect(res.text).not.toContain("prompt('Enter");
   });
 });

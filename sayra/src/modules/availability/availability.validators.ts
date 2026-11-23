@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { idSchema } from '../../common/validators/common.validators';
 
+export const MAX_AVAILABILITY_RANGE_DAYS = 31;
+
 export const getAvailabilitySchema = z.object({
   params: z.object({
     gamingCenterSlug: z.string().min(1, 'Gaming center slug is required'),
@@ -25,6 +27,19 @@ export const getAvailabilitySchema = z.object({
       },
       {
         message: 'End date must be after start date',
+        path: ['endDate'],
+      }
+    )
+    .refine(
+      (data) => {
+        if (data.startDate && data.endDate) {
+          const maxSpanMs = MAX_AVAILABILITY_RANGE_DAYS * 24 * 60 * 60 * 1000;
+          return data.endDate.getTime() - data.startDate.getTime() <= maxSpanMs;
+        }
+        return true;
+      },
+      {
+        message: `Date range cannot exceed ${MAX_AVAILABILITY_RANGE_DAYS} days`,
         path: ['endDate'],
       }
     )

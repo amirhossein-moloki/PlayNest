@@ -1,19 +1,48 @@
 import { prisma } from '../../config/prisma';
 
+export interface FindStationOptions {
+  gamingCenterId?: string;
+  windowStart?: Date;
+  windowEnd?: Date;
+  now?: Date;
+}
+
 export const AvailabilityRepo = {
-  async findStationWithGamingCenter(stationId: string, gamingCenterSlug: string) {
+  async findStationWithGamingCenter(
+    stationId: string,
+    gamingCenterSlug: string,
+    options?: FindStationOptions
+  ) {
+    const now = options?.now ?? new Date();
     return prisma.gameStation.findFirst({
       where: {
         id: stationId,
         isActive: true,
-        gamingCenter: { slug: gamingCenterSlug },
+        ...(options?.gamingCenterId
+          ? { gamingCenterId: options.gamingCenterId }
+          : { gamingCenter: { slug: gamingCenterSlug } }),
       },
       include: {
         gamingCenter: {
           include: {
             settings: true,
             schedules: true,
-            closures: true,
+            closures: options
+              ? {
+                  where: {
+                    OR: [
+                      ...(options.windowStart && options.windowEnd
+                        ? [{ startDate: { lt: options.windowEnd }, endDate: { gt: options.windowStart } }]
+                        : []),
+                      {
+                        startDate: { lte: now },
+                        endDate: { gt: now },
+                      },
+                    ],
+                  },
+                  orderBy: { endDate: 'desc' },
+                }
+              : true,
           },
         },
       },
@@ -28,6 +57,10 @@ export const AvailabilityRepo = {
         isActive: true,
         stationSkills: { some: { stationId } },
       },
+      select: {
+        id: true,
+        fullName: true,
+      },
     });
   },
 
@@ -37,6 +70,10 @@ export const AvailabilityRepo = {
         gamingCenterId,
         stationSkills: { some: { stationId } },
         isActive: true,
+      },
+      select: {
+        id: true,
+        fullName: true,
       },
     });
   },
@@ -54,28 +91,43 @@ export const AvailabilityRepo = {
     startDate: Date,
     endDate: Date
   ) {
-    const reservations = await prisma.reservation.findMany({
-      where: {
-        gamingCenterId,
-        stationId,
-        status: { in: ['CONFIRMED', 'IN_PROGRESS', 'PENDING'] },
-        startTime: { lt: endDate },
-        endTime: { gt: startDate },
-      },
-    });
-
-    const activeHolds = await prisma.bookingHold.findMany({
-      where: {
-        gamingCenterId,
-        status: 'ACTIVE',
-        expiresAt: { gt: new Date() },
-        startTime: { lt: endDate },
-        endTime: { gt: startDate },
-        items: {
-          some: { stationId },
+    const [reservations, activeHolds] = await Promise.all([
+      prisma.reservation.findMany({
+        where: {
+          gamingCenterId,
+          stationId,
+          status: { in: ['CONFIRMED', 'IN_PROGRESS', 'PENDING'] },
+          startTime: { lt: endDate },
+          endTime: { gt: startDate },
         },
-      },
-    });
+        select: {
+          id: true,
+          gamingCenterId: true,
+          stationId: true,
+          startTime: true,
+          endTime: true,
+          status: true,
+        },
+      }),
+      prisma.bookingHold.findMany({
+        where: {
+          gamingCenterId,
+          status: 'ACTIVE',
+          expiresAt: { gt: new Date() },
+          startTime: { lt: endDate },
+          endTime: { gt: startDate },
+          items: {
+            some: { stationId },
+          },
+        },
+        select: {
+          id: true,
+          gamingCenterId: true,
+          startTime: true,
+          endTime: true,
+        },
+      }),
+    ]);
 
     const holdIntervals = (activeHolds || []).map((h) => ({
       id: h.id,
@@ -86,7 +138,7 @@ export const AvailabilityRepo = {
       status: 'PENDING' as const,
     }));
 
-    return [...reservations, ...holdIntervals] as typeof reservations;
+    return [...(reservations || []), ...holdIntervals] as typeof reservations;
   },
 
   async findMaintenances(gamingCenterId: string, stationId: string, startDate: Date, endDate: Date) {

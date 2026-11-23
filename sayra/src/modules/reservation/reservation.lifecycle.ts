@@ -16,6 +16,7 @@ import {
 import { ReservationRepo } from './reservation.repo';
 import { PaymentsRepo } from '../payments/payments.repo';
 import AppError from '../../common/errors/AppError';
+import { isReservationOverlapDbError } from '../../common/errors/dbErrors';
 import httpStatus from 'http-status';
 import { gamingSessionsStation } from '../gamingSessions/gamingSessions.station';
 import { GamingSessionsRepo } from '../gamingSessions/gamingSessions.repo';
@@ -25,6 +26,7 @@ import { auditService } from '../audit/audit.station';
 import { AppEvents, eventEmitter } from '../../common/events/event-emitter';
 import logger from '../../config/logger';
 import { env } from '../../config/env';
+import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
 import { ReservationStateMachine } from './reservation.state-machine';
 import { calculateBasePrice } from '../../common/utils/money';
 import {
@@ -208,6 +210,8 @@ export const reservationLifecycle = {
       });
     }
 
+    void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
+
     return updatedReservation;
   },
 
@@ -319,6 +323,8 @@ export const reservationLifecycle = {
       { old: reservation, new: updatedReservation },
       context
     );
+
+    void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
 
     return updatedReservation;
   },
@@ -433,6 +439,8 @@ export const reservationLifecycle = {
       console.error('Failed to calculate commission for reservation:', reservationId, err);
     });
 
+    void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
+
     return updatedReservation;
   },
 
@@ -490,6 +498,8 @@ export const reservationLifecycle = {
 
     eventEmitter.emit(AppEvents.RESERVATION_NOSHOW, { reservation: updatedReservation });
 
+    void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
+
     return updatedReservation;
   },
 
@@ -501,7 +511,7 @@ export const reservationLifecycle = {
     context?: { ip?: string; userAgent?: string }
   ) {
     try {
-      return await ReservationRepo.transaction(async (tx) => {
+      const rescheduled = await ReservationRepo.transaction(async (tx) => {
         const reservation = await ReservationRepo.findReservationById(reservationId, gamingCenterId, tx);
         if (!reservation) {
           throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
@@ -656,10 +666,13 @@ export const reservationLifecycle = {
 
         return updatedReservation;
       }, {
-        isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
       });
+
+      void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
+      return rescheduled;
     } catch (error: unknown) {
-      if (error && typeof error === 'object' && 'code' in error && error.code === '23P01' && 'message' in error && typeof error.message === 'string' && error.message.includes('Reservation_no_overlap_active')) {
+      if (isReservationOverlapDbError(error)) {
         throw new AppError('Reservation overlaps with another for the same station/time.', httpStatus.CONFLICT, {
           code: 'SLOT_NOT_AVAILABLE',
         });
@@ -793,6 +806,10 @@ export const reservationLifecycle = {
           error,
         });
       }
+    }
+
+    if (result.expiredCount > 0) {
+      void invalidatePublicCacheByPrefix('public:avail:');
     }
 
     return result;

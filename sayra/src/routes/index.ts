@@ -28,7 +28,7 @@ import {
   publicGroupBookingRouter,
 } from '../modules/group-booking/group-booking.routes';
 import * as StationController from '../modules/station/station.controller';
-import { publicApiRateLimiter } from '../common/middleware/rateLimit';
+import { publicApiRateLimiter, publicAnalyticsRateLimiter } from '../common/middleware/rateLimit';
 import { asyncHandler } from '../common/middleware/asyncHandler';
 import { prisma } from '../config/prisma';
 import AppError from '../common/errors/AppError';
@@ -241,8 +241,8 @@ router.use('/public/gamingCenters/:gamingCenterSlug/links', publicLinksRouter);
 router.use('/public/gamingCenters/:gamingCenterSlug/addresses', publicAddressesRouter);
 
 // --- Public Analytics Event Collector ---
-router.post('/public/analytics/events', AnalyticsController.collectEvent);
-router.post('/public/gamingCenters/:gamingCenterSlug/analytics/events', AnalyticsController.collectEvent);
+router.post('/public/analytics/events', publicAnalyticsRateLimiter, AnalyticsController.collectEvent);
+router.post('/public/gamingCenters/:gamingCenterSlug/analytics/events', publicAnalyticsRateLimiter, AnalyticsController.collectEvent);
 
 // --- Webhooks Module ---
 router.use(webhooksRoutes);

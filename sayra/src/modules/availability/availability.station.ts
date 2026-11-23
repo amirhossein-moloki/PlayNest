@@ -122,12 +122,34 @@ export function getWorkingIntervalsForDate(
 }
 
 export const getAvailableSlots = async (
-  query: GetAvailabilityQuery & { gamingCenterSlug: string; now?: Date | string }
+  query: GetAvailabilityQuery & { gamingCenterSlug: string; gamingCenterId?: string; now?: Date | string }
 ): Promise<DayAvailabilitySlots[]> => {
-  const { gamingCenterSlug, stationId, staffId, date, startDate, endDate, now: queryNow } = query;
+  const { gamingCenterSlug, gamingCenterId, stationId, staffId, date, startDate, endDate, now: queryNow } = query;
+  const now = queryNow ? new Date(queryNow) : new Date();
+
+  let windowStart: Date;
+  let windowEnd: Date;
+  if (date) {
+    const baseUtc = new Date(`${date}T00:00:00.000Z`);
+    windowStart = addDays(baseUtc, -1);
+    windowEnd = addDays(baseUtc, 2);
+  } else if (startDate) {
+    const parsedStart = new Date(startDate);
+    const parsedEnd = endDate ? new Date(endDate) : addDays(parsedStart, 1);
+    windowStart = addDays(parsedStart, -1);
+    windowEnd = addDays(parsedEnd, 1);
+  } else {
+    windowStart = addDays(now, -1);
+    windowEnd = addDays(now, 2);
+  }
 
   // 1. Fetch GameStation and GamingCenter info
-  const station = await AvailabilityRepo.findStationWithGamingCenter(stationId, gamingCenterSlug);
+  const station = await AvailabilityRepo.findStationWithGamingCenter(stationId, gamingCenterSlug, {
+    gamingCenterId,
+    windowStart,
+    windowEnd,
+    now,
+  });
 
   if (!station) {
     throw new AppError('GameStation not found in this gamingCenter.', httpStatus.NOT_FOUND);
@@ -159,7 +181,7 @@ export const getAvailableSlots = async (
     startZonedDate = new Date(startDate);
     endZonedDate = endDate ? new Date(endDate) : addDays(startZonedDate, 1);
   } else {
-    const todayStr = formatInTimeZone(new Date(), timeZone, 'yyyy-MM-dd');
+    const todayStr = formatInTimeZone(now, timeZone, 'yyyy-MM-dd');
     const { start, end } = getZonedDayRange(todayStr, timeZone);
     startZonedDate = start;
     endZonedDate = end;
@@ -179,43 +201,63 @@ export const getAvailableSlots = async (
 
   const staffIds = staffToCheck.map((s) => s.id);
 
-  // 3. Fetch shifts, reservations, and station maintenances in query window
-  const staffShifts = staffIds.length > 0 ? await AvailabilityRepo.findShifts(gamingCenter.id, staffIds) : [];
-  const reservations = await AvailabilityRepo.findReservation(
-    gamingCenter.id,
-    stationId,
-    staffIds,
-    startZonedDate,
-    endZonedDate
-  );
-  const maintenances = await AvailabilityRepo.findMaintenances(
-    gamingCenter.id,
-    stationId,
-    startZonedDate,
-    endZonedDate
-  );
+  // 3. Fetch shifts, reservations, and station maintenances in parallel for the query window
+  const [staffShifts, reservations, maintenances] = await Promise.all([
+    staffIds.length > 0 ? AvailabilityRepo.findShifts(gamingCenter.id, staffIds) : Promise.resolve([]),
+    AvailabilityRepo.findReservation(
+      gamingCenter.id,
+      stationId,
+      staffIds,
+      startZonedDate,
+      endZonedDate
+    ),
+    AvailabilityRepo.findMaintenances(
+      gamingCenter.id,
+      stationId,
+      startZonedDate,
+      endZonedDate
+    ),
+  ]);
 
-  // Prepare staff shift lookup: staffShiftsByDay[dayOfWeek] -> list of shifts
-  const shiftsByStaffAndDay: { [key: string]: { startTime: string; endTime: string } } = {};
-  for (const shift of staffShifts) {
+  // Prepare staff shift lookup: shiftsByStaffAndDay["userId-dayOfWeek"]
+  const shiftsByStaffAndDay: Record<string, { startTime: string; endTime: string }> = {};
+  for (const shift of staffShifts || []) {
     shiftsByStaffAndDay[`${shift.userId}-${shift.dayOfWeek}`] = {
       startTime: shift.startTime,
       endTime: shift.endTime,
     };
   }
 
+  // Pre-parse blocking intervals to numeric epoch ms once outside loops
+  const closureRanges = closures.map((c) => ({
+    startMs: new Date(c.startDate).getTime(),
+    endMs: new Date(c.endDate).getTime(),
+  }));
+  const maintenanceRanges = (maintenances || []).map((m) => ({
+    startMs: new Date(m.startTime).getTime(),
+    endMs: m.endTime ? new Date(m.endTime).getTime() : 8640000000000000,
+  }));
+  const reservationRanges = (reservations || []).map((r) => ({
+    startMs: new Date(r.startTime).getTime(),
+    endMs: new Date(r.endTime).getTime(),
+  }));
+
   // 4. Generate 24-hour slices and 60-minute slots
   const daysResults: DayAvailabilitySlots[] = [];
-  const now = queryNow ? new Date(queryNow) : new Date();
   const minLeadTimeMinutes = gamingCenter.settings?.minAdvanceBookingMinutes ?? DEFAULT_MIN_LEAD_TIME_MINUTES;
-  const minAllowedSlotStart = addMinutes(now, minLeadTimeMinutes);
+  const minAllowedMs = addMinutes(now, minLeadTimeMinutes).getTime();
   const temporaryClosureMeta = resolveActiveClosureSummary(closures, now);
+  const startZonedMs = startZonedDate.getTime();
+  const endZonedMs = endZonedDate.getTime();
+  const fallbackStaff = staffToCheck[0]
+    ? { id: staffToCheck[0].id, fullName: staffToCheck[0].fullName }
+    : undefined;
 
   // Ensure cursor starts at beginning of the day in local timezone
   const cursorDateStr = formatInTimeZone(startZonedDate, timeZone, 'yyyy-MM-dd');
   let iterDate = fromZonedTime(`${cursorDateStr} 00:00:00`, timeZone);
 
-  while (iterDate < endZonedDate) {
+  while (iterDate.getTime() < endZonedMs) {
     const dayStr = formatInTimeZone(iterDate, timeZone, 'yyyy-MM-dd');
     const localDayDate = toZonedTime(iterDate, timeZone);
     const dayOfWeek = localDayDate.getDay(); // 0 = Sunday, ..., 6 = Saturday
@@ -242,59 +284,55 @@ export const getAvailableSlots = async (
     const daySlots: TimeSlotItem[] = [];
 
     if (!isClosedDay) {
+      // Precompute each staff member's UTC shift boundaries once per day
+      const dayStaffShifts: Array<{ id: string; fullName: string; startMs: number; endMs: number }> = [];
+      for (const staff of staffToCheck) {
+        const shift = shiftsByStaffAndDay[`${staff.id}-${dayOfWeek}`];
+        if (shift) {
+          dayStaffShifts.push({
+            id: staff.id,
+            fullName: staff.fullName,
+            startMs: fromZonedTime(`${dayStr} ${shift.startTime}:00`, timeZone).getTime(),
+            endMs: fromZonedTime(`${dayStr} ${shift.endTime}:00`, timeZone).getTime(),
+          });
+        }
+      }
+
       const workingIntervals = getWorkingIntervalsForDate(dayStr, dayOpen, dayClose, timeZone);
+      const slotDurationMs = SLOT_DURATION_MINUTES * 60 * 1000;
 
       for (const interval of workingIntervals) {
-        let slotStart = new Date(interval.start);
+        let slotStartMs = interval.start.getTime();
+        const intervalEndMs = interval.end.getTime();
 
         // Generate 60-minute slots inside working interval
-        while (addMinutes(slotStart, SLOT_DURATION_MINUTES) <= interval.end) {
-          const slotEnd = addMinutes(slotStart, SLOT_DURATION_MINUTES);
+        while (slotStartMs + slotDurationMs <= intervalEndMs) {
+          const slotEndMs = slotStartMs + slotDurationMs;
 
           // Check if slot falls in the requested query range
-          if (slotStart >= startZonedDate && slotEnd <= endZonedDate) {
-            // Check exceptional closures overlap
-            const isClosureConflict = closures.some((c) => {
-              const cStart = new Date(c.startDate);
-              const cEnd = new Date(c.endDate);
-              return slotStart < cEnd && slotEnd > cStart;
-            });
+          if (slotStartMs >= startZonedMs && slotEndMs <= endZonedMs) {
+            const isClosureConflict = closureRanges.some(
+              (c) => slotStartMs < c.endMs && slotEndMs > c.startMs
+            );
+            const isMaintenanceConflict = maintenanceRanges.some(
+              (m) => slotStartMs < m.endMs && slotEndMs > m.startMs
+            );
+            const isReservationConflict = reservationRanges.some(
+              (r) => slotStartMs < r.endMs && slotEndMs > r.startMs
+            );
 
-            // Check station maintenance overlap
-            const isMaintenanceConflict = maintenances.some((m) => {
-              const mStart = new Date(m.startTime);
-              const mEnd = m.endTime ? new Date(m.endTime) : new Date(8640000000000000);
-              return slotStart < mEnd && slotEnd > mStart;
-            });
-
-            // Check reservation conflict on this station
-            const isReservationConflict = reservations.some((r) => {
-              const rStart = new Date(r.startTime);
-              const rEnd = new Date(r.endTime);
-              return slotStart < rEnd && slotEnd > rStart;
-            });
-
-            // Check staff availability for this slot
-            // A staff member is available if they have a shift covering [slotStart, slotEnd]
             let assignedStaff: { id: string; fullName: string } | undefined;
-            if (staffToCheck.length > 0) {
-              for (const staff of staffToCheck) {
-                const shift = shiftsByStaffAndDay[`${staff.id}-${dayOfWeek}`];
-                if (shift) {
-                  const shiftStart = fromZonedTime(`${dayStr} ${shift.startTime}:00`, timeZone);
-                  const shiftEnd = fromZonedTime(`${dayStr} ${shift.endTime}:00`, timeZone);
-                  if (slotStart >= shiftStart && slotEnd <= shiftEnd) {
-                    assignedStaff = { id: staff.id, fullName: staff.fullName };
-                    break;
-                  }
-                }
+            for (const shift of dayStaffShifts) {
+              if (slotStartMs >= shift.startMs && slotEndMs <= shift.endMs) {
+                assignedStaff = { id: shift.id, fullName: shift.fullName };
+                break;
               }
             }
 
             let isAvailable = true;
             let unavailableReason: TimeSlotItem['unavailableReason'];
 
-            if (slotStart < minAllowedSlotStart) {
+            if (slotStartMs < minAllowedMs) {
               // Slot is in the past or within the minimum advance booking lead time
               isAvailable = false;
               unavailableReason = 'PAST';
@@ -314,17 +352,17 @@ export const getAvailableSlots = async (
             }
 
             daySlots.push({
-              startTime: slotStart.toISOString(),
-              endTime: slotEnd.toISOString(),
+              startTime: new Date(slotStartMs).toISOString(),
+              endTime: new Date(slotEndMs).toISOString(),
               durationMinutes: SLOT_DURATION_MINUTES,
               stationId: station.id,
               isAvailable,
-              staff: assignedStaff || (staffToCheck[0] ? { id: staffToCheck[0].id, fullName: staffToCheck[0].fullName } : undefined),
+              staff: assignedStaff || fallbackStaff,
               ...(unavailableReason ? { unavailableReason } : {}),
             });
           }
 
-          slotStart = addMinutes(slotStart, SLOT_DURATION_MINUTES);
+          slotStartMs += slotDurationMs;
         }
       }
     }

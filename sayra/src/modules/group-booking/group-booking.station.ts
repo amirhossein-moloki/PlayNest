@@ -27,6 +27,7 @@ import { LedgerRepo } from '../payments/ledger.repo';
 import { commissionsStation } from '../commissions/commissions.station';
 import { calculateBasePrice } from '../../common/utils/money';
 import AppError from '../../common/errors/AppError';
+import { isReservationOverlapDbError } from '../../common/errors/dbErrors';
 import httpStatus from 'http-status';
 import { normalizePhone } from '../../common/utils/phone';
 import {
@@ -37,6 +38,7 @@ import {
 import { RequestActor } from '../../types/express';
 import { prisma } from '../../config/prisma';
 import { eventEmitter, AppEvents } from '../../common/events/event-emitter';
+import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
 
 const OTP_POST_VERIFICATION_WINDOW_MINUTES = 5;
 
@@ -152,19 +154,21 @@ export const GroupBookingStation = {
       }
     }
 
-    const result = await GroupBookingRepo.transaction(async (tx) => {
-      // Resolve effective User record ID for createdByUserId
-      let effectiveCreatedByUserId = createdByUserId;
-      if (actor?.actorType === SessionActorType.CUSTOMER) {
-        const systemUser = await tx.user.findFirst({ where: { gamingCenterId, isActive: true } });
-        if (!systemUser) {
-          throw new AppError('GamingCenter staff account not found.', httpStatus.INTERNAL_SERVER_ERROR);
+    let result;
+    try {
+      result = await GroupBookingRepo.transaction(async (tx) => {
+        // Resolve effective User record ID for createdByUserId
+        let effectiveCreatedByUserId = createdByUserId;
+        if (actor?.actorType === SessionActorType.CUSTOMER) {
+          const systemUser = await tx.user.findFirst({ where: { gamingCenterId, isActive: true } });
+          if (!systemUser) {
+            throw new AppError('GamingCenter staff account not found.', httpStatus.INTERNAL_SERVER_ERROR);
+          }
+          effectiveCreatedByUserId = systemUser.id;
         }
-        effectiveCreatedByUserId = systemUser.id;
-      }
 
-      // 3. Lock all selected stations deterministically to prevent race conditions & deadlocks
-      await ReservationRepo.lockStationsForUpdate(stationIds, tx);
+        // 3. Lock all selected stations deterministically to prevent race conditions & deadlocks
+        await ReservationRepo.lockStationsForUpdate(stationIds, tx);
 
       // Batch fetch all stations
       const stations = await GroupBookingRepo.findStationsBatch(stationIds, gamingCenterId, true, tx);
@@ -345,10 +349,18 @@ export const GroupBookingStation = {
         });
       }
 
-      return { groupBooking: createdGroupBooking, isWalletPayment, payment };
-    }, {
-      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
-    });
+        return { groupBooking: createdGroupBooking, isWalletPayment, payment };
+      }, {
+        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+      });
+    } catch (error: unknown) {
+      if (isReservationOverlapDbError(error)) {
+        throw new AppError('One or more selected stations are not available for the requested time.', httpStatus.CONFLICT, {
+          code: 'SLOT_NOT_AVAILABLE',
+        });
+      }
+      throw error;
+    }
 
     if (result.isWalletPayment && result.groupBooking?.reservations) {
       for (const res of result.groupBooking.reservations) {
@@ -386,6 +398,8 @@ export const GroupBookingStation = {
     } catch (evtErr) {
       // Safe fallback
     }
+
+    void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
 
     return result.groupBooking;
   },
@@ -501,8 +515,10 @@ export const GroupBookingStation = {
       }
     }
 
-    const result = await GroupBookingRepo.transaction(async (tx) => {
-      await ReservationRepo.lockStationsForUpdate(stationIds, tx);
+    let result;
+    try {
+      result = await GroupBookingRepo.transaction(async (tx) => {
+        await ReservationRepo.lockStationsForUpdate(stationIds, tx);
 
       const stations = await GroupBookingRepo.findStationsBatch(stationIds, gamingCenter.id, true, tx);
       if (stations.length !== stationIds.length) {
@@ -700,10 +716,18 @@ export const GroupBookingStation = {
         });
       }
 
-      return { groupBooking: createdGroupBooking, isWalletPayment, payment };
-    }, {
-      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
-    });
+        return { groupBooking: createdGroupBooking, isWalletPayment, payment };
+      }, {
+        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+      });
+    } catch (error: unknown) {
+      if (isReservationOverlapDbError(error)) {
+        throw new AppError('One or more selected stations are not available for the requested time.', httpStatus.CONFLICT, {
+          code: 'SLOT_NOT_AVAILABLE',
+        });
+      }
+      throw error;
+    }
 
     if (result.isWalletPayment && result.groupBooking?.reservations) {
       for (const res of result.groupBooking.reservations) {
@@ -741,6 +765,8 @@ export const GroupBookingStation = {
     } catch (evtErr) {
       // Safe fallback
     }
+
+    void invalidatePublicCacheByPrefix(`public:avail:${gamingCenter.id}:`);
 
     return result.groupBooking;
   },
@@ -950,6 +976,8 @@ export const GroupBookingStation = {
         });
       }
     }
+
+    void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
 
     return updated;
   },

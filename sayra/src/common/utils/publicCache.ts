@@ -45,16 +45,23 @@ export async function withPublicCache<T>(
     return fetcher();
   }
 
+  let timeoutHandle: NodeJS.Timeout | undefined;
   try {
     const cached = await Promise.race([
       redis.get(key),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), CACHE_TIMEOUT_MS)),
+      new Promise<null>((resolve) => {
+        timeoutHandle = setTimeout(() => resolve(null), CACHE_TIMEOUT_MS);
+      }),
     ]);
     if (typeof cached === 'string' && cached.length > 0) {
       return JSON.parse(cached) as T;
     }
   } catch {
     // Fail-open to live query
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
   }
 
   const fresh = await fetcher();

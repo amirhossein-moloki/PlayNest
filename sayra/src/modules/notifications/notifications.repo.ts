@@ -78,6 +78,28 @@ export const notificationsRepo = {
     });
   },
 
+  async createNotificationsBatch(items: CreateNotificationInput[]) {
+    if (items.length === 0) return [];
+    await prisma.notification.createMany({
+      data: items.map((data) => ({
+        userId: data.userId,
+        category: data.category ?? 'GAME_CENTER',
+        type: data.type,
+        title: data.title,
+        message: data.message,
+        metadata: data.metadata ?? Prisma.JsonNull,
+      })),
+    });
+    return items.map((data) => ({
+      userId: data.userId,
+      category: data.category ?? 'GAME_CENTER',
+      type: data.type,
+      title: data.title,
+      message: data.message,
+      metadata: data.metadata ?? null,
+    }));
+  },
+
   async createCustomerNotification(data: {
     customerAccountId: string;
     title: string;

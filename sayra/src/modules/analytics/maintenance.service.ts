@@ -2,6 +2,7 @@ import { prisma } from '../../config/prisma';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { MaintenanceSeverity, MaintenanceStatus, Prisma } from '@prisma/client';
+import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
 
 export interface CreateMaintenanceInput {
   gamingCenterId: string;
@@ -56,6 +57,8 @@ export const MaintenanceService = {
         repairedAt: input.status === MaintenanceStatus.REPAIRED ? input.endTime || new Date() : null,
       },
     });
+
+    void invalidatePublicCacheByPrefix(`public:avail:${input.gamingCenterId}:`);
 
     return maintenance;
   },
@@ -134,6 +137,8 @@ export const MaintenanceService = {
         repairedAt,
       },
     });
+
+    void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
 
     return updated;
   },

@@ -17,6 +17,9 @@ jest.mock('../../../../src/config/prisma', () => ({
     user: {
       findMany: jest.fn(),
     },
+    customerNotification: {
+      create: jest.fn(() => Promise.resolve({})),
+    },
   },
 }));
 

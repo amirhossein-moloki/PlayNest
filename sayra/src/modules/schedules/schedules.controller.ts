@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AppRequest } from '../../types/express';
 import { schedulesStation } from './schedules.station';
+import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
 
 export const getSchedules = async (req: AppRequest, res: Response) => {
   const gamingCenterId = req.params.gamingCenterId || req.tenant?.gamingCenterId;
@@ -17,6 +18,8 @@ export const updateSchedules = async (req: AppRequest, res: Response) => {
     req.actor,
     { ip: req.ip, userAgent: req.headers['user-agent'] }
   );
+  void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
+  void invalidatePublicCacheByPrefix('public:gc:');
   res.ok(result);
 };
 

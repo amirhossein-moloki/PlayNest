@@ -1,11 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import * as reviewsStation from './ratings.station';
 import { RatingStatus } from '@prisma/client';
+import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
 
 export async function submitReview(req: Request, res: Response, next: NextFunction) {
   try {
     const { gamingCenterSlug } = req.params;
     const rating = await reviewsStation.submitReview(gamingCenterSlug, req.body);
+    void invalidatePublicCacheByPrefix('public:gc:');
     res.created(rating);
   } catch (error) {
     next(error);
@@ -38,6 +40,7 @@ export async function moderateReview(req: Request, res: Response, next: NextFunc
     const { gamingCenterId, id } = req.params;
     const { status } = req.body;
     const rating = await reviewsStation.moderateReview(gamingCenterId, id, status);
+    void invalidatePublicCacheByPrefix('public:gc:');
     res.ok(rating);
   } catch (error) {
     next(error);
@@ -54,6 +57,7 @@ export async function replyToReview(req: Request, res: Response, next: NextFunct
       replyText,
       req.actor?.id
     );
+    void invalidatePublicCacheByPrefix('public:gc:');
     res.ok(rating);
   } catch (error) {
     next(error);
@@ -64,6 +68,7 @@ export async function deleteReviewReply(req: Request, res: Response, next: NextF
   try {
     const { gamingCenterId, id } = req.params;
     await reviewsStation.deleteReviewReply(gamingCenterId, id);
+    void invalidatePublicCacheByPrefix('public:gc:');
     res.noContent();
   } catch (error) {
     next(error);

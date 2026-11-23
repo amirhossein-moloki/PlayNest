@@ -54,6 +54,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+    TooManyRequestsError:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
   schemas:
     GamingCenterMapItem:
       type: object
@@ -7100,8 +7106,10 @@ paths:
                     example: true
                   data:
                     $ref: '#/components/schemas/GamingCenter'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
       operationId: get_public_gamingCenters_gamingCenterSlug
-      description: Get public gaming center info
+      description: Returns the public profile and details of a gaming center by slug (or HTML if explicitly requested).
   /public/gamingCenters/{gamingCenterSlug}/pages/{pageSlug}:
     get:
       summary: Get a public page by slug
@@ -7492,12 +7500,14 @@ paths:
       - name: startDate
         in: query
         required: false
+        description: Inclusive start timestamp of the availability window (date range with endDate cannot exceed 31 days)
         schema:
           type: string
           format: date-time
       - name: endDate
         in: query
         required: false
+        description: Exclusive end timestamp of the availability window (must be after startDate and within 31 days of startDate)
         schema:
           type: string
           format: date-time
@@ -7513,8 +7523,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
       operationId: get_public_gamingCenters_gamingCenterSlug_availability_slots
-      description: Returns 60-minute bookable slots according to gaming center operating hours, temporary booking closures (marking overlapped slots unavailableReason=CLOSED and exposing isBookingTemporarilyClosed/bookingClosedUntil/activeClosure), active status, minimum advance lead time (default 15 minutes or settings.minAdvanceBookingMinutes), and reservation/maintenance availability separated by 24-hour intervals.
+      description: Returns 60-minute bookable slots according to gaming center operating hours, temporary booking closures (marking overlapped slots unavailableReason=CLOSED and exposing isBookingTemporarilyClosed/bookingClosedUntil/activeClosure), active status, minimum advance lead time (default 15 minutes or settings.minAdvanceBookingMinutes), and reservation/maintenance availability separated by 24-hour intervals. Multi-day queries (startDate to endDate) are bounded to a maximum of 31 days.
   /public/gamingCenters/{gamingCenterSlug}/reservation:
     post:
       summary: Create an online reservation
@@ -7589,6 +7603,8 @@ paths:
           description: Validation error or insufficient wallet balance (INSUFFICIENT_WALLET_BALANCE; transaction rolled back without creating reservation)
         '403':
           description: Forbidden - Online booking disabled, center inactive, or unauthorized wallet access (UNAUTHORIZED_WALLET_ACCESS)
+        '409':
+          $ref: '#/components/responses/ConflictError'
       operationId: post_public_gamingCenters_gamingCenterSlug_reservation
       description: Create an online reservation. Setting useWallet=true or provider=WALLET performs atomic wallet deduction and rolls back completely on failure. Unpaid payable online reservations start in PENDING status with expiry (never auto-confirmed).
   /gamingCenters/{gamingCenterId}/reservation:
@@ -7710,6 +7726,8 @@ paths:
           description: Validation error or insufficient wallet balance (INSUFFICIENT_WALLET_BALANCE; transaction rolled back without creating reservation)
         '403':
           $ref: '#/components/responses/ForbiddenError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
       operationId: post_gamingCenters_gamingCenterId_reservation
       description: Create a reservation (Panel). Setting useWallet=true or provider=WALLET performs atomic wallet deduction and rolls back on failure.
   /gamingCenters/{gamingCenterId}/reservation/{reservationId}:
@@ -7785,6 +7803,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '409':
+          $ref: '#/components/responses/ConflictError'
       operationId: patch_gamingCenters_gamingCenterId_reservation_reservationId
       description: Update reservation details
   /gamingCenters/{gamingCenterId}/reservation/{reservationId}/sessions/start:
@@ -8734,6 +8754,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Pagination'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
       operationId: get_gamingCenters
       description: List all gamingCenters
     post:
@@ -8805,6 +8827,8 @@ paths:
                       $ref: '#/components/schemas/GamingCenterMapItem'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
         '500':
           $ref: '#/components/responses/InternalServerError'
   /auth/me:
@@ -11360,6 +11384,8 @@ paths:
                 $ref: '#/components/schemas/GamingCenter'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
     patch:
       summary: Update gaming center details
       description: Update gaming center details
@@ -11842,6 +11868,8 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
   /gamingCenters/{gamingCenterId}/reservation/{reservationId}/start:
     post:
       summary: Start an active reservation
@@ -13805,6 +13833,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
       requestBody:
         required: false
         content:
@@ -13832,6 +13862,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
       requestBody:
         required: false
         content:
@@ -16080,6 +16112,8 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
   /gamingCenters/{gamingCenterId}/group-reservations/{id}:
     get:
       summary: Get group reservation details by ID
@@ -16249,6 +16283,8 @@ paths:
           description: Forbidden - Online booking disabled, center inactive, or unauthorized wallet access (UNAUTHORIZED_WALLET_ACCESS)
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
 tags:
 - name: Group Reservations
   description: Public and tenant group reservation and booking hold checkout operations

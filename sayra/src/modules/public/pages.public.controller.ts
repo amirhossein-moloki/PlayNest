@@ -2,7 +2,11 @@ import { Request, Response } from 'express';
 import { PagesPublicStation } from './pages.public.station';
 import { gamingCenterStation } from '../gamingCenter/gamingCenter.station';
 import { getGamingCenterDetailsSchema } from '../gamingCenter/gamingCenter.validation';
-import { setPublicCacheHeaders } from '../../common/utils/publicCache';
+import {
+  buildSortedCacheKey,
+  setPublicCacheHeaders,
+  withPublicCache,
+} from '../../common/utils/publicCache';
 
 type PublicPageRequest = Request<{ gamingCenterSlug: string; pageSlug?: string }> & {
   tenant?: { gamingCenterId: string; gamingCenterSlug?: string };
@@ -32,9 +36,13 @@ export async function getPublicGamingCenterHome(req: PublicPageRequest, res: Res
   }
 
   const validatedQuery = getGamingCenterDetailsSchema.parse(req.query);
-  const gamingCenter = await gamingCenterStation.getGamingCenterById(
-    req.tenant?.gamingCenterId || gamingCenterSlug,
-    validatedQuery
+  const centerLookupId = req.tenant?.gamingCenterId || gamingCenterSlug;
+  const cacheKey = buildSortedCacheKey(`public:gc:detail:${centerLookupId}`, {
+    include: validatedQuery.include?.join(','),
+    fields: validatedQuery.fields?.join(','),
+  });
+  const gamingCenter = await withPublicCache(cacheKey, 60, () =>
+    gamingCenterStation.getGamingCenterById(centerLookupId, validatedQuery)
   );
   setPublicCacheHeaders(res, 60, 120, 300);
   res.ok(gamingCenter);

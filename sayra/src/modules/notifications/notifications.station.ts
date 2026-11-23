@@ -597,19 +597,16 @@ export const NotificationStation = {
     const managers = (await prisma.user.findMany({
       where: {
         isActive: true,
-        OR: [
-          { role: { in: [UserRole.ADMIN, UserRole.MANAGER] } },
-          { isSuperuser: true },
-        ],
-        ...(input.gamingCenterId
-          ? {
-              OR: [
-                { role: UserRole.ADMIN },
-                { isSuperuser: true },
-                { gamingCenterId: input.gamingCenterId, role: UserRole.MANAGER },
-              ],
-            }
-          : {}),
+        OR: input.gamingCenterId
+          ? [
+              { role: UserRole.ADMIN },
+              { isSuperuser: true },
+              { gamingCenterId: input.gamingCenterId, role: UserRole.MANAGER },
+            ]
+          : [
+              { role: { in: [UserRole.ADMIN, UserRole.MANAGER] } },
+              { isSuperuser: true },
+            ],
       },
     })) || [];
 
@@ -617,23 +614,49 @@ export const NotificationStation = {
       return [];
     }
 
-    const notifications = [];
-    for (const manager of managers) {
-      const notif = await this.notifyUser({
-        gamingCenterId: input.gamingCenterId,
+    const payloads = managers.map((manager) => {
+      let resolvedTitle = input.title || '';
+      let resolvedMessage = input.message || '';
+      let resolvedMetadata = input.metadata;
+
+      if (input.templateKey) {
+        const localized = renderLocalizedNotification(
+          input.templateKey,
+          input.templateParams,
+          getRecipientPreferredLanguage(manager)
+        );
+        resolvedTitle = localized.title;
+        resolvedMessage = localized.message;
+        const baseMeta =
+          input.metadata && typeof input.metadata === 'object' && !Array.isArray(input.metadata)
+            ? (input.metadata as Record<string, unknown>)
+            : {};
+        resolvedMetadata = {
+          ...baseMeta,
+          language: localized.language,
+          direction: localized.direction,
+          ...(localized.description ? { description: localized.description } : {}),
+          ...(localized.actionLabel ? { actionLabel: localized.actionLabel } : {}),
+        } as Prisma.InputJsonValue;
+      }
+
+      return {
         userId: manager.id,
         category: NotificationCategory.MANAGER,
         type: input.type,
-        title: input.title,
-        message: input.message,
-        templateKey: input.templateKey,
-        templateParams: input.templateParams,
-        language: getRecipientPreferredLanguage(manager),
-        metadata: input.metadata,
-        sendSms: false,
-        entityType: input.entityType,
-        entityId: input.entityId,
-      });
+        title: resolvedTitle,
+        message: resolvedMessage,
+        metadata: resolvedMetadata,
+      };
+    });
+
+    if (typeof notificationsRepo.createNotificationsBatch === 'function') {
+      return await notificationsRepo.createNotificationsBatch(payloads);
+    }
+
+    const notifications = [];
+    for (const payload of payloads) {
+      const notif = await notificationsRepo.createNotification(payload);
       if (notif) notifications.push(notif);
     }
     return notifications;

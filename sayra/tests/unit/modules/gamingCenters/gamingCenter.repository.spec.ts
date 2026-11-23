@@ -16,7 +16,7 @@ describe('GamingCenterRepository', () => {
   });
 
   describe('findById', () => {
-    it('should find by id and isActive and transform', async () => {
+    it('should find by id and isActive and aggregate ratings without loading raw rating rows', async () => {
       gcMock.findFirst.mockResolvedValue({
         id: 'center_10',
         name: 'کافی گیم نت آرشا',
@@ -35,11 +35,11 @@ describe('GamingCenterRepository', () => {
           { id: 'st-1', stationType: 'PC', name: 'PC-1', hourlyPrice: 65000, isActive: true },
           { id: 'st-2', stationType: 'PLAYSTATION_5', name: 'PS5-Console', hourlyPrice: 85000, isActive: true },
         ],
-        ratings: [
-          { rating: 5, comment: 'عالی', status: 'PUBLISHED' },
-          { rating: 4, comment: 'خوب', status: 'PUBLISHED' },
-        ],
         settings: null,
+      });
+      (prismaMock.rating as any).aggregate.mockResolvedValue({
+        _avg: { rating: 4.5 },
+        _count: { _all: 2, comment: 2 },
       });
 
       const result = await gamingCenterRepository.findById('center_10') as any;
@@ -55,16 +55,31 @@ describe('GamingCenterRepository', () => {
           },
           include: expect.objectContaining({
             addresses: true,
-            stations: true,
-            ratings: true,
-            settings: true,
-            manager: true,
+            stations: expect.objectContaining({ select: expect.any(Object) }),
+            settings: expect.objectContaining({ select: expect.any(Object) }),
+            manager: { select: { id: true, fullName: true, role: true } },
             media: expect.any(Object),
             discounts: expect.any(Object),
             discountCampaigns: expect.any(Object),
           }),
         })
       );
+
+      const findFirstArgs = gcMock.findFirst.mock.calls[0][0];
+      expect(findFirstArgs.include.ratings).toBeUndefined();
+      expect((prismaMock.rating as any).aggregate).toHaveBeenCalledWith({
+        where: {
+          gamingCenterId: 'center_10',
+          status: 'PUBLISHED',
+        },
+        _avg: {
+          rating: true,
+        },
+        _count: {
+          _all: true,
+          comment: true,
+        },
+      });
 
       expect(result).toBeDefined();
       expect(result?.pc).toBe(true);
@@ -81,7 +96,7 @@ describe('GamingCenterRepository', () => {
       expect(typeof result?.allowOnlineBooking).toBe('boolean');
     });
 
-    it('should find by slug and isActive and transform', async () => {
+    it('should find by slug and isActive and transform with narrowed includes', async () => {
       gcMock.findFirst.mockResolvedValue({
         id: 'center_10',
         name: 'کافی گیم نت آرشا',
@@ -97,8 +112,11 @@ describe('GamingCenterRepository', () => {
         updatedAt: new Date(),
         addresses: [],
         stations: [],
-        ratings: [],
         settings: null,
+      });
+      (prismaMock.rating as any).aggregate.mockResolvedValue({
+        _avg: { rating: null },
+        _count: { _all: 0, comment: 0 },
       });
 
       const result = await gamingCenterRepository.findById('arsha-cafe-game-net');
@@ -113,10 +131,9 @@ describe('GamingCenterRepository', () => {
           },
           include: expect.objectContaining({
             addresses: true,
-            stations: true,
-            ratings: true,
-            settings: true,
-            manager: true,
+            stations: expect.objectContaining({ select: expect.any(Object) }),
+            settings: expect.objectContaining({ select: expect.any(Object) }),
+            manager: { select: { id: true, fullName: true, role: true } },
             media: expect.any(Object),
             discounts: expect.any(Object),
             discountCampaigns: expect.any(Object),
@@ -124,6 +141,7 @@ describe('GamingCenterRepository', () => {
         })
       );
 
+      expect(gcMock.findFirst.mock.calls[0][0].include.ratings).toBeUndefined();
       expect(result).toBeDefined();
       expect(result?.slug).toBe('arsha-cafe-game-net');
     });

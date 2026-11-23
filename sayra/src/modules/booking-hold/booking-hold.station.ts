@@ -11,6 +11,7 @@ import {
 } from '@prisma/client';
 import httpStatus from 'http-status';
 import AppError from '../../common/errors/AppError';
+import { isReservationOverlapDbError } from '../../common/errors/dbErrors';
 import { BookingHoldRepo } from './booking-hold.repo';
 import { ReservationRepo } from '../reservation/reservation.repo';
 import { discountsStation } from '../discounts/discounts.station';
@@ -30,6 +31,7 @@ import {
 } from '../station/extra-controller.service';
 import { RequestActor } from '../../types/express';
 import { eventEmitter, AppEvents } from '../../common/events/event-emitter';
+import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
 
 export const DEFAULT_HOLD_EXPIRATION_MINUTES = 10;
 export const OTP_POST_VERIFICATION_WINDOW_MINUTES = 15;
@@ -148,14 +150,15 @@ export const BookingHoldStation = {
       }
     }
 
-    return BookingHoldRepo.transaction(async (tx) => {
-      // 0. If previous hold with this idempotencyKey was RELEASED or EXPIRED, archive the key so retry succeeds
-      if (idempotencyKey) {
-        await BookingHoldRepo.archiveInactiveHoldIdempotencyKey(gamingCenter.id, idempotencyKey, tx);
-      }
+    try {
+      const hold = await BookingHoldRepo.transaction(async (tx) => {
+        // 0. If previous hold with this idempotencyKey was RELEASED or EXPIRED, archive the key so retry succeeds
+        if (idempotencyKey) {
+          await BookingHoldRepo.archiveInactiveHoldIdempotencyKey(gamingCenter.id, idempotencyKey, tx);
+        }
 
-      // 1. Pessimistic lock stations
-      await BookingHoldRepo.lockStationsForUpdate(stationIds, tx);
+        // 1. Pessimistic lock stations
+        await BookingHoldRepo.lockStationsForUpdate(stationIds, tx);
 
       // 2. Fetch & validate stations
       const stations = await tx.gameStation.findMany({
@@ -317,9 +320,20 @@ export const BookingHoldStation = {
         },
         tx
       );
-    }, {
-      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
-    });
+      }, {
+        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+      });
+
+      void invalidatePublicCacheByPrefix(`public:avail:${gamingCenter.id}:`);
+      return hold;
+    } catch (error: unknown) {
+      if (isReservationOverlapDbError(error)) {
+        throw new AppError('One or more selected stations are not available for the requested time.', httpStatus.CONFLICT, {
+          code: 'SLOT_NOT_AVAILABLE',
+        });
+      }
+      throw error;
+    }
   },
 
   async releaseHold(holdId: string, tx?: Prisma.TransactionClient) {
@@ -341,10 +355,13 @@ export const BookingHoldStation = {
       return hold;
     }
 
-    return client.bookingHold.update({
+    const releasedHold = await client.bookingHold.update({
       where: { id: holdId },
       data: { status: BookingHoldStatus.RELEASED },
     });
+
+    void invalidatePublicCacheByPrefix(`public:avail:${hold.gamingCenterId}:`);
+    return releasedHold;
   },
 
   async convertHoldToReservations(
@@ -352,11 +369,13 @@ export const BookingHoldStation = {
     verifiedPaymentId?: string,
     tx?: Prisma.TransactionClient
   ) {
+    let holdGamingCenterId: string | undefined;
     const executeConversion = async (t: Prisma.TransactionClient) => {
       const hold = await BookingHoldRepo.findHoldForUpdate(holdId, t);
       if (!hold) {
         throw new AppError('Booking hold not found.', httpStatus.NOT_FOUND);
       }
+      holdGamingCenterId = hold.gamingCenterId;
 
       // Idempotency: If already converted, return existing group booking
       if (hold.status === BookingHoldStatus.CONVERTED && hold.convertedGroupBookingId) {
@@ -396,6 +415,7 @@ export const BookingHoldStation = {
 
       // Revalidate station availability against active reservations to prevent double-booking
       const stationIds = hold.items.map((i) => i.stationId);
+      await BookingHoldRepo.lockStationsForUpdate(stationIds, t);
       const overlappingReservations = await t.reservation.findMany({
         where: {
           gamingCenterId: hold.gamingCenterId,
@@ -466,12 +486,26 @@ export const BookingHoldStation = {
       return groupBooking;
     };
 
-    if (tx) {
-      return executeConversion(tx);
-    } else {
-      return BookingHoldRepo.transaction(executeConversion, {
-        isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
-      });
+    try {
+      const converted = tx
+        ? await executeConversion(tx)
+        : await BookingHoldRepo.transaction(executeConversion, {
+          isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+        });
+
+      if (holdGamingCenterId) {
+        void invalidatePublicCacheByPrefix(`public:avail:${holdGamingCenterId}:`);
+      }
+      return converted;
+    } catch (error: unknown) {
+      if (isReservationOverlapDbError(error)) {
+        throw new AppError(
+          'Slot conflict detected during reservation creation. Payment preserved for reconciliation.',
+          httpStatus.CONFLICT,
+          { code: 'CONVERSION_CONFLICT' }
+        );
+      }
+      throw error;
     }
   },
 

@@ -21,6 +21,9 @@ jest.mock('../../../src/common/middleware/auth', () => ({
     };
     next();
   },
+  optionalAuth: (_req: Request, _res: Response, next: NextFunction) => {
+    next();
+  },
 }));
 
 jest.mock('../../../src/common/middleware/tenantGuard', () => ({

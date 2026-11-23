@@ -90,3 +90,20 @@ export const publicReservationRateLimiter = env.NODE_ENV === 'test'
     message: 'Too many reservation attempts from this IP for this gamingCenter, please try again after 15 minutes',
     handler: rateLimitHandler,
   });
+
+/**
+ * Rate limiter for public analytics event ingestion endpoints.
+ */
+export const publicAnalyticsRateLimiter = env.NODE_ENV === 'test'
+  ? mockMiddleware
+  : rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    store: createStore('rl:analytics:'),
+    keyGenerator: publicApiKeyGenerator,
+    validate: false,
+    message: 'Too many analytics events from this IP, please try again later.',
+    handler: rateLimitHandler,
+  });

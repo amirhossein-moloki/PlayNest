@@ -14,6 +14,7 @@ import { errorHandler } from './common/errors/errorHandler';
 import { notFoundHandler } from './common/errors/notFoundHandler';
 import { responseMiddleware } from './common/middleware/response';
 import { env } from './config/env';
+import logger from './config/logger';
 import { initReservationEvents } from './modules/reservation/reservation.events';
 import { maintenanceModeMiddleware } from './common/middleware/maintenanceMode';
 
@@ -34,6 +35,12 @@ if (env.SENTRY_ENABLED && env.SENTRY_DSN) {
 const app = express();
 
 app.set('trust proxy', env.TRUST_PROXY);
+
+if (env.NODE_ENV === 'production' && env.TRUST_PROXY === 0) {
+  logger.warn(
+    'TRUST_PROXY is 0 in production; if behind Nginx/reverse proxy, Express per-IP rate limiting will collapse to the proxy IP.'
+  );
+}
 
 app.use(cors({
   origin: env.CORS_ORIGIN,

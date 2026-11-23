@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as settingsStation from './settings.station';
+import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
 
 export async function getSettings(req: Request, res: Response, next: NextFunction) {
   try {
@@ -28,6 +29,10 @@ export async function updateSettings(req: Request, res: Response, next: NextFunc
       (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
       { ip: req.ip, userAgent: req.headers['user-agent'] }
     );
+    if (gamingCenterId) {
+      void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
+    }
+    void invalidatePublicCacheByPrefix('public:gc:');
     res.ok(settings);
   } catch (error) {
     next(error);

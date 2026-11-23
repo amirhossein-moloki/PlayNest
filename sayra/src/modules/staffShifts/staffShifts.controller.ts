@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as staffShiftsStation from './staffShifts.station';
 import { UpsertShiftsInput } from './staffShifts.validators';
+import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
 
 export const upsertShiftsController = async (
   req: Request<{ gamingCenterId: string; userId: string }, unknown, UpsertShiftsInput>,
@@ -16,6 +17,7 @@ export const upsertShiftsController = async (
       req.actor!,
       { ip: req.ip, userAgent: req.headers['user-agent'] }
     );
+    void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
     res.ok(staffShifts);
   } catch (error) {
     next(error);

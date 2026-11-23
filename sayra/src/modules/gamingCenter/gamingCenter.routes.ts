@@ -5,13 +5,14 @@ import { requireRole } from '../../common/middleware/requireRole';
 import { tenantGuard } from '../../common/middleware/tenantGuard';
 import { UserRole } from '@prisma/client';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
+import { publicApiRateLimiter } from '../../common/middleware/rateLimit';
 
 const router = Router();
 
 // Public routes
-router.get('/', asyncHandler(gamingCenterController.getAllGamingCenters));
-router.get('/map', asyncHandler(gamingCenterController.getMapGamingCenters));
-router.get('/:id', asyncHandler(gamingCenterController.getGamingCenterById));
+router.get('/', publicApiRateLimiter, asyncHandler(gamingCenterController.getAllGamingCenters));
+router.get('/map', publicApiRateLimiter, asyncHandler(gamingCenterController.getMapGamingCenters));
+router.get('/:id', publicApiRateLimiter, asyncHandler(gamingCenterController.getGamingCenterById));
 
 // Protected routes - Require authentication and specific roles
 router.post(

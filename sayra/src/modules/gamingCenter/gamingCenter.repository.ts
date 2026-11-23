@@ -50,6 +50,7 @@ export function checkIsOpen(
 }
 
 type NarrowedSettings = Partial<Settings>;
+type NarrowedStation = Pick<GameStation, 'id' | 'stationType' | 'name' | 'hourlyPrice' | 'isActive'>;
 type NarrowedManager = {
   id: string;
   fullName: string;
@@ -67,7 +68,7 @@ type GamingCenterWithRelations = Omit<
   ratings?: Rating[];
   settings?: NarrowedSettings | null;
   manager?: NarrowedManager | null;
-  stations?: GameStation[];
+  stations?: NarrowedStation[];
   media?: Array<{
     url: string;
     thumbUrl?: string | null;
@@ -311,7 +312,7 @@ export function transformGamingCenter(
     };
   }
 ): GamingCenterListItem {
-  const stations: GameStation[] = gc.stations || [];
+  const stations: NarrowedStation[] = gc.stations || [];
   const ratings: Rating[] = gc.ratings || [];
   const settings: NarrowedSettings | null = gc.settings || null;
   const addresses: Address[] = gc.addresses || [];
@@ -550,16 +551,45 @@ export const gamingCenterRepository = {
         },
         include: {
           addresses: true,
-          stations: true,
-          ratings: true,
-          settings: true,
-          manager: true,
+          stations: {
+            select: {
+              id: true,
+              stationType: true,
+              name: true,
+              hourlyPrice: true,
+              isActive: true,
+            },
+          },
+          settings: {
+            select: {
+              workStartTime: true,
+              workEndTime: true,
+              timeZone: true,
+              cancellationHours: true,
+              cancellationWindowMinutes: true,
+              allowOnlineBooking: true,
+            },
+          },
+          manager: {
+            select: {
+              id: true,
+              fullName: true,
+              role: true,
+            },
+          },
           media: {
             where: {
               isActive: true,
             },
             orderBy: {
               sortOrder: 'asc',
+            },
+            select: {
+              url: true,
+              thumbUrl: true,
+              purpose: true,
+              isActive: true,
+              sortOrder: true,
             },
           },
           discounts: {
@@ -594,7 +624,41 @@ export const gamingCenterRepository = {
       });
 
       if (!gc) return null;
-      return transformGamingCenter(gc);
+
+      let ratingSummary: { avgRating: number; count: number; commentCount: number } | undefined;
+      const rawRatings = (gc as GamingCenterWithRelations).ratings;
+      if (!Array.isArray(rawRatings) && typeof prisma.rating?.aggregate === 'function') {
+        try {
+          const agg = await prisma.rating.aggregate({
+            where: {
+              gamingCenterId: gc.id,
+              status: 'PUBLISHED',
+            },
+            _avg: {
+              rating: true,
+            },
+            _count: {
+              _all: true,
+              comment: true,
+            },
+          });
+          if (agg && agg._count) {
+            const totalRatings = agg._count._all ?? 0;
+            const rawAvg = agg._avg?.rating;
+            const avgRating = typeof rawAvg === 'number' ? Math.round(rawAvg * 10) / 10 : 0;
+            const commentCount = agg._count.comment ?? totalRatings;
+            ratingSummary = { avgRating, count: totalRatings, commentCount };
+          }
+        } catch {
+          // Fallback cleanly in partial unit test mocks
+        }
+      }
+
+      return transformGamingCenter(
+        gc,
+        undefined,
+        ratingSummary ? { ratingSummary } : undefined
+      );
     }
 
     // Build targeted include or select

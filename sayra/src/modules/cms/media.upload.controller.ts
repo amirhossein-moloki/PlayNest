@@ -3,6 +3,7 @@ import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import * as uploadStation from '../../common/stations/upload.station';
 import * as MediaStation from './media.station';
+import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
 
 export async function uploadMedia(
   req: Request<{ gamingCenterId: string }>,
@@ -28,6 +29,7 @@ export async function uploadMedia(
       thumbUrl,
     });
 
+    void invalidatePublicCacheByPrefix('public:gc:');
     res.created(media);
   } catch (error) {
     next(error);

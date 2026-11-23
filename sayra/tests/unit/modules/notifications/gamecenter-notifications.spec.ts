@@ -223,16 +223,18 @@ describe('GameCenter Notification System (Unit & Verification)', () => {
       );
     });
 
-    it('notifyManagers should deliver In-App notifications to platform admins and managers', async () => {
+    it('notifyManagers should deliver In-App notifications to platform admins and managers in a batch', async () => {
       MockedPrisma.user.findMany.mockResolvedValue([
         { id: 'admin-1', role: UserRole.ADMIN, preferredLanguage: 'fa' },
         { id: 'manager-2', role: UserRole.MANAGER, preferredLanguage: 'en' },
       ]);
 
-      MockedRepo.createNotification.mockImplementation(async (data: any) => ({
-        id: `notif-${data.userId}`,
-        ...data,
-      }));
+      (MockedRepo as any).createNotificationsBatch.mockImplementation(async (items: any[]) =>
+        items.map((data) => ({
+          id: `notif-${data.userId}`,
+          ...data,
+        }))
+      );
 
       const results = await NotificationStation.notifyManagers({
         type: NotificationType.SYSTEM_ERROR,
@@ -241,12 +243,20 @@ describe('GameCenter Notification System (Unit & Verification)', () => {
       });
 
       expect(results).toHaveLength(2);
-      expect(MockedRepo.createNotification).toHaveBeenCalledWith(
-        expect.objectContaining({
-          userId: 'admin-1',
-          category: NotificationCategory.MANAGER,
-          type: NotificationType.SYSTEM_ERROR,
-        })
+      expect((MockedRepo as any).createNotificationsBatch).toHaveBeenCalledTimes(1);
+      expect((MockedRepo as any).createNotificationsBatch).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            userId: 'admin-1',
+            category: NotificationCategory.MANAGER,
+            type: NotificationType.SYSTEM_ERROR,
+          }),
+          expect.objectContaining({
+            userId: 'manager-2',
+            category: NotificationCategory.MANAGER,
+            type: NotificationType.SYSTEM_ERROR,
+          }),
+        ])
       );
     });
   });

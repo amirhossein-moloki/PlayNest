@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import type { Request, Response, NextFunction } from 'express';
 import { ZodError, z } from 'zod';
+import { Prisma } from '@prisma/client';
 import AppError from '../../../../src/common/errors/AppError';
 import { errorHandler } from '../../../../src/common/errors/errorHandler';
 import { notFoundHandler } from '../../../../src/common/errors/notFoundHandler';
@@ -331,25 +332,43 @@ describe('notFoundHandler & errorHandler unit tests', () => {
       expect(res.json).not.toHaveBeenCalled();
     });
 
-    it('still responds with JSON if NotificationStation.notifyManagers rejects or throws synchronously', () => {
+    it('does not invoke NotificationStation.notifyManagers on 5xx errors', () => {
+      const req = createMockRequest();
+      const next = jest.fn() as unknown as NextFunction;
+      const resSync = createMockResponse();
+
+      errorHandler(new Error('Boom internal failure'), req, resSync, next);
+
+      expect(resSync.statusCode).toBe(500);
+      expect(resSync.body.error.code).toBe('INTERNAL_ERROR');
+      expect(NotificationStation.notifyManagers).not.toHaveBeenCalled();
+    });
+
+    it('normalizes raw and Prisma-wrapped 23P01 exclusion violations to 409 RESERVATION_OVERLAP', () => {
       const req = createMockRequest();
       const next = jest.fn() as unknown as NextFunction;
 
-      (NotificationStation.notifyManagers as jest.Mock).mockImplementationOnce(() => {
-        throw new Error('Sync failure');
-      });
-      const resSync = createMockResponse();
-      errorHandler(new Error('Boom sync'), req, resSync, next);
-      expect(resSync.statusCode).toBe(500);
-      expect(resSync.body.error.code).toBe('INTERNAL_ERROR');
-
-      (NotificationStation.notifyManagers as jest.Mock).mockImplementationOnce(() =>
-        Promise.reject(new Error('Async failure'))
+      const rawRes = createMockResponse();
+      errorHandler(
+        {
+          code: '23P01',
+          message: 'conflicting key value violates exclusion constraint "Reservation_no_overlap_active"',
+        },
+        req,
+        rawRes,
+        next
       );
-      const resAsync = createMockResponse();
-      errorHandler(new Error('Boom async'), req, resAsync, next);
-      expect(resAsync.statusCode).toBe(500);
-      expect(resAsync.body.error.code).toBe('INTERNAL_ERROR');
+      expect(rawRes.statusCode).toBe(409);
+      expect(rawRes.body.error.code).toBe('RESERVATION_OVERLAP');
+
+      const prismaWrappedErr = new Prisma.PrismaClientUnknownRequestError(
+        'Invalid `prisma.reservation.create()` invocation: Error occurred during query execution: ConnectorError(ConnectorError { user_facing_error: None, kind: QueryError(PostgresError { code: "23P01", message: "conflicting key value violates exclusion constraint \\"Reservation_no_overlap_active\\"" }) })',
+        { clientVersion: '5.22.0' }
+      );
+      const wrappedRes = createMockResponse();
+      errorHandler(prismaWrappedErr, req, wrappedRes, next);
+      expect(wrappedRes.statusCode).toBe(409);
+      expect(wrappedRes.body.error.code).toBe('RESERVATION_OVERLAP');
     });
 
     it('omits error details for 5xx errors in production environment', () => {

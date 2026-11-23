@@ -1,10 +1,11 @@
 
 import type { Request, Response, NextFunction } from 'express';
-import { Prisma, NotificationType } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import httpStatus from 'http-status';
 import { ApiFailure } from '../utils/response';
 import { env } from '../../config/env';
-import { NotificationStation } from '../../modules/notifications/notifications.station';
+import logger from '../../config/logger';
+import { isReservationOverlapDbError } from './dbErrors';
 
 type NormalizedError = {
   status: number;
@@ -90,10 +91,8 @@ function normalizeError(err: any): NormalizedError { // eslint-disable-line @typ
     };
   }
 
-  // 3. PostgreSQL Exclusion Constraint Violation (via Prisma Raw Query Error)
-  // This is a specific case for our reservation overlap constraint.
-  // Prisma doesn't have a specific code for this, so we check the native DB error code.
-  if (err.code === '23P01' && typeof err.message === 'string' && err.message.includes('Reservation_no_overlap_active')) {
+  // 3. PostgreSQL Exclusion Constraint Violation (raw or wrapped in PrismaClientUnknownRequestError)
+  if (isReservationOverlapDbError(err)) {
     return {
       status: 409,
       code: 'RESERVATION_OVERLAP',
@@ -205,22 +204,18 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
   const isServerError = normalized.status >= 500;
   const includeDetails = !isServerError || env.NODE_ENV !== 'production';
 
-  if (isServerError) {
-    try {
-      Promise.resolve(
-        NotificationStation.notifyManagers({
-          type: NotificationType.SYSTEM_ERROR,
-          templateKey: 'SYSTEM_ERROR',
-          templateParams: {
-            component: req.originalUrl || req.url || 'API',
-            errorMessage: normalized.message || 'Internal Server Error',
-          },
-          metadata: { requestId, code: normalized.code, status: normalized.status },
-        })
-      ).catch(() => {});
-    } catch {
-      // Ignore notification failures inside the global error handler
-    }
+  if (isServerError && env.NODE_ENV !== 'test') {
+    logger.error(
+      {
+        requestId,
+        method: req.method,
+        path: req.originalUrl || req.url,
+        status: normalized.status,
+        code: normalized.code,
+        err,
+      },
+      'Unhandled 5xx API error'
+    );
   }
 
   const body: ApiFailure = {
