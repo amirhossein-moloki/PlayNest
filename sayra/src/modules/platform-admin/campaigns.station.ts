@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Prisma } from '@prisma/client';
+import { Prisma, SessionActorType } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
@@ -96,7 +96,7 @@ export const PlatformCampaignsRepo = {
       status: c.status || (c.isActive ? 'ACTIVE' : 'INACTIVE'),
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
-      createdBy: c.createdByUserId,
+      createdBy: c.createdByUserId ?? null,
     }));
 
     return {
@@ -181,6 +181,11 @@ export const PlatformCampaignsStation = {
       }
     }
 
+    const createdByUserId =
+      actor?.actorType === SessionActorType.USER
+        ? (actor.id || (actor as any)?.actorId || null)
+        : null;
+
     const campaign = await PlatformCampaignsRepo.createCampaign({
       title: input.title,
       name: input.title,
@@ -206,12 +211,15 @@ export const PlatformCampaignsStation = {
       endAt: new Date(input.endDate),
       status: input.status,
       isActive: input.status === 'ACTIVE',
-      createdByUserId: actor?.id || (actor as any)?.actorId,
+      createdByUserId,
     });
 
     if (actor) {
+      const actorId = actor.id || (actor as any).actorId;
       await auditService.recordLog({
-        platformAdminId: actor.id || (actor as any).actorId,
+        ...(actor.actorType === SessionActorType.USER
+          ? { userId: actorId }
+          : { platformAdminId: actorId }),
         action: 'PLATFORM_CAMPAIGN_CREATE',
         entity: 'DiscountCampaign',
         entityId: campaign.id,
@@ -243,7 +251,7 @@ export const PlatformCampaignsStation = {
       status: campaign.status || (campaign.isActive ? 'ACTIVE' : 'INACTIVE'),
       createdAt: campaign.createdAt,
       updatedAt: campaign.updatedAt,
-      createdBy: campaign.createdByUserId,
+      createdBy: campaign.createdByUserId ?? null,
     };
   },
 
@@ -370,7 +378,7 @@ export const PlatformCampaignsStation = {
       status: updated.status || (updated.isActive ? 'ACTIVE' : 'INACTIVE'),
       createdAt: updated.createdAt,
       updatedAt: updated.updatedAt,
-      createdBy: updated.createdByUserId,
+      createdBy: updated.createdByUserId ?? null,
     };
   },
 

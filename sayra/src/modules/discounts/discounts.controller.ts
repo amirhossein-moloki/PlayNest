@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { SessionActorType } from '@prisma/client';
 import { AppRequest } from '../../types/express';
 import { discountsStation } from './discounts.station';
 import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
@@ -16,9 +17,12 @@ export const createCampaign = async (req: AppRequest, res: Response) => {
   const { gamingCenterId } = req.params;
   const body = req.body as CreateCampaignInput;
 
+  const createdByUserId =
+    req.actor?.actorType === SessionActorType.USER ? req.actor.id : null;
+
   const campaign = await discountsStation.createCampaign(
     gamingCenterId || null,
-    req.actor?.id || null,
+    createdByUserId,
     body,
     req.actor,
     { ip: req.ip, userAgent: req.get('user-agent') }
@@ -91,9 +95,12 @@ export const createDiscount = async (req: AppRequest, res: Response) => {
   const { gamingCenterId } = req.params;
   const body = req.body as CreateDiscountInput;
 
+  const createdByUserId =
+    req.actor?.actorType === SessionActorType.USER ? req.actor.id : null;
+
   const discount = await discountsStation.createDiscount(
     gamingCenterId,
-    req.actor.id,
+    createdByUserId,
     body,
     req.actor,
     { ip: req.ip, userAgent: req.get('user-agent') }

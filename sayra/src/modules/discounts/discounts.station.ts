@@ -1,6 +1,7 @@
-import { Discount, DiscountCampaign, DiscountFundingSource, DiscountTargetType, DiscountValueType, Prisma } from '@prisma/client';
+import { Discount, DiscountCampaign, DiscountFundingSource, DiscountTargetType, DiscountValueType, Prisma, SessionActorType } from '@prisma/client';
 import httpStatus from 'http-status';
 import AppError from '../../common/errors/AppError';
+import { prisma } from '../../config/prisma';
 import { DiscountsRepo } from './discounts.repo';
 import { ReservationRepo } from '../reservation/reservation.repo';
 import { auditService } from '../audit/audit.station';
@@ -224,12 +225,48 @@ export const selectBestDiscount = (
 export const discountsStation = {
   async createDiscount(
     gamingCenterId: string,
-    createdByUserId: string,
+    createdByUserId: string | null,
     input: CreateDiscountInput,
     actor?: RequestActor,
     context?: { ip?: string; userAgent?: string }
   ) {
     await validateTarget(gamingCenterId, input.targetType, input.targetId);
+
+    let effectiveCreatedByUserId: string | null =
+      createdByUserId && (!actor || actor.actorType === SessionActorType.USER)
+        ? createdByUserId
+        : null;
+
+    if (!effectiveCreatedByUserId) {
+      const center = await prisma.gamingCenter.findUnique({
+        where: { id: gamingCenterId },
+        select: { managerId: true },
+      });
+      if (center?.managerId) {
+        effectiveCreatedByUserId = center.managerId;
+      } else {
+        const activeUser = await prisma.user.findFirst({
+          where: { gamingCenterId, isActive: true },
+          select: { id: true },
+        });
+        if (activeUser?.id) {
+          effectiveCreatedByUserId = activeUser.id;
+        } else {
+          const anyUser = await prisma.user.findFirst({
+            where: { gamingCenterId },
+            select: { id: true },
+          });
+          effectiveCreatedByUserId = anyUser?.id ?? null;
+        }
+      }
+    }
+
+    if (!effectiveCreatedByUserId) {
+      throw new AppError(
+        'No valid center user found to attribute this discount.',
+        httpStatus.BAD_REQUEST
+      );
+    }
 
     const discount = await DiscountsRepo.createDiscount({
       gamingCenterId,
@@ -240,7 +277,7 @@ export const discountsStation = {
       startAt: new Date(input.startAt),
       endAt: new Date(input.endAt),
       isActive: input.isActive ?? true,
-      createdByUserId,
+      createdByUserId: effectiveCreatedByUserId,
     });
 
     if (actor) {

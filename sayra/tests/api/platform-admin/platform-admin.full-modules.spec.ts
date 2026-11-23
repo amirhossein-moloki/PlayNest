@@ -177,6 +177,20 @@ describe('Platform Admin Full Modules API Tests', () => {
       expect(res.status).toBe(201);
       expect(res.body.data.code).toBe('SUMMER50');
       expect(res.body.data.discountValue).toBe(50);
+      expect(res.body.data.createdBy).toBeNull();
+      expect((prisma as any).discountCampaign.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          code: 'SUMMER50',
+          createdByUserId: null,
+        }),
+      });
+      expect((prisma as any).auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          platformAdminId: 'pa_test_1',
+          action: 'PLATFORM_CAMPAIGN_CREATE',
+          entity: 'DiscountCampaign',
+        }),
+      });
     });
 
     it('POST /platform-admin/campaigns should reject duplicate discount code', async () => {

@@ -12,11 +12,14 @@ jest.mock('../../../src/modules/discounts/discounts.station');
 jest.mock('../../../src/common/middleware/auth', () => ({
   authMiddleware: (req: Request, _res: Response, next: NextFunction) => {
     const roleHeader = req.headers['x-test-role'] as string;
+    const actorTypeHeader = req.headers['x-test-actor-type'] as SessionActorType | undefined;
     const role = roleHeader ? (roleHeader as UserRole) : UserRole.MANAGER;
+    const actorType = actorTypeHeader || SessionActorType.USER;
     (req as any).actor = {
-      id: 'clx0000000000000000000001',
-      actorType: SessionActorType.USER,
+      id: actorType === SessionActorType.PLATFORM_ADMIN ? 'pa_admin_1' : 'clx0000000000000000000001',
+      actorType,
       role,
+      ...(actorType === SessionActorType.PLATFORM_ADMIN ? { isSuperuser: true } : {}),
       gamingCenterId: req.params.gamingCenterId || 'clx0000000000000000000000',
     };
     next();
@@ -174,6 +177,39 @@ describe('Discounts API Integration Tests', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.data.id).toBe(discountId);
+    });
+  });
+
+  describe('POST /gamingCenters/:gamingCenterId/discounts/campaigns', () => {
+    it('should pass createdByUserId=null when actor is PLATFORM_ADMIN', async () => {
+      MockedDiscountsStation.createCampaign.mockResolvedValue({
+        id: 'camp-1',
+        gamingCenterId,
+        name: 'Admin Promo',
+        code: 'ADMIN10',
+        createdByUserId: null,
+      } as any);
+
+      const res = await request(app)
+        .post(`/api/v1/gamingCenters/${gamingCenterId}/discounts/campaigns`)
+        .set('x-test-actor-type', SessionActorType.PLATFORM_ADMIN)
+        .send({
+          name: 'Admin Promo',
+          code: 'ADMIN10',
+          valueType: DiscountValueType.PERCENTAGE,
+          value: 10,
+          startAt: '2026-01-01T00:00:00.000Z',
+          endAt: '2026-12-31T23:59:59.000Z',
+        });
+
+      expect(res.status).toBe(201);
+      expect(MockedDiscountsStation.createCampaign).toHaveBeenCalledWith(
+        gamingCenterId,
+        null,
+        expect.objectContaining({ code: 'ADMIN10' }),
+        expect.objectContaining({ id: 'pa_admin_1', actorType: SessionActorType.PLATFORM_ADMIN }),
+        expect.anything()
+      );
     });
   });
 });
