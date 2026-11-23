@@ -9,9 +9,14 @@ import { bookingHoldExpiryWorker } from './bookingHoldExpiry.worker';
 import { advertisementExpiryWorker } from './advertisementExpiry.worker';
 import { reservationRemindersWorker } from './reservationReminders.worker';
 import logger from '../../config/logger';
-import '../monitoring/queue-monitor';
+import { startQueueMonitor, stopQueueMonitor } from '../monitoring/queue-monitor';
+
+let workersInitialized = false;
 
 export const initWorkers = () => {
+  if (workersInitialized) return;
+  workersInitialized = true;
+
   logger.info('Initializing background workers...');
 
   smsWorker.on('ready', () => logger.info('SMS Worker ready'));
@@ -25,17 +30,22 @@ export const initWorkers = () => {
   waitlistExpiryWorker.start();
   bookingHoldExpiryWorker.start();
   advertisementExpiryWorker.start();
+  startQueueMonitor();
 };
 
 export const stopWorkers = async () => {
-  await advertisementExpiryWorker.stop();
-  await reservationExpiryWorker.stop();
-  await reservationRemindersWorker.stop();
-  await waitlistExpiryWorker.stop();
-  await bookingHoldExpiryWorker.stop();
-  await notificationsWorker.close();
-  await smsWorker.close();
-  await analyticsWorker.close();
-  await analyticsIngestionWorker.close();
-  await cmsSyncMediaWorker.close();
+  workersInitialized = false;
+  stopQueueMonitor();
+  await Promise.allSettled([
+    advertisementExpiryWorker.stop(),
+    reservationExpiryWorker.stop(),
+    reservationRemindersWorker.stop(),
+    waitlistExpiryWorker.stop(),
+    bookingHoldExpiryWorker.stop(),
+    notificationsWorker.close(),
+    smsWorker.close(),
+    analyticsWorker.close(),
+    analyticsIngestionWorker.close(),
+    cmsSyncMediaWorker.close(),
+  ]);
 };

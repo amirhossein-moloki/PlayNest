@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import logger from '../../config/logger';
+import { env } from '../../config/env';
 import { prisma } from '../../config/prisma';
 import { runWithSystemContext } from '../../common/context/request-context';
+import { withDistributedLock } from '../../common/utils/distributedLock';
 
 export class AdvertisementExpiryWorker {
   private timer: NodeJS.Timeout | null = null;
@@ -66,60 +68,66 @@ export class AdvertisementExpiryWorker {
     };
 
     try {
-      return await runWithSystemContext('AdvertisementExpiryWorker', async () => {
-        // 1. Activate approved ads whose startDate has arrived
-        const toActivate = await (prisma as any).advertisementRequest.findMany({
-          where: {
-            status: 'APPROVED',
-            deletedAt: null,
-            startDate: { lte: now },
-            OR: [
-              { endDate: null },
-              { endDate: { gte: now } },
-            ],
-          },
-          take: this.batchSize,
-          select: { id: true },
-        });
+      const lockOutcome = await withDistributedLock(
+        'advertisement-expiry',
+        Math.max(this.pollIntervalMs * 2, env.WORKER_LOCK_TTL_MS),
+        async () =>
+          runWithSystemContext('AdvertisementExpiryWorker', async () => {
+            // 1. Activate approved ads whose startDate has arrived
+            const toActivate = await (prisma as any).advertisementRequest.findMany({
+              where: {
+                status: 'APPROVED',
+                deletedAt: null,
+                startDate: { lte: now },
+                OR: [
+                  { endDate: null },
+                  { endDate: { gte: now } },
+                ],
+              },
+              take: this.batchSize,
+              select: { id: true },
+            });
 
-        if (toActivate.length > 0) {
-          const ids = toActivate.map((a: { id: string }) => a.id);
-          const updateRes = await (prisma as any).advertisementRequest.updateMany({
-            where: { id: { in: ids } },
-            data: { status: 'ACTIVE' },
-          });
-          result.activatedCount = updateRes.count;
-        }
+            if (toActivate.length > 0) {
+              const ids = toActivate.map((a: { id: string }) => a.id);
+              const updateRes = await (prisma as any).advertisementRequest.updateMany({
+                where: { id: { in: ids } },
+                data: { status: 'ACTIVE' },
+              });
+              result.activatedCount = updateRes.count;
+            }
 
-        // 2. Expire active or approved ads whose endDate has passed
-        const toExpire = await (prisma as any).advertisementRequest.findMany({
-          where: {
-            status: { in: ['APPROVED', 'ACTIVE'] },
-            deletedAt: null,
-            endDate: { lt: now },
-          },
-          take: this.batchSize,
-          select: { id: true },
-        });
+            // 2. Expire active or approved ads whose endDate has passed
+            const toExpire = await (prisma as any).advertisementRequest.findMany({
+              where: {
+                status: { in: ['APPROVED', 'ACTIVE'] },
+                deletedAt: null,
+                endDate: { lt: now },
+              },
+              take: this.batchSize,
+              select: { id: true },
+            });
 
-        if (toExpire.length > 0) {
-          const ids = toExpire.map((a: { id: string }) => a.id);
-          const updateRes = await (prisma as any).advertisementRequest.updateMany({
-            where: { id: { in: ids } },
-            data: { status: 'EXPIRED' },
-          });
-          result.expiredCount = updateRes.count;
-        }
+            if (toExpire.length > 0) {
+              const ids = toExpire.map((a: { id: string }) => a.id);
+              const updateRes = await (prisma as any).advertisementRequest.updateMany({
+                where: { id: { in: ids } },
+                data: { status: 'EXPIRED' },
+              });
+              result.expiredCount = updateRes.count;
+            }
 
-        if (result.activatedCount > 0 || result.expiredCount > 0) {
-          logger.info({
-            msg: 'Advertisement lifecycle tick completed',
-            ...result,
-          });
-        }
+            if (result.activatedCount > 0 || result.expiredCount > 0) {
+              logger.info({
+                msg: 'Advertisement lifecycle tick completed',
+                ...result,
+              });
+            }
 
-        return result;
-      });
+            return result;
+          })
+      );
+      return lockOutcome.acquired && lockOutcome.result ? lockOutcome.result : result;
     } catch (error) {
       result.errorCount++;
       logger.error({ msg: 'Error during advertisement expiry worker tick', error });

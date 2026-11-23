@@ -4,6 +4,7 @@ import { BookingHoldRepo } from '../../modules/booking-hold/booking-hold.repo';
 import { PaymentsRepo } from '../../modules/payments/payments.repo';
 import { BookingHoldStatus, PaymentStatus } from '@prisma/client';
 import { runWithSystemContext } from '../../common/context/request-context';
+import { withDistributedLock } from '../../common/utils/distributedLock';
 
 export class BookingHoldExpiryWorker {
   private timer: NodeJS.Timeout | null = null;
@@ -69,59 +70,65 @@ export class BookingHoldExpiryWorker {
     };
 
     try {
-      return await runWithSystemContext('BookingHoldExpiryWorker', async () => {
-        const candidates = await BookingHoldRepo.findExpiredActiveHolds(now, this.batchSize);
-        result.candidatesFound = candidates.length;
+      const lockOutcome = await withDistributedLock(
+        'booking-hold-expiry',
+        Math.max(this.pollIntervalMs * 2, env.WORKER_LOCK_TTL_MS),
+        async () =>
+          runWithSystemContext('BookingHoldExpiryWorker', async () => {
+            const candidates = await BookingHoldRepo.findExpiredActiveHolds(now, this.batchSize);
+            result.candidatesFound = candidates.length;
 
-        for (const hold of candidates) {
-          try {
-            await BookingHoldRepo.transaction(async (tx) => {
-              // 1. Lock hold row
-              const lockedHold = await BookingHoldRepo.findHoldForUpdate(hold.id, tx);
-              if (!lockedHold || lockedHold.status !== BookingHoldStatus.ACTIVE) {
-                result.skippedCount++;
-                return;
+            for (const hold of candidates) {
+              try {
+                await BookingHoldRepo.transaction(async (tx) => {
+                  // 1. Lock hold row
+                  const lockedHold = await BookingHoldRepo.findHoldForUpdate(hold.id, tx);
+                  if (!lockedHold || lockedHold.status !== BookingHoldStatus.ACTIVE) {
+                    result.skippedCount++;
+                    return;
+                  }
+
+                  // Double-check: Never expire hold if payment is PAID
+                  if (lockedHold.payment && lockedHold.payment.status === PaymentStatus.PAID) {
+                    result.skippedCount++;
+                    return;
+                  }
+
+                  // 2. Mark hold EXPIRED
+                  await tx.bookingHold.update({
+                    where: { id: lockedHold.id },
+                    data: { status: BookingHoldStatus.EXPIRED },
+                  });
+
+                  // 3. Mark unpaid payment FAILED/CANCELED if exists & restore deducted wallet funds safely
+                  if (lockedHold.payment && lockedHold.payment.status !== PaymentStatus.PAID) {
+                    await PaymentsRepo.handleFailedPayment(
+                      tx,
+                      lockedHold.payment.id,
+                      PaymentStatus.CANCELED,
+                      'Booking hold expired before payment completion'
+                    );
+                  }
+
+                  result.expiredCount++;
+                });
+              } catch (itemError) {
+                result.failedCount++;
+                logger.error({ msg: 'Failed to expire booking hold', holdId: hold.id, error: itemError });
               }
+            }
 
-              // Double-check: Never expire hold if payment is PAID
-              if (lockedHold.payment && lockedHold.payment.status === PaymentStatus.PAID) {
-                result.skippedCount++;
-                return;
-              }
-
-              // 2. Mark hold EXPIRED
-              await tx.bookingHold.update({
-                where: { id: lockedHold.id },
-                data: { status: BookingHoldStatus.EXPIRED },
+            if (result.candidatesFound > 0) {
+              logger.info({
+                msg: 'Booking hold expiry tick completed',
+                ...result,
               });
+            }
 
-              // 3. Mark unpaid payment FAILED/CANCELED if exists & restore deducted wallet funds safely
-              if (lockedHold.payment && lockedHold.payment.status !== PaymentStatus.PAID) {
-                await PaymentsRepo.handleFailedPayment(
-                  tx,
-                  lockedHold.payment.id,
-                  PaymentStatus.CANCELED,
-                  'Booking hold expired before payment completion'
-                );
-              }
-
-              result.expiredCount++;
-            });
-          } catch (itemError) {
-            result.failedCount++;
-            logger.error({ msg: 'Failed to expire booking hold', holdId: hold.id, error: itemError });
-          }
-        }
-
-        if (result.candidatesFound > 0) {
-          logger.info({
-            msg: 'Booking hold expiry tick completed',
-            ...result,
-          });
-        }
-
-        return result;
-      });
+            return result;
+          })
+      );
+      return lockOutcome.acquired && lockOutcome.result ? lockOutcome.result : result;
     } catch (error) {
       logger.error({ msg: 'Error during booking hold expiry worker tick', error });
       return result;

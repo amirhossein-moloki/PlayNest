@@ -23,3 +23,9 @@ for (const queue of queues) {
     });
   }
 }
+
+export const closeQueues = async (): Promise<void> => {
+  await Promise.allSettled(
+    queues.map((q) => (q && typeof q.close === 'function' ? q.close() : Promise.resolve()))
+  );
+};

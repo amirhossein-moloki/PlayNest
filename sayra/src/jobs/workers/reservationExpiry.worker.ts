@@ -2,6 +2,7 @@ import logger from '../../config/logger';
 import { env } from '../../config/env';
 import { reservationStation } from '../../modules/reservation/reservation.station';
 import { runWithSystemContext } from '../../common/context/request-context';
+import { withDistributedLock } from '../../common/utils/distributedLock';
 
 export class ReservationExpiryWorker {
   private timer: NodeJS.Timeout | null = null;
@@ -60,37 +61,44 @@ export class ReservationExpiryWorker {
     this.processing = true;
 
     try {
-      return await runWithSystemContext('ReservationExpiryWorker', async () => {
-        const result = await reservationStation.processExpiryBatch({
-          batchSize: this.batchSize,
-          now,
-        });
+      const empty = { candidatesFound: 0, expiredCount: 0, skippedCount: 0, failedCount: 0 };
+      const lockOutcome = await withDistributedLock(
+        'reservation-expiry',
+        Math.max(this.pollIntervalMs * 2, env.WORKER_LOCK_TTL_MS),
+        async () =>
+          runWithSystemContext('ReservationExpiryWorker', async () => {
+            const result = await reservationStation.processExpiryBatch({
+              batchSize: this.batchSize,
+              now,
+            });
 
-        const lifecycleResult = await reservationStation.processAutoLifecycleBatch?.({
-          batchSize: this.batchSize,
-          now,
-        });
+            const lifecycleResult = await reservationStation.processAutoLifecycleBatch?.({
+              batchSize: this.batchSize,
+              now,
+            });
 
-        if (result.candidatesFound > 0) {
-          logger.info({
-            msg: 'Reservation expiry tick completed',
-            candidatesFound: result.candidatesFound,
-            expiredCount: result.expiredCount,
-            skippedCount: result.skippedCount,
-            failedCount: result.failedCount,
-          });
-        }
+            if (result.candidatesFound > 0) {
+              logger.info({
+                msg: 'Reservation expiry tick completed',
+                candidatesFound: result.candidatesFound,
+                expiredCount: result.expiredCount,
+                skippedCount: result.skippedCount,
+                failedCount: result.failedCount,
+              });
+            }
 
-        if (lifecycleResult && (lifecycleResult.autoCompletedCount > 0 || lifecycleResult.autoNoShowCount > 0)) {
-          logger.info({
-            msg: 'Reservation auto-lifecycle tick completed',
-            autoCompletedCount: lifecycleResult.autoCompletedCount,
-            autoNoShowCount: lifecycleResult.autoNoShowCount,
-            failedCount: lifecycleResult.failedCount,
-          });
-        }
-        return result;
-      });
+            if (lifecycleResult && (lifecycleResult.autoCompletedCount > 0 || lifecycleResult.autoNoShowCount > 0)) {
+              logger.info({
+                msg: 'Reservation auto-lifecycle tick completed',
+                autoCompletedCount: lifecycleResult.autoCompletedCount,
+                autoNoShowCount: lifecycleResult.autoNoShowCount,
+                failedCount: lifecycleResult.failedCount,
+              });
+            }
+            return result;
+          })
+      );
+      return lockOutcome.acquired && lockOutcome.result ? lockOutcome.result : empty;
     } catch (error) {
       logger.error({
         msg: 'Error during reservation expiry worker tick',

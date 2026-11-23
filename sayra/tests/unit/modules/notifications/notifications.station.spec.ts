@@ -4,6 +4,7 @@ import { NotificationType } from '@prisma/client';
 import { NotificationStation } from '../../../../src/modules/notifications/notifications.station';
 import { notificationsRepo } from '../../../../src/modules/notifications/notifications.repo';
 import { queueSms } from '../../../../src/jobs/producers/sms.producer';
+import * as notificationsProducer from '../../../../src/jobs/producers/notifications.producer';
 import { SmsStation } from '../../../../src/modules/notifications/sms.station';
 import logger from '../../../../src/config/logger';
 import AppError from '../../../../src/common/errors/AppError';
@@ -130,6 +131,9 @@ describe('NotificationStation (Unit)', () => {
       MockedNotificationsRepo.createNotification.mockResolvedValue(mockCreated as any);
       MockedNotificationsRepo.createNotificationLog.mockResolvedValue(mockLog as any);
       MockedQueueSms.mockRejectedValue(new Error('Queue connection error'));
+      const queueDispatchSpy = jest
+        .spyOn(notificationsProducer, 'queueNotificationDispatch')
+        .mockResolvedValueOnce(false);
 
       const loggerSpy = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
 
@@ -145,6 +149,7 @@ describe('NotificationStation (Unit)', () => {
 
       expect(result).toEqual(mockCreated);
       expect(loggerSpy).toHaveBeenCalled();
+      queueDispatchSpy.mockRestore();
       loggerSpy.mockRestore();
     });
   });

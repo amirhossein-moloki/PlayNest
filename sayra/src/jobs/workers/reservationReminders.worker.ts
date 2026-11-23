@@ -2,7 +2,8 @@ import { Worker, Job } from 'bullmq';
 import { REMINDERS_QUEUE_NAME } from '../queues';
 import { env } from '../../config/env';
 import logger from '../../config/logger';
-import { requestContext } from '../../common/context/request-context';
+import { getRequestContext, requestContext, runWithSystemContext } from '../../common/context/request-context';
+import { withDistributedLock } from '../../common/utils/distributedLock';
 import { Metrics } from '../../common/metrics/metrics';
 import {
   processReservationRemindersBatch,
@@ -114,44 +115,61 @@ export class ReservationRemindersWorker {
     this.processing = true;
 
     try {
-      const reminderResult = await processReservationRemindersBatch({
-        leadTimeMinutes: this.leadTimeMinutes,
-        batchSize: this.batchSize,
-        now,
-      });
+      const empty = { candidateCount: 0, scheduledCount: 0, skippedCount: 0, outboxProcessed: 0 };
+      const existingCtx = getRequestContext();
+      const lockOutcome = await withDistributedLock(
+        'reservation-reminders',
+        Math.max(this.pollIntervalMs * 2, env.WORKER_LOCK_TTL_MS),
+        async () =>
+          runWithSystemContext(
+            'ReservationRemindersWorker',
+            async () => {
+              const reminderResult = await processReservationRemindersBatch({
+                leadTimeMinutes: this.leadTimeMinutes,
+                batchSize: this.batchSize,
+                now,
+              });
 
-      const gameCenterReminderResult = await processGameCenterRemindersBatch({
-        batchSize: this.batchSize,
-        now,
-      });
+              const gameCenterReminderResult = await processGameCenterRemindersBatch({
+                batchSize: this.batchSize,
+                now,
+              });
 
-      const outboxResult = await NotificationStation.processPendingNotificationLogs(
-        this.batchSize,
-        now
+              const outboxResult = await NotificationStation.processPendingNotificationLogs(
+                this.batchSize,
+                now
+              );
+
+              if (
+                reminderResult.scheduledCount > 0 ||
+                gameCenterReminderResult.scheduledCount > 0 ||
+                outboxResult.processed > 0
+              ) {
+                logger.info({
+                  msg: 'Reservation reminders tick completed',
+                  candidateCount: reminderResult.candidateCount + gameCenterReminderResult.candidateCount,
+                  scheduledCount: reminderResult.scheduledCount + gameCenterReminderResult.scheduledCount,
+                  skippedCount: reminderResult.skippedCount + gameCenterReminderResult.skippedCount,
+                  outboxProcessed: outboxResult.processed,
+                  outboxSuccess: outboxResult.success,
+                  outboxFailed: outboxResult.failed,
+                });
+              }
+
+              return {
+                ...reminderResult,
+                gameCenterCandidateCount: gameCenterReminderResult.candidateCount,
+                gameCenterScheduledCount: gameCenterReminderResult.scheduledCount,
+                outboxProcessed: outboxResult.processed,
+              };
+            },
+            {
+              correlationId: existingCtx.correlationId,
+              requestId: existingCtx.requestId,
+            }
+          )
       );
-
-      if (
-        reminderResult.scheduledCount > 0 ||
-        gameCenterReminderResult.scheduledCount > 0 ||
-        outboxResult.processed > 0
-      ) {
-        logger.info({
-          msg: 'Reservation reminders tick completed',
-          candidateCount: reminderResult.candidateCount + gameCenterReminderResult.candidateCount,
-          scheduledCount: reminderResult.scheduledCount + gameCenterReminderResult.scheduledCount,
-          skippedCount: reminderResult.skippedCount + gameCenterReminderResult.skippedCount,
-          outboxProcessed: outboxResult.processed,
-          outboxSuccess: outboxResult.success,
-          outboxFailed: outboxResult.failed,
-        });
-      }
-
-      return {
-        ...reminderResult,
-        gameCenterCandidateCount: gameCenterReminderResult.candidateCount,
-        gameCenterScheduledCount: gameCenterReminderResult.scheduledCount,
-        outboxProcessed: outboxResult.processed,
-      };
+      return lockOutcome.acquired && lockOutcome.result ? lockOutcome.result : empty;
     } catch (error) {
       Metrics.recordWorkerError(
         REMINDERS_QUEUE_NAME,

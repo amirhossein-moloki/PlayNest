@@ -65,10 +65,20 @@ export const MelipayamakStation = {
    * Helper to execute Melipayamak promise with timeout and standard error management
    */
   async executeWithTimeout<T>(operation: () => Promise<T>, timeoutMs = 7000): Promise<T> {
+    let timeoutId: NodeJS.Timeout | undefined;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error(`Melipayamak request timed out after ${timeoutMs}ms`)), timeoutMs);
+      timeoutId = setTimeout(
+        () => reject(new Error(`Melipayamak request timed out after ${timeoutMs}ms`)),
+        timeoutMs
+      );
     });
-    return Promise.race([operation(), timeoutPromise]);
+    try {
+      return await Promise.race([operation(), timeoutPromise]);
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    }
   },
 
   /**

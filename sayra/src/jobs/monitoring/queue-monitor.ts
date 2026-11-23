@@ -18,7 +18,23 @@ export async function monitorQueueDepths() {
   }
 }
 
-// Start monitoring interval
-if (process.env.NODE_ENV !== 'test') {
-  setInterval(monitorQueueDepths, 60000); // Every minute
+let monitorIntervalHandle: NodeJS.Timeout | null = null;
+
+export function startQueueMonitor(intervalMs = 60000): void {
+  if (process.env.NODE_ENV === 'test' || monitorIntervalHandle) {
+    return;
+  }
+  monitorIntervalHandle = setInterval(() => {
+    void monitorQueueDepths();
+  }, intervalMs);
+  if (typeof monitorIntervalHandle.unref === 'function') {
+    monitorIntervalHandle.unref();
+  }
+}
+
+export function stopQueueMonitor(): void {
+  if (monitorIntervalHandle) {
+    clearInterval(monitorIntervalHandle);
+    monitorIntervalHandle = null;
+  }
 }

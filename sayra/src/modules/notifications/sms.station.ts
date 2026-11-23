@@ -81,8 +81,9 @@ export const SmsStation = {
     }
 
     const TIMEOUT_MS = 5000;
+    let timeoutId: NodeJS.Timeout | undefined;
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error(`SMS request timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS);
+      timeoutId = setTimeout(() => reject(new Error(`SMS request timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS);
     });
 
     try {
@@ -95,6 +96,10 @@ export const SmsStation = {
     } catch (error) {
       console.error('Failed to send SMS via Smsir:', error);
       throw error;
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     }
   },
 

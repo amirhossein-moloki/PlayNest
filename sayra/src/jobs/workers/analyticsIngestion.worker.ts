@@ -1,5 +1,5 @@
 import { Worker, Job } from 'bullmq';
-import redis from '../../config/redis';
+import { env } from '../../config/env';
 import logger from '../../config/logger';
 import { analyticsIngestionService } from '../../modules/analytics/analyticsIngestionService';
 
@@ -14,7 +14,9 @@ export const analyticsIngestionWorker = new Worker(
     return result;
   },
   {
-    connection: redis,
+    connection: {
+      url: env.REDIS_URL,
+    },
     concurrency: 1, // Ensure single execution at a time to prevent overlapping ingestion runs
   }
 );

@@ -319,18 +319,20 @@ export const NotificationStation = {
 
     // Enqueue to BullMQ for asynchronous background processing
     const delayMs = Math.max(0, scheduledAt.getTime() - now.getTime());
+    let enqueued = false;
     try {
       const { queueNotificationDispatch } = await import('../../jobs/producers/notifications.producer');
-      await queueNotificationDispatch(String(log.id), delayMs);
+      const enqueueResult = await queueNotificationDispatch(String(log.id), delayMs);
+      enqueued = enqueueResult !== false;
     } catch (err) {
-      logger.warn({ msg: 'BullMQ notification enqueue failed; backoff worker will retry', error: err });
+      logger.warn({ msg: 'BullMQ notification enqueue failed; falling back to inline/backoff dispatch', error: err });
     }
 
-    if (scheduledAt <= now) {
+    if (!enqueued && scheduledAt <= now) {
       try {
         return await this.dispatchNotificationLog(String(log.id));
       } catch (err) {
-        logger.warn({ msg: 'Immediate outbox dispatch failed; backoff worker will retry', error: err });
+        logger.warn({ msg: 'Immediate outbox fallback dispatch failed; backoff worker will retry', error: err });
       }
     }
 

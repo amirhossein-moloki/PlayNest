@@ -1,6 +1,8 @@
 import logger from '../../config/logger';
+import { env } from '../../config/env';
 import { waitlistStation } from '../../modules/waitlist/waitlist.station';
 import { runWithSystemContext } from '../../common/context/request-context';
+import { withDistributedLock } from '../../common/utils/distributedLock';
 
 export class WaitlistExpiryWorker {
   private timer: NodeJS.Timeout | null = null;
@@ -52,21 +54,28 @@ export class WaitlistExpiryWorker {
     this.processing = true;
 
     try {
-      return await runWithSystemContext('WaitlistExpiryWorker', async () => {
-        const result = await waitlistStation.processExpiryBatch({
-          batchSize: this.batchSize,
-          now,
-        });
+      const empty = { expiredOffersCount: 0, expiredEntriesCount: 0 };
+      const lockOutcome = await withDistributedLock(
+        'waitlist-expiry',
+        Math.max(this.pollIntervalMs * 2, env.WORKER_LOCK_TTL_MS),
+        async () =>
+          runWithSystemContext('WaitlistExpiryWorker', async () => {
+            const result = await waitlistStation.processExpiryBatch({
+              batchSize: this.batchSize,
+              now,
+            });
 
-        if (result.expiredOffersCount > 0 || result.expiredEntriesCount > 0) {
-          logger.info({
-            msg: 'Waitlist expiry tick completed',
-            expiredOffersCount: result.expiredOffersCount,
-            expiredEntriesCount: result.expiredEntriesCount,
-          });
-        }
-        return result;
-      });
+            if (result.expiredOffersCount > 0 || result.expiredEntriesCount > 0) {
+              logger.info({
+                msg: 'Waitlist expiry tick completed',
+                expiredOffersCount: result.expiredOffersCount,
+                expiredEntriesCount: result.expiredEntriesCount,
+              });
+            }
+            return result;
+          })
+      );
+      return lockOutcome.acquired && lockOutcome.result ? lockOutcome.result : empty;
     } catch (error) {
       logger.error({
         msg: 'Error during waitlist expiry worker tick',

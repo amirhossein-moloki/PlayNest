@@ -16,6 +16,29 @@ export class ZarinPalProvider implements IPaymentProvider {
   readonly name = 'ZARINPAL';
   readonly supportsRefunds = false;
 
+  constructor(private readonly timeoutMs = 10000) {}
+
+  private isTimeoutError(error: unknown): boolean {
+    return error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
+  }
+
+  private async fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+    const controller = new AbortController();
+    let timerId: NodeJS.Timeout | undefined;
+    try {
+      timerId = setTimeout(() => {
+        const err = new Error(`ZarinPal request timed out after ${this.timeoutMs}ms`);
+        err.name = 'TimeoutError';
+        controller.abort(err);
+      }, this.timeoutMs);
+      return await fetch(url, { ...init, signal: controller.signal });
+    } finally {
+      if (timerId) {
+        clearTimeout(timerId);
+      }
+    }
+  }
+
   private getBaseUrls() {
     const isSandbox = env.ZARINPAL_SANDBOX;
     return {
@@ -28,7 +51,7 @@ export class ZarinPalProvider implements IPaymentProvider {
     const { apiUrl, startPayUrl } = this.getBaseUrls();
 
     try {
-      const response = await fetch(`${apiUrl}/payment/request.json`, {
+      const response = await this.fetchWithTimeout(`${apiUrl}/payment/request.json`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -68,6 +91,9 @@ export class ZarinPalProvider implements IPaymentProvider {
       };
     } catch (error) {
       if (error instanceof AppError) throw error;
+      if (this.isTimeoutError(error)) {
+        throw new AppError('Payment gateway request timed out.', httpStatus.GATEWAY_TIMEOUT);
+      }
       console.error('Payment initiation error:', error);
       throw new AppError('Internal error during payment initiation.', httpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -77,7 +103,7 @@ export class ZarinPalProvider implements IPaymentProvider {
     const { apiUrl } = this.getBaseUrls();
 
     try {
-      const response = await fetch(`${apiUrl}/payment/verify.json`, {
+      const response = await this.fetchWithTimeout(`${apiUrl}/payment/verify.json`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -113,6 +139,15 @@ export class ZarinPalProvider implements IPaymentProvider {
         rawPayload: result,
       };
     } catch (error) {
+      if (this.isTimeoutError(error)) {
+        console.error('ZarinPal verify timeout:', error);
+        return {
+          success: false,
+          status: PaymentStatus.FAILED,
+          failureReason: 'Payment gateway verification timed out.',
+          rawPayload: { timeout: true },
+        };
+      }
       console.error('ZarinPal verify exception:', error);
       return {
         success: false,
