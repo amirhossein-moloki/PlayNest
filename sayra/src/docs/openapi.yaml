@@ -5008,6 +5008,29 @@ paths:
           $ref: '#/components/responses/InternalServerError'
       operationId: get_health
       description: Health Check
+  /robots.txt:
+    get:
+      summary: Robots Exclusion Policy
+      tags:
+      - System
+      responses:
+        '200':
+          description: Disallows crawler indexing of the API subdomain (served with X-Robots-Tag noindex, nofollow)
+          headers:
+            X-Robots-Tag:
+              description: Crawler indexing directive
+              schema:
+                type: string
+                example: noindex, nofollow
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  User-agent: *
+                  Disallow: /
+      operationId: get_robots_txt
+      description: Serves robots.txt disallowing search engine crawling of the API subdomain
   /gamingCenters/{gamingCenterId}/discounts:
     get:
       summary: List discounts

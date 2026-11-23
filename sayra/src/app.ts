@@ -77,6 +77,16 @@ if (env.NODE_ENV !== 'test') {
 app.use(responseMiddleware);
 app.use(maintenanceModeMiddleware);
 
+// Prevent search engines from indexing backend API/docs subdomains directly
+app.use((_req, res, next) => {
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  next();
+});
+
+app.get('/robots.txt', (_req, res) => {
+  res.type('text/plain').send('User-agent: *\nDisallow: /\n');
+});
+
 // Health Check (Public - root level)
 app.use('/health', healthRouter);
 
