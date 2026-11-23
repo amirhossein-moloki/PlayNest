@@ -585,6 +585,7 @@ model GamingCenter {
 
   // Site builder / SEO / CMS
   siteSettings       SiteSettings?
+  slugHistory        GamingCenterSlugHistory[]
   pages              Page[]
   posts              Post[]
   categories         Category[]
@@ -3233,4 +3234,14 @@ model CalendarEvent {
   @@index([date])
   @@index([date, isHoliday])
   @@index([yearId])
+}
+
+model GamingCenterSlugHistory {
+  id             String       @id @default(cuid())
+  gamingCenterId String
+  slug           String       @unique
+  createdAt      DateTime     @default(now())
+  gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+
+  @@index([gamingCenterId])
 }

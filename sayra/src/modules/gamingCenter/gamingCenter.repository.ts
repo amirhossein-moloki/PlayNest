@@ -595,7 +595,18 @@ export const gamingCenterRepository = {
         },
       });
 
-      if (!gc) return null;
+      if (!gc) {
+        // Fallback: Check slug history for historical slugs
+        const history = await prisma.gamingCenterSlugHistory.findUnique({
+          where: { slug: id },
+          select: { gamingCenterId: true },
+        }).catch(() => null);
+
+        if (history) {
+          return this.findById(history.gamingCenterId, options);
+        }
+        return null;
+      }
       return transformGamingCenter(gc);
     }
 
