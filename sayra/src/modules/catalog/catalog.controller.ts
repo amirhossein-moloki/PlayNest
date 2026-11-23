@@ -1,6 +1,12 @@
 import { NextFunction, Request, Response } from 'express';
 import * as CatalogStation from './catalog.station';
 import {
+  buildSortedCacheKey,
+  invalidatePublicCacheByPrefix,
+  setPublicCacheHeaders,
+  withPublicCache,
+} from '../../common/utils/publicCache';
+import {
   CreateDeviceTypeInput,
   UpdateDeviceTypeInput,
   listDeviceTypeSchema,
@@ -23,6 +29,7 @@ export async function createDeviceType(
 ) {
   try {
     const deviceType = await CatalogStation.createDeviceType(req.body);
+    void invalidatePublicCacheByPrefix('public:catalog:');
     res.created(deviceType);
   } catch (error) {
     next(error);
@@ -32,6 +39,18 @@ export async function createDeviceType(
 export async function getDeviceTypes(req: Request, res: Response, next: NextFunction) {
   try {
     const query = listDeviceTypeSchema.parse(req.query);
+    if (!req.originalUrl?.includes('/platform-admin')) {
+      const cacheKey = buildSortedCacheKey(
+        'public:catalog:device-types',
+        query as unknown as Record<string, unknown>
+      );
+      const result = await withPublicCache(cacheKey, 300, () =>
+        CatalogStation.getDeviceTypes(query)
+      );
+      setPublicCacheHeaders(res, 300, 600, 600);
+      res.ok(result);
+      return;
+    }
     const result = await CatalogStation.getDeviceTypes(query);
     res.ok(result);
   } catch (error) {
@@ -45,6 +64,14 @@ export async function getDeviceTypeById(
   next: NextFunction
 ) {
   try {
+    if (!req.originalUrl?.includes('/platform-admin')) {
+      const deviceType = await withPublicCache(`public:catalog:device-type:${req.params.id}`, 300, () =>
+        CatalogStation.getDeviceTypeById(req.params.id)
+      );
+      setPublicCacheHeaders(res, 300, 600, 600);
+      res.ok(deviceType);
+      return;
+    }
     const deviceType = await CatalogStation.getDeviceTypeById(req.params.id);
     res.ok(deviceType);
   } catch (error) {
@@ -59,6 +86,7 @@ export async function updateDeviceType(
 ) {
   try {
     const updated = await CatalogStation.updateDeviceType(req.params.id, req.body);
+    void invalidatePublicCacheByPrefix('public:catalog:');
     res.ok(updated);
   } catch (error) {
     next(error);
@@ -72,6 +100,7 @@ export async function deleteDeviceType(
 ) {
   try {
     await CatalogStation.deleteDeviceType(req.params.id);
+    void invalidatePublicCacheByPrefix('public:catalog:');
     res.noContent();
   } catch (error) {
     next(error);
@@ -106,6 +135,7 @@ export async function createDevice(
       ...req.body,
       coverImageUrl,
     });
+    void invalidatePublicCacheByPrefix('public:catalog:');
     res.created(device);
   } catch (error) {
     next(error);
@@ -115,6 +145,18 @@ export async function createDevice(
 export async function getDevices(req: Request, res: Response, next: NextFunction) {
   try {
     const query = listDeviceCatalogSchema.parse(req.query);
+    if (!req.originalUrl?.includes('/platform-admin')) {
+      const cacheKey = buildSortedCacheKey(
+        'public:catalog:devices',
+        query as unknown as Record<string, unknown>
+      );
+      const result = await withPublicCache(cacheKey, 300, () =>
+        CatalogStation.getDevices(query)
+      );
+      setPublicCacheHeaders(res, 300, 600, 600);
+      res.ok(result);
+      return;
+    }
     const result = await CatalogStation.getDevices(query);
     res.ok(result);
   } catch (error) {
@@ -128,6 +170,14 @@ export async function getDeviceById(
   next: NextFunction
 ) {
   try {
+    if (!req.originalUrl?.includes('/platform-admin')) {
+      const device = await withPublicCache(`public:catalog:device:${req.params.id}`, 300, () =>
+        CatalogStation.getDeviceById(req.params.id)
+      );
+      setPublicCacheHeaders(res, 300, 600, 600);
+      res.ok(device);
+      return;
+    }
     const device = await CatalogStation.getDeviceById(req.params.id);
     res.ok(device);
   } catch (error) {
@@ -151,6 +201,7 @@ export async function updateDevice(
       ...req.body,
       ...(coverImageUrl ? { coverImageUrl } : {}),
     });
+    void invalidatePublicCacheByPrefix('public:catalog:');
     res.ok(updated);
   } catch (error) {
     next(error);
@@ -164,6 +215,7 @@ export async function deleteDevice(
 ) {
   try {
     await CatalogStation.deleteDevice(req.params.id);
+    void invalidatePublicCacheByPrefix('public:catalog:');
     res.noContent();
   } catch (error) {
     next(error);
@@ -194,6 +246,7 @@ export async function createGame(
       ...req.body,
       coverImageUrl,
     });
+    void invalidatePublicCacheByPrefix('public:catalog:');
     res.created(game);
   } catch (error) {
     next(error);
@@ -203,6 +256,18 @@ export async function createGame(
 export async function getGames(req: Request, res: Response, next: NextFunction) {
   try {
     const query = listGameCatalogSchema.parse(req.query);
+    if (!req.originalUrl?.includes('/platform-admin')) {
+      const cacheKey = buildSortedCacheKey(
+        'public:catalog:games',
+        query as unknown as Record<string, unknown>
+      );
+      const result = await withPublicCache(cacheKey, 300, () =>
+        CatalogStation.getGames(query)
+      );
+      setPublicCacheHeaders(res, 300, 600, 600);
+      res.ok(result);
+      return;
+    }
     const result = await CatalogStation.getGames(query);
     res.ok(result);
   } catch (error) {
@@ -216,6 +281,14 @@ export async function getGameById(
   next: NextFunction
 ) {
   try {
+    if (!req.originalUrl?.includes('/platform-admin')) {
+      const game = await withPublicCache(`public:catalog:game:${req.params.id}`, 300, () =>
+        CatalogStation.getGameById(req.params.id)
+      );
+      setPublicCacheHeaders(res, 300, 600, 600);
+      res.ok(game);
+      return;
+    }
     const game = await CatalogStation.getGameById(req.params.id);
     res.ok(game);
   } catch (error) {
@@ -239,6 +312,7 @@ export async function updateGame(
       ...req.body,
       ...(coverImageUrl ? { coverImageUrl } : {}),
     });
+    void invalidatePublicCacheByPrefix('public:catalog:');
     res.ok(updated);
   } catch (error) {
     next(error);
@@ -252,6 +326,7 @@ export async function deleteGame(
 ) {
   try {
     await CatalogStation.deleteGame(req.params.id);
+    void invalidatePublicCacheByPrefix('public:catalog:');
     res.noContent();
   } catch (error) {
     next(error);

@@ -49,14 +49,24 @@ export function checkIsOpen(
   }
 }
 
-type GamingCenterWithRelations = Prisma.GamingCenterGetPayload<{
-  include: {
-    addresses: true;
-    ratings: true;
-    settings: true;
-    manager: true;
-  };
-}> & {
+type NarrowedSettings = Partial<Settings>;
+type NarrowedManager = {
+  id: string;
+  fullName: string;
+  role: string;
+};
+
+type GamingCenterWithRelations = Omit<
+  Prisma.GamingCenterGetPayload<{
+    include: {
+      addresses: true;
+    };
+  }>,
+  never
+> & {
+  ratings?: Rating[];
+  settings?: NarrowedSettings | null;
+  manager?: NarrowedManager | null;
   stations?: GameStation[];
   media?: Array<{
     url: string;
@@ -294,11 +304,16 @@ export function transformGamingCenter(
     coverImages?: string[];
     coverImageUrl?: string | null;
     lowestStationPrice?: number | null;
+    ratingSummary?: {
+      avgRating: number;
+      count: number;
+      commentCount: number;
+    };
   }
 ): GamingCenterListItem {
   const stations: GameStation[] = gc.stations || [];
   const ratings: Rating[] = gc.ratings || [];
-  const settings: Settings | null = gc.settings || null;
+  const settings: NarrowedSettings | null = gc.settings || null;
   const addresses: Address[] = gc.addresses || [];
   const manager = gc.manager || null;
 
@@ -338,16 +353,24 @@ export function transformGamingCenter(
     hasXbox = true;
   }
 
-  // Calculate rating and comment count
-  const publishedRatings = ratings.filter((r) => r.status === 'PUBLISHED');
-  const count = publishedRatings.length;
+  // Calculate rating and comment count (prefer pre-aggregated SQL summary when provided)
+  let count = 0;
   let avgRating = 0;
-  if (count > 0) {
-    const sum = publishedRatings.reduce((acc, curr) => acc + curr.rating, 0);
-    avgRating = Math.round((sum / count) * 10) / 10;
-  }
+  let commentCount = 0;
 
-  const commentCount = publishedRatings.filter((r) => r.comment && r.comment.trim().length > 0).length;
+  if (extraData?.ratingSummary) {
+    count = extraData.ratingSummary.count;
+    avgRating = extraData.ratingSummary.avgRating;
+    commentCount = extraData.ratingSummary.commentCount;
+  } else {
+    const publishedRatings = ratings.filter((r) => r.status === 'PUBLISHED');
+    count = publishedRatings.length;
+    if (count > 0) {
+      const sum = publishedRatings.reduce((acc, curr) => acc + curr.rating, 0);
+      avgRating = Math.round((sum / count) * 10) / 10;
+    }
+    commentCount = publishedRatings.filter((r) => r.comment && r.comment.trim().length > 0).length;
+  }
 
   const openTime = settings?.workStartTime || gc.openingTime;
   const closeTime = settings?.workEndTime || gc.closingTime;
@@ -668,7 +691,7 @@ export const gamingCenterRepository = {
 
     const where: Prisma.GamingCenterWhereInput = {
       isActive: isActive !== undefined ? isActive : true,
-      verificationStatus: (query as any).verificationStatus || GamingCenterVerificationStatus.APPROVED,
+      verificationStatus: query.verificationStatus || GamingCenterVerificationStatus.APPROVED,
     };
 
     if (search) {
@@ -753,15 +776,36 @@ export const gamingCenterRepository = {
         orderBy: { [orderField]: orderDirection },
         include: {
           addresses: true,
-          ratings: true,
-          settings: true,
-          manager: true,
+          settings: {
+            select: {
+              workStartTime: true,
+              workEndTime: true,
+              timeZone: true,
+              cancellationHours: true,
+              cancellationWindowMinutes: true,
+              allowOnlineBooking: true,
+            },
+          },
+          manager: {
+            select: {
+              id: true,
+              fullName: true,
+              role: true,
+            },
+          },
           media: {
             where: {
               isActive: true,
             },
             orderBy: {
               sortOrder: 'asc',
+            },
+            select: {
+              url: true,
+              thumbUrl: true,
+              purpose: true,
+              isActive: true,
+              sortOrder: true,
             },
           },
           discounts: {
@@ -799,41 +843,89 @@ export const gamingCenterRepository = {
 
     const centerIds = rawCenters.map((c) => c.id);
 
-    // Efficiently aggregate station counts by type and minimum station hourly price directly in the database
+    // Efficiently aggregate station counts, minimum station price, and published ratings directly in DB
     let groupedCounts: Array<{ gamingCenterId: string; stationType: string; _count: { _all: number }; _min?: { hourlyPrice?: number | null } }> = [];
     let hasGroupResults = false;
     const minPricesMap = new Map<string, number>();
 
-    if (centerIds.length > 0 && typeof prisma.gameStation?.groupBy === 'function') {
+    const ratingsSummaryMap = new Map<string, { avgRating: number; count: number; commentCount: number }>();
+    let hasRatingGroupResults = false;
+
+    const shouldGroupStations = centerIds.length > 0 && typeof prisma.gameStation?.groupBy === 'function';
+    const shouldGroupRatings = centerIds.length > 0 && typeof prisma.rating?.groupBy === 'function';
+
+    const safeGroupBy = async <T>(fn: () => Promise<T> | undefined): Promise<T | null> => {
       try {
-        const res = await prisma.gameStation.groupBy({
-          by: ['gamingCenterId', 'stationType'],
-          where: {
-            gamingCenterId: { in: centerIds },
-            isActive: true,
-          },
-          _count: {
-            _all: true,
-          },
-          _min: {
-            hourlyPrice: true,
-          },
-        });
-        if (Array.isArray(res)) {
-          groupedCounts = res;
-          hasGroupResults = res.length > 0;
-          for (const item of res) {
-            const minPrice = item._min?.hourlyPrice;
-            if (typeof minPrice === 'number') {
-              const currentMin = minPricesMap.get(item.gamingCenterId);
-              if (currentMin === undefined || minPrice < currentMin) {
-                minPricesMap.set(item.gamingCenterId, minPrice);
-              }
-            }
+        return (await fn()) ?? null;
+      } catch {
+        return null;
+      }
+    };
+
+    const [stationGroupRes, ratingGroupRes] = await Promise.all([
+      shouldGroupStations
+        ? safeGroupBy(() =>
+          prisma.gameStation.groupBy({
+            by: ['gamingCenterId', 'stationType'],
+            where: {
+              gamingCenterId: { in: centerIds },
+              isActive: true,
+            },
+            _count: {
+              _all: true,
+            },
+            _min: {
+              hourlyPrice: true,
+            },
+          })
+        )
+        : Promise.resolve(null),
+      shouldGroupRatings
+        ? safeGroupBy(() =>
+          prisma.rating.groupBy({
+            by: ['gamingCenterId'],
+            where: {
+              gamingCenterId: { in: centerIds },
+              status: 'PUBLISHED',
+            },
+            _avg: {
+              rating: true,
+            },
+            _count: {
+              _all: true,
+              comment: true,
+            },
+          })
+        )
+        : Promise.resolve(null),
+    ]);
+
+    if (Array.isArray(stationGroupRes)) {
+      groupedCounts = stationGroupRes;
+      hasGroupResults = stationGroupRes.length > 0;
+      for (const item of stationGroupRes) {
+        const minPrice = item._min?.hourlyPrice;
+        if (typeof minPrice === 'number') {
+          const currentMin = minPricesMap.get(item.gamingCenterId);
+          if (currentMin === undefined || minPrice < currentMin) {
+            minPricesMap.set(item.gamingCenterId, minPrice);
           }
         }
-      } catch {
-        groupedCounts = [];
+      }
+    }
+
+    if (Array.isArray(ratingGroupRes)) {
+      hasRatingGroupResults = true;
+      for (const item of ratingGroupRes) {
+        const totalRatings = item._count?._all ?? 0;
+        const rawAvg = item._avg?.rating;
+        const avgRating = typeof rawAvg === 'number' ? Math.round(rawAvg * 10) / 10 : 0;
+        const commentCount = item._count?.comment ?? totalRatings;
+        ratingsSummaryMap.set(item.gamingCenterId, {
+          avgRating,
+          count: totalRatings,
+          commentCount,
+        });
       }
     }
 
@@ -860,7 +952,15 @@ export const gamingCenterRepository = {
     let data = rawCenters.map((gc) => {
       const deviceCounts = hasGroupResults ? countsMap.get(gc.id) : undefined;
       const lowestStationPrice = minPricesMap.get(gc.id) ?? null;
-      return transformGamingCenter(gc, deviceCounts, { lowestStationPrice });
+      const rawRatings = (gc as GamingCenterWithRelations).ratings;
+      const ratingSummary =
+        hasRatingGroupResults && !Array.isArray(rawRatings)
+          ? (ratingsSummaryMap.get(gc.id) ?? { avgRating: 0, count: 0, commentCount: 0 })
+          : undefined;
+      return transformGamingCenter(gc, deviceCounts, {
+        lowestStationPrice,
+        ...(ratingSummary ? { ratingSummary } : {}),
+      });
     });
 
     // If minStationCount was specified for a device type

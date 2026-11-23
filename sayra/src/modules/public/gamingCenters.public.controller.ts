@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { PublicGamingCentersRepo } from './gamingCenters.public.repo';
 import { mapGamingCentersQuerySchema } from '../gamingCenter/gamingCenter.validation';
+import { setPublicCacheHeaders, withPublicCache } from '../../common/utils/publicCache';
 
 export const PublicGamingCentersController = {
   /**
@@ -8,7 +9,10 @@ export const PublicGamingCentersController = {
    */
   async getRegisteredCities(_req: Request, res: Response, next: NextFunction) {
     try {
-      const cities = await PublicGamingCentersRepo.findRegisteredCities();
+      const cities = await withPublicCache('public:gc:cities', 300, () =>
+        PublicGamingCentersRepo.findRegisteredCities()
+      );
+      setPublicCacheHeaders(res, 300, 600, 600);
       res.ok(cities);
     } catch (err) {
       next(err);
@@ -21,7 +25,11 @@ export const PublicGamingCentersController = {
   async getMapGamingCenters(req: Request, res: Response, next: NextFunction) {
     try {
       const { city } = mapGamingCentersQuerySchema.parse(req.query);
-      const markers = await PublicGamingCentersRepo.findMapGamingCentersByCity(city);
+      const cacheKey = `public:gc:map:${city.trim().toLowerCase()}`;
+      const markers = await withPublicCache(cacheKey, 120, () =>
+        PublicGamingCentersRepo.findMapGamingCentersByCity(city)
+      );
+      setPublicCacheHeaders(res, 120, 300, 600);
       res.ok(markers);
     } catch (err) {
       next(err);

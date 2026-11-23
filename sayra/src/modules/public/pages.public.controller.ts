@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { PagesPublicStation } from './pages.public.station';
 import { gamingCenterStation } from '../gamingCenter/gamingCenter.station';
 import { getGamingCenterDetailsSchema } from '../gamingCenter/gamingCenter.validation';
+import { setPublicCacheHeaders } from '../../common/utils/publicCache';
 
 type PublicPageRequest = Request<{ gamingCenterSlug: string; pageSlug?: string }> & {
   tenant?: { gamingCenterId: string; gamingCenterSlug?: string };
@@ -35,6 +36,7 @@ export async function getPublicGamingCenterHome(req: PublicPageRequest, res: Res
     req.tenant?.gamingCenterId || gamingCenterSlug,
     validatedQuery
   );
+  setPublicCacheHeaders(res, 60, 120, 300);
   res.ok(gamingCenter);
 }
 

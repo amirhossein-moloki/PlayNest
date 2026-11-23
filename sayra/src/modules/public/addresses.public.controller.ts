@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import * as PublicAddressesStation from './addresses.public.station';
+import { setPublicCacheHeaders } from '../../common/utils/publicCache';
 
 type PublicGamingCenterRequest = Request & {
   tenant?: { gamingCenterId: string; gamingCenterSlug?: string };
@@ -15,5 +16,6 @@ export async function getPublicAddresses(req: PublicGamingCenterRequest, res: Re
   }
 
   const addresses = await PublicAddressesStation.getPublicAddressesByGamingCenter(gamingCenterId);
+  setPublicCacheHeaders(res, 120, 300, 600);
   res.ok(addresses);
 }

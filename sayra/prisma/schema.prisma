@@ -639,6 +639,7 @@ model GamingCenter {
 
   @@index([slug])
   @@index([verificationStatus])
+  @@index([isActive, verificationStatus, createdAt])
 }
 
 model User {

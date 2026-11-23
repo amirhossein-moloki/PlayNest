@@ -2,6 +2,12 @@ import { Request, Response, NextFunction } from 'express';
 import { gamingCenterStation } from './gamingCenter.station';
 import { PublicGamingCentersRepo } from '../public/gamingCenters.public.repo';
 import {
+  buildSortedCacheKey,
+  invalidatePublicCacheByPrefix,
+  setPublicCacheHeaders,
+  withPublicCache,
+} from '../../common/utils/publicCache';
+import {
   createGamingCenterSchema,
   updateGamingCenterSchema,
   listGamingCentersSchema,
@@ -19,6 +25,7 @@ export const gamingCenterController = {
         { ip: req.ip, userAgent: req.headers['user-agent'] }
       );
       res.created(gamingCenter);
+      void invalidatePublicCacheByPrefix('public:gc:');
     } catch (error) {
       next(error);
     }
@@ -28,7 +35,14 @@ export const gamingCenterController = {
     try {
       const { id } = req.params;
       const validatedQuery = getGamingCenterDetailsSchema.parse(req.query);
-      const gamingCenter = await gamingCenterStation.getGamingCenterById(id, validatedQuery);
+      const cacheKey = buildSortedCacheKey(`public:gc:detail:${id}`, {
+        include: validatedQuery.include?.join(','),
+        fields: validatedQuery.fields?.join(','),
+      });
+      const gamingCenter = await withPublicCache(cacheKey, 60, () =>
+        gamingCenterStation.getGamingCenterById(id, validatedQuery)
+      );
+      setPublicCacheHeaders(res, 60, 120, 300);
       res.ok(gamingCenter);
     } catch (error) {
       next(error);
@@ -38,7 +52,14 @@ export const gamingCenterController = {
   async getAllGamingCenters(req: Request, res: Response, next: NextFunction) {
     try {
       const validatedQuery = listGamingCentersSchema.parse(req.query);
-      const gamingCenters = await gamingCenterStation.getAllGamingCenters(validatedQuery);
+      const cacheKey = buildSortedCacheKey(
+        'public:gc:list',
+        validatedQuery as unknown as Record<string, unknown>
+      );
+      const gamingCenters = await withPublicCache(cacheKey, 60, () =>
+        gamingCenterStation.getAllGamingCenters(validatedQuery)
+      );
+      setPublicCacheHeaders(res, 60, 120, 300);
       res.ok(gamingCenters);
     } catch (error) {
       next(error);
@@ -48,7 +69,11 @@ export const gamingCenterController = {
   async getMapGamingCenters(req: Request, res: Response, next: NextFunction) {
     try {
       const { city } = mapGamingCentersQuerySchema.parse(req.query);
-      const markers = await PublicGamingCentersRepo.findMapGamingCentersByCity(city);
+      const cacheKey = `public:gc:map:${city.trim().toLowerCase()}`;
+      const markers = await withPublicCache(cacheKey, 120, () =>
+        PublicGamingCentersRepo.findMapGamingCentersByCity(city)
+      );
+      setPublicCacheHeaders(res, 120, 300, 600);
       res.ok(markers);
     } catch (error) {
       next(error);
@@ -65,6 +90,7 @@ export const gamingCenterController = {
         req.actor!,
         { ip: req.ip, userAgent: req.headers['user-agent'] }
       );
+      void invalidatePublicCacheByPrefix('public:gc:');
       res.ok(updatedGamingCenter);
     } catch (error) {
       next(error);
@@ -79,6 +105,7 @@ export const gamingCenterController = {
         req.actor!,
         { ip: req.ip, userAgent: req.headers['user-agent'] }
       );
+      void invalidatePublicCacheByPrefix('public:gc:');
       res.noContent();
     } catch (error) {
       next(error);
