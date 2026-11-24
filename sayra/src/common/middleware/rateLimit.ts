@@ -136,3 +136,54 @@ export const publicAnalyticsRateLimiter = env.NODE_ENV === 'test'
     message: 'Too many analytics events from this IP, please try again later.',
     handler: rateLimitHandler,
   });
+
+export interface ShortLinkRateLimiterOptions {
+  windowMs: number;
+  max: number;
+  prefix: string;
+  message: string;
+  forceEnableInTest?: boolean;
+}
+
+/**
+ * Factory for short-link redirect, creation, and QR endpoints.
+ * Falls back to MemoryStore in test mode when forceEnableInTest is true.
+ */
+export function createShortLinkRateLimiter(options: ShortLinkRateLimiterOptions) {
+  if (env.NODE_ENV === 'test' && !options.forceEnableInTest) {
+    return mockMiddleware;
+  }
+
+  const useMemory = Boolean(options.forceEnableInTest) || env.RATE_LIMIT_STORE === 'memory';
+  return rateLimit({
+    windowMs: options.windowMs,
+    max: options.max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    ...(useMemory ? {} : { store: createStore(options.prefix) }),
+    validate: false,
+    message: options.message,
+    handler: rateLimitHandler,
+  });
+}
+
+export const shortLinkRedirectRateLimiter = createShortLinkRateLimiter({
+  windowMs: 60 * 1000,
+  max: env.SHORT_LINK_REDIRECT_RATE_LIMIT_MAX || 120,
+  prefix: 'rl:shortlink:r:',
+  message: 'Too many redirect requests from this IP, please slow down.',
+});
+
+export const shortLinkCreateRateLimiter = createShortLinkRateLimiter({
+  windowMs: 60 * 1000,
+  max: env.SHORT_LINK_CREATE_RATE_LIMIT_MAX || 30,
+  prefix: 'rl:shortlink:create:',
+  message: 'Too many short link creations, please try again shortly.',
+});
+
+export const shortLinkQrRateLimiter = createShortLinkRateLimiter({
+  windowMs: 60 * 1000,
+  max: 60,
+  prefix: 'rl:shortlink:qr:',
+  message: 'Too many QR code requests, please try again shortly.',
+});

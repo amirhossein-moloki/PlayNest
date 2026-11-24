@@ -8,6 +8,7 @@ export const CMS_SYNC_MEDIA_QUEUE_NAME = 'cms-sync-media';
 export const REMINDERS_QUEUE_NAME = 'reservation-reminders';
 export const NOTIFICATIONS_QUEUE_NAME = 'notifications-dispatch';
 export const INTEGRATION_WEBHOOK_QUEUE_NAME = 'integration-webhooks';
+export const SHORT_LINK_CLICKS_QUEUE_NAME = 'short-link-clicks';
 
 export const smsQueue = new Queue(SMS_QUEUE_NAME, defaultQueueOptions);
 export const analyticsQueue = new Queue(ANALYTICS_QUEUE_NAME, defaultQueueOptions);
@@ -15,6 +16,7 @@ export const cmsSyncMediaQueue = new Queue(CMS_SYNC_MEDIA_QUEUE_NAME, defaultQue
 export const remindersQueue = new Queue(REMINDERS_QUEUE_NAME, defaultQueueOptions);
 export const notificationsQueue = new Queue(NOTIFICATIONS_QUEUE_NAME, defaultQueueOptions);
 export const integrationWebhookQueue = new Queue(INTEGRATION_WEBHOOK_QUEUE_NAME, defaultQueueOptions);
+export const shortLinkClicksQueue = new Queue(SHORT_LINK_CLICKS_QUEUE_NAME, defaultQueueOptions);
 
 // Prevent unhandled error events during Redis downtime
 const queues = [
@@ -24,6 +26,7 @@ const queues = [
   remindersQueue,
   notificationsQueue,
   integrationWebhookQueue,
+  shortLinkClicksQueue,
 ];
 for (const queue of queues) {
   if (queue && typeof queue.on === 'function') {

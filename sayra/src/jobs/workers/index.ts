@@ -9,6 +9,7 @@ import { bookingHoldExpiryWorker } from './bookingHoldExpiry.worker';
 import { advertisementExpiryWorker } from './advertisementExpiry.worker';
 import { reservationRemindersWorker } from './reservationReminders.worker';
 import { integrationWebhookWorker } from './integrationWebhook.worker';
+import { shortLinkClicksWorker } from './shortLinkClicks.worker';
 import logger from '../../config/logger';
 import { startQueueMonitor, stopQueueMonitor } from '../monitoring/queue-monitor';
 
@@ -25,6 +26,7 @@ export const initWorkers = () => {
   analyticsWorker.on('ready', () => logger.info('Analytics Worker ready'));
   analyticsIngestionWorker.on('ready', () => logger.info('Analytics Ingestion Worker ready'));
   cmsSyncMediaWorker.on('ready', () => logger.info('CMS Sync Media Worker ready'));
+  shortLinkClicksWorker.on('ready', () => logger.info('ShortLink Clicks Worker ready'));
 
   reservationRemindersWorker.start();
   reservationExpiryWorker.start();
@@ -50,5 +52,6 @@ export const stopWorkers = async () => {
     analyticsWorker.close(),
     analyticsIngestionWorker.close(),
     cmsSyncMediaWorker.close(),
+    shortLinkClicksWorker.close(),
   ]);
 };

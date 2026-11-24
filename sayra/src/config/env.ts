@@ -158,6 +158,18 @@ const EnvSchema = z.object({
   INTEGRATION_OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(10000),
   INTEGRATION_OUTBOX_BATCH_SIZE: z.coerce.number().int().positive().default(25),
   INTEGRATION_OUTBOX_ENABLED: z.preprocess(toBool, z.boolean()).default(true),
+
+  // URL Shortener & Link Analytics
+  SHORT_LINK_BASE_URL: z.string().url().default('https://sayra-booking.ir/r'),
+  SHORT_LINK_CODE_LENGTH: z.coerce.number().int().min(6).max(12).default(7),
+  SHORT_LINK_EXTERNAL_POLICY: z.enum(['ALLOWLIST_ONLY', 'BLOCKLIST_ONLY']).default('ALLOWLIST_ONLY'),
+  SHORT_LINK_ALLOWED_DOMAINS: z.string().default(''),
+  SHORT_LINK_PRIVACY_SALT: z.string().optional(),
+  SHORT_LINK_DEDUP_WINDOW_SECONDS: z.coerce.number().int().min(10).max(86400).default(300),
+  SHORT_LINK_BURST_MAX_CLICKS_PER_MINUTE: z.coerce.number().int().min(5).max(1000).default(20),
+  SHORT_LINK_MAX_PER_CENTER: z.coerce.number().int().min(10).max(50000).default(500),
+  SHORT_LINK_REDIRECT_RATE_LIMIT_MAX: z.coerce.number().int().min(10).max(5000).default(120),
+  SHORT_LINK_CREATE_RATE_LIMIT_MAX: z.coerce.number().int().min(5).max(1000).default(30),
 });
 
 const parsed = EnvSchema.safeParse(process.env);

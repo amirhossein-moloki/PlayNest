@@ -2,12 +2,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../../config/prisma';
 import { setPublicCacheHeaders, withPublicCache } from '../../common/utils/publicCache';
+import { buildShortUrl } from '../short-links/shortCode';
 
 export const PublicAdvertisementsController = {
   async getSliderAdvertisements(req: Request, res: Response, next: NextFunction) {
     try {
       const { gamingCenterSlug } = req.params as { gamingCenterSlug?: string };
       const cacheKey = `public:ads:slider:${gamingCenterSlug || 'global'}`;
+      const hasShortLinks = typeof (prisma as any).shortLink?.findFirst === 'function';
 
       const formatted = await withPublicCache(cacheKey, 60, async () => {
         const now = new Date();
@@ -45,6 +47,12 @@ export const PublicAdvertisementsController = {
             adType: true,
             category: true,
             destinationUrl: true,
+            ...(hasShortLinks
+              ? {
+                shortLinkId: true,
+                shortLink: { select: { code: true, status: true } },
+              }
+              : {}),
             priority: true,
             startDate: true,
             endDate: true,
@@ -67,6 +75,11 @@ export const PublicAdvertisementsController = {
           adType: ad.adType ?? 'GAMING_CENTER',
           category: ad.category ?? null,
           destinationUrl: ad.destinationUrl,
+          shortLinkId: ad.shortLinkId ?? null,
+          shortUrl:
+            ad.shortLink?.code && ad.shortLink?.status === 'ACTIVE'
+              ? buildShortUrl(ad.shortLink.code)
+              : null,
           priority: ad.priority,
           startDate: ad.startDate,
           endDate: ad.endDate,

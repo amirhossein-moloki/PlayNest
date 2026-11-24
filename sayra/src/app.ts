@@ -10,6 +10,7 @@ import YAML from 'yamljs';
 import routes from './routes';
 import { publicGameCentersV2Router } from './modules/public-gamecenters/public-gamecenters.routes';
 import { publicSearchRouter } from './modules/search/search.routes';
+import { shortLinkRedirectRouter } from './modules/short-links/shortLinks.routes';
 import { ADMIN_CONSTANTS } from './platform-admin/config/admin.constants';
 import healthRouter from './routes/health.routes';
 import { errorHandler } from './common/errors/errorHandler';
@@ -158,7 +159,9 @@ if (enableDocs) {
   app.use(['/api-docs', '/swagger', '/docs', '/redoc', '/openapi.yaml', '/openapi.json'], disabledDocsHandler);
 }
 
-// API Routes
+// API & Short-Link Redirect Routes
+app.use('/r', shortLinkRedirectRouter);
+app.use('/s', shortLinkRedirectRouter);
 app.use('/api/public/gamecenters', publicGameCentersV2Router);
 app.use('/api/public/search', publicSearchRouter);
 app.use('/api/v1', routes);

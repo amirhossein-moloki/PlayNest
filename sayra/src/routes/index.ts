@@ -77,6 +77,15 @@ import {
   publicWaitlistRouter,
 } from '../modules/waitlist/waitlist.routes';
 import { iranCalendarRouter } from '../modules/iran-calendar/iran-calendar.routes';
+import {
+  gamingCenterShortLinkCampaignsRouter,
+  gamingCenterShortLinksRouter,
+  platformAdminShortLinkCampaignsRouter,
+  platformAdminShortLinksRouter,
+  scopedShortLinkCampaignsRouter,
+  scopedShortLinksRouter,
+  shortLinkRedirectRouter,
+} from '../modules/short-links/shortLinks.routes';
 
 const router = Router();
 
@@ -226,6 +235,15 @@ router.use(webhooksRoutes);
 
 // --- Iranian Official Calendar Module ---
 router.use('/iran-calendar', iranCalendarRouter);
+
+// --- Short Links, Redirects, Campaigns & Domain Security Module ---
+router.use('/short-links/r', shortLinkRedirectRouter);
+router.use('/short-links', scopedShortLinksRouter);
+router.use('/short-link-campaigns', scopedShortLinkCampaignsRouter);
+router.use('/gamingCenters/:gamingCenterId/short-links', gamingCenterShortLinksRouter);
+router.use('/gamingCenters/:gamingCenterId/short-link-campaigns', gamingCenterShortLinkCampaignsRouter);
+router.use('/platform-admin/short-links', platformAdminShortLinksRouter);
+router.use('/platform-admin/short-link-campaigns', platformAdminShortLinkCampaignsRouter);
 
 
 export default router;

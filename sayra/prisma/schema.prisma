@@ -633,10 +633,12 @@ model GamingCenter {
   marketingSpends MarketingCampaignSpend[]
   forecastRuns    RevenueForecastRun[]
 
-  verifications  GamingCenterVerification[]
-  onboarding     GameCenterOnboarding?
-  advertisements AdvertisementRequest[]
-  tickets        Ticket[]
+  verifications      GamingCenterVerification[]
+  onboarding         GameCenterOnboarding?
+  advertisements     AdvertisementRequest[]
+  tickets            Ticket[]
+  shortLinks         ShortLink[]
+  shortLinkCampaigns ShortLinkCampaign[]
 
   @@index([verificationStatus])
   @@index([isActive, verificationStatus, createdAt(sort: Desc)])
@@ -696,10 +698,14 @@ model User {
 
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
-  Ticket                Ticket[]               @relation("TicketAssignee")
-  ticketsCreated        Ticket[]               @relation("TicketCreator")
-  notifications         Notification[]
-  advertisementRequests AdvertisementRequest[] @relation("AdRequestOwner")
+  Ticket                    Ticket[]               @relation("TicketAssignee")
+  ticketsCreated            Ticket[]               @relation("TicketCreator")
+  notifications             Notification[]
+  advertisementRequests     AdvertisementRequest[] @relation("AdRequestOwner")
+  ownedShortLinks           ShortLink[]            @relation("ShortLinkOwner")
+  createdShortLinks         ShortLink[]            @relation("ShortLinkCreator")
+  createdShortLinkCampaigns ShortLinkCampaign[]
+  shortLinkChangeLogs       ShortLinkChangeLog[]
 
   @@unique([gamingCenterId, phone])
   @@unique([gamingCenterId, username])
@@ -2505,10 +2511,14 @@ model PlatformAdmin {
   isSuperuser  Boolean   @default(true)
   lastLogin    DateTime?
 
-  auditLogs              AuditLog[]
-  reviewedVerifications  GamingCenterVerification[]
-  reviewedAdvertisements AdvertisementRequest[]     @relation("AdRequestReviewer")
-  reviewedWithdrawals    WithdrawalRequest[]        @relation("WithdrawalReviewer")
+  auditLogs                 AuditLog[]
+  reviewedVerifications     GamingCenterVerification[]
+  reviewedAdvertisements    AdvertisementRequest[]     @relation("AdRequestReviewer")
+  reviewedWithdrawals       WithdrawalRequest[]        @relation("WithdrawalReviewer")
+  createdShortLinks         ShortLink[]
+  createdShortLinkCampaigns ShortLinkCampaign[]
+  shortLinkChangeLogs       ShortLinkChangeLog[]
+  shortLinkDomainRules      ShortLinkDomainRule[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3230,6 +3240,9 @@ model AdvertisementRequest {
   mediaId String?
   media   Media?  @relation(fields: [mediaId], references: [id], onDelete: SetNull)
 
+  shortLinkId String?
+  shortLink   ShortLink? @relation(fields: [shortLinkId], references: [id], onDelete: SetNull)
+
   // Status & Decision
   status         AdvertisementRequestStatus @default(PENDING)
   decisionReason String?                    @db.Text
@@ -3245,6 +3258,7 @@ model AdvertisementRequest {
 
   @@index([gamingCenterId])
   @@index([ownerId])
+  @@index([shortLinkId])
   @@index([adType])
   @@index([status])
   @@index([startDate, endDate])
@@ -3340,4 +3354,251 @@ model IntegrationOutboxEvent {
 
   @@index([status, nextRetryAt])
   @@index([gamingCenterId, createdAt])
+}
+
+// ==================================================
+// Backend URL Shortener, Campaigns, Click Analytics & Domain Security
+// ==================================================
+
+enum ShortLinkStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum ShortLinkOwnerType {
+  PLATFORM
+  GAMING_CENTER
+  USER
+}
+
+enum ShortLinkTargetCategory {
+  GAMING_CENTER
+  GAME
+  RESERVATION
+  ADVERTISEMENT
+  CAMPAIGN
+  INVITE
+  SOCIAL
+  NOTIFICATION
+  EXTERNAL
+  OTHER
+}
+
+enum ShortLinkClickClassification {
+  VALID
+  DUPLICATE
+  BOT
+  SUSPICIOUS
+}
+
+enum ShortLinkCampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ENDED
+  ARCHIVED
+}
+
+enum AllowedDomainRuleType {
+  ALLOW
+  BLOCK
+}
+
+model ShortLinkCampaign {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String
+  description String? @db.Text
+
+  ownerType        ShortLinkOwnerType @default(PLATFORM)
+  gamingCenterId   String?
+  gamingCenter     GamingCenter?      @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+  createdByUserId  String?
+  createdByUser    User?              @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByAdminId String?
+  createdByAdmin   PlatformAdmin?     @relation(fields: [createdByAdminId], references: [id], onDelete: SetNull)
+
+  status      ShortLinkCampaignStatus @default(ACTIVE)
+  adSource    String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmTerm     String?
+  utmContent  String?
+
+  startsAt  DateTime? @db.Timestamptz(6)
+  endsAt    DateTime? @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+
+  links ShortLink[]
+
+  @@unique([gamingCenterId, slug])
+  @@index([gamingCenterId, status])
+  @@index([ownerType, status])
+  @@index([startsAt, endsAt])
+  @@index([createdByUserId])
+  @@index([createdByAdminId])
+  @@index([deletedAt])
+  @@index([createdAt])
+}
+
+model ShortLink {
+  id              String  @id @default(cuid())
+  code            String  @unique
+  normalizedCode  String  @unique
+  isCustomCode    Boolean @default(false)
+  destinationUrl  String  @db.Text
+  destinationHost String
+  title           String?
+  description     String? @db.Text
+
+  targetCategory ShortLinkTargetCategory @default(OTHER)
+  targetEntityId String?
+
+  ownerType        ShortLinkOwnerType @default(PLATFORM)
+  gamingCenterId   String?
+  gamingCenter     GamingCenter?      @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
+  ownerUserId      String?
+  ownerUser        User?              @relation("ShortLinkOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdByUserId  String?
+  createdByUser    User?              @relation("ShortLinkCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByAdminId String?
+  createdByAdmin   PlatformAdmin?     @relation(fields: [createdByAdminId], references: [id], onDelete: SetNull)
+
+  campaignId String?
+  campaign   ShortLinkCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  utmSource       String?
+  utmMedium       String?
+  utmCampaign     String?
+  utmTerm         String?
+  utmContent      String?
+  appendUtmParams Boolean @default(true)
+
+  status             ShortLinkStatus @default(ACTIVE)
+  redirectStatusCode Int             @default(302)
+  expiresAt          DateTime?       @db.Timestamptz(6)
+  maxClicks          Int?
+  qrConfig           Json?
+  metadata           Json?
+
+  totalClicks      Int       @default(0)
+  validClicks      Int       @default(0)
+  uniqueClicks     Int       @default(0)
+  duplicateClicks  Int       @default(0)
+  botClicks        Int       @default(0)
+  suspiciousClicks Int       @default(0)
+  lastClickedAt    DateTime? @db.Timestamptz(6)
+
+  deletedAt DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+
+  clicks         ShortLinkClick[]
+  dailyStats     ShortLinkDailyStat[]
+  changeLogs     ShortLinkChangeLog[]
+  advertisements AdvertisementRequest[]
+
+  @@index([gamingCenterId, status, createdAt(sort: Desc)])
+  @@index([ownerUserId, status])
+  @@index([createdByUserId])
+  @@index([createdByAdminId])
+  @@index([campaignId, status])
+  @@index([targetCategory, targetEntityId])
+  @@index([destinationHost])
+  @@index([status, expiresAt])
+  @@index([deletedAt])
+}
+
+model ShortLinkChangeLog {
+  id          String           @id @default(cuid())
+  shortLinkId String
+  shortLink   ShortLink        @relation(fields: [shortLinkId], references: [id], onDelete: Cascade)
+  action      String
+  actorType   SessionActorType
+  actorUserId String?
+  actorUser   User?            @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorAdminId String?
+  actorAdmin  PlatformAdmin?   @relation(fields: [actorAdminId], references: [id], onDelete: SetNull)
+
+  previousDestinationUrl String?  @db.Text
+  newDestinationUrl      String?  @db.Text
+  changes                Json?
+  ipHash                 String?
+  userAgent              String?
+  createdAt              DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([shortLinkId, createdAt(sort: Desc)])
+  @@index([actorUserId])
+  @@index([actorAdminId])
+}
+
+model ShortLinkClick {
+  id              String                       @id @default(cuid())
+  shortLinkId     String
+  shortLink       ShortLink                    @relation(fields: [shortLinkId], references: [id], onDelete: Cascade)
+  campaignId      String?
+  gamingCenterId  String?
+  clickedAt       DateTime                     @default(now()) @db.Timestamptz(6)
+  classification  ShortLinkClickClassification @default(VALID)
+  isUniqueVisitor Boolean                      @default(false)
+  visitorHash     String
+  deviceType      String                       @default("unknown")
+  os              String                       @default("unknown")
+  browser         String                       @default("unknown")
+  countryCode     String?
+  region          String?
+  referrer        String?                      @db.Text
+  referrerDomain  String?
+  trafficSource   String                       @default("direct")
+  utmSource       String?
+  utmMedium       String?
+  utmCampaign     String?
+  utmTerm         String?
+  utmContent      String?
+  botReason       String?
+
+  @@index([shortLinkId, clickedAt(sort: Desc)])
+  @@index([shortLinkId, classification, clickedAt(sort: Desc)])
+  @@index([campaignId, clickedAt(sort: Desc)])
+  @@index([gamingCenterId, clickedAt(sort: Desc)])
+  @@index([shortLinkId, visitorHash, clickedAt])
+  @@index([clickedAt])
+}
+
+model ShortLinkDailyStat {
+  id               String    @id @default(cuid())
+  shortLinkId      String
+  shortLink        ShortLink @relation(fields: [shortLinkId], references: [id], onDelete: Cascade)
+  date             DateTime  @db.Date
+  totalClicks      Int       @default(0)
+  validClicks      Int       @default(0)
+  uniqueClicks     Int       @default(0)
+  duplicateClicks  Int       @default(0)
+  botClicks        Int       @default(0)
+  suspiciousClicks Int       @default(0)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@unique([shortLinkId, date])
+  @@index([date])
+}
+
+model ShortLinkDomainRule {
+  id                String                @id @default(cuid())
+  domain            String                @unique
+  ruleType          AllowedDomainRuleType @default(ALLOW)
+  includeSubdomains Boolean               @default(true)
+  isActive          Boolean               @default(true)
+  description       String?
+  createdByAdminId  String?
+  createdByAdmin    PlatformAdmin?        @relation(fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  createdAt         DateTime              @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime              @updatedAt @db.Timestamptz(6)
+
+  @@index([ruleType, isActive])
+  @@index([createdByAdminId])
 }

@@ -2,6 +2,8 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
+const hasShortLinkDelegate = () => typeof (prisma as any).shortLink?.findFirst === 'function';
+
 export const AdvertisementRepo = {
   async create(data: Prisma.AdvertisementRequestUncheckedCreateInput) {
     return (prisma as any).advertisementRequest.create({
@@ -14,6 +16,7 @@ export const AdvertisementRepo = {
           select: { id: true, fullName: true, email: true, phone: true },
         },
         media: true,
+        ...(hasShortLinkDelegate() ? { shortLink: { select: { id: true, code: true, status: true } } } : {}),
       },
     });
   },
@@ -33,6 +36,7 @@ export const AdvertisementRepo = {
           select: { id: true, fullName: true, email: true, phone: true },
         },
         media: true,
+        ...(hasShortLinkDelegate() ? { shortLink: { select: { id: true, code: true, status: true } } } : {}),
         reviewedBy: {
           select: { id: true, fullName: true, email: true },
         },
@@ -60,6 +64,7 @@ export const AdvertisementRepo = {
             select: { id: true, fullName: true, email: true, phone: true },
           },
           media: true,
+          ...(hasShortLinkDelegate() ? { shortLink: { select: { id: true, code: true, status: true } } } : {}),
         },
       }),
       (prisma as any).advertisementRequest.count({
@@ -81,6 +86,7 @@ export const AdvertisementRepo = {
           select: { id: true, fullName: true, email: true, phone: true },
         },
         media: true,
+        ...(hasShortLinkDelegate() ? { shortLink: { select: { id: true, code: true, status: true } } } : {}),
       },
     });
   },

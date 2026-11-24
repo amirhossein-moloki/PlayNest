@@ -3777,6 +3777,12 @@ components:
         destinationUrl:
           type: string
           nullable: true
+        shortLinkId:
+          type: string
+          nullable: true
+        shortUrl:
+          type: string
+          nullable: true
         proposedDurationDays:
           type: integer
           example: 30
@@ -3840,6 +3846,12 @@ components:
         destinationUrl:
           type: string
           example: https://playnest.ir/events/spring-2026
+        shortLinkId:
+          type: string
+          nullable: true
+        autoCreateShortLink:
+          type: boolean
+          default: false
         proposedDurationDays:
           type: integer
           default: 30
@@ -3955,6 +3967,943 @@ components:
         priority:
           type: integer
           default: 0
+    ShortLinkStatus:
+      type: string
+      enum: [ACTIVE, INACTIVE, EXPIRED, ARCHIVED]
+    ShortLinkOwnerType:
+      type: string
+      enum: [PLATFORM, GAMING_CENTER, USER]
+    ShortLinkTargetCategory:
+      type: string
+      enum: [GAMING_CENTER, ADVERTISEMENT, TOURNAMENT, ARTICLE, EVENT, PROMOTION, EXTERNAL, OTHER]
+    ShortLinkClickClassification:
+      type: string
+      enum: [VALID, DUPLICATE, BOT, SUSPICIOUS]
+    ShortLinkCampaignStatus:
+      type: string
+      enum: [DRAFT, ACTIVE, PAUSED, ENDED, ARCHIVED]
+    AllowedDomainRuleType:
+      type: string
+      enum: [ALLOW, BLOCK]
+    ShortLinkQrConfig:
+      type: object
+      nullable: true
+      properties:
+        errorCorrectionLevel:
+          type: string
+          enum: [L, M, Q, H]
+        foreground:
+          type: string
+          pattern: '^#[0-9a-fA-F]{6}$'
+        background:
+          type: string
+          pattern: '^#[0-9a-fA-F]{6}$'
+        margin:
+          type: integer
+          minimum: 1
+          maximum: 10
+        size:
+          type: integer
+          minimum: 128
+          maximum: 2048
+    ShortLinkCampaignRef:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        status:
+          $ref: '#/components/schemas/ShortLinkCampaignStatus'
+        adSource:
+          type: string
+          nullable: true
+    ShortLinkGamingCenterRef:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+    ShortLink:
+      type: object
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+        shortUrl:
+          type: string
+        isCustomCode:
+          type: boolean
+        destinationUrl:
+          type: string
+        destinationHost:
+          type: string
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        targetCategory:
+          $ref: '#/components/schemas/ShortLinkTargetCategory'
+        targetEntityId:
+          type: string
+          nullable: true
+        ownerType:
+          $ref: '#/components/schemas/ShortLinkOwnerType'
+        gamingCenterId:
+          type: string
+          nullable: true
+        ownerUserId:
+          type: string
+          nullable: true
+        campaignId:
+          type: string
+          nullable: true
+        utmSource:
+          type: string
+          nullable: true
+        utmMedium:
+          type: string
+          nullable: true
+        utmCampaign:
+          type: string
+          nullable: true
+        utmTerm:
+          type: string
+          nullable: true
+        utmContent:
+          type: string
+          nullable: true
+        appendUtmParams:
+          type: boolean
+        status:
+          $ref: '#/components/schemas/ShortLinkStatus'
+        redirectStatusCode:
+          type: integer
+          enum: [301, 302]
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        maxClicks:
+          type: integer
+          nullable: true
+        qrConfig:
+          $ref: '#/components/schemas/ShortLinkQrConfig'
+        totalClicks:
+          type: integer
+        validClicks:
+          type: integer
+        uniqueClicks:
+          type: integer
+        duplicateClicks:
+          type: integer
+        botClicks:
+          type: integer
+        suspiciousClicks:
+          type: integer
+        lastClickedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        campaign:
+          $ref: '#/components/schemas/ShortLinkCampaignRef'
+        gamingCenter:
+          $ref: '#/components/schemas/ShortLinkGamingCenterRef'
+    ShortLinkPaginationMeta:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+    ShortLinkChangeLog:
+      type: object
+      properties:
+        id:
+          type: string
+        shortLinkId:
+          type: string
+        action:
+          type: string
+        actorType:
+          type: string
+          enum: [USER, CUSTOMER, PLATFORM_ADMIN]
+        actorUserId:
+          type: string
+          nullable: true
+        actorAdminId:
+          type: string
+          nullable: true
+        previousDestinationUrl:
+          type: string
+          nullable: true
+        newDestinationUrl:
+          type: string
+          nullable: true
+        changes:
+          type: object
+          nullable: true
+          additionalProperties: true
+        ipHash:
+          type: string
+          nullable: true
+        userAgent:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    ShortLinkClickMetricsBucket:
+      type: object
+      properties:
+        bucket:
+          type: string
+        totalClicks:
+          type: integer
+        validClicks:
+          type: integer
+        uniqueClicks:
+          type: integer
+        duplicateClicks:
+          type: integer
+        botClicks:
+          type: integer
+        suspiciousClicks:
+          type: integer
+    ShortLinkClickTotals:
+      type: object
+      properties:
+        totalClicks:
+          type: integer
+        validClicks:
+          type: integer
+        uniqueClicks:
+          type: integer
+        duplicateClicks:
+          type: integer
+        botClicks:
+          type: integer
+        suspiciousClicks:
+          type: integer
+    ShortLinkBreakdownItem:
+      type: object
+      properties:
+        key:
+          type: string
+        count:
+          type: integer
+    ShortLinkStats:
+      type: object
+      properties:
+        link:
+          $ref: '#/components/schemas/ShortLink'
+        range:
+          type: object
+          properties:
+            from:
+              type: string
+              format: date-time
+            to:
+              type: string
+              format: date-time
+            granularity:
+              type: string
+              enum: [day, hour]
+        allTimeTotals:
+          type: object
+          properties:
+            totalClicks:
+              type: integer
+            validClicks:
+              type: integer
+            uniqueClicks:
+              type: integer
+            duplicateClicks:
+              type: integer
+            botClicks:
+              type: integer
+            suspiciousClicks:
+              type: integer
+            lastClickedAt:
+              type: string
+              format: date-time
+              nullable: true
+        rangeTotals:
+          $ref: '#/components/schemas/ShortLinkClickTotals'
+        timeSeries:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShortLinkClickMetricsBucket'
+        breakdowns:
+          type: object
+          properties:
+            classification:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShortLinkBreakdownItem'
+            deviceTypes:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShortLinkBreakdownItem'
+            operatingSystems:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShortLinkBreakdownItem'
+            browsers:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShortLinkBreakdownItem'
+            countries:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShortLinkBreakdownItem'
+            regions:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShortLinkBreakdownItem'
+            trafficSources:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShortLinkBreakdownItem'
+            referrers:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShortLinkBreakdownItem'
+            utmSources:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShortLinkBreakdownItem'
+            utmMediums:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShortLinkBreakdownItem'
+            utmCampaigns:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShortLinkBreakdownItem'
+    ShortLinkCampaign:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+        ownerType:
+          $ref: '#/components/schemas/ShortLinkOwnerType'
+        gamingCenterId:
+          type: string
+          nullable: true
+        createdByUserId:
+          type: string
+          nullable: true
+        createdByAdminId:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/ShortLinkCampaignStatus'
+        adSource:
+          type: string
+          nullable: true
+        utmSource:
+          type: string
+          nullable: true
+        utmMedium:
+          type: string
+          nullable: true
+        utmCampaign:
+          type: string
+          nullable: true
+        utmTerm:
+          type: string
+          nullable: true
+        utmContent:
+          type: string
+          nullable: true
+        startsAt:
+          type: string
+          format: date-time
+          nullable: true
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ShortLinkCampaignLinkComparisonItem:
+      type: object
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+        shortUrl:
+          type: string
+        title:
+          type: string
+          nullable: true
+        destinationUrl:
+          type: string
+        status:
+          $ref: '#/components/schemas/ShortLinkStatus'
+        totalClicks:
+          type: integer
+        validClicks:
+          type: integer
+        uniqueClicks:
+          type: integer
+        duplicateClicks:
+          type: integer
+        botClicks:
+          type: integer
+        suspiciousClicks:
+          type: integer
+        validRatePct:
+          type: number
+          format: float
+    ShortLinkCampaignStats:
+      type: object
+      properties:
+        campaign:
+          $ref: '#/components/schemas/ShortLinkCampaign'
+        range:
+          type: object
+          properties:
+            from:
+              type: string
+              format: date-time
+            to:
+              type: string
+              format: date-time
+            granularity:
+              type: string
+              enum: [day, hour]
+        totals:
+          type: object
+          properties:
+            linksCount:
+              type: integer
+            totalClicks:
+              type: integer
+            validClicks:
+              type: integer
+            uniqueClicks:
+              type: integer
+            duplicateClicks:
+              type: integer
+            botClicks:
+              type: integer
+            suspiciousClicks:
+              type: integer
+        timeSeries:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShortLinkClickMetricsBucket'
+        linkComparison:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShortLinkCampaignLinkComparisonItem'
+        breakdowns:
+          type: object
+          properties:
+            trafficSources:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShortLinkBreakdownItem'
+            deviceTypes:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShortLinkBreakdownItem'
+    ShortLinkDomainRule:
+      type: object
+      properties:
+        id:
+          type: string
+        domain:
+          type: string
+        ruleType:
+          $ref: '#/components/schemas/AllowedDomainRuleType'
+        includeSubdomains:
+          type: boolean
+        isActive:
+          type: boolean
+        description:
+          type: string
+          nullable: true
+        createdByAdminId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateShortLinkInput:
+      type: object
+      required:
+      - destinationUrl
+      properties:
+        destinationUrl:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          example: https://playnest.ir/centers/tehran-vip
+        customCode:
+          type: string
+          minLength: 3
+          maxLength: 64
+          example: vip-summer
+        title:
+          type: string
+          maxLength: 200
+          nullable: true
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+        targetCategory:
+          $ref: '#/components/schemas/ShortLinkTargetCategory'
+        targetEntityId:
+          type: string
+          maxLength: 128
+          nullable: true
+        gamingCenterId:
+          type: string
+        campaignId:
+          type: string
+          nullable: true
+        utmSource:
+          type: string
+          maxLength: 128
+          nullable: true
+        utmMedium:
+          type: string
+          maxLength: 128
+          nullable: true
+        utmCampaign:
+          type: string
+          maxLength: 128
+          nullable: true
+        utmTerm:
+          type: string
+          maxLength: 128
+          nullable: true
+        utmContent:
+          type: string
+          maxLength: 128
+          nullable: true
+        appendUtmParams:
+          type: boolean
+          default: true
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+          default: ACTIVE
+        redirectStatusCode:
+          type: integer
+          enum: [301, 302]
+          default: 302
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        maxClicks:
+          type: integer
+          minimum: 1
+          maximum: 100000000
+          nullable: true
+        qrConfig:
+          $ref: '#/components/schemas/ShortLinkQrConfig'
+        metadata:
+          type: object
+          nullable: true
+          additionalProperties: true
+    UpdateShortLinkInput:
+      type: object
+      properties:
+        destinationUrl:
+          type: string
+          minLength: 1
+          maxLength: 2048
+        title:
+          type: string
+          maxLength: 200
+          nullable: true
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+        targetCategory:
+          $ref: '#/components/schemas/ShortLinkTargetCategory'
+        targetEntityId:
+          type: string
+          maxLength: 128
+          nullable: true
+        campaignId:
+          type: string
+          nullable: true
+        utmSource:
+          type: string
+          maxLength: 128
+          nullable: true
+        utmMedium:
+          type: string
+          maxLength: 128
+          nullable: true
+        utmCampaign:
+          type: string
+          maxLength: 128
+          nullable: true
+        utmTerm:
+          type: string
+          maxLength: 128
+          nullable: true
+        utmContent:
+          type: string
+          maxLength: 128
+          nullable: true
+        appendUtmParams:
+          type: boolean
+        status:
+          $ref: '#/components/schemas/ShortLinkStatus'
+        redirectStatusCode:
+          type: integer
+          enum: [301, 302]
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        maxClicks:
+          type: integer
+          minimum: 1
+          maximum: 100000000
+          nullable: true
+        qrConfig:
+          $ref: '#/components/schemas/ShortLinkQrConfig'
+        metadata:
+          type: object
+          nullable: true
+          additionalProperties: true
+    ChangeShortLinkDestinationInput:
+      type: object
+      required:
+      - destinationUrl
+      properties:
+        destinationUrl:
+          type: string
+          minLength: 1
+          maxLength: 2048
+        reason:
+          type: string
+          maxLength: 500
+    UpdateShortLinkStatusInput:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          $ref: '#/components/schemas/ShortLinkStatus'
+        reason:
+          type: string
+          maxLength: 500
+    CreateShortLinkCampaignInput:
+      type: object
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 150
+        slug:
+          type: string
+          minLength: 2
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+        gamingCenterId:
+          type: string
+        status:
+          $ref: '#/components/schemas/ShortLinkCampaignStatus'
+        adSource:
+          type: string
+          maxLength: 128
+          nullable: true
+        utmSource:
+          type: string
+          maxLength: 128
+          nullable: true
+        utmMedium:
+          type: string
+          maxLength: 128
+          nullable: true
+        utmCampaign:
+          type: string
+          maxLength: 128
+          nullable: true
+        utmTerm:
+          type: string
+          maxLength: 128
+          nullable: true
+        utmContent:
+          type: string
+          maxLength: 128
+          nullable: true
+        startsAt:
+          type: string
+          format: date-time
+          nullable: true
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+    UpdateShortLinkCampaignInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 150
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+        status:
+          $ref: '#/components/schemas/ShortLinkCampaignStatus'
+        adSource:
+          type: string
+          maxLength: 128
+          nullable: true
+        utmSource:
+          type: string
+          maxLength: 128
+          nullable: true
+        utmMedium:
+          type: string
+          maxLength: 128
+          nullable: true
+        utmCampaign:
+          type: string
+          maxLength: 128
+          nullable: true
+        utmTerm:
+          type: string
+          maxLength: 128
+          nullable: true
+        utmContent:
+          type: string
+          maxLength: 128
+          nullable: true
+        startsAt:
+          type: string
+          format: date-time
+          nullable: true
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+    UpdateShortLinkCampaignStatusInput:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          $ref: '#/components/schemas/ShortLinkCampaignStatus'
+    CreateShortLinkDomainRuleInput:
+      type: object
+      required:
+      - domain
+      properties:
+        domain:
+          type: string
+          minLength: 3
+          maxLength: 255
+          example: instagram.com
+        ruleType:
+          $ref: '#/components/schemas/AllowedDomainRuleType'
+        includeSubdomains:
+          type: boolean
+          default: true
+        isActive:
+          type: boolean
+          default: true
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+    UpdateShortLinkDomainRuleInput:
+      type: object
+      properties:
+        ruleType:
+          $ref: '#/components/schemas/AllowedDomainRuleType'
+        includeSubdomains:
+          type: boolean
+        isActive:
+          type: boolean
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+    ShortLinkQrJsonResponse:
+      type: object
+      properties:
+        format:
+          type: string
+          enum: [json, dataurl]
+        mimeType:
+          type: string
+        svg:
+          type: string
+        dataUrl:
+          type: string
+        meta:
+          type: object
+          properties:
+            shortUrl:
+              type: string
+            version:
+              type: integer
+            moduleCount:
+              type: integer
+            size:
+              type: integer
+            margin:
+              type: integer
+            ecc:
+              type: string
+              enum: [L, M, Q, H]
+            foreground:
+              type: string
+            background:
+              type: string
+    ShortLinkSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/ShortLink'
+    PaginatedShortLinksResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShortLink'
+            meta:
+              $ref: '#/components/schemas/ShortLinkPaginationMeta'
+    ShortLinkHistorySuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShortLinkChangeLog'
+            meta:
+              $ref: '#/components/schemas/ShortLinkPaginationMeta'
+    ShortLinkStatsSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/ShortLinkStats'
+    ShortLinkQrJsonSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/ShortLinkQrJsonResponse'
+    ShortLinkCampaignSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/ShortLinkCampaign'
+    PaginatedShortLinkCampaignsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/ShortLinkCampaign'
+            meta:
+              $ref: '#/components/schemas/ShortLinkPaginationMeta'
+    ShortLinkCampaignStatsSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/ShortLinkCampaignStats'
+    ShortLinkDomainRuleSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/ShortLinkDomainRule'
+    ShortLinkDomainRulesListSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShortLinkDomainRule'
 paths:
   /public/advertisements/slider:
     get:
@@ -3992,6 +4941,12 @@ paths:
                         mediaType:
                           type: string
                         destinationUrl:
+                          type: string
+                          nullable: true
+                        shortLinkId:
+                          type: string
+                          nullable: true
+                        shortUrl:
                           type: string
                           nullable: true
                         priority:
@@ -4049,6 +5004,12 @@ paths:
                         mediaType:
                           type: string
                         destinationUrl:
+                          type: string
+                          nullable: true
+                        shortLinkId:
+                          type: string
+                          nullable: true
+                        shortUrl:
                           type: string
                           nullable: true
                         priority:
@@ -4358,6 +5319,9 @@ paths:
                   type: string
                 destinationUrl:
                   type: string
+                shortLinkId:
+                  type: string
+                  nullable: true
                 proposedDurationDays:
                   type: integer
       responses:
@@ -18946,6 +19910,2124 @@ paths:
           $ref: '#/components/responses/NotFoundError'
         '409':
           $ref: '#/components/responses/ConflictError'
+  /r/{code}:
+    servers:
+    - url: /
+      description: Root public short-link redirect endpoint
+    get:
+      operationId: redirectShortLinkByR
+      summary: Resolve short code and redirect to destination URL
+      description: Resolves active short code via hot cache and redirects with merged UTM parameters while tracking clicks asynchronously.
+      tags:
+      - ShortLinks
+      security: []
+      parameters:
+      - name: code
+        in: path
+        required: true
+        description: Short link alias or auto-generated Base58 code
+        schema:
+          type: string
+      responses:
+        '301':
+          description: Permanent redirect to resolved destination URL
+        '302':
+          description: Temporary redirect to resolved destination URL
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '410':
+          description: Short link is inactive, archived, expired, or has reached maxClicks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        '451':
+          description: Destination URL is blocked by active domain security policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /s/{code}:
+    servers:
+    - url: /
+      description: Root public short-link redirect endpoint
+    get:
+      operationId: redirectShortLinkByS
+      summary: Resolve short code and redirect to destination URL
+      description: Resolves active short code via hot cache and redirects with merged UTM parameters while tracking clicks asynchronously.
+      tags:
+      - ShortLinks
+      security: []
+      parameters:
+      - name: code
+        in: path
+        required: true
+        description: Short link alias or auto-generated Base58 code
+        schema:
+          type: string
+      responses:
+        '301':
+          description: Permanent redirect to resolved destination URL
+        '302':
+          description: Temporary redirect to resolved destination URL
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '410':
+          description: Short link is inactive, archived, expired, or has reached maxClicks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        '451':
+          description: Destination URL is blocked by active domain security policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /short-links/r/{code}:
+    get:
+      operationId: redirectShortLinkViaApi
+      summary: Resolve short code and redirect to destination URL
+      description: Resolves active short code via hot cache and redirects with merged UTM parameters while tracking clicks asynchronously.
+      tags:
+      - ShortLinks
+      security: []
+      parameters:
+      - name: code
+        in: path
+        required: true
+        description: Short link alias or auto-generated Base58 code
+        schema:
+          type: string
+      responses:
+        '301':
+          description: Permanent redirect to resolved destination URL
+        '302':
+          description: Temporary redirect to resolved destination URL
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '410':
+          description: Short link is inactive, archived, expired, or has reached maxClicks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        '451':
+          description: Destination URL is blocked by active domain security policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /short-links:
+    post:
+      operationId: createScopedShortLink
+      summary: Create a new short link
+      tags: &id001
+      - ShortLinks
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShortLinkInput'
+      responses:
+        '201':
+          description: Short link created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+    get:
+      operationId: listScopedShortLinks
+      summary: List short links
+      tags: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: search
+        in: query
+        schema:
+          type: string
+          maxLength: 200
+      - name: q
+        in: query
+        schema:
+          type: string
+          maxLength: 200
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/ShortLinkStatus'
+      - name: targetCategory
+        in: query
+        schema:
+          $ref: '#/components/schemas/ShortLinkTargetCategory'
+      - name: campaignId
+        in: query
+        schema:
+          type: string
+      - name: isCustomCode
+        in: query
+        schema:
+          type: boolean
+      - name: expiredOnly
+        in: query
+        schema:
+          type: boolean
+      - name: sortBy
+        in: query
+        schema:
+          type: string
+          enum:
+          - createdAt
+          - updatedAt
+          - totalClicks
+          - validClicks
+          - lastClickedAt
+          default: createdAt
+      - name: sortOrder
+        in: query
+        schema:
+          type: string
+          enum:
+          - asc
+          - desc
+          default: desc
+      - name: gamingCenterId
+        in: query
+        schema:
+          type: string
+      - name: includeDeleted
+        in: query
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: Paginated list of short links
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedShortLinksResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /short-links/{linkId}:
+    get:
+      operationId: getScopedShortLinkById
+      summary: Get short link details
+      tags: *id001
+      security:
+      - bearerAuth: []
+      parameters: &id002
+      - &id003
+        name: linkId
+        in: path
+        required: true
+        description: Short link ID
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Short link details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkSuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    patch:
+      operationId: updateScopedShortLink
+      summary: Update short link properties
+      tags: *id001
+      security:
+      - bearerAuth: []
+      parameters: *id002
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShortLinkInput'
+      responses:
+        '200':
+          description: Short link updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      operationId: deleteScopedShortLink
+      summary: Soft-delete a short link
+      tags: *id001
+      security:
+      - bearerAuth: []
+      parameters: *id002
+      responses:
+        '204':
+          description: Short link soft-deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /short-links/{linkId}/destination:
+    patch:
+      operationId: changeScopedShortLinkDestination
+      summary: Change short link destination URL with history logging
+      tags: *id001
+      security:
+      - bearerAuth: []
+      parameters: *id002
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeShortLinkDestinationInput'
+      responses:
+        '200':
+          description: Short link destination updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /short-links/{linkId}/status:
+    patch:
+      operationId: updateScopedShortLinkStatus
+      summary: Change short link status
+      tags: *id001
+      security:
+      - bearerAuth: []
+      parameters: *id002
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShortLinkStatusInput'
+      responses:
+        '200':
+          description: Short link status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /short-links/{linkId}/history:
+    get:
+      operationId: getScopedShortLinkHistory
+      summary: Get short link change history
+      tags: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - *id003
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Paginated short link change history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkHistorySuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /short-links/{linkId}/stats:
+    get:
+      operationId: getScopedShortLinkStats
+      summary: Get click analytics for a short link
+      tags: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - *id003
+      - name: from
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: granularity
+        in: query
+        schema:
+          type: string
+          enum:
+          - day
+          - hour
+          default: day
+      responses:
+        '200':
+          description: Short link analytics report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkStatsSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /short-links/{linkId}/qr:
+    get:
+      operationId: getScopedShortLinkQr
+      summary: Generate QR code for short link
+      tags: *id001
+      security:
+      - bearerAuth: []
+      parameters:
+      - *id003
+      - name: format
+        in: query
+        schema:
+          type: string
+          enum:
+          - svg
+          - png
+          - json
+          - dataurl
+          default: svg
+      - name: size
+        in: query
+        schema:
+          type: integer
+          minimum: 128
+          maximum: 2048
+          default: 320
+      - name: margin
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 4
+      - name: ecc
+        in: query
+        schema:
+          type: string
+          enum:
+          - L
+          - M
+          - Q
+          - H
+          default: M
+      - name: fg
+        in: query
+        schema:
+          type: string
+          pattern: ^#?[0-9a-fA-F]{6}$
+      - name: bg
+        in: query
+        schema:
+          type: string
+          pattern: ^#?[0-9a-fA-F]{6}$
+      - name: download
+        in: query
+        schema:
+          type: boolean
+          default: false
+      responses:
+        '200':
+          description: Generated QR code payload or image
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+            image/png:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkQrJsonSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+  /short-link-campaigns:
+    post:
+      operationId: createScopedShortLinkCampaign
+      summary: Create a short link marketing campaign
+      tags: &id004
+      - ShortLinks
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShortLinkCampaignInput'
+      responses:
+        '201':
+          description: Campaign created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkCampaignSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+    get:
+      operationId: listScopedShortLinkCampaigns
+      summary: List short link marketing campaigns
+      tags: *id004
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: search
+        in: query
+        schema:
+          type: string
+          maxLength: 200
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/ShortLinkCampaignStatus'
+      - name: gamingCenterId
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Paginated list of campaigns
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedShortLinkCampaignsResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /short-link-campaigns/{campaignId}:
+    get:
+      operationId: getScopedShortLinkCampaignById
+      summary: Get campaign details
+      tags: *id004
+      security:
+      - bearerAuth: []
+      parameters: &id005
+      - &id006
+        name: campaignId
+        in: path
+        required: true
+        description: Short link campaign ID
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Campaign details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkCampaignSuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    patch:
+      operationId: updateScopedShortLinkCampaign
+      summary: Update campaign configuration
+      tags: *id004
+      security:
+      - bearerAuth: []
+      parameters: *id005
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShortLinkCampaignInput'
+      responses:
+        '200':
+          description: Campaign updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkCampaignSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      operationId: deleteScopedShortLinkCampaign
+      summary: Soft-delete campaign
+      tags: *id004
+      security:
+      - bearerAuth: []
+      parameters: *id005
+      responses:
+        '204':
+          description: Campaign soft-deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /short-link-campaigns/{campaignId}/status:
+    patch:
+      operationId: updateScopedShortLinkCampaignStatus
+      summary: Change campaign status
+      tags: *id004
+      security:
+      - bearerAuth: []
+      parameters: *id005
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShortLinkCampaignStatusInput'
+      responses:
+        '200':
+          description: Campaign status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkCampaignSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /short-link-campaigns/{campaignId}/stats:
+    get:
+      operationId: getScopedShortLinkCampaignStats
+      summary: Get campaign analytics and link comparison
+      tags: *id004
+      security:
+      - bearerAuth: []
+      parameters:
+      - *id006
+      - name: from
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: granularity
+        in: query
+        schema:
+          type: string
+          enum:
+          - day
+          - hour
+          default: day
+      responses:
+        '200':
+          description: Campaign analytics and per-link comparison
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkCampaignStatsSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /gamingCenters/{gamingCenterId}/short-links:
+    post:
+      operationId: createGamingCenterShortLink
+      summary: Create a new short link
+      tags: &id007
+      - ShortLinks
+      - GamingCenters
+      security:
+      - bearerAuth: []
+      parameters:
+      - &id008
+        name: gamingCenterId
+        in: path
+        required: true
+        description: Gaming Center ID
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShortLinkInput'
+      responses:
+        '201':
+          description: Short link created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+    get:
+      operationId: listGamingCenterShortLinks
+      summary: List short links
+      tags: *id007
+      security:
+      - bearerAuth: []
+      parameters:
+      - *id008
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: search
+        in: query
+        schema:
+          type: string
+          maxLength: 200
+      - name: q
+        in: query
+        schema:
+          type: string
+          maxLength: 200
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/ShortLinkStatus'
+      - name: targetCategory
+        in: query
+        schema:
+          $ref: '#/components/schemas/ShortLinkTargetCategory'
+      - name: campaignId
+        in: query
+        schema:
+          type: string
+      - name: isCustomCode
+        in: query
+        schema:
+          type: boolean
+      - name: expiredOnly
+        in: query
+        schema:
+          type: boolean
+      - name: sortBy
+        in: query
+        schema:
+          type: string
+          enum:
+          - createdAt
+          - updatedAt
+          - totalClicks
+          - validClicks
+          - lastClickedAt
+          default: createdAt
+      - name: sortOrder
+        in: query
+        schema:
+          type: string
+          enum:
+          - asc
+          - desc
+          default: desc
+      responses:
+        '200':
+          description: Paginated list of short links
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedShortLinksResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /gamingCenters/{gamingCenterId}/short-links/{linkId}:
+    get:
+      operationId: getGamingCenterShortLinkById
+      summary: Get short link details
+      tags: *id007
+      security:
+      - bearerAuth: []
+      parameters: &id009
+      - *id008
+      - &id010
+        name: linkId
+        in: path
+        required: true
+        description: Short link ID
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Short link details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkSuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    patch:
+      operationId: updateGamingCenterShortLink
+      summary: Update short link properties
+      tags: *id007
+      security:
+      - bearerAuth: []
+      parameters: *id009
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShortLinkInput'
+      responses:
+        '200':
+          description: Short link updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      operationId: deleteGamingCenterShortLink
+      summary: Soft-delete a short link
+      tags: *id007
+      security:
+      - bearerAuth: []
+      parameters: *id009
+      responses:
+        '204':
+          description: Short link soft-deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /gamingCenters/{gamingCenterId}/short-links/{linkId}/destination:
+    patch:
+      operationId: changeGamingCenterShortLinkDestination
+      summary: Change short link destination URL with history logging
+      tags: *id007
+      security:
+      - bearerAuth: []
+      parameters: *id009
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeShortLinkDestinationInput'
+      responses:
+        '200':
+          description: Short link destination updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /gamingCenters/{gamingCenterId}/short-links/{linkId}/status:
+    patch:
+      operationId: updateGamingCenterShortLinkStatus
+      summary: Change short link status
+      tags: *id007
+      security:
+      - bearerAuth: []
+      parameters: *id009
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShortLinkStatusInput'
+      responses:
+        '200':
+          description: Short link status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /gamingCenters/{gamingCenterId}/short-links/{linkId}/history:
+    get:
+      operationId: getGamingCenterShortLinkHistory
+      summary: Get short link change history
+      tags: *id007
+      security:
+      - bearerAuth: []
+      parameters:
+      - *id008
+      - *id010
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Paginated short link change history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkHistorySuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /gamingCenters/{gamingCenterId}/short-links/{linkId}/stats:
+    get:
+      operationId: getGamingCenterShortLinkStats
+      summary: Get click analytics for a short link
+      tags: *id007
+      security:
+      - bearerAuth: []
+      parameters:
+      - *id008
+      - *id010
+      - name: from
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: granularity
+        in: query
+        schema:
+          type: string
+          enum:
+          - day
+          - hour
+          default: day
+      responses:
+        '200':
+          description: Short link analytics report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkStatsSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /gamingCenters/{gamingCenterId}/short-links/{linkId}/qr:
+    get:
+      operationId: getGamingCenterShortLinkQr
+      summary: Generate QR code for short link
+      tags: *id007
+      security:
+      - bearerAuth: []
+      parameters:
+      - *id008
+      - *id010
+      - name: format
+        in: query
+        schema:
+          type: string
+          enum:
+          - svg
+          - png
+          - json
+          - dataurl
+          default: svg
+      - name: size
+        in: query
+        schema:
+          type: integer
+          minimum: 128
+          maximum: 2048
+          default: 320
+      - name: margin
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 4
+      - name: ecc
+        in: query
+        schema:
+          type: string
+          enum:
+          - L
+          - M
+          - Q
+          - H
+          default: M
+      - name: fg
+        in: query
+        schema:
+          type: string
+          pattern: ^#?[0-9a-fA-F]{6}$
+      - name: bg
+        in: query
+        schema:
+          type: string
+          pattern: ^#?[0-9a-fA-F]{6}$
+      - name: download
+        in: query
+        schema:
+          type: boolean
+          default: false
+      responses:
+        '200':
+          description: Generated QR code payload or image
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+            image/png:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkQrJsonSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+  /gamingCenters/{gamingCenterId}/short-link-campaigns:
+    post:
+      operationId: createGamingCenterShortLinkCampaign
+      summary: Create a short link marketing campaign
+      tags: &id011
+      - ShortLinks
+      - GamingCenters
+      security:
+      - bearerAuth: []
+      parameters:
+      - *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShortLinkCampaignInput'
+      responses:
+        '201':
+          description: Campaign created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkCampaignSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+    get:
+      operationId: listGamingCenterShortLinkCampaigns
+      summary: List short link marketing campaigns
+      tags: *id011
+      security:
+      - bearerAuth: []
+      parameters:
+      - *id008
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: search
+        in: query
+        schema:
+          type: string
+          maxLength: 200
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/ShortLinkCampaignStatus'
+      responses:
+        '200':
+          description: Paginated list of campaigns
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedShortLinkCampaignsResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /gamingCenters/{gamingCenterId}/short-link-campaigns/{campaignId}:
+    get:
+      operationId: getGamingCenterShortLinkCampaignById
+      summary: Get campaign details
+      tags: *id011
+      security:
+      - bearerAuth: []
+      parameters: &id012
+      - *id008
+      - &id013
+        name: campaignId
+        in: path
+        required: true
+        description: Short link campaign ID
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Campaign details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkCampaignSuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    patch:
+      operationId: updateGamingCenterShortLinkCampaign
+      summary: Update campaign configuration
+      tags: *id011
+      security:
+      - bearerAuth: []
+      parameters: *id012
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShortLinkCampaignInput'
+      responses:
+        '200':
+          description: Campaign updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkCampaignSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      operationId: deleteGamingCenterShortLinkCampaign
+      summary: Soft-delete campaign
+      tags: *id011
+      security:
+      - bearerAuth: []
+      parameters: *id012
+      responses:
+        '204':
+          description: Campaign soft-deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /gamingCenters/{gamingCenterId}/short-link-campaigns/{campaignId}/status:
+    patch:
+      operationId: updateGamingCenterShortLinkCampaignStatus
+      summary: Change campaign status
+      tags: *id011
+      security:
+      - bearerAuth: []
+      parameters: *id012
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShortLinkCampaignStatusInput'
+      responses:
+        '200':
+          description: Campaign status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkCampaignSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /gamingCenters/{gamingCenterId}/short-link-campaigns/{campaignId}/stats:
+    get:
+      operationId: getGamingCenterShortLinkCampaignStats
+      summary: Get campaign analytics and link comparison
+      tags: *id011
+      security:
+      - bearerAuth: []
+      parameters:
+      - *id008
+      - *id013
+      - name: from
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: granularity
+        in: query
+        schema:
+          type: string
+          enum:
+          - day
+          - hour
+          default: day
+      responses:
+        '200':
+          description: Campaign analytics and per-link comparison
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkCampaignStatsSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /platform-admin/short-links/domains:
+    get:
+      operationId: listPlatformShortLinkDomainRules
+      summary: List short link domain allowlist/blocklist rules
+      tags: &id014
+      - ShortLinks
+      - PlatformAdmin
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: List of domain security rules
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkDomainRulesListSuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+    post:
+      operationId: createPlatformShortLinkDomainRule
+      summary: Create short link domain security rule
+      tags: *id014
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShortLinkDomainRuleInput'
+      responses:
+        '201':
+          description: Domain rule created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkDomainRuleSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+  /platform-admin/short-links/domains/{ruleId}:
+    patch:
+      operationId: updatePlatformShortLinkDomainRule
+      summary: Update short link domain security rule
+      tags: *id014
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: ruleId
+        in: path
+        required: true
+        description: Domain rule ID
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShortLinkDomainRuleInput'
+      responses:
+        '200':
+          description: Domain rule updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkDomainRuleSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      operationId: deletePlatformShortLinkDomainRule
+      summary: Delete short link domain security rule
+      tags: *id014
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: ruleId
+        in: path
+        required: true
+        description: Domain rule ID
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Domain rule deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /platform-admin/short-links:
+    post:
+      operationId: createPlatformAdminShortLink
+      summary: Create a new short link
+      tags: &id015
+      - ShortLinks
+      - PlatformAdmin
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShortLinkInput'
+      responses:
+        '201':
+          description: Short link created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+    get:
+      operationId: listPlatformAdminShortLinks
+      summary: List short links
+      tags: *id015
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: search
+        in: query
+        schema:
+          type: string
+          maxLength: 200
+      - name: q
+        in: query
+        schema:
+          type: string
+          maxLength: 200
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/ShortLinkStatus'
+      - name: targetCategory
+        in: query
+        schema:
+          $ref: '#/components/schemas/ShortLinkTargetCategory'
+      - name: campaignId
+        in: query
+        schema:
+          type: string
+      - name: isCustomCode
+        in: query
+        schema:
+          type: boolean
+      - name: expiredOnly
+        in: query
+        schema:
+          type: boolean
+      - name: sortBy
+        in: query
+        schema:
+          type: string
+          enum:
+          - createdAt
+          - updatedAt
+          - totalClicks
+          - validClicks
+          - lastClickedAt
+          default: createdAt
+      - name: sortOrder
+        in: query
+        schema:
+          type: string
+          enum:
+          - asc
+          - desc
+          default: desc
+      - name: gamingCenterId
+        in: query
+        schema:
+          type: string
+      - name: includeDeleted
+        in: query
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: Paginated list of short links
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedShortLinksResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /platform-admin/short-links/{linkId}:
+    get:
+      operationId: getPlatformAdminShortLinkById
+      summary: Get short link details
+      tags: *id015
+      security:
+      - bearerAuth: []
+      parameters: &id016
+      - &id017
+        name: linkId
+        in: path
+        required: true
+        description: Short link ID
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Short link details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkSuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    patch:
+      operationId: updatePlatformAdminShortLink
+      summary: Update short link properties
+      tags: *id015
+      security:
+      - bearerAuth: []
+      parameters: *id016
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShortLinkInput'
+      responses:
+        '200':
+          description: Short link updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      operationId: deletePlatformAdminShortLink
+      summary: Soft-delete a short link
+      tags: *id015
+      security:
+      - bearerAuth: []
+      parameters: *id016
+      responses:
+        '204':
+          description: Short link soft-deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /platform-admin/short-links/{linkId}/destination:
+    patch:
+      operationId: changePlatformAdminShortLinkDestination
+      summary: Change short link destination URL with history logging
+      tags: *id015
+      security:
+      - bearerAuth: []
+      parameters: *id016
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeShortLinkDestinationInput'
+      responses:
+        '200':
+          description: Short link destination updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /platform-admin/short-links/{linkId}/status:
+    patch:
+      operationId: updatePlatformAdminShortLinkStatus
+      summary: Change short link status
+      tags: *id015
+      security:
+      - bearerAuth: []
+      parameters: *id016
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShortLinkStatusInput'
+      responses:
+        '200':
+          description: Short link status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /platform-admin/short-links/{linkId}/history:
+    get:
+      operationId: getPlatformAdminShortLinkHistory
+      summary: Get short link change history
+      tags: *id015
+      security:
+      - bearerAuth: []
+      parameters:
+      - *id017
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Paginated short link change history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkHistorySuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /platform-admin/short-links/{linkId}/stats:
+    get:
+      operationId: getPlatformAdminShortLinkStats
+      summary: Get click analytics for a short link
+      tags: *id015
+      security:
+      - bearerAuth: []
+      parameters:
+      - *id017
+      - name: from
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: granularity
+        in: query
+        schema:
+          type: string
+          enum:
+          - day
+          - hour
+          default: day
+      responses:
+        '200':
+          description: Short link analytics report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkStatsSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /platform-admin/short-links/{linkId}/qr:
+    get:
+      operationId: getPlatformAdminShortLinkQr
+      summary: Generate QR code for short link
+      tags: *id015
+      security:
+      - bearerAuth: []
+      parameters:
+      - *id017
+      - name: format
+        in: query
+        schema:
+          type: string
+          enum:
+          - svg
+          - png
+          - json
+          - dataurl
+          default: svg
+      - name: size
+        in: query
+        schema:
+          type: integer
+          minimum: 128
+          maximum: 2048
+          default: 320
+      - name: margin
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 4
+      - name: ecc
+        in: query
+        schema:
+          type: string
+          enum:
+          - L
+          - M
+          - Q
+          - H
+          default: M
+      - name: fg
+        in: query
+        schema:
+          type: string
+          pattern: ^#?[0-9a-fA-F]{6}$
+      - name: bg
+        in: query
+        schema:
+          type: string
+          pattern: ^#?[0-9a-fA-F]{6}$
+      - name: download
+        in: query
+        schema:
+          type: boolean
+          default: false
+      responses:
+        '200':
+          description: Generated QR code payload or image
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+            image/png:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkQrJsonSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+  /platform-admin/short-link-campaigns:
+    post:
+      operationId: createPlatformAdminShortLinkCampaign
+      summary: Create a short link marketing campaign
+      tags: &id018
+      - ShortLinks
+      - PlatformAdmin
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShortLinkCampaignInput'
+      responses:
+        '201':
+          description: Campaign created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkCampaignSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+    get:
+      operationId: listPlatformAdminShortLinkCampaigns
+      summary: List short link marketing campaigns
+      tags: *id018
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: search
+        in: query
+        schema:
+          type: string
+          maxLength: 200
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/ShortLinkCampaignStatus'
+      - name: gamingCenterId
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Paginated list of campaigns
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedShortLinkCampaignsResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /platform-admin/short-link-campaigns/{campaignId}:
+    get:
+      operationId: getPlatformAdminShortLinkCampaignById
+      summary: Get campaign details
+      tags: *id018
+      security:
+      - bearerAuth: []
+      parameters: &id019
+      - &id020
+        name: campaignId
+        in: path
+        required: true
+        description: Short link campaign ID
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Campaign details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkCampaignSuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    patch:
+      operationId: updatePlatformAdminShortLinkCampaign
+      summary: Update campaign configuration
+      tags: *id018
+      security:
+      - bearerAuth: []
+      parameters: *id019
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShortLinkCampaignInput'
+      responses:
+        '200':
+          description: Campaign updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkCampaignSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      operationId: deletePlatformAdminShortLinkCampaign
+      summary: Soft-delete campaign
+      tags: *id018
+      security:
+      - bearerAuth: []
+      parameters: *id019
+      responses:
+        '204':
+          description: Campaign soft-deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /platform-admin/short-link-campaigns/{campaignId}/status:
+    patch:
+      operationId: updatePlatformAdminShortLinkCampaignStatus
+      summary: Change campaign status
+      tags: *id018
+      security:
+      - bearerAuth: []
+      parameters: *id019
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShortLinkCampaignStatusInput'
+      responses:
+        '200':
+          description: Campaign status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkCampaignSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /platform-admin/short-link-campaigns/{campaignId}/stats:
+    get:
+      operationId: getPlatformAdminShortLinkCampaignStats
+      summary: Get campaign analytics and link comparison
+      tags: *id018
+      security:
+      - bearerAuth: []
+      parameters:
+      - *id020
+      - name: from
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: granularity
+        in: query
+        schema:
+          type: string
+          enum:
+          - day
+          - hour
+          default: day
+      responses:
+        '200':
+          description: Campaign analytics and per-link comparison
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortLinkCampaignStatsSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
 tags:
 - name: Group Reservations
   description: Public and tenant group reservation and booking hold checkout operations
@@ -19007,5 +22089,7 @@ tags:
   description: Gaming center operational expense tracking, categorization, and approvals
 - name: Advertisements
   description: Gaming center owner advertisement requests and banner slider submissions
+- name: ShortLinks
+  description: URL shortener, high-speed redirects, QR codes, click analytics, and marketing campaigns
 security:
 - bearerAuth: []

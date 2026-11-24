@@ -8,6 +8,8 @@ export interface CreateAdvertisementDto {
   mediaType?: MediaType;
   mediaId?: string;
   proposedDurationDays?: number;
+  shortLinkId?: string | null;
+  autoCreateShortLink?: boolean;
 }
 
 export interface UpdateAdvertisementDto {
@@ -18,6 +20,7 @@ export interface UpdateAdvertisementDto {
   mediaType?: MediaType;
   mediaId?: string;
   proposedDurationDays?: number;
+  shortLinkId?: string | null;
 }
 
 export interface AdvertisementResponse {
@@ -29,6 +32,8 @@ export interface AdvertisementResponse {
   adType?: AdvertisementType;
   category?: string | null;
   destinationUrl: string | null;
+  shortLinkId?: string | null;
+  shortUrl?: string | null;
   proposedDurationDays: number;
   durationDays: number;
   priority: number;

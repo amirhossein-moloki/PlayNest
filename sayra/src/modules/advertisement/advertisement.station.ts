@@ -1,8 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import httpStatus from 'http-status';
-import { AdvertisementRequestStatus, Prisma } from '@prisma/client';
+import {
+  AdvertisementRequestStatus,
+  Prisma,
+  SessionActorType,
+  ShortLinkStatus,
+  ShortLinkTargetCategory,
+} from '@prisma/client';
+import { prisma } from '../../config/prisma';
 import { AdvertisementRepo } from './advertisement.repo';
 import AppError from '../../common/errors/AppError';
+import { buildShortUrl } from '../short-links/shortCode';
+import { ShortLinksService } from '../short-links/shortLinks.service';
 import {
   CreateAdvertisementDto,
   UpdateAdvertisementDto,
@@ -37,6 +46,8 @@ export const AdvertisementStation = {
       bannerUrl: item.bannerUrl,
       mediaType: item.mediaType,
       destinationUrl: item.destinationUrl ?? null,
+      shortLinkId: item.shortLinkId ?? null,
+      shortUrl: item.shortLink?.code ? buildShortUrl(item.shortLink.code) : null,
       proposedDurationDays: item.proposedDurationDays ?? 30,
       durationDays: item.durationDays ?? 30,
       priority: item.priority ?? 0,
@@ -60,6 +71,47 @@ export const AdvertisementStation = {
     dto: CreateAdvertisementDto
   ): Promise<AdvertisementResponse> {
     const duration = dto.proposedDurationDays ?? 30;
+    let resolvedShortLinkId: string | null = null;
+
+    if (dto.shortLinkId) {
+      if (typeof (prisma as any).shortLink?.findFirst === 'function') {
+        const link = await (prisma as any).shortLink.findFirst({
+          where: {
+            id: dto.shortLinkId,
+            gamingCenterId,
+            deletedAt: null,
+          },
+          select: { id: true },
+        });
+        if (!link) {
+          throw new AppError(
+            'Short link not found for this gaming center',
+            httpStatus.NOT_FOUND
+          );
+        }
+      }
+      resolvedShortLinkId = dto.shortLinkId;
+    } else if (dto.autoCreateShortLink && dto.destinationUrl && typeof (prisma as any).shortLink?.create === 'function') {
+      const createdLink = await ShortLinksService.createLink(
+        {
+          id: ownerId,
+          actorId: ownerId,
+          actorType: SessionActorType.USER,
+          gamingCenterId,
+          role: 'MANAGER',
+        },
+        {
+          destinationUrl: dto.destinationUrl,
+          title: dto.title,
+          targetCategory: ShortLinkTargetCategory.ADVERTISEMENT,
+          gamingCenterId,
+          appendUtmParams: true,
+          status: ShortLinkStatus.ACTIVE,
+          redirectStatusCode: 302,
+        }
+      );
+      resolvedShortLinkId = createdLink.id;
+    }
 
     const record = await AdvertisementRepo.create({
       title: dto.title,
@@ -68,6 +120,7 @@ export const AdvertisementStation = {
       destinationUrl: dto.destinationUrl || null,
       mediaType: dto.mediaType,
       mediaId: dto.mediaId,
+      ...(resolvedShortLinkId ? { shortLinkId: resolvedShortLinkId } : {}),
       proposedDurationDays: duration,
       durationDays: duration,
       status: AdvertisementRequestStatus.PENDING,
@@ -166,6 +219,29 @@ export const AdvertisementStation = {
     if (dto.proposedDurationDays !== undefined) {
       updateData.proposedDurationDays = dto.proposedDurationDays;
       updateData.durationDays = dto.proposedDurationDays;
+    }
+    if (dto.shortLinkId !== undefined) {
+      if (dto.shortLinkId === null) {
+        updateData.shortLink = { disconnect: true };
+      } else {
+        const prismaAny = prisma as unknown as {
+          shortLink?: { findFirst?: (...args: unknown[]) => Promise<{ id: string } | null> };
+        };
+        if (typeof prismaAny.shortLink?.findFirst === 'function') {
+          const shortLink = await prismaAny.shortLink.findFirst({
+            where: {
+              id: dto.shortLinkId,
+              gamingCenterId,
+              deletedAt: null,
+            },
+            select: { id: true },
+          });
+          if (!shortLink) {
+            throw new AppError('Short link not found for this gaming center', httpStatus.NOT_FOUND);
+          }
+        }
+        updateData.shortLink = { connect: { id: dto.shortLinkId } };
+      }
     }
 
     const updated = await AdvertisementRepo.update(id, updateData);

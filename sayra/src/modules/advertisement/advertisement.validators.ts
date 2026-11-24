@@ -9,6 +9,8 @@ export const createAdvertisementSchema = z.object({
   mediaType: z.nativeEnum(MediaType).optional().default(MediaType.IMAGE),
   mediaId: z.string().trim().optional(),
   proposedDurationDays: z.coerce.number().int().min(1, 'Duration must be at least 1 day').max(365, 'Duration cannot exceed 365 days').optional().default(30),
+  shortLinkId: z.string().trim().optional().nullable(),
+  autoCreateShortLink: z.boolean().optional(),
 });
 
 export type CreateAdvertisementInput = {
@@ -19,6 +21,8 @@ export type CreateAdvertisementInput = {
   mediaType?: MediaType;
   mediaId?: string;
   proposedDurationDays?: number;
+  shortLinkId?: string | null;
+  autoCreateShortLink?: boolean;
 };
 
 export const updateAdvertisementSchema = z.object({
@@ -29,6 +33,7 @@ export const updateAdvertisementSchema = z.object({
   mediaType: z.nativeEnum(MediaType).optional(),
   mediaId: z.string().trim().optional(),
   proposedDurationDays: z.coerce.number().int().min(1).max(365).optional(),
+  shortLinkId: z.string().trim().optional().nullable(),
 });
 
 export const listAdvertisementsQuerySchema = z.object({
