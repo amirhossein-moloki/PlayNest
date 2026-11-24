@@ -104,9 +104,163 @@ export const DiscountsRepo = {
     tx?: Prisma.TransactionClient
   ): Promise<number> {
     const client = tx || prisma;
+    const now = new Date();
     return client.discountUsage.count({
-      where: { campaignId, customerAccountId },
+      where: {
+        campaignId,
+        customerAccountId,
+        OR: [
+          { status: 'REDEEMED' },
+          {
+            status: 'RESERVED',
+            OR: [
+              { expiresAt: null },
+              { expiresAt: { gt: now } },
+            ],
+          },
+        ],
+      },
     });
+  },
+
+  async lockCampaignForUpdate(
+    id: string,
+    tx: Prisma.TransactionClient
+  ): Promise<DiscountCampaign | null> {
+    const results = await tx.$queryRaw<DiscountCampaign[]>`
+      SELECT * FROM "DiscountCampaign"
+      WHERE "id" = ${id}
+      FOR UPDATE
+    `;
+    return results[0] || null;
+  },
+
+  async lockDiscountForUpdate(
+    id: string,
+    tx: Prisma.TransactionClient
+  ): Promise<Discount | null> {
+    const results = await tx.$queryRaw<Discount[]>`
+      SELECT * FROM "Discount"
+      WHERE "id" = ${id}
+      FOR UPDATE
+    `;
+    return results[0] || null;
+  },
+
+  async findActiveApplicableCampaigns(
+    gamingCenterId: string,
+    atTime: Date = new Date(),
+    tx?: Prisma.TransactionClient
+  ): Promise<DiscountCampaign[]> {
+    const client = tx || prisma;
+    return client.discountCampaign.findMany({
+      where: {
+        deletedAt: null,
+        status: 'ACTIVE',
+        isActive: true,
+        startAt: { lte: atTime },
+        endAt: { gte: atTime },
+        OR: [
+          { gamingCenterId },
+          { gamingCenterId: null },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  },
+
+  async findUsageById(
+    id: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<DiscountUsage | null> {
+    const client = tx || prisma;
+    return client.discountUsage.findUnique({
+      where: { id },
+      include: {
+        campaign: true,
+        discount: true,
+      },
+    });
+  },
+
+  async findUsageByIdempotencyKey(
+    idempotencyKey: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<DiscountUsage | null> {
+    const client = tx || prisma;
+    return client.discountUsage.findFirst({
+      where: { idempotencyKey },
+      include: {
+        campaign: true,
+        discount: true,
+      },
+    });
+  },
+
+  async findActiveUsageForHold(
+    bookingHoldId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<DiscountUsage | null> {
+    const client = tx || prisma;
+    return client.discountUsage.findFirst({
+      where: {
+        bookingHoldId,
+        status: { in: ['RESERVED', 'REDEEMED'] },
+      },
+      include: {
+        campaign: true,
+        discount: true,
+      },
+    });
+  },
+
+  async findActiveUsageForReservation(
+    reservationId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<DiscountUsage | null> {
+    const client = tx || prisma;
+    return client.discountUsage.findFirst({
+      where: {
+        reservationId,
+        status: { in: ['RESERVED', 'REDEEMED'] },
+      },
+      include: {
+        campaign: true,
+        discount: true,
+      },
+    });
+  },
+
+  async updateDiscountUsage(
+    id: string,
+    data: Prisma.DiscountUsageUncheckedUpdateInput,
+    tx?: Prisma.TransactionClient
+  ): Promise<DiscountUsage> {
+    const client = tx || prisma;
+    return client.discountUsage.update({
+      where: { id },
+      data,
+    });
+  },
+
+  async findExpiredReservedUsages(
+    now: Date = new Date(),
+    tx?: Prisma.TransactionClient
+  ): Promise<DiscountUsage[]> {
+    const client = tx || prisma;
+    return client.discountUsage.findMany({
+      where: {
+        status: 'RESERVED',
+        expiresAt: { lt: now },
+      },
+      include: {
+        campaign: true,
+      },
+    });
+  },
+
+  async transaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    return prisma.$transaction(fn);
   },
 
   async createDiscountUsage(

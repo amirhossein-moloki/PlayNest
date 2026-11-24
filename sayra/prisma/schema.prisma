@@ -418,6 +418,14 @@ enum DiscountFundingSource {
   MERCHANT_FUNDED
 }
 
+enum DiscountUsageStatus {
+  AVAILABLE
+  RESERVED
+  REDEEMED
+  RELEASED
+  EXPIRED
+}
+
 enum DiscountCodeType {
   PROMO_CODE
   AUTOMATIC
@@ -1867,6 +1875,13 @@ model BookingHold {
 
   note String?
 
+  voucherCode            String?
+  campaignId             String?
+  discountId             String?
+  discountAmount         Float                   @default(0)
+  discountFundingSource  DiscountFundingSource?
+  discountUsages         DiscountUsage[]
+
   items   BookingHoldItem[]
   payment Payment?
 
@@ -2762,6 +2777,7 @@ model Discount {
   createdBy       User   @relation("DiscountCreator", fields: [createdByUserId], references: [id])
 
   reservations Reservation[]
+  discountUsages DiscountUsage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2868,23 +2884,48 @@ model PlatformSetting {
 }
 
 model DiscountUsage {
-  id         String           @id @default(cuid())
-  campaignId String
-  campaign   DiscountCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  id                String                 @id @default(cuid())
 
-  reservationId String
-  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  campaignId        String?
+  campaign          DiscountCampaign?      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  discountId        String?
+  discount          Discount?              @relation(fields: [discountId], references: [id], onDelete: SetNull)
+
+  reservationId     String?
+  reservation       Reservation?           @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  bookingHoldId     String?
+  bookingHold       BookingHold?           @relation(fields: [bookingHoldId], references: [id], onDelete: SetNull)
 
   customerAccountId String
-  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  customerAccount   CustomerAccount        @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
 
-  discountAmount Float
-  fundingSource  DiscountFundingSource @default(PLATFORM)
+  discountAmount    Float
+  originalPrice     Float?
+  finalPrice        Float?
+  fundingSource     DiscountFundingSource  @default(PLATFORM)
 
-  createdAt DateTime @default(now())
+  status            DiscountUsageStatus    @default(RESERVED)
 
-  @@index([campaignId, customerAccountId])
+  reservedAt        DateTime?              @default(now())
+  redeemedAt        DateTime?
+  releasedAt        DateTime?
+  releaseReason     String?
+  expiresAt         DateTime?              @db.Timestamptz(6)
+
+  idempotencyKey    String?
+  voucherCode       String?
+
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@index([campaignId, customerAccountId, status])
+  @@index([customerAccountId, status])
   @@index([reservationId])
+  @@index([bookingHoldId])
+  @@index([status, expiresAt])
+  @@index([idempotencyKey])
 }
 
 model TicketMessage {

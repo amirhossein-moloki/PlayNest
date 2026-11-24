@@ -100,12 +100,90 @@ export const validatePromoCodeSchema = z.object({
     stationId: z.string().min(1, 'stationId is required'),
     basePrice: z.number().nonnegative('basePrice must be non-negative'),
     customerAccountId: z.string().optional(),
+    startTime: z.string().datetime().optional(),
+  }),
+});
+
+export const getAvailableDiscountsSchema = z.object({
+  params: z.object({
+    gamingCenterId: idSchema(CUID_MESSAGE),
+  }),
+  body: z.object({
+    stationId: z.string().min(1, 'stationId is required'),
+    startTime: z.string().datetime().optional(),
+    durationHours: z.number().positive().optional(),
+    durationMinutes: z.number().int().positive().optional(),
+    basePrice: z.number().nonnegative().optional(),
+    customerAccountId: z.string().optional(),
+    manualCode: z.string().trim().optional().nullable(),
+  }),
+});
+
+export const calculateDiscountSelectionSchema = z.object({
+  params: z.object({
+    gamingCenterId: idSchema(CUID_MESSAGE),
+  }),
+  body: z.object({
+    stationId: z.string().min(1, 'stationId is required'),
+    basePrice: z.number().nonnegative('basePrice must be non-negative'),
+    startTime: z.string().datetime().optional(),
+    customerAccountId: z.string().optional(),
+    selectedDiscountId: z.string().optional().nullable(),
+    selectedType: z.enum(['CAMPAIGN', 'DIRECT_DISCOUNT', 'NONE']).optional(),
+    code: z.string().trim().optional().nullable(),
+  }),
+});
+
+export const reserveDiscountSchema = z.object({
+  params: z.object({
+    gamingCenterId: idSchema(CUID_MESSAGE),
+  }),
+  body: z.object({
+    stationId: z.string().min(1, 'stationId is required'),
+    basePrice: z.number().nonnegative('basePrice must be non-negative'),
+    startTime: z.string().datetime().optional(),
+    customerAccountId: z.string().min(1, 'customerAccountId is required'),
+    selectedDiscountId: z.string().optional().nullable(),
+    selectedType: z.enum(['CAMPAIGN', 'DIRECT_DISCOUNT', 'NONE']).optional(),
+    code: z.string().trim().optional().nullable(),
+    bookingHoldId: z.string().optional().nullable(),
+    reservationId: z.string().optional().nullable(),
+    idempotencyKey: z.string().trim().optional().nullable(),
+    ttlMinutes: z.number().int().positive().optional().default(15),
+  }),
+});
+
+export const releaseDiscountSchema = z.object({
+  params: z.object({
+    gamingCenterId: idSchema(CUID_MESSAGE),
+  }),
+  body: z.object({
+    usageId: z.string().optional().nullable(),
+    reservationId: z.string().optional().nullable(),
+    bookingHoldId: z.string().optional().nullable(),
+    reason: z.string().optional().nullable(),
+  }),
+});
+
+export const redeemDiscountSchema = z.object({
+  params: z.object({
+    gamingCenterId: idSchema(CUID_MESSAGE),
+  }),
+  body: z.object({
+    usageId: z.string().optional().nullable(),
+    reservationId: z.string().min(1, 'reservationId is required'),
+    bookingHoldId: z.string().optional().nullable(),
   }),
 });
 
 export type CreateCampaignInput = z.infer<typeof createCampaignSchema>['body'];
 export type UpdateCampaignInput = z.infer<typeof updateCampaignSchema>['body'];
 export type ValidatePromoCodeInput = z.infer<typeof validatePromoCodeSchema>['body'];
+export type GetAvailableDiscountsInput = z.infer<typeof getAvailableDiscountsSchema>['body'];
+export type CalculateDiscountSelectionInput = z.infer<typeof calculateDiscountSelectionSchema>['body'];
+export type ReserveDiscountInput = z.infer<typeof reserveDiscountSchema>['body'];
+export type ReleaseDiscountInput = z.infer<typeof releaseDiscountSchema>['body'];
+export type RedeemDiscountInput = z.infer<typeof redeemDiscountSchema>['body'];
 
 export const createDiscountSchema = z.object({
   params: z.object({

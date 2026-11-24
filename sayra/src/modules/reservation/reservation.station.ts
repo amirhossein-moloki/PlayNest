@@ -72,7 +72,11 @@ export async function calculateReservationFinancials(
   customerAccountId?: string,
   voucherCode?: string | null,
   tx?: Prisma.TransactionClient,
-  source: ReservationSource = ReservationSource.ONLINE
+  source: ReservationSource = ReservationSource.ONLINE,
+  discountSelection?: {
+    selectedDiscountId?: string | null;
+    selectedType?: 'CAMPAIGN' | 'DIRECT_DISCOUNT' | 'NONE';
+  }
 ) {
   const originalAmount = basePrice;
   let discountAmount = 0;
@@ -82,22 +86,31 @@ export async function calculateReservationFinancials(
   let campaignId: string | null = null;
   let discountId: string | null = null;
 
-  if (voucherCode && voucherCode.trim().length > 0) {
-    const promoResult = await discountsStation.validateAndApplyPromoCode(
+  if (discountSelection?.selectedType === 'NONE') {
+    discountAmount = 0;
+  } else if (discountSelection?.selectedDiscountId || (voucherCode && voucherCode.trim().length > 0)) {
+    const calcResult = await discountsStation.calculateDiscountSelection(
       gamingCenterId,
-      voucherCode.trim(),
-      stationId,
-      basePrice,
-      customerAccountId,
-      startTime,
-      true,
+      {
+        stationId,
+        basePrice,
+        startTime: startTime.toISOString(),
+        customerAccountId,
+        selectedDiscountId: discountSelection?.selectedDiscountId,
+        selectedType: discountSelection?.selectedType,
+        code: voucherCode?.trim() || null,
+      },
+      undefined,
       tx
     );
-    discountAmount = promoResult.discountAmount;
-    platformFundedDiscount = promoResult.platformFundedDiscount;
-    customerPayableAmount = promoResult.customerPayableAmount;
-    discountFundingSource = promoResult.fundingSource;
-    campaignId = promoResult.campaign.id;
+
+    discountAmount = calcResult.discountAmount;
+    platformFundedDiscount = calcResult.platformFundedDiscount;
+    customerPayableAmount = calcResult.customerPayableAmount;
+    discountFundingSource = calcResult.discountFundingSource;
+    campaignId = calcResult.campaignId;
+    discountId = calcResult.discountId;
+    voucherCode = calcResult.voucherCode;
   } else {
     const autoDiscount = await discountsStation.calculateApplicableDiscount(
       gamingCenterId,
@@ -784,14 +797,32 @@ export const reservationStation = {
         }
 
         if (financials.campaignId) {
-          await discountsStation.consumeCampaignDiscount(
-            financials.campaignId,
-            reservation.id,
-            customerAccount.id,
-            financials.discountAmount,
-            financials.discountFundingSource || DiscountFundingSource.PLATFORM,
-            tx
-          );
+          if (isWalletPayment || reservation.paymentState === ReservationPaymentState.PAID) {
+            await discountsStation.consumeCampaignDiscount(
+              financials.campaignId,
+              reservation.id,
+              customerAccount.id,
+              financials.discountAmount,
+              financials.discountFundingSource || DiscountFundingSource.PLATFORM,
+              tx
+            );
+          } else {
+            await discountsStation.reserveDiscount(
+              gamingCenter.id,
+              {
+                stationId: station.id,
+                basePrice: financials.originalAmount,
+                startTime: startTime.toISOString(),
+                customerAccountId: customerAccount.id,
+                selectedDiscountId: financials.campaignId,
+                selectedType: 'CAMPAIGN',
+                code: financials.voucherCode,
+                reservationId: reservation.id,
+              },
+              undefined,
+              tx
+            ).catch(() => {});
+          }
         }
 
         await ReservationRepo.createHistory({

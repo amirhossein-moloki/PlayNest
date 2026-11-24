@@ -8,6 +8,7 @@ import httpStatus from 'http-status';
 import { commissionsStation } from '../commissions/commissions.station';
 import { LedgerRepo } from './ledger.repo';
 import { walletService } from '../wallet/wallet.station';
+import { discountsStation } from '../discounts/discounts.station';
 
 type Tx = Prisma.TransactionClient;
 
@@ -886,6 +887,21 @@ const handleFailedPayment = async (
       where: { id: payment.bookingHoldId, status: 'ACTIVE' },
       data: { status: 'RELEASED' },
     });
+  }
+
+  if (payment.reservationId) {
+    await discountsStation.releaseDiscountForReservation(
+      payment.reservationId,
+      failureReason || 'Payment failed or canceled',
+      tx
+    ).catch(() => {});
+  }
+  if (payment.bookingHoldId) {
+    await discountsStation.releaseDiscountForBookingHold(
+      payment.bookingHoldId,
+      failureReason || 'Payment failed or canceled',
+      tx
+    ).catch(() => {});
   }
 
   if (

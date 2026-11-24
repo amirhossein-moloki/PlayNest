@@ -1,11 +1,30 @@
-import { Discount, DiscountCampaign, DiscountFundingSource, DiscountTargetType, DiscountValueType, Prisma, SessionActorType } from '@prisma/client';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import {
+  Discount,
+  DiscountCampaign,
+  DiscountFundingSource,
+  DiscountTargetType,
+  DiscountValueType,
+  DiscountUsageStatus,
+  DiscountUsage,
+  Prisma,
+  SessionActorType,
+} from '@prisma/client';
 import httpStatus from 'http-status';
+import { addMinutes } from 'date-fns';
 import AppError from '../../common/errors/AppError';
 import { prisma } from '../../config/prisma';
 import { DiscountsRepo } from './discounts.repo';
 import { ReservationRepo } from '../reservation/reservation.repo';
 import { auditService } from '../audit/audit.station';
 import { RequestActor } from '../../types/express';
+import { calculateBasePrice } from '../../common/utils/money';
+import {
+  resolveEffectiveCommissionPolicy,
+  evaluateMonthlyTarget,
+  computeCommissionAmount,
+  computeMerchantPayoutAmount,
+} from '../commissions/commission-calculator';
 import {
   CreateCampaignInput,
   CreateDiscountInput,
@@ -13,6 +32,11 @@ import {
   UpdateCampaignInput,
   UpdateDiscountInput,
   UpdateDiscountStatusInput,
+  GetAvailableDiscountsInput,
+  CalculateDiscountSelectionInput,
+  ReserveDiscountInput,
+  ReleaseDiscountInput,
+  RedeemDiscountInput,
 } from './discounts.dto';
 
 const validateTarget = async (
@@ -64,15 +88,13 @@ export const calculateCampaignDiscountAmount = (
   value: number,
   maxDiscountAmount?: number | null
 ): number => {
-  if (basePrice <= 0 || value <= 0) return 0;
-  let calculated = 0;
+  let calculated = calculateDiscountAmount(basePrice, valueType, value);
   if (valueType === DiscountValueType.PERCENTAGE) {
-    calculated = (basePrice * value) / 100;
     if (maxDiscountAmount !== undefined && maxDiscountAmount !== null && maxDiscountAmount > 0) {
       calculated = Math.min(calculated, maxDiscountAmount);
     }
   } else if (valueType === DiscountValueType.FIXED_AMOUNT) {
-    calculated = value;
+    calculated = Math.min(basePrice, value);
   }
   return Math.min(basePrice, Math.max(0, Math.round(calculated * 100) / 100));
 };
@@ -222,51 +244,89 @@ export const selectBestDiscount = (
   return { applicableDiscount: bestDiscount, discountAmount: maxDiscountAmount };
 };
 
+export async function calculateFinancialBreakdown(
+  gamingCenterId: string,
+  basePrice: number,
+  discountAmount: number,
+  discountFundingSource: DiscountFundingSource | null | undefined,
+  tx?: Prisma.TransactionClient,
+  source = 'ONLINE'
+) {
+  const originalAmount = basePrice;
+  const effectivePolicy = await resolveEffectiveCommissionPolicy(gamingCenterId, tx);
+  let platformCommission = 0;
+  if (effectivePolicy && (!effectivePolicy.applyToOnlineOnly || source === 'ONLINE')) {
+    const { targetReached } = await evaluateMonthlyTarget(
+      gamingCenterId,
+      effectivePolicy,
+      new Date(),
+      tx
+    );
+    platformCommission = computeCommissionAmount(originalAmount, effectivePolicy, targetReached);
+  }
+
+  const merchantPayoutAmount = computeMerchantPayoutAmount(
+    originalAmount,
+    discountAmount,
+    discountFundingSource,
+    platformCommission
+  );
+
+  const platformFundedDiscount =
+    discountFundingSource === DiscountFundingSource.PLATFORM ||
+    discountFundingSource === DiscountFundingSource.CAMPAIGN_BUDGET
+      ? discountAmount
+      : 0;
+
+  const merchantFundedDiscount =
+    discountFundingSource === DiscountFundingSource.MERCHANT_FUNDED
+      ? discountAmount
+      : 0;
+
+  const customerPayableAmount = Math.max(0, basePrice - discountAmount);
+
+  return {
+    originalAmount,
+    discountAmount,
+    customerPayableAmount,
+    merchantPayoutAmount,
+    platformCommission,
+    platformFundedDiscount,
+    merchantFundedDiscount,
+    discountFundingSource: discountFundingSource || null,
+  };
+}
+
+export interface AvailableDiscountItem {
+  id: string;
+  type: 'CAMPAIGN' | 'DIRECT_DISCOUNT';
+  title: string;
+  description: string | null;
+  code: string | null;
+  discountType: DiscountValueType;
+  value: number;
+  discountAmount: number;
+  finalPrice: number;
+  fundingSource: DiscountFundingSource;
+  conditions: string;
+  minOrderAmount: number | null;
+  maxDiscountAmount: number | null;
+  expiresAt: string;
+  isApplicable: boolean;
+  ineligibilityReason: string | null;
+  isBest: boolean;
+  badge: string | null;
+}
+
 export const discountsStation = {
   async createDiscount(
     gamingCenterId: string,
-    createdByUserId: string | null,
+    createdByUserId: string,
     input: CreateDiscountInput,
     actor?: RequestActor,
     context?: { ip?: string; userAgent?: string }
   ) {
     await validateTarget(gamingCenterId, input.targetType, input.targetId);
-
-    let effectiveCreatedByUserId: string | null =
-      createdByUserId && (!actor || actor.actorType === SessionActorType.USER)
-        ? createdByUserId
-        : null;
-
-    if (!effectiveCreatedByUserId) {
-      const center = await prisma.gamingCenter.findUnique({
-        where: { id: gamingCenterId },
-        select: { managerId: true },
-      });
-      if (center?.managerId) {
-        effectiveCreatedByUserId = center.managerId;
-      } else {
-        const activeUser = await prisma.user.findFirst({
-          where: { gamingCenterId, isActive: true },
-          select: { id: true },
-        });
-        if (activeUser?.id) {
-          effectiveCreatedByUserId = activeUser.id;
-        } else {
-          const anyUser = await prisma.user.findFirst({
-            where: { gamingCenterId },
-            select: { id: true },
-          });
-          effectiveCreatedByUserId = anyUser?.id ?? null;
-        }
-      }
-    }
-
-    if (!effectiveCreatedByUserId) {
-      throw new AppError(
-        'No valid center user found to attribute this discount.',
-        httpStatus.BAD_REQUEST
-      );
-    }
 
     const discount = await DiscountsRepo.createDiscount({
       gamingCenterId,
@@ -277,7 +337,7 @@ export const discountsStation = {
       startAt: new Date(input.startAt),
       endAt: new Date(input.endAt),
       isActive: input.isActive ?? true,
-      createdByUserId: effectiveCreatedByUserId,
+      createdByUserId,
     });
 
     if (actor) {
@@ -343,9 +403,7 @@ export const discountsStation = {
 
     const effectiveTargetType = input.targetType ?? existing.targetType;
     const effectiveTargetId = input.targetId ?? existing.targetId;
-    if (input.targetType || input.targetId) {
-      await validateTarget(gamingCenterId, effectiveTargetType, effectiveTargetId);
-    }
+    await validateTarget(gamingCenterId, effectiveTargetType, effectiveTargetId);
 
     const effectiveValueType = input.valueType ?? existing.valueType;
     const effectiveValue = input.value ?? existing.value;
@@ -353,9 +411,9 @@ export const discountsStation = {
       throw new AppError('Percentage discount value cannot exceed 100%.', httpStatus.BAD_REQUEST);
     }
 
-    const effectiveStartAt = input.startAt ? new Date(input.startAt) : existing.startAt;
-    const effectiveEndAt = input.endAt ? new Date(input.endAt) : existing.endAt;
-    if (effectiveEndAt.getTime() <= effectiveStartAt.getTime()) {
+    const startAt = input.startAt ? new Date(input.startAt) : existing.startAt;
+    const endAt = input.endAt ? new Date(input.endAt) : existing.endAt;
+    if (endAt.getTime() <= startAt.getTime()) {
       throw new AppError('endAt must be strictly after startAt.', httpStatus.BAD_REQUEST);
     }
 
@@ -649,9 +707,10 @@ export const discountsStation = {
 
     const discountAmount = validation.discountAmount;
     const fundingSource = campaign.fundingSource;
-    const platformFundedDiscount = (fundingSource === DiscountFundingSource.PLATFORM || fundingSource === DiscountFundingSource.CAMPAIGN_BUDGET)
-      ? discountAmount
-      : 0;
+    const platformFundedDiscount =
+      fundingSource === DiscountFundingSource.PLATFORM || fundingSource === DiscountFundingSource.CAMPAIGN_BUDGET
+        ? discountAmount
+        : 0;
     const customerPayableAmount = Math.max(0, basePrice - discountAmount);
 
     return {
@@ -674,6 +733,28 @@ export const discountsStation = {
     const campaign = await DiscountsRepo.findCampaignById(campaignId, undefined, tx);
     if (!campaign) return;
 
+    // Check if there is already an existing RESERVED usage for this reservation or hold
+    const existingUsage = await tx.discountUsage.findFirst({
+      where: {
+        campaignId,
+        customerAccountId,
+        reservationId,
+      },
+    });
+
+    if (existingUsage) {
+      if (existingUsage.status !== DiscountUsageStatus.REDEEMED) {
+        await tx.discountUsage.update({
+          where: { id: existingUsage.id },
+          data: {
+            status: DiscountUsageStatus.REDEEMED,
+            redeemedAt: new Date(),
+          },
+        });
+      }
+      return;
+    }
+
     await DiscountsRepo.updateCampaign(
       campaignId,
       {
@@ -690,8 +771,564 @@ export const discountsStation = {
         customerAccountId,
         discountAmount,
         fundingSource,
+        status: DiscountUsageStatus.REDEEMED,
+        redeemedAt: new Date(),
       },
       tx
     );
+  },
+
+  // ==========================================
+  // Snapp-like Multi-Discount System Methods
+  // ==========================================
+
+  async getAvailableDiscounts(
+    gamingCenterId: string,
+    input: GetAvailableDiscountsInput,
+    actor?: RequestActor,
+    tx?: Prisma.TransactionClient
+  ) {
+    const atTime = input.startTime ? new Date(input.startTime) : new Date();
+    const customerAccountId =
+      input.customerAccountId ||
+      (actor?.actorType === SessionActorType.CUSTOMER ? actor.id : undefined);
+
+    let basePrice = input.basePrice ?? 0;
+    if (basePrice <= 0 && input.stationId) {
+      const station = await ReservationRepo.findStation(input.stationId, gamingCenterId, undefined, tx);
+      if (station) {
+        const durationHours = input.durationHours ?? (input.durationMinutes ? input.durationMinutes / 60 : 1);
+        basePrice = calculateBasePrice(durationHours, station.hourlyPrice);
+      }
+    }
+
+    const [rawDirectDiscounts, rawCampaigns] = await Promise.all([
+      DiscountsRepo.findActiveApplicableDiscounts(gamingCenterId, input.stationId, atTime, tx),
+      DiscountsRepo.findActiveApplicableCampaigns(gamingCenterId, atTime, tx),
+    ]);
+    const directDiscounts = Array.isArray(rawDirectDiscounts) ? rawDirectDiscounts : [];
+    const campaigns = Array.isArray(rawCampaigns) ? rawCampaigns : [];
+
+    // Include manually queried promo code if not already in campaigns list
+    if (input.manualCode && input.manualCode.trim().length > 0) {
+      const codeClean = input.manualCode.trim().toLowerCase();
+      const alreadyPresent = campaigns.some((c) => c.code?.toLowerCase() === codeClean);
+      if (!alreadyPresent) {
+        const manualCampaign = await DiscountsRepo.findCampaignByCode(input.manualCode.trim(), gamingCenterId, tx);
+        if (manualCampaign) {
+          campaigns.push(manualCampaign);
+        }
+      }
+    }
+
+    const availableItems: AvailableDiscountItem[] = [];
+
+    // Direct GameCenter & Station Discounts
+    for (const d of directDiscounts) {
+      const amount = calculateDiscountAmount(basePrice, d.valueType, d.value);
+      const isApplicable = amount > 0;
+      availableItems.push({
+        id: d.id,
+        type: 'DIRECT_DISCOUNT',
+        title: d.targetType === DiscountTargetType.STATION ? 'تخفیف اختصاصی استیشن' : 'تخفیف مجموعه بازی',
+        description: `تخفیف ${
+          d.valueType === DiscountValueType.PERCENTAGE ? `${d.value}٪` : `${d.value.toLocaleString('fa-IR')} تومان`
+        } به صورت خودکار`,
+        code: null,
+        discountType: d.valueType,
+        value: d.value,
+        discountAmount: amount,
+        finalPrice: Math.max(0, basePrice - amount),
+        fundingSource: DiscountFundingSource.MERCHANT_FUNDED,
+        conditions: d.targetType === DiscountTargetType.STATION ? 'اعمال روی این دستگاه' : 'اعمال روی کل مجموعه',
+        minOrderAmount: null,
+        maxDiscountAmount: null,
+        expiresAt: d.endAt.toISOString(),
+        isApplicable,
+        ineligibilityReason: isApplicable ? null : 'مبلغ تخفیف صفر است',
+        isBest: false,
+        badge: null,
+      });
+    }
+
+    // Campaign Discounts (Platform & GameCenter)
+    for (const c of campaigns) {
+      const validation = await validateCampaignForReservation(
+        c,
+        input.stationId,
+        basePrice,
+        customerAccountId,
+        atTime,
+        tx,
+        gamingCenterId
+      );
+
+      const amount = validation.isValid ? validation.discountAmount : 0;
+      const effectiveType = c.discountType ?? c.valueType;
+      const effectiveVal = c.discountValue ?? c.value;
+
+      availableItems.push({
+        id: c.id,
+        type: 'CAMPAIGN',
+        title: c.title || c.name,
+        description: c.description || (c.code ? `کد تخفیف: ${c.code}` : 'کمپین تخفیف پلتفرم'),
+        code: c.code || null,
+        discountType: effectiveType,
+        value: effectiveVal,
+        discountAmount: amount,
+        finalPrice: Math.max(0, basePrice - amount),
+        fundingSource: c.fundingSource,
+        conditions:
+          [
+            c.minOrderAmount ? `حداقل مبلغ: ${c.minOrderAmount.toLocaleString('fa-IR')} تومان` : null,
+            c.maxDiscountAmount ? `حداکثر تخفیف: ${c.maxDiscountAmount.toLocaleString('fa-IR')} تومان` : null,
+            c.scopeType === 'SPECIFIC_DEVICE_TYPES' ? 'دستگاه‌های منتخب' : null,
+            c.targetAudience === 'NEW_USERS' ? 'مخصوص کاربران بار اولی' : null,
+          ]
+            .filter(Boolean)
+            .join(' | ') || 'بدون محدودیت خاص',
+        minOrderAmount: c.minOrderAmount ?? c.minReservationAmount ?? null,
+        maxDiscountAmount: c.maxDiscountAmount ?? null,
+        expiresAt: c.endAt.toISOString(),
+        isApplicable: validation.isValid,
+        ineligibilityReason: validation.isValid ? null : validation.reason || 'شرایط اعمال تخفیف احراز نشد',
+        isBest: false,
+        badge: null,
+      });
+    }
+
+    // Identify the best discount based on actual monetary savings
+    const applicableItems = availableItems.filter((i) => i.isApplicable && i.discountAmount > 0);
+    applicableItems.sort((a, b) => {
+      if (b.discountAmount !== a.discountAmount) {
+        return b.discountAmount - a.discountAmount;
+      }
+      return b.value - a.value;
+    });
+
+    let recommendedDiscountId: string | null = null;
+    let recommendedDiscountType: 'CAMPAIGN' | 'DIRECT_DISCOUNT' | null = null;
+
+    if (applicableItems.length > 0) {
+      const best = applicableItems[0];
+      best.isBest = true;
+      best.badge = 'بهترین تخفیف برای شما';
+      recommendedDiscountId = best.id;
+      recommendedDiscountType = best.type;
+    }
+
+    return {
+      basePrice,
+      recommendedDiscountId,
+      recommendedDiscountType,
+      discounts: availableItems,
+    };
+  },
+
+  async calculateDiscountSelection(
+    gamingCenterId: string,
+    input: CalculateDiscountSelectionInput,
+    actor?: RequestActor,
+    tx?: Prisma.TransactionClient
+  ) {
+    const atTime = input.startTime ? new Date(input.startTime) : new Date();
+    const customerAccountId =
+      input.customerAccountId ||
+      (actor?.actorType === SessionActorType.CUSTOMER ? actor.id : undefined);
+    const basePrice = input.basePrice;
+
+    // 1. Explicit NONE or No Discount chosen
+    if (input.selectedType === 'NONE' || (!input.selectedDiscountId && !input.code)) {
+      const financials = await calculateFinancialBreakdown(
+        gamingCenterId,
+        basePrice,
+        0,
+        null,
+        tx
+      );
+
+      const available = await this.getAvailableDiscounts(
+        gamingCenterId,
+        {
+          stationId: input.stationId,
+          basePrice,
+          startTime: input.startTime,
+          customerAccountId,
+        },
+        actor,
+        tx
+      );
+
+      const bestItem = available.discounts.find((d) => d.isBest && d.isApplicable && d.discountAmount > 0);
+
+      return {
+        isValid: true,
+        ...financials,
+        campaignId: null,
+        discountId: null,
+        voucherCode: null,
+        appliedDiscount: null,
+        betterDiscountAvailable: Boolean(bestItem),
+        betterDiscount: bestItem
+          ? {
+              id: bestItem.id,
+              type: bestItem.type,
+              title: bestItem.title,
+              discountAmount: bestItem.discountAmount,
+              savingsDifference: bestItem.discountAmount,
+            }
+          : null,
+      };
+    }
+
+    let appliedDiscount: any = null;
+    let discountAmount = 0;
+    let fundingSource: DiscountFundingSource = DiscountFundingSource.PLATFORM;
+    let campaignId: string | null = null;
+    let discountId: string | null = null;
+    let voucherCode: string | null = null;
+
+    // 2. Campaign Discount (by ID or Code)
+    if (input.code || input.selectedType === 'CAMPAIGN') {
+      let campaign: DiscountCampaign | null = null;
+      if (input.code) {
+        campaign = await DiscountsRepo.findCampaignByCode(input.code.trim(), gamingCenterId, tx);
+      } else if (input.selectedDiscountId) {
+        campaign = await DiscountsRepo.findCampaignById(input.selectedDiscountId, gamingCenterId, tx);
+      }
+
+      if (!campaign) {
+        throw new AppError('کد تخفیف یا کمپین نامعتبر است یا منقضی شده است.', httpStatus.NOT_FOUND, {
+          code: 'INVALID_DISCOUNT_CODE',
+        });
+      }
+
+      const validation = await validateCampaignForReservation(
+        campaign,
+        input.stationId,
+        basePrice,
+        customerAccountId,
+        atTime,
+        tx,
+        gamingCenterId
+      );
+
+      if (!validation.isValid) {
+        throw new AppError(validation.reason || 'این کد تخفیف برای رزرو فعلی قابل استفاده نیست.', httpStatus.BAD_REQUEST, {
+          code: 'DISCOUNT_CODE_INELIGIBLE',
+        });
+      }
+
+      discountAmount = validation.discountAmount;
+      fundingSource = campaign.fundingSource;
+      campaignId = campaign.id;
+      voucherCode = campaign.code || null;
+      appliedDiscount = {
+        id: campaign.id,
+        type: 'CAMPAIGN',
+        title: campaign.title || campaign.name,
+        code: campaign.code,
+        discountType: campaign.discountType ?? campaign.valueType,
+        value: campaign.discountValue ?? campaign.value,
+        discountAmount,
+        fundingSource,
+      };
+    } else if (input.selectedType === 'DIRECT_DISCOUNT' && input.selectedDiscountId) {
+      // 3. Direct Discount
+      const direct = await DiscountsRepo.findById(input.selectedDiscountId, gamingCenterId, tx);
+      if (!direct || !direct.isActive || direct.startAt > atTime || direct.endAt < atTime) {
+        throw new AppError('تخفیف انتخاب شده منقضی شده یا غیرفعال است.', httpStatus.NOT_FOUND, {
+          code: 'DISCOUNT_NOT_FOUND',
+        });
+      }
+
+      if (direct.targetType === DiscountTargetType.STATION && direct.targetId !== input.stationId) {
+        throw new AppError('این تخفیف فقط برای دستگاه مشخص شده معتبر است.', httpStatus.BAD_REQUEST, {
+          code: 'DISCOUNT_TARGET_MISMATCH',
+        });
+      }
+
+      discountAmount = calculateDiscountAmount(basePrice, direct.valueType, direct.value);
+      fundingSource = DiscountFundingSource.MERCHANT_FUNDED;
+      discountId = direct.id;
+      appliedDiscount = {
+        id: direct.id,
+        type: 'DIRECT_DISCOUNT',
+        title: direct.targetType === DiscountTargetType.STATION ? 'تخفیف اختصاصی استیشن' : 'تخفیف مجموعه بازی',
+        code: null,
+        discountType: direct.valueType,
+        value: direct.value,
+        discountAmount,
+        fundingSource,
+      };
+    }
+
+    const financials = await calculateFinancialBreakdown(
+      gamingCenterId,
+      basePrice,
+      discountAmount,
+      fundingSource,
+      tx
+    );
+
+    const available = await this.getAvailableDiscounts(
+      gamingCenterId,
+      {
+        stationId: input.stationId,
+        basePrice,
+        startTime: input.startTime,
+        customerAccountId,
+      },
+      actor,
+      tx
+    );
+
+    const bestItem = available.discounts.find((d) => d.isBest && d.isApplicable && d.id !== appliedDiscount?.id);
+    const betterDiscountAvailable = Boolean(bestItem && bestItem.discountAmount > discountAmount);
+
+    return {
+      isValid: true,
+      ...financials,
+      campaignId,
+      discountId,
+      voucherCode,
+      appliedDiscount,
+      betterDiscountAvailable,
+      betterDiscount: betterDiscountAvailable && bestItem
+        ? {
+            id: bestItem.id,
+            type: bestItem.type,
+            title: bestItem.title,
+            discountAmount: bestItem.discountAmount,
+            savingsDifference: bestItem.discountAmount - discountAmount,
+          }
+        : null,
+    };
+  },
+
+  async reserveDiscount(
+    gamingCenterId: string,
+    input: ReserveDiscountInput,
+    actor?: RequestActor,
+    tx?: Prisma.TransactionClient
+  ) {
+    const execute = async (t: Prisma.TransactionClient) => {
+      // 1. Idempotency Check
+      if (input.idempotencyKey) {
+        const existingUsage = await DiscountsRepo.findUsageByIdempotencyKey(input.idempotencyKey, t);
+        if (
+          existingUsage &&
+          existingUsage.status === DiscountUsageStatus.RESERVED &&
+          (!existingUsage.expiresAt || existingUsage.expiresAt > new Date())
+        ) {
+          return existingUsage;
+        }
+      }
+
+      // 2. Validate and calculate selection
+      const calculation = await this.calculateDiscountSelection(
+        gamingCenterId,
+        {
+          stationId: input.stationId,
+          basePrice: input.basePrice,
+          startTime: input.startTime,
+          customerAccountId: input.customerAccountId,
+          selectedDiscountId: input.selectedDiscountId,
+          selectedType: input.selectedType,
+          code: input.code,
+        },
+        actor,
+        t
+      );
+
+      if (!calculation.appliedDiscount || calculation.discountAmount <= 0) {
+        throw new AppError('هیچ تخفیف معتبری برای رزرو انتخاب نشده است.', httpStatus.BAD_REQUEST, {
+          code: 'NO_VALID_DISCOUNT_SELECTED',
+        });
+      }
+
+      const ttlMinutes = input.ttlMinutes ?? 15;
+      const expiresAt = addMinutes(new Date(), ttlMinutes);
+
+      // 3. If campaign, lock and atomically reserve budget and usage count
+      if (calculation.campaignId) {
+        const lockedCampaign = await DiscountsRepo.lockCampaignForUpdate(calculation.campaignId, t);
+        if (!lockedCampaign) {
+          throw new AppError('کمپین تخفیف یافت نشد.', httpStatus.NOT_FOUND);
+        }
+
+        const totalLimit = lockedCampaign.totalUsageLimit ?? lockedCampaign.maxUsageCount;
+        if (totalLimit !== null && totalLimit !== undefined && lockedCampaign.currentUsageCount >= totalLimit) {
+          throw new AppError('سقف استفاده از این کمپین تکمیل شده است.', httpStatus.CONFLICT, {
+            code: 'CAMPAIGN_LIMIT_EXCEEDED',
+          });
+        }
+
+        if (lockedCampaign.totalBudget !== null && lockedCampaign.totalBudget !== undefined) {
+          const remainingBudget = lockedCampaign.totalBudget - lockedCampaign.usedBudget;
+          if (remainingBudget < calculation.discountAmount) {
+            throw new AppError('بودجه کمپین تخفیف به پایان رسیده است.', httpStatus.CONFLICT, {
+              code: 'CAMPAIGN_BUDGET_EXCEEDED',
+            });
+          }
+        }
+
+        await DiscountsRepo.updateCampaign(
+          lockedCampaign.id,
+          {
+            usedBudget: lockedCampaign.usedBudget + calculation.discountAmount,
+            currentUsageCount: lockedCampaign.currentUsageCount + 1,
+          },
+          t
+        );
+      }
+
+      // 4. Create DiscountUsage in RESERVED status
+      const usage = await DiscountsRepo.createDiscountUsage(
+        {
+          campaignId: calculation.campaignId,
+          discountId: calculation.discountId,
+          reservationId: input.reservationId || null,
+          bookingHoldId: input.bookingHoldId || null,
+          customerAccountId: input.customerAccountId,
+          discountAmount: calculation.discountAmount,
+          originalPrice: calculation.originalAmount,
+          finalPrice: calculation.customerPayableAmount,
+          fundingSource: calculation.fundingSource || DiscountFundingSource.PLATFORM,
+          status: DiscountUsageStatus.RESERVED,
+          reservedAt: new Date(),
+          expiresAt,
+          idempotencyKey: input.idempotencyKey || null,
+          voucherCode: calculation.voucherCode,
+        },
+        t
+      );
+
+      return usage;
+    };
+
+    return tx ? execute(tx) : DiscountsRepo.transaction(execute);
+  },
+
+  async redeemDiscount(
+    reservationId: string,
+    options?: { usageId?: string; bookingHoldId?: string },
+    tx?: Prisma.TransactionClient
+  ) {
+    const execute = async (t: Prisma.TransactionClient) => {
+      let usage: DiscountUsage | null = null;
+      if (options?.usageId) {
+        usage = await DiscountsRepo.findUsageById(options.usageId, t);
+      } else if (reservationId) {
+        usage = await DiscountsRepo.findActiveUsageForReservation(reservationId, t);
+      } else if (options?.bookingHoldId) {
+        usage = await DiscountsRepo.findActiveUsageForHold(options.bookingHoldId, t);
+      }
+
+      if (!usage) return null;
+
+      if (usage.status === DiscountUsageStatus.REDEEMED) {
+        return usage;
+      }
+
+      const updated = await DiscountsRepo.updateDiscountUsage(
+        usage.id,
+        {
+          status: DiscountUsageStatus.REDEEMED,
+          redeemedAt: new Date(),
+          reservationId: reservationId || usage.reservationId,
+        },
+        t
+      );
+
+      return updated;
+    };
+
+    return tx ? execute(tx) : DiscountsRepo.transaction(execute);
+  },
+
+  async releaseDiscount(
+    options: { usageId?: string; reservationId?: string; bookingHoldId?: string; reason?: string },
+    tx?: Prisma.TransactionClient
+  ) {
+    const execute = async (t: Prisma.TransactionClient) => {
+      let usage: DiscountUsage | null = null;
+      if (options.usageId) {
+        usage = await DiscountsRepo.findUsageById(options.usageId, t);
+      } else if (options.reservationId) {
+        usage = await DiscountsRepo.findActiveUsageForReservation(options.reservationId, t);
+      } else if (options.bookingHoldId) {
+        usage = await DiscountsRepo.findActiveUsageForHold(options.bookingHoldId, t);
+      }
+
+      if (!usage) return null;
+
+      if (usage.status === DiscountUsageStatus.RELEASED || usage.status === DiscountUsageStatus.EXPIRED) {
+        return usage;
+      }
+
+      if (usage.campaignId) {
+        const campaign = await DiscountsRepo.lockCampaignForUpdate(usage.campaignId, t);
+        if (campaign) {
+          await DiscountsRepo.updateCampaign(
+            campaign.id,
+            {
+              usedBudget: Math.max(0, campaign.usedBudget - usage.discountAmount),
+              currentUsageCount: Math.max(0, campaign.currentUsageCount - 1),
+            },
+            t
+          );
+        }
+      }
+
+      const updated = await DiscountsRepo.updateDiscountUsage(
+        usage.id,
+        {
+          status: DiscountUsageStatus.RELEASED,
+          releasedAt: new Date(),
+          releaseReason: options.reason || 'Reservation canceled, expired, or payment failed',
+        },
+        t
+      );
+
+      return updated;
+    };
+
+    return tx ? execute(tx) : DiscountsRepo.transaction(execute);
+  },
+
+  async reapExpiredDiscountHolds(now: Date = new Date(), tx?: Prisma.TransactionClient) {
+    const execute = async (t: Prisma.TransactionClient) => {
+      const expiredUsages = await DiscountsRepo.findExpiredReservedUsages(now, t);
+      const reaped = [];
+      for (const u of expiredUsages) {
+        const released = await this.releaseDiscount(
+          { usageId: u.id, reason: 'HOLD_EXPIRED' },
+          t
+        );
+        if (released) {
+          reaped.push(released);
+        }
+      }
+      return reaped;
+    };
+
+    return tx ? execute(tx) : DiscountsRepo.transaction(execute);
+  },
+
+  async releaseDiscountForReservation(
+    reservationId: string,
+    reason?: string,
+    tx?: Prisma.TransactionClient
+  ) {
+    return this.releaseDiscount({ reservationId, reason }, tx);
+  },
+
+  async releaseDiscountForBookingHold(
+    bookingHoldId: string,
+    reason?: string,
+    tx?: Prisma.TransactionClient
+  ) {
+    return this.releaseDiscount({ bookingHoldId, reason }, tx);
   },
 };

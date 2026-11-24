@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { UserRole } from '@prisma/client';
-import { authMiddleware } from '../../common/middleware/auth';
+import { authMiddleware, optionalAuth } from '../../common/middleware/auth';
 import { tenantGuard } from '../../common/middleware/tenantGuard';
 import { requireRole } from '../../common/middleware/requireRole';
 import { validate } from '../../common/middleware/validate';
@@ -15,16 +15,97 @@ import {
   updateDiscountSchema,
   updateDiscountStatusSchema,
   validatePromoCodeSchema,
+  getAvailableDiscountsSchema,
+  calculateDiscountSelectionSchema,
+  reserveDiscountSchema,
+  releaseDiscountSchema,
+  redeemDiscountSchema,
 } from './discounts.dto';
 
 const router = Router({ mergeParams: true });
+
+// ==========================================
+// Customer & Public Multi-Discount Endpoints (Snapp-style)
+// ==========================================
+
+router.post(
+  '/available',
+  optionalAuth,
+  validate(getAvailableDiscountsSchema),
+  asyncHandler(discountsController.getAvailableDiscounts)
+);
+
+router.get(
+  '/available',
+  optionalAuth,
+  asyncHandler(async (req, res, next) => {
+    req.body = {
+      stationId: req.query.stationId,
+      startTime: req.query.startTime,
+      durationHours: req.query.durationHours ? Number(req.query.durationHours) : undefined,
+      durationMinutes: req.query.durationMinutes ? Number(req.query.durationMinutes) : undefined,
+      basePrice: req.query.basePrice ? Number(req.query.basePrice) : undefined,
+      customerAccountId: req.query.customerAccountId,
+      manualCode: req.query.manualCode,
+    };
+    return validate(getAvailableDiscountsSchema)(req, res, () => {
+      discountsController.getAvailableDiscounts(req as any, res).catch(next);
+    });
+  })
+);
+
+router.post(
+  '/validate',
+  optionalAuth,
+  validate(validatePromoCodeSchema),
+  asyncHandler(discountsController.validatePromoCode)
+);
+
+router.post(
+  '/calculate',
+  optionalAuth,
+  validate(calculateDiscountSelectionSchema),
+  asyncHandler(discountsController.calculateDiscountSelection)
+);
+
+router.post(
+  '/select',
+  optionalAuth,
+  validate(calculateDiscountSelectionSchema),
+  asyncHandler(discountsController.calculateDiscountSelection)
+);
+
+router.post(
+  '/reserve',
+  optionalAuth,
+  validate(reserveDiscountSchema),
+  asyncHandler(discountsController.reserveDiscount)
+);
+
+router.post(
+  '/release',
+  optionalAuth,
+  validate(releaseDiscountSchema),
+  asyncHandler(discountsController.releaseDiscount)
+);
+
+router.post(
+  '/redeem',
+  optionalAuth,
+  validate(redeemDiscountSchema),
+  asyncHandler(discountsController.redeemDiscount)
+);
+
+// ==========================================
+// Manager & Admin Management Routes
+// ==========================================
 
 router.use(authMiddleware);
 router.use(tenantGuard);
 
 const ALLOWED_ROLES = [UserRole.MANAGER, UserRole.ADMIN];
 
-// Campaign Routes
+// Campaign Management Routes
 router.post(
   '/campaigns',
   requireRole(ALLOWED_ROLES),
@@ -49,13 +130,6 @@ router.patch(
   requireRole(ALLOWED_ROLES),
   validate(updateCampaignSchema),
   asyncHandler(discountsController.updateCampaign)
-);
-
-// Promo Code Validation Endpoint
-router.post(
-  '/validate',
-  validate(validatePromoCodeSchema),
-  asyncHandler(discountsController.validatePromoCode)
 );
 
 // Direct Station/Center Discounts Routes

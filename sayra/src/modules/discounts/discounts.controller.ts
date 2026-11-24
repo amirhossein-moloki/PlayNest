@@ -25,6 +25,11 @@ import {
   UpdateDiscountInput,
   UpdateDiscountStatusInput,
   ValidatePromoCodeInput,
+  GetAvailableDiscountsInput,
+  CalculateDiscountSelectionInput,
+  ReserveDiscountInput,
+  ReleaseDiscountInput,
+  RedeemDiscountInput,
 } from './discounts.dto';
 
 export const createCampaign = async (req: AppRequest, res: Response) => {
@@ -182,3 +187,59 @@ export const deleteDiscount = async (req: AppRequest, res: Response) => {
   emitPricingChange(gamingCenterId);
   res.ok(deleted);
 };
+
+export const getAvailableDiscounts = async (req: AppRequest, res: Response) => {
+  const { gamingCenterId } = req.params;
+  const body = req.body as GetAvailableDiscountsInput;
+
+  const result = await discountsStation.getAvailableDiscounts(
+    gamingCenterId,
+    body,
+    req.actor
+  );
+
+  res.ok(result);
+};
+
+export const calculateDiscountSelection = async (req: AppRequest, res: Response) => {
+  const { gamingCenterId } = req.params;
+  const body = req.body as CalculateDiscountSelectionInput;
+
+  const result = await discountsStation.calculateDiscountSelection(
+    gamingCenterId,
+    body,
+    req.actor
+  );
+
+  res.ok(result);
+};
+
+export const reserveDiscount = async (req: AppRequest, res: Response) => {
+  const { gamingCenterId } = req.params;
+  const body = req.body as ReserveDiscountInput;
+
+  const result = await discountsStation.reserveDiscount(
+    gamingCenterId,
+    body,
+    req.actor
+  );
+
+  res.ok(result);
+};
+
+export const releaseDiscount = async (req: AppRequest, res: Response) => {
+  const body = req.body as ReleaseDiscountInput;
+
+  const result = await discountsStation.releaseDiscount(body);
+
+  res.ok({ success: true, usage: result });
+};
+
+export const redeemDiscount = async (req: AppRequest, res: Response) => {
+  const body = req.body as RedeemDiscountInput;
+
+  const result = await discountsStation.redeemDiscount(body.reservationId, body);
+
+  res.ok({ success: true, usage: result });
+};
+

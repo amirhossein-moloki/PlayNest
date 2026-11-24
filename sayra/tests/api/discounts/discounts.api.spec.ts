@@ -212,4 +212,141 @@ describe('Discounts API Integration Tests', () => {
       );
     });
   });
+
+  describe('Snapp-style Customer Discovery & Reservation Endpoints', () => {
+    const stationId = 'clx0000000000000000000003';
+
+    it('POST /available - should return available discounts and best recommendation', async () => {
+      const mockResult = {
+        basePrice: 100000,
+        recommendedDiscountId: 'camp-best',
+        recommendedDiscountType: 'CAMPAIGN',
+        discounts: [
+          {
+            id: 'camp-best',
+            type: 'CAMPAIGN',
+            title: 'یلدا',
+            code: 'YALDA',
+            discountAmount: 20000,
+            finalPrice: 80000,
+            isApplicable: true,
+            isBest: true,
+            badge: 'بهترین تخفیف برای شما',
+          },
+        ],
+      };
+      MockedDiscountsStation.getAvailableDiscounts.mockResolvedValue(mockResult as any);
+
+      const res = await request(app)
+        .post(`/api/v1/gamingCenters/${gamingCenterId}/discounts/available`)
+        .send({
+          stationId,
+          basePrice: 100000,
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.recommendedDiscountId).toBe('camp-best');
+      expect(res.body.data.discounts).toHaveLength(1);
+    });
+
+    it('GET /available - should accept query parameters for fetching available discounts', async () => {
+      MockedDiscountsStation.getAvailableDiscounts.mockResolvedValue({
+        basePrice: 100000,
+        recommendedDiscountId: null,
+        recommendedDiscountType: null,
+        discounts: [],
+      } as any);
+
+      const res = await request(app)
+        .get(`/api/v1/gamingCenters/${gamingCenterId}/discounts/available?stationId=${stationId}&basePrice=100000`);
+
+      expect(res.status).toBe(200);
+      expect(MockedDiscountsStation.getAvailableDiscounts).toHaveBeenCalled();
+    });
+
+    it('POST /calculate - should calculate discount selection and inform about better deals', async () => {
+      const mockCalc = {
+        isValid: true,
+        originalAmount: 100000,
+        discountAmount: 15000,
+        customerPayableAmount: 85000,
+        merchantPayoutAmount: 80000,
+        platformCommission: 5000,
+        appliedDiscount: { id: 'disc-1', title: 'تخفیف استیشن' },
+        betterDiscountAvailable: true,
+        betterDiscount: { id: 'camp-better', title: 'کمپین یلدا', discountAmount: 20000, savingsDifference: 5000 },
+      };
+      MockedDiscountsStation.calculateDiscountSelection.mockResolvedValue(mockCalc as any);
+
+      const res = await request(app)
+        .post(`/api/v1/gamingCenters/${gamingCenterId}/discounts/calculate`)
+        .send({
+          stationId,
+          basePrice: 100000,
+          selectedDiscountId: 'disc-1',
+          selectedType: 'DIRECT_DISCOUNT',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.betterDiscountAvailable).toBe(true);
+      expect(res.body.data.betterDiscount.savingsDifference).toBe(5000);
+    });
+
+    it('POST /reserve - should reserve discount with TTL', async () => {
+      MockedDiscountsStation.reserveDiscount.mockResolvedValue({
+        id: 'usage-1',
+        status: 'RESERVED',
+        discountAmount: 20000,
+        expiresAt: new Date().toISOString(),
+      } as any);
+
+      const res = await request(app)
+        .post(`/api/v1/gamingCenters/${gamingCenterId}/discounts/reserve`)
+        .send({
+          stationId,
+          basePrice: 100000,
+          customerAccountId: 'cust-1',
+          code: 'YALDA',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.status).toBe('RESERVED');
+    });
+
+    it('POST /release - should release reserved discount', async () => {
+      MockedDiscountsStation.releaseDiscount.mockResolvedValue({
+        id: 'usage-1',
+        status: 'RELEASED',
+        releaseReason: 'Customer canceled',
+      } as any);
+
+      const res = await request(app)
+        .post(`/api/v1/gamingCenters/${gamingCenterId}/discounts/release`)
+        .send({
+          usageId: 'usage-1',
+          reason: 'Customer canceled',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.success).toBe(true);
+    });
+
+    it('POST /redeem - should transition discount status to REDEEMED', async () => {
+      MockedDiscountsStation.redeemDiscount.mockResolvedValue({
+        id: 'usage-1',
+        status: 'REDEEMED',
+        reservationId: 'res-1',
+      } as any);
+
+      const res = await request(app)
+        .post(`/api/v1/gamingCenters/${gamingCenterId}/discounts/redeem`)
+        .send({
+          usageId: 'usage-1',
+          reservationId: 'res-1',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.success).toBe(true);
+    });
+  });
 });

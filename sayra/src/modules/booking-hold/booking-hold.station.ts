@@ -360,6 +360,12 @@ export const BookingHoldStation = {
       data: { status: BookingHoldStatus.RELEASED },
     });
 
+    await discountsStation.releaseDiscountForBookingHold(
+      holdId,
+      'Booking hold released',
+      tx
+    ).catch(() => {});
+
     void invalidatePublicCacheByPrefix(`public:avail:${hold.gamingCenterId}:`);
     return releasedHold;
   },
@@ -460,6 +466,17 @@ export const BookingHoldStation = {
             logger.error({ err, reservationId: res.id }, 'Failed to calculate commission for group reservation item');
           }
         }
+      }
+
+      // Redeem any reserved discount hold
+      if (groupBooking?.reservations?.[0]) {
+        await discountsStation.redeemDiscount(
+          groupBooking.reservations[0].id,
+          { bookingHoldId: hold.id },
+          t
+        ).catch((err) => {
+          logger.warn({ err, holdId: hold.id }, 'Failed to redeem discount on hold conversion');
+        });
       }
 
       // Emit RESERVATION_CONFIRMED for all created reservations

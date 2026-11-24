@@ -20,6 +20,7 @@ import { isReservationOverlapDbError } from '../../common/errors/dbErrors';
 import httpStatus from 'http-status';
 import { gamingSessionsStation } from '../gamingSessions/gamingSessions.station';
 import { GamingSessionsRepo } from '../gamingSessions/gamingSessions.repo';
+import { discountsStation } from '../discounts/discounts.station';
 import { commissionsStation } from '../commissions/commissions.station';
 import { walletService } from '../wallet/wallet.station';
 import { auditService } from '../audit/audit.station';
@@ -318,6 +319,17 @@ export const reservationLifecycle = {
           { reason: data.reason || 'Reservation canceled' },
           tx
         );
+      }
+
+      // Release any campaign or voucher discount reservation hold
+      if (reservation.campaignId || reservation.discountId) {
+        await discountsStation.releaseDiscountForReservation(
+          reservationId,
+          data.reason || 'Reservation canceled',
+          tx
+        ).catch((err) => {
+          logger.warn({ err, reservationId }, 'Failed to release discount on cancellation');
+        });
       }
 
       return result;
@@ -745,6 +757,11 @@ export const reservationLifecycle = {
                 tx
               );
             }
+            await discountsStation.releaseDiscountForReservation(
+              candidate.id,
+              'Reservation expired without payment',
+              tx
+            ).catch(() => {});
           }
           return success;
         });

@@ -3780,6 +3780,310 @@ components:
         updatedAt:
           type: string
           format: date-time
+    DiscountUsageStatus:
+      type: string
+      enum:
+      - AVAILABLE
+      - RESERVED
+      - REDEEMED
+      - RELEASED
+      - EXPIRED
+    AvailableDiscountItem:
+      type: object
+      required:
+      - id
+      - type
+      - title
+      - discountType
+      - value
+      - discountAmount
+      - finalPrice
+      - fundingSource
+      - conditions
+      - isApplicable
+      - isBest
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum:
+          - CAMPAIGN
+          - DIRECT_DISCOUNT
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        discountType:
+          type: string
+          enum:
+          - PERCENTAGE
+          - FIXED_AMOUNT
+        value:
+          type: number
+        discountAmount:
+          type: number
+        finalPrice:
+          type: number
+        fundingSource:
+          type: string
+          enum:
+          - PLATFORM
+          - CAMPAIGN_BUDGET
+          - MERCHANT_FUNDED
+        conditions:
+          type: string
+        minOrderAmount:
+          type: number
+          nullable: true
+        maxDiscountAmount:
+          type: number
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+        isApplicable:
+          type: boolean
+        ineligibilityReason:
+          type: string
+          nullable: true
+        isBest:
+          type: boolean
+        badge:
+          type: string
+          nullable: true
+    GetAvailableDiscountsInput:
+      type: object
+      required:
+      - stationId
+      properties:
+        stationId:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        durationHours:
+          type: number
+        durationMinutes:
+          type: integer
+        basePrice:
+          type: number
+        customerAccountId:
+          type: string
+        manualCode:
+          type: string
+          nullable: true
+    GetAvailableDiscountsResponse:
+      type: object
+      properties:
+        basePrice:
+          type: number
+        recommendedDiscountId:
+          type: string
+          nullable: true
+        recommendedDiscountType:
+          type: string
+          nullable: true
+          enum:
+          - CAMPAIGN
+          - DIRECT_DISCOUNT
+        discounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailableDiscountItem'
+    CalculateDiscountSelectionInput:
+      type: object
+      required:
+      - stationId
+      - basePrice
+      properties:
+        stationId:
+          type: string
+        basePrice:
+          type: number
+        startTime:
+          type: string
+          format: date-time
+        customerAccountId:
+          type: string
+        selectedDiscountId:
+          type: string
+          nullable: true
+        selectedType:
+          type: string
+          enum:
+          - CAMPAIGN
+          - DIRECT_DISCOUNT
+          - NONE
+        code:
+          type: string
+          nullable: true
+    CalculateDiscountSelectionResponse:
+      type: object
+      properties:
+        isValid:
+          type: boolean
+        originalAmount:
+          type: number
+        discountAmount:
+          type: number
+        customerPayableAmount:
+          type: number
+        merchantPayoutAmount:
+          type: number
+        platformCommission:
+          type: number
+        platformFundedDiscount:
+          type: number
+        merchantFundedDiscount:
+          type: number
+        discountFundingSource:
+          type: string
+          nullable: true
+        campaignId:
+          type: string
+          nullable: true
+        discountId:
+          type: string
+          nullable: true
+        voucherCode:
+          type: string
+          nullable: true
+        appliedDiscount:
+          type: object
+          nullable: true
+        betterDiscountAvailable:
+          type: boolean
+        betterDiscount:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+            type:
+              type: string
+            title:
+              type: string
+            discountAmount:
+              type: number
+            savingsDifference:
+              type: number
+    ReserveDiscountInput:
+      type: object
+      required:
+      - stationId
+      - basePrice
+      - customerAccountId
+      properties:
+        stationId:
+          type: string
+        basePrice:
+          type: number
+        startTime:
+          type: string
+          format: date-time
+        customerAccountId:
+          type: string
+        selectedDiscountId:
+          type: string
+          nullable: true
+        selectedType:
+          type: string
+          enum:
+          - CAMPAIGN
+          - DIRECT_DISCOUNT
+          - NONE
+        code:
+          type: string
+          nullable: true
+        bookingHoldId:
+          type: string
+          nullable: true
+        reservationId:
+          type: string
+          nullable: true
+        idempotencyKey:
+          type: string
+          nullable: true
+        ttlMinutes:
+          type: integer
+          default: 15
+    ReserveDiscountResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        campaignId:
+          type: string
+          nullable: true
+        discountId:
+          type: string
+          nullable: true
+        reservationId:
+          type: string
+          nullable: true
+        bookingHoldId:
+          type: string
+          nullable: true
+        customerAccountId:
+          type: string
+        discountAmount:
+          type: number
+        originalPrice:
+          type: number
+          nullable: true
+        finalPrice:
+          type: number
+          nullable: true
+        fundingSource:
+          type: string
+        status:
+          $ref: '#/components/schemas/DiscountUsageStatus'
+        reservedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        idempotencyKey:
+          type: string
+          nullable: true
+        voucherCode:
+          type: string
+          nullable: true
+    ReleaseDiscountInput:
+      type: object
+      properties:
+        usageId:
+          type: string
+          nullable: true
+        reservationId:
+          type: string
+          nullable: true
+        bookingHoldId:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+    RedeemDiscountInput:
+      type: object
+      required:
+      - reservationId
+      properties:
+        usageId:
+          type: string
+          nullable: true
+        reservationId:
+          type: string
+        bookingHoldId:
+          type: string
+          nullable: true
     WaitlistEntry:
       type: object
       properties:
@@ -16217,6 +16521,192 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+  /gamingCenters/{gamingCenterId}/discounts/available:
+    get:
+      summary: Get all applicable and available discounts for a draft reservation
+      description: Returns all available and recommended discounts for a draft reservation based on user, station, price, and time
+      tags:
+      - Discounts
+      operationId: get_gamingCenters_gamingCenterId_discounts_available
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: stationId
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: startTime
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: durationMinutes
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: basePrice
+        in: query
+        required: true
+        schema:
+          type: number
+      - name: customerAccountId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: manualCode
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: List of available discounts and recommendation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetAvailableDiscountsResponse'
+  /gamingCenters/{gamingCenterId}/discounts/calculate:
+    post:
+      summary: Calculate price breakdown for a selected discount or voucher code
+      description: Returns exact financial breakdown, savings, and better discount notification
+      tags:
+      - Discounts
+      operationId: post_gamingCenters_gamingCenterId_discounts_calculate
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CalculateDiscountSelectionInput'
+      responses:
+        '200':
+          description: Calculation breakdown
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalculateDiscountSelectionResponse'
+  /gamingCenters/{gamingCenterId}/discounts/select:
+    post:
+      summary: Select or preview a discount (alias to calculate)
+      description: Selects a discount, validates eligibility, and returns financial breakdown
+      tags:
+      - Discounts
+      operationId: post_gamingCenters_gamingCenterId_discounts_select
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CalculateDiscountSelectionInput'
+      responses:
+        '200':
+          description: Calculation breakdown
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalculateDiscountSelectionResponse'
+  /gamingCenters/{gamingCenterId}/discounts/reserve:
+    post:
+      summary: Temporarily hold/reserve a discount or voucher for checkout
+      description: Creates or attaches an idempotent RESERVED discount usage record with expiration
+      tags:
+      - Discounts
+      operationId: post_gamingCenters_gamingCenterId_discounts_reserve
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReserveDiscountInput'
+      responses:
+        '201':
+          description: Discount successfully reserved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReserveDiscountResponse'
+  /gamingCenters/{gamingCenterId}/discounts/release:
+    post:
+      summary: Release a reserved discount hold
+      description: Releases a RESERVED discount usage so the voucher can be reused
+      tags:
+      - Discounts
+      operationId: post_gamingCenters_gamingCenterId_discounts_release
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseDiscountInput'
+      responses:
+        '200':
+          description: Discount released successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  releasedCount:
+                    type: integer
+  /gamingCenters/{gamingCenterId}/discounts/redeem:
+    post:
+      summary: Finalize and redeem a reserved discount upon completed booking
+      description: Marks a RESERVED discount usage as REDEEMED
+      tags:
+      - Discounts
+      operationId: post_gamingCenters_gamingCenterId_discounts_redeem
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedeemDiscountInput'
+      responses:
+        '200':
+          description: Discount redeemed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReserveDiscountResponse'
   /gamingCenters/{gamingCenterId}/discounts/validate:
     post:
       summary: Validate a voucher or promo code against a reservation draft
