@@ -10,6 +10,8 @@ export interface MapGamingCenterItem {
   name: string;
   latitude: number;
   longitude: number;
+  rating: number;
+  ratingCount: number;
 }
 
 export const PublicGamingCentersRepo = {
@@ -42,7 +44,7 @@ export const PublicGamingCentersRepo = {
 
   /**
    * Returns active, approved gaming centers with valid geographic coordinates for a specific city.
-   * Only returns minimal map marker fields: id, name, latitude, longitude.
+   * Only returns minimal map marker fields: id, name, latitude, longitude, rating, ratingCount.
    */
   async findMapGamingCentersByCity(city: string): Promise<MapGamingCenterItem[]> {
     const normalizedCity = typeof city === 'string' ? city.trim() : '';
@@ -56,13 +58,17 @@ export const PublicGamingCentersRepo = {
         name: string;
         latitude: number | string | null;
         longitude: number | string | null;
+        rating?: number | string | null;
+        ratingCount?: number | string | null;
       }>
     >`
       SELECT
         sub."id",
         sub."name",
         sub."latitude",
-        sub."longitude"
+        sub."longitude",
+        COALESCE(rs."avgRating", 0)::float8 AS "rating",
+        COALESCE(rs."ratingCount", 0)::int AS "ratingCount"
       FROM (
         SELECT DISTINCT ON (gc."id")
           gc."id" AS "id",
@@ -82,6 +88,17 @@ export const PublicGamingCentersRepo = {
           AND NOT (a."lat" = 0 AND a."lng" = 0)
         ORDER BY gc."id", a."isPrimary" DESC, a."createdAt" ASC
       ) sub
+      LEFT JOIN LATERAL (
+        SELECT
+          ROUND(AVG(r."rating")::numeric, 1)::float8 AS "avgRating",
+          COUNT(r."id")::int AS "ratingCount"
+        FROM "Rating" r
+        INNER JOIN "Reservation" res ON res."id" = r."reservationId"
+        WHERE r."gamingCenterId" = sub."id"
+          AND r."status" = 'PUBLISHED'
+          AND res."status" = 'COMPLETED'
+          AND r."rating" BETWEEN 1 AND 5
+      ) rs ON true
       ORDER BY sub."name" ASC, sub."id" ASC
     `;
 
@@ -125,12 +142,42 @@ export const PublicGamingCentersRepo = {
         continue;
       }
 
+      const rawRating = r.rating;
+      let rating = 0;
+      if (
+        rawRating !== null &&
+        rawRating !== undefined &&
+        rawRating !== '' &&
+        typeof rawRating !== 'boolean'
+      ) {
+        const parsedRating = Number(rawRating);
+        if (Number.isFinite(parsedRating) && parsedRating > 0) {
+          rating = Math.round(Math.min(5, parsedRating) * 10) / 10;
+        }
+      }
+
+      const rawRatingCount = r.ratingCount;
+      let ratingCount = 0;
+      if (
+        rawRatingCount !== null &&
+        rawRatingCount !== undefined &&
+        rawRatingCount !== '' &&
+        typeof rawRatingCount !== 'boolean'
+      ) {
+        const parsedRatingCount = Number(rawRatingCount);
+        if (Number.isFinite(parsedRatingCount) && parsedRatingCount > 0) {
+          ratingCount = Math.floor(parsedRatingCount);
+        }
+      }
+
       seenIds.add(id);
       result.push({
         id,
         name,
         latitude,
         longitude,
+        rating,
+        ratingCount,
       });
     }
 

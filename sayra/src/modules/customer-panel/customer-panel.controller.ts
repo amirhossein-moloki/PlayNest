@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { CustomerPanelStation } from './customer-panel.station';
 import { PaymentsStation } from '../payments/payments.station';
 import { AppRequest } from '../../types/express';
+import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
 
 export const getMe = async (req: AppRequest, res: Response) => {
   const customerAccountId = req.actor.id;
@@ -66,6 +67,7 @@ export const submitMyReview = async (req: AppRequest, res: Response) => {
     customerAccountId,
     req.body
   );
+  void invalidatePublicCacheByPrefix('public:gc:');
 
   res.created(rating);
 };

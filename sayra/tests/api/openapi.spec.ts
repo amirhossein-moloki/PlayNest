@@ -117,6 +117,31 @@ describe('OpenAPI Specification Validation Suite', () => {
 
         expect(brokenRefs).toEqual([]);
       });
+
+      it('should document GamingCenterMapItem with rating and ratingCount and link map endpoints to it', () => {
+        const mapItemSchema = doc.components.schemas.GamingCenterMapItem;
+        expect(mapItemSchema).toBeDefined();
+        expect(mapItemSchema.required).toEqual(
+          expect.arrayContaining(['id', 'name', 'latitude', 'longitude', 'rating', 'ratingCount'])
+        );
+        expect(mapItemSchema.properties.rating).toBeDefined();
+        expect(mapItemSchema.properties.rating.type).toBe('number');
+        expect(mapItemSchema.properties.rating.minimum).toBe(0);
+        expect(mapItemSchema.properties.rating.maximum).toBe(5);
+        expect(mapItemSchema.properties.ratingCount).toBeDefined();
+        expect(mapItemSchema.properties.ratingCount.type).toBe('integer');
+        expect(mapItemSchema.properties.ratingCount.minimum).toBe(0);
+
+        const publicMapItems =
+          doc.paths['/public/gaming-centers/map']?.get?.responses?.['200']?.content?.['application/json']
+            ?.schema?.properties?.data?.items;
+        expect(publicMapItems?.$ref).toBe('#/components/schemas/GamingCenterMapItem');
+
+        const legacyMapItems =
+          doc.paths['/gamingCenters/map']?.get?.responses?.['200']?.content?.['application/json']
+            ?.schema?.properties?.data?.items;
+        expect(legacyMapItems?.$ref).toBe('#/components/schemas/GamingCenterMapItem');
+      });
     });
   });
 });

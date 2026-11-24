@@ -41,13 +41,15 @@ describe('Gaming Centers Map Endpoint (GET /api/v1/public/gaming-centers/map & /
     expect(prisma.$queryRaw).not.toHaveBeenCalled();
   });
 
-  it('returns only id, name, latitude, and longitude for the selected city', async () => {
+  it('returns id, name, latitude, longitude, rating, and ratingCount for the selected city', async () => {
     (prisma.$queryRaw as jest.MockedFunction<any>).mockResolvedValue([
       {
         id: 'gc-tehran-1',
         name: 'گیم‌نت آلفا',
         latitude: '35.7152',
         longitude: '51.4043',
+        rating: '4.66',
+        ratingCount: '12',
         extraFieldThatShouldBeStripped: 'should-not-appear',
       },
       {
@@ -70,31 +72,59 @@ describe('Gaming Centers Map Endpoint (GET /api/v1/public/gaming-centers/map & /
         name: 'گیم‌نت آلفا',
         latitude: 35.7152,
         longitude: 51.4043,
+        rating: 4.7,
+        ratingCount: 12,
       },
       {
         id: 'gc-tehran-2',
         name: 'گیم‌نت بتا',
         latitude: 35.6892,
         longitude: 51.389,
+        rating: 0,
+        ratingCount: 0,
       },
     ]);
 
     for (const item of res.body.data) {
-      expect(Object.keys(item).sort()).toEqual(['id', 'latitude', 'longitude', 'name']);
+      expect(Object.keys(item).sort()).toEqual([
+        'id',
+        'latitude',
+        'longitude',
+        'name',
+        'rating',
+        'ratingCount',
+      ]);
       expect(typeof item.id).toBe('string');
       expect(typeof item.name).toBe('string');
       expect(typeof item.latitude).toBe('number');
       expect(typeof item.longitude).toBe('number');
+      expect(typeof item.rating).toBe('number');
+      expect(typeof item.ratingCount).toBe('number');
+      expect(Number.isInteger(item.ratingCount)).toBe(true);
     }
   });
 
   it('returns markers for the newly selected city when city changes and supports /api/v1/gamingCenters/map', async () => {
     (prisma.$queryRaw as jest.MockedFunction<any>)
       .mockResolvedValueOnce([
-        { id: 'gc-teh-1', name: 'Tehran Arena', latitude: 35.72, longitude: 51.41 },
+        {
+          id: 'gc-teh-1',
+          name: 'Tehran Arena',
+          latitude: 35.72,
+          longitude: 51.41,
+          rating: 4.8,
+          ratingCount: 15,
+        },
       ])
       .mockResolvedValueOnce([
-        { id: 'gc-shz-1', name: 'Shiraz Hub', latitude: 29.5918, longitude: 52.5837 },
+        {
+          id: 'gc-shz-1',
+          name: 'Shiraz Hub',
+          latitude: 29.5918,
+          longitude: 52.5837,
+          rating: 0,
+          ratingCount: 0,
+        },
       ]);
 
     const resTehran = await request(app)
@@ -103,7 +133,14 @@ describe('Gaming Centers Map Endpoint (GET /api/v1/public/gaming-centers/map & /
 
     expect(resTehran.status).toBe(200);
     expect(resTehran.body.data).toEqual([
-      { id: 'gc-teh-1', name: 'Tehran Arena', latitude: 35.72, longitude: 51.41 },
+      {
+        id: 'gc-teh-1',
+        name: 'Tehran Arena',
+        latitude: 35.72,
+        longitude: 51.41,
+        rating: 4.8,
+        ratingCount: 15,
+      },
     ]);
 
     const resShiraz = await request(app)
@@ -112,11 +149,18 @@ describe('Gaming Centers Map Endpoint (GET /api/v1/public/gaming-centers/map & /
 
     expect(resShiraz.status).toBe(200);
     expect(resShiraz.body.data).toEqual([
-      { id: 'gc-shz-1', name: 'Shiraz Hub', latitude: 29.5918, longitude: 52.5837 },
+      {
+        id: 'gc-shz-1',
+        name: 'Shiraz Hub',
+        latitude: 29.5918,
+        longitude: 52.5837,
+        rating: 0,
+        ratingCount: 0,
+      },
     ]);
   });
 
-  it('enforces database-level filters for active, approved centers, city match, and valid coordinates', async () => {
+  it('enforces database-level filters for active, approved centers, city match, valid coordinates, and valid published ratings', async () => {
     (prisma.$queryRaw as jest.MockedFunction<any>).mockResolvedValue([]);
 
     await PublicGamingCentersRepo.findMapGamingCentersByCity('  Tehran  ');
@@ -135,6 +179,14 @@ describe('Gaming Centers Map Endpoint (GET /api/v1/public/gaming-centers/map & /
     expect(sqlText).toContain('a."lng" IS NOT NULL');
     expect(sqlText).toContain('a."lat" BETWEEN -90 AND 90');
     expect(sqlText).toContain('a."lng" BETWEEN -180 AND 180');
+    expect(sqlText).toContain('LEFT JOIN LATERAL');
+    expect(sqlText).toContain('FROM "Rating" r');
+    expect(sqlText).toContain('INNER JOIN "Reservation" res ON res."id" = r."reservationId"');
+    expect(sqlText).toContain('r."status" = \'PUBLISHED\'');
+    expect(sqlText).toContain('res."status" = \'COMPLETED\'');
+    expect(sqlText).toContain('r."rating" BETWEEN 1 AND 5');
+    expect(sqlText).toContain('AVG(r."rating")');
+    expect(sqlText).toContain('COUNT(r."id")');
   });
 
   it('defensively filters out gaming centers without valid coordinates or duplicate IDs', async () => {
@@ -162,6 +214,85 @@ describe('Gaming Centers Map Endpoint (GET /api/v1/public/gaming-centers/map & /
         name: 'Valid Center',
         latitude: 35.7,
         longitude: 51.4,
+        rating: 0,
+        ratingCount: 0,
+      },
+    ]);
+  });
+
+  it('normalizes edge-case rating and ratingCount values without dropping centers', async () => {
+    (prisma.$queryRaw as jest.MockedFunction<any>).mockResolvedValue([
+      {
+        id: 'gc-null-rating',
+        name: 'Unrated Center',
+        latitude: 35.7,
+        longitude: 51.4,
+        rating: null,
+        ratingCount: null,
+      },
+      {
+        id: 'gc-clamped-rating',
+        name: 'Clamped Center',
+        latitude: 35.71,
+        longitude: 51.41,
+        rating: 6.4,
+        ratingCount: 5.9,
+      },
+      {
+        id: 'gc-negative-rating',
+        name: 'Negative Center',
+        latitude: 35.72,
+        longitude: 51.42,
+        rating: -1,
+        ratingCount: -3,
+      },
+      {
+        id: 'gc-invalid-rating',
+        name: 'Invalid String Rating',
+        latitude: 35.73,
+        longitude: 51.43,
+        rating: 'not-a-number',
+        ratingCount: 'bad',
+      },
+    ]);
+
+    const res = await request(app)
+      .get('/api/v1/public/gaming-centers/map')
+      .query({ city: 'Tehran' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual([
+      {
+        id: 'gc-null-rating',
+        name: 'Unrated Center',
+        latitude: 35.7,
+        longitude: 51.4,
+        rating: 0,
+        ratingCount: 0,
+      },
+      {
+        id: 'gc-clamped-rating',
+        name: 'Clamped Center',
+        latitude: 35.71,
+        longitude: 51.41,
+        rating: 5,
+        ratingCount: 5,
+      },
+      {
+        id: 'gc-negative-rating',
+        name: 'Negative Center',
+        latitude: 35.72,
+        longitude: 51.42,
+        rating: 0,
+        ratingCount: 0,
+      },
+      {
+        id: 'gc-invalid-rating',
+        name: 'Invalid String Rating',
+        latitude: 35.73,
+        longitude: 51.43,
+        rating: 0,
+        ratingCount: 0,
       },
     ]);
   });

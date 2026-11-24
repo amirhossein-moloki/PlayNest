@@ -68,6 +68,8 @@ components:
       - name
       - latitude
       - longitude
+      - rating
+      - ratingCount
       additionalProperties: false
       properties:
         id:
@@ -92,6 +94,18 @@ components:
           maximum: 180
           description: طول جغرافیایی
           example: 51.4043
+        rating:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 5
+          description: میانگین ستاره (امتیاز) گیمنت از ۰ تا ۵ (در صورت نبود امتیاز معتبر، ۰)
+          example: 4.6
+        ratingCount:
+          type: integer
+          minimum: 0
+          description: تعداد امتیازهای ثبت‌شده و معتبر گیمنت
+          example: 12
     PaymentCalculation:
       type: object
       properties:
@@ -9372,7 +9386,7 @@ paths:
   /public/gaming-centers/map:
     get:
       summary: List gaming center map markers for a selected city
-      description: Returns active, approved gaming centers with valid geographic coordinates belonging only to the specified city. Only minimal marker fields (id, name, latitude, longitude) are returned.
+      description: Returns active, approved gaming centers with valid geographic coordinates belonging only to the specified city. Only minimal marker fields (id, name, latitude, longitude, rating, ratingCount) are returned.
       tags:
       - Public
       operationId: get_public_gaming_centers_map
@@ -12130,7 +12144,7 @@ paths:
   /gamingCenters/map:
     get:
       summary: List gaming center map markers for a selected city
-      description: Returns active, approved gaming centers with valid geographic coordinates belonging only to the specified city. Only minimal marker fields (id, name, latitude, longitude) are returned.
+      description: Returns active, approved gaming centers with valid geographic coordinates belonging only to the specified city. Only minimal marker fields (id, name, latitude, longitude, rating, ratingCount) are returned.
       tags:
       - GamingCenters
       operationId: get_gamingCenters_map
