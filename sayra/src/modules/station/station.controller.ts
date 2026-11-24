@@ -7,12 +7,16 @@ import {
   CreateStationsFromCatalogInput,
   AddGamesFromCatalogInput,
   UpdateGamingCenterGameInput,
+  ReplaceStationGamesInput,
 } from './station.types';
 import { listStationsSchema, listGamingCenterGamesQuerySchema } from './station.validator';
 import { GamingCenter } from '@prisma/client';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
-import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
+import {
+  invalidateAllPublicDiscoveryCaches,
+  invalidatePublicCacheByPrefix,
+} from '../../common/utils/publicCache';
 import { recordGamingCenterChangeEvent } from '../integrations/outbox.service';
 
 // Local type extension for Request
@@ -40,6 +44,7 @@ export async function createStation(
       eventType: 'GAMING_CENTER_PRICING_CHANGED',
       changedFields: ['stations', 'devices'],
     });
+    void invalidateAllPublicDiscoveryCaches();
     res.created(newStation);
   } catch (error) {
     next(error);
@@ -71,6 +76,7 @@ export async function createStationsFromCatalog(
       eventType: 'GAMING_CENTER_PRICING_CHANGED',
       changedFields: ['stations', 'devices'],
     });
+    void invalidateAllPublicDiscoveryCaches();
     res.created(stations);
   } catch (error) {
     next(error);
@@ -102,6 +108,7 @@ export async function addGamesFromCatalog(
       eventType: 'GAMING_CENTER_AMENITIES_CHANGED',
       changedFields: ['games', 'amenities'],
     });
+    void invalidateAllPublicDiscoveryCaches();
     res.ok(result);
   } catch (error) {
     next(error);
@@ -165,6 +172,7 @@ export async function updateGamingCenterGameMode(
       eventType: 'GAMING_CENTER_AMENITIES_CHANGED',
       changedFields: ['games', 'amenities'],
     });
+    void invalidateAllPublicDiscoveryCaches();
     res.ok(result);
   } catch (error) {
     next(error);
@@ -197,6 +205,7 @@ export async function removeGameFromGamingCenter(
       eventType: 'GAMING_CENTER_AMENITIES_CHANGED',
       changedFields: ['games', 'amenities'],
     });
+    void invalidateAllPublicDiscoveryCaches();
     res.ok(result);
   } catch (error) {
     next(error);
@@ -311,6 +320,7 @@ export async function updateStation(
       { ip: req.ip, userAgent: req.headers['user-agent'] }
     );
     void invalidatePublicCacheByPrefix(`public:avail:${targetGamingCenterId}:`);
+    void invalidateAllPublicDiscoveryCaches();
     void recordGamingCenterChangeEvent({
       gamingCenterId: targetGamingCenterId,
       eventType: 'GAMING_CENTER_PRICING_CHANGED',
@@ -344,12 +354,97 @@ export async function deleteStation(
       { ip: req.ip, userAgent: req.headers['user-agent'] }
     );
     void invalidatePublicCacheByPrefix(`public:avail:${targetGamingCenterId}:`);
+    void invalidateAllPublicDiscoveryCaches();
     void recordGamingCenterChangeEvent({
       gamingCenterId: targetGamingCenterId,
       eventType: 'GAMING_CENTER_PRICING_CHANGED',
       changedFields: ['stations', 'pricing', 'devices'],
     });
     res.noContent();
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getStationGames(
+  req: RequestWithGamingCenter,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { stationId } = req.params;
+    const targetGamingCenterId =
+      req.tenant?.gamingCenterId ||
+      req.params.gamingCenterId ||
+      req.gamingCenter?.id ||
+      req.gamingCenterId;
+    if (!targetGamingCenterId) {
+      return next(new AppError('GamingCenter ID or slug is required.', httpStatus.BAD_REQUEST));
+    }
+    const games = await stationLogic.getStationGames(stationId, targetGamingCenterId);
+    res.ok(games);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function replaceStationGames(
+  req: Request<{ gamingCenterId: string; stationId: string }, unknown, ReplaceStationGamesInput>,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { stationId } = req.params;
+    const targetGamingCenterId =
+      req.params.gamingCenterId ||
+      req.tenant?.gamingCenterId ||
+      (req as any).gamingCenter?.id ||
+      req.gamingCenterId;
+    const result = await stationLogic.replaceStationGames(
+      stationId,
+      targetGamingCenterId,
+      req.body,
+      (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
+      { ip: req.ip, userAgent: req.headers['user-agent'] }
+    );
+    void invalidateAllPublicDiscoveryCaches();
+    void recordGamingCenterChangeEvent({
+      gamingCenterId: targetGamingCenterId,
+      eventType: 'GAMING_CENTER_AMENITIES_CHANGED',
+      changedFields: ['games', 'stations'],
+    });
+    res.ok(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function removeStationGame(
+  req: Request<{ gamingCenterId: string; stationId: string; gameCatalogId: string }>,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { stationId, gameCatalogId } = req.params;
+    const targetGamingCenterId =
+      req.params.gamingCenterId ||
+      req.tenant?.gamingCenterId ||
+      (req as any).gamingCenter?.id ||
+      req.gamingCenterId;
+    const result = await stationLogic.removeStationGame(
+      stationId,
+      targetGamingCenterId,
+      gameCatalogId,
+      (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
+      { ip: req.ip, userAgent: req.headers['user-agent'] }
+    );
+    void invalidateAllPublicDiscoveryCaches();
+    void recordGamingCenterChangeEvent({
+      gamingCenterId: targetGamingCenterId,
+      eventType: 'GAMING_CENTER_AMENITIES_CHANGED',
+      changedFields: ['games', 'stations'],
+    });
+    res.ok(result);
   } catch (error) {
     next(error);
   }

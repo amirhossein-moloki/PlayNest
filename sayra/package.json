@@ -14,6 +14,7 @@
     "test:cov": "jest --coverage",
     "admin:create": "node --import tsx --require dotenv/config ./scripts/bootstrap-platform-admin.ts",
     "backfill:analytics": "node --import tsx --require dotenv/config ./scripts/backfill-analytics.ts",
+    "backfill:game-catalog": "node --import tsx --require dotenv/config ./scripts/backfill-game-catalog.ts",
     "bootstrap:platform-admin": "node --import tsx --require dotenv/config ./scripts/bootstrap-platform-admin.ts",
     "db:seed": "prisma db seed",
     "docker:up": "docker compose up --build -d"

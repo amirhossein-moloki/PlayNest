@@ -6,6 +6,7 @@ import {
   UpdateStationInput,
   CreateStationsFromCatalogInput,
   AddGamesFromCatalogInput,
+  ReplaceStationGamesInput,
 } from './station.types';
 import { ListStationsQuery } from './station.validator';
 import * as CatalogRepo from '../catalog/catalog.repo';
@@ -104,27 +105,62 @@ export async function createStationsFromCatalog(
 const formatEnrichedCenterGame = (
   catalogGame: {
     id: string;
+    slug?: string | null;
     title: string;
+    titleFa?: string | null;
+    titleEn?: string | null;
+    category?: string | null;
     coverImageUrl?: string | null;
     supportedPlatforms?: GameStationType[];
     genre?: string | null;
     description?: string | null;
     isActive?: boolean;
     supportsOnline?: boolean;
+    aliases?: Array<{ alias: string; locale?: string | null }>;
   },
-  playMode: GamePlayMode
+  playMode: GamePlayMode,
+  extra?: {
+    platforms?: GameStationType[];
+    stations?: Array<{
+      id: string;
+      name: string;
+      stationType: GameStationType | string;
+      isVip: boolean;
+      hourlyPrice: number;
+      isActive: boolean;
+    }>;
+  }
 ) => {
   const supportsOnline = Boolean(catalogGame.supportsOnline);
+  const supportedPlatforms = catalogGame.supportedPlatforms ?? [];
+  const centerPlatforms =
+    extra?.platforms && extra.platforms.length > 0 ? extra.platforms : supportedPlatforms;
+
   return {
     id: catalogGame.id,
+    ...(catalogGame.slug !== undefined ? { slug: catalogGame.slug } : {}),
     title: catalogGame.title,
+    ...(catalogGame.titleFa !== undefined ? { titleFa: catalogGame.titleFa } : {}),
+    ...(catalogGame.titleEn !== undefined ? { titleEn: catalogGame.titleEn } : {}),
+    ...(catalogGame.category !== undefined ? { category: catalogGame.category } : {}),
     coverImageUrl: catalogGame.coverImageUrl ?? null,
-    supportedPlatforms: catalogGame.supportedPlatforms ?? [],
+    supportedPlatforms,
+    platforms: centerPlatforms,
+    ...(Array.isArray(catalogGame.aliases)
+      ? { aliases: catalogGame.aliases.map((a) => a.alias) }
+      : {}),
     genre: catalogGame.genre ?? null,
     description: catalogGame.description ?? null,
     isActive: catalogGame.isActive ?? true,
     supportsOnline,
     playMode: supportsOnline ? playMode : GamePlayMode.OFFLINE,
+    ...(extra?.stations !== undefined
+      ? {
+          availablePlatforms: Array.from(new Set(extra.stations.map((s) => s.stationType))),
+          activeStationCount: extra.stations.length,
+          stations: extra.stations,
+        }
+      : {}),
   };
 };
 
@@ -138,9 +174,14 @@ export async function addGamesFromCatalog(
   context?: { ip?: string; userAgent?: string }
 ) {
   const requestedModeById = new Map<string, GamePlayMode>();
+  const requestedPlatformsById = new Map<string, GameStationType[] | undefined>();
+  const requestedStationIdsById = new Map<string, string[] | undefined>();
+
   if ('games' in input && Array.isArray(input.games)) {
     for (const item of input.games) {
       requestedModeById.set(item.gameCatalogId, item.playMode ?? GamePlayMode.OFFLINE);
+      requestedPlatformsById.set(item.gameCatalogId, item.platforms);
+      requestedStationIdsById.set(item.gameCatalogId, item.stationIds);
     }
   } else if ('gameCatalogIds' in input && Array.isArray(input.gameCatalogIds)) {
     for (const gameCatalogId of input.gameCatalogIds) {
@@ -192,6 +233,55 @@ export async function addGamesFromCatalog(
         }
       );
     }
+
+    const requestedPlatforms = requestedPlatformsById.get(game.id);
+    if (
+      requestedPlatforms &&
+      requestedPlatforms.length > 0 &&
+      Array.isArray(game.supportedPlatforms) &&
+      game.supportedPlatforms.length > 0
+    ) {
+      const invalidPlatform = requestedPlatforms.find(
+        (p) => !game.supportedPlatforms.includes(p)
+      );
+      if (invalidPlatform) {
+        throw new AppError(
+          `Platform "${invalidPlatform}" is not supported by game "${game.title}".`,
+          httpStatus.BAD_REQUEST,
+          {
+            code: 'PLATFORM_NOT_SUPPORTED',
+            details: { gameCatalogId: game.id, invalidPlatform, supportedPlatforms: game.supportedPlatforms },
+          }
+        );
+      }
+    }
+  }
+
+  // Validate stationIds if provided on any item
+  const allRequestedStationIds = Array.from(
+    new Set(
+      Array.from(requestedStationIdsById.values())
+        .flat()
+        .filter((v): v is string => Boolean(v))
+    )
+  );
+  const stationById = new Map<string, { id: string; stationType: GameStationType; isActive: boolean }>();
+  if (allRequestedStationIds.length > 0 && typeof prisma.gameStation?.findMany === 'function') {
+    const stations = await prisma.gameStation.findMany({
+      where: {
+        gamingCenterId,
+        id: { in: allRequestedStationIds },
+      },
+      select: { id: true, stationType: true, isActive: true },
+    });
+    for (const s of stations) {
+      stationById.set(s.id, s);
+    }
+    for (const sid of allRequestedStationIds) {
+      if (!stationById.has(sid)) {
+        throw new AppError(`Station "${sid}" not found in this gaming center.`, httpStatus.NOT_FOUND);
+      }
+    }
   }
 
   const center = await prisma.gamingCenter.findUnique({
@@ -211,65 +301,81 @@ export async function addGamesFromCatalog(
     gameCatalogId: game.id,
     title: game.title,
     playMode: requestedModeById.get(game.id) ?? GamePlayMode.OFFLINE,
+    ...(requestedPlatformsById.get(game.id) ? { platforms: requestedPlatformsById.get(game.id) } : {}),
   }));
 
-  const updatedCenter = await (async () => {
-    if (typeof prisma.$transaction === 'function') {
-      return prisma.$transaction(async (tx) => {
-        if (typeof tx.gamingCenterGame?.upsert === 'function') {
-          for (const game of catalogGames) {
-            const playMode = requestedModeById.get(game.id) ?? GamePlayMode.OFFLINE;
-            await tx.gamingCenterGame.upsert({
-              where: {
-                gamingCenterId_gameCatalogId: {
-                  gamingCenterId,
-                  gameCatalogId: game.id,
-                },
-              },
-              update: { playMode },
-              create: {
-                gamingCenterId,
-                gameCatalogId: game.id,
-                playMode,
-              },
-            });
-          }
-        }
-
-        return tx.gamingCenter.update({
-          where: { id: gamingCenterId },
-          data: { games: updatedGames },
-          select: { id: true, name: true, games: true },
-        });
-      });
-    }
-
-    if (typeof prisma.gamingCenterGame?.upsert === 'function') {
+  const syncGamesInClient = async (client: typeof prisma | Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) => {
+    if (typeof client.gamingCenterGame?.upsert === 'function') {
       for (const game of catalogGames) {
         const playMode = requestedModeById.get(game.id) ?? GamePlayMode.OFFLINE;
-        await prisma.gamingCenterGame.upsert({
+        const platforms = requestedPlatformsById.get(game.id);
+        await client.gamingCenterGame.upsert({
           where: {
             gamingCenterId_gameCatalogId: {
               gamingCenterId,
               gameCatalogId: game.id,
             },
           },
-          update: { playMode },
+          update: {
+            playMode,
+            ...(platforms !== undefined ? { platforms } : {}),
+          },
           create: {
             gamingCenterId,
             gameCatalogId: game.id,
             playMode,
+            ...(platforms !== undefined ? { platforms } : {}),
           },
         });
+
+        const stationIds = requestedStationIdsById.get(game.id);
+        if (
+          stationIds &&
+          stationIds.length > 0 &&
+          typeof client.gameStationGame?.upsert === 'function'
+        ) {
+          const allowedPlatforms =
+            platforms && platforms.length > 0 ? platforms : game.supportedPlatforms || [];
+          for (const sid of stationIds) {
+            const st = stationById.get(sid);
+            if (st && allowedPlatforms.length > 0 && !allowedPlatforms.includes(st.stationType)) {
+              throw new AppError(
+                `Station "${sid}" (${st.stationType}) is incompatible with "${game.title}".`,
+                httpStatus.BAD_REQUEST,
+                { code: 'STATION_PLATFORM_INCOMPATIBLE' }
+              );
+            }
+            await client.gameStationGame.upsert({
+              where: {
+                stationId_gameCatalogId: {
+                  stationId: sid,
+                  gameCatalogId: game.id,
+                },
+              },
+              update: { playMode, isActive: true },
+              create: {
+                stationId: sid,
+                gameCatalogId: game.id,
+                playMode,
+                isActive: true,
+              },
+            });
+          }
+        }
       }
     }
 
-    return prisma.gamingCenter.update({
+    return client.gamingCenter.update({
       where: { id: gamingCenterId },
       data: { games: updatedGames },
       select: { id: true, name: true, games: true },
     });
-  })();
+  };
+
+  const updatedCenter =
+    typeof prisma.$transaction === 'function'
+      ? await prisma.$transaction((tx) => syncGamesInClient(tx))
+      : await syncGamesInClient(prisma);
 
   if (actor) {
     await auditService.log(
@@ -286,7 +392,9 @@ export async function addGamesFromCatalog(
   }
 
   const enrichedGames = catalogGames.map((game) =>
-    formatEnrichedCenterGame(game, requestedModeById.get(game.id) ?? GamePlayMode.OFFLINE)
+    formatEnrichedCenterGame(game, requestedModeById.get(game.id) ?? GamePlayMode.OFFLINE, {
+      platforms: requestedPlatformsById.get(game.id),
+    })
   );
 
   return {
@@ -401,7 +509,7 @@ export async function updateGamingCenterGameMode(
 }
 
 /**
- * Returns the games selected by a gaming center, enriched with GameCatalog metadata, supportsOnline, and playMode.
+ * Returns the games selected by a gaming center, enriched with GameCatalog metadata, supportsOnline, playMode, and compatible stations.
  */
 export async function getGamesForGamingCenter(
   gamingCenterId: string,
@@ -417,18 +525,88 @@ export async function getGamesForGamingCenter(
   }
 
   const gameTitles = center.games || [];
+  const hasAliasesInclude = typeof prisma.gameAlias?.findMany === 'function';
   const centerGames =
     typeof prisma.gamingCenterGame?.findMany === 'function'
       ? await prisma.gamingCenterGame.findMany({
-        where: { gamingCenterId },
-        include: { gameCatalog: true },
-        orderBy: { createdAt: 'asc' },
-      })
+          where: { gamingCenterId },
+          include: {
+            gameCatalog: hasAliasesInclude
+              ? { include: { aliases: { orderBy: { createdAt: 'asc' } } } }
+              : true,
+          },
+          orderBy: { createdAt: 'asc' },
+        })
       : [];
 
   if (gameTitles.length === 0 && centerGames.length === 0) {
     return [];
   }
+
+  const activeStations =
+    typeof prisma.gameStation?.findMany === 'function'
+      ? ((await prisma.gameStation.findMany({
+          where: { gamingCenterId, isActive: true },
+          select: {
+            id: true,
+            name: true,
+            stationType: true,
+            isVip: true,
+            hourlyPrice: true,
+            isActive: true,
+          },
+        })) ?? [])
+      : undefined;
+
+  const explicitStationGames =
+    activeStations && typeof prisma.gameStationGame?.findMany === 'function'
+      ? ((await prisma.gameStationGame.findMany({
+          where: {
+            station: { gamingCenterId },
+          },
+          select: {
+            stationId: true,
+            gameCatalogId: true,
+            isActive: true,
+          },
+        })) ?? [])
+      : [];
+
+  const stationById = new Map((activeStations ?? []).map((s) => [s.id, s]));
+  const explicitByGame = new Map<string, Array<{ stationId: string; isActive: boolean }>>();
+  for (const sg of explicitStationGames) {
+    const arr = explicitByGame.get(sg.gameCatalogId) ?? [];
+    arr.push({ stationId: sg.stationId, isActive: sg.isActive });
+    explicitByGame.set(sg.gameCatalogId, arr);
+  }
+
+  const resolveCompatibleStations = (
+    gameCatalogId: string | null,
+    allowedPlatforms: GameStationType[]
+  ) => {
+    if (!activeStations) return undefined;
+    if (gameCatalogId) {
+      const explicitList = explicitByGame.get(gameCatalogId) ?? [];
+      const activeExplicit = explicitList
+        .filter((e) => e.isActive && stationById.has(e.stationId))
+        .map((e) => stationById.get(e.stationId)!);
+      const disabledStationIds = new Set(
+        explicitList.filter((e) => !e.isActive).map((e) => e.stationId)
+      );
+      if (activeExplicit.length > 0) {
+        return activeExplicit;
+      }
+      if (allowedPlatforms.length === 0) {
+        return activeStations.filter((s) => !disabledStationIds.has(s.id));
+      }
+      return activeStations.filter(
+        (s) =>
+          allowedPlatforms.includes(s.stationType as GameStationType) &&
+          !disabledStationIds.has(s.id)
+      );
+    }
+    return undefined;
+  };
 
   const centerGameByTitle = new Map<string, (typeof centerGames)[number]>();
   for (const cg of centerGames) {
@@ -439,12 +617,13 @@ export async function getGamesForGamingCenter(
 
   const unmatchedTitles = gameTitles.filter((title) => !centerGameByTitle.has(title));
   const catalogGames =
-    (unmatchedTitles.length > 0
+    (unmatchedTitles.length > 0 && typeof prisma.gameCatalog?.findMany === 'function'
       ? await prisma.gameCatalog.findMany({
-        where: {
-          title: { in: unmatchedTitles },
-        },
-      })
+          where: {
+            title: { in: unmatchedTitles },
+          },
+          ...(hasAliasesInclude ? { include: { aliases: { orderBy: { createdAt: 'asc' } } } } : {}),
+        })
       : []) || [];
 
   const catalogByTitle = new Map(catalogGames.map((g) => [g.title, g]));
@@ -454,13 +633,23 @@ export async function getGamesForGamingCenter(
     const centerGameMatch = centerGameByTitle.get(title);
     if (centerGameMatch?.gameCatalog) {
       emittedCatalogIds.add(centerGameMatch.gameCatalog.id);
-      return formatEnrichedCenterGame(centerGameMatch.gameCatalog, centerGameMatch.playMode);
+      const centerPlatforms = (centerGameMatch as { platforms?: GameStationType[] }).platforms;
+      const allowedPlatforms =
+        centerPlatforms && centerPlatforms.length > 0
+          ? centerPlatforms
+          : centerGameMatch.gameCatalog.supportedPlatforms ?? [];
+      return formatEnrichedCenterGame(centerGameMatch.gameCatalog, centerGameMatch.playMode, {
+        platforms: centerPlatforms,
+        stations: resolveCompatibleStations(centerGameMatch.gameCatalog.id, allowedPlatforms),
+      });
     }
 
     const catalogMatch = catalogByTitle.get(title);
     if (catalogMatch) {
       emittedCatalogIds.add(catalogMatch.id);
-      return formatEnrichedCenterGame(catalogMatch, GamePlayMode.OFFLINE);
+      return formatEnrichedCenterGame(catalogMatch, GamePlayMode.OFFLINE, {
+        stations: resolveCompatibleStations(catalogMatch.id, catalogMatch.supportedPlatforms ?? []),
+      });
     }
 
     return {
@@ -468,6 +657,7 @@ export async function getGamesForGamingCenter(
       title,
       coverImageUrl: null,
       supportedPlatforms: [],
+      platforms: [],
       genre: null,
       description: null,
       isActive: true,
@@ -479,7 +669,17 @@ export async function getGamesForGamingCenter(
   for (const cg of centerGames) {
     if (cg.gameCatalog && !emittedCatalogIds.has(cg.gameCatalog.id)) {
       emittedCatalogIds.add(cg.gameCatalog.id);
-      enriched.push(formatEnrichedCenterGame(cg.gameCatalog, cg.playMode));
+      const centerPlatforms = (cg as { platforms?: GameStationType[] }).platforms;
+      const allowedPlatforms =
+        centerPlatforms && centerPlatforms.length > 0
+          ? centerPlatforms
+          : cg.gameCatalog.supportedPlatforms ?? [];
+      enriched.push(
+        formatEnrichedCenterGame(cg.gameCatalog, cg.playMode, {
+          platforms: centerPlatforms,
+          stations: resolveCompatibleStations(cg.gameCatalog.id, allowedPlatforms),
+        })
+      );
     }
   }
 
@@ -488,6 +688,140 @@ export async function getGamesForGamingCenter(
   }
 
   return enriched;
+}
+
+export async function getStationGames(stationId: string, gamingCenterId: string) {
+  const station = await StationRepo.findStationById(stationId, gamingCenterId);
+  if (!station) {
+    throw new AppError('GameStation not found', httpStatus.NOT_FOUND);
+  }
+
+  const explicitGames = await StationRepo.findExplicitStationGames(stationId);
+  if (explicitGames.length > 0) {
+    return explicitGames.map((sg) =>
+      formatEnrichedCenterGame(sg.gameCatalog, sg.playMode)
+    );
+  }
+
+  // Fallback to center-level games compatible with this station's device type
+  const centerGames = await getGamesForGamingCenter(gamingCenterId);
+  return centerGames.filter((g) => {
+    const platforms = (g.platforms || g.supportedPlatforms || []) as GameStationType[];
+    return platforms.length === 0 || platforms.includes(station.stationType);
+  });
+}
+
+export async function replaceStationGames(
+  stationId: string,
+  gamingCenterId: string,
+  input: ReplaceStationGamesInput,
+  actor?: { id: string; actorType: SessionActorType },
+  context?: { ip?: string; userAgent?: string }
+) {
+  const station = await StationRepo.findStationById(stationId, gamingCenterId);
+  if (!station) {
+    throw new AppError('GameStation not found', httpStatus.NOT_FOUND);
+  }
+
+  const requestedIds = Array.from(new Set(input.games.map((g) => g.gameCatalogId)));
+  if (requestedIds.length > 0) {
+    const catalogGames = await prisma.gameCatalog.findMany({
+      where: { id: { in: requestedIds } },
+    });
+    const byId = new Map(catalogGames.map((g) => [g.id, g]));
+
+    for (const item of input.games) {
+      const cat = byId.get(item.gameCatalogId);
+      if (!cat) {
+        throw new AppError(`Game "${item.gameCatalogId}" not found in catalog`, httpStatus.NOT_FOUND);
+      }
+      if (!cat.isActive) {
+        throw new AppError(`Game "${cat.title}" is inactive`, httpStatus.BAD_REQUEST);
+      }
+      if (
+        Array.isArray(cat.supportedPlatforms) &&
+        cat.supportedPlatforms.length > 0 &&
+        !cat.supportedPlatforms.includes(station.stationType)
+      ) {
+        throw new AppError(
+          `Game "${cat.title}" does not support station type "${station.stationType}"`,
+          httpStatus.BAD_REQUEST,
+          { code: 'STATION_PLATFORM_INCOMPATIBLE' }
+        );
+      }
+      if (item.playMode === GamePlayMode.ONLINE && !cat.supportsOnline) {
+        throw new AppError(
+          `Game "${cat.title}" does not support ONLINE play mode.`,
+          httpStatus.BAD_REQUEST,
+          { code: 'ONLINE_MODE_NOT_SUPPORTED' }
+        );
+      }
+    }
+
+    // Also ensure center-level GamingCenterGame links exist for search consistency
+    if (typeof prisma.gamingCenterGame?.upsert === 'function') {
+      for (const item of input.games) {
+        if (item.isActive === false) continue;
+        await prisma.gamingCenterGame.upsert({
+          where: {
+            gamingCenterId_gameCatalogId: {
+              gamingCenterId,
+              gameCatalogId: item.gameCatalogId,
+            },
+          },
+          update: {},
+          create: {
+            gamingCenterId,
+            gameCatalogId: item.gameCatalogId,
+            playMode: item.playMode ?? GamePlayMode.OFFLINE,
+          },
+        });
+      }
+    }
+  }
+
+  const updated = await StationRepo.replaceExplicitStationGames(stationId, input.games);
+
+  if (actor) {
+    await auditService.log(
+      gamingCenterId,
+      actor,
+      'STATION_REPLACE_GAMES',
+      { name: 'GameStation', id: stationId },
+      { new: { gamesCount: updated.length } },
+      context
+    );
+  }
+
+  return updated.map((sg) => formatEnrichedCenterGame(sg.gameCatalog, sg.playMode));
+}
+
+export async function removeStationGame(
+  stationId: string,
+  gamingCenterId: string,
+  gameCatalogId: string,
+  actor?: { id: string; actorType: SessionActorType },
+  context?: { ip?: string; userAgent?: string }
+) {
+  const station = await StationRepo.findStationById(stationId, gamingCenterId);
+  if (!station) {
+    throw new AppError('GameStation not found', httpStatus.NOT_FOUND);
+  }
+
+  await StationRepo.deleteExplicitStationGame(stationId, gameCatalogId);
+
+  if (actor) {
+    await auditService.log(
+      gamingCenterId,
+      actor,
+      'STATION_REMOVE_GAME',
+      { name: 'GameStation', id: stationId },
+      { new: { removedGameCatalogId: gameCatalogId } },
+      context
+    );
+  }
+
+  return { stationId, removedGameCatalogId: gameCatalogId };
 }
 
 /**

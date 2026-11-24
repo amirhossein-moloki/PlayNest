@@ -1,15 +1,53 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Prisma } from '@prisma/client';
+import { GamingCenterVerificationStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { buildPersianArabicSearchVariants } from '../../common/utils/searchText';
 
 export const PlatformAdminRepo = {
-  async listAllGamingCenters(params?: { skip?: number; take?: number; search?: string }) {
+  async listAllGamingCenters(params?: {
+    skip?: number;
+    take?: number;
+    search?: string;
+    city?: string;
+    isActive?: boolean;
+    verificationStatus?: string;
+    game?: string;
+  }) {
     const where: Prisma.GamingCenterWhereInput = {};
+    if (params?.isActive !== undefined) {
+      where.isActive = params.isActive;
+    }
+    if (params?.verificationStatus) {
+      where.verificationStatus = params.verificationStatus as GamingCenterVerificationStatus;
+    }
+    if (params?.city) {
+      const cityVariants = buildPersianArabicSearchVariants(params.city);
+      where.addresses = {
+        some: {
+          OR: cityVariants.map((v) => ({ city: { contains: v, mode: 'insensitive' as const } })),
+        },
+      };
+    }
+    if (params?.game) {
+      const gameVariants = buildPersianArabicSearchVariants(params.game);
+      where.centerGames = {
+        some: {
+          gameCatalog: {
+            OR: gameVariants.flatMap((v) => [
+              { title: { contains: v, mode: 'insensitive' as const } },
+              { titleFa: { contains: v, mode: 'insensitive' as const } },
+              { titleEn: { contains: v, mode: 'insensitive' as const } },
+            ]),
+          },
+        },
+      };
+    }
     if (params?.search) {
-      where.OR = [
-        { name: { contains: params.search, mode: 'insensitive' } },
-        { slug: { contains: params.search, mode: 'insensitive' } },
-      ];
+      const variants = buildPersianArabicSearchVariants(params.search);
+      where.OR = variants.flatMap((v) => [
+        { name: { contains: v, mode: 'insensitive' as const } },
+        { slug: { contains: v, mode: 'insensitive' as const } },
+      ]);
     }
 
     const [items, total] = await Promise.all([
@@ -172,12 +210,14 @@ export const PlatformAdminRepo = {
     take: number;
     search?: string;
   }) {
-    const where: any = params.search
+    const searchVariants = params.search ? buildPersianArabicSearchVariants(params.search) : [];
+    const where: any = searchVariants.length > 0
       ? {
-        OR: [
-          { phone: { contains: params.search } },
-          { profiles: { some: { displayName: { contains: params.search, mode: 'insensitive' } } } },
-        ],
+        OR: searchVariants.flatMap((v) => [
+          { phone: { contains: v } },
+          { fullName: { contains: v, mode: 'insensitive' } },
+          { profiles: { some: { displayName: { contains: v, mode: 'insensitive' } } } },
+        ]),
       }
       : {};
 

@@ -650,6 +650,501 @@ components:
             $ref: '#/components/schemas/PublicGameCenter'
         methodology:
           $ref: '#/components/schemas/PublicGameCenterRankingMethodology'
+
+    GameCatalogCategory:
+      type: string
+      enum:
+      - SPORTS
+      - FPS
+      - BATTLE_ROYALE
+      - OPEN_WORLD
+      - MOBA
+      - RACING
+      - FIGHTING
+      - SANDBOX
+      - STRATEGY
+      - HORROR
+      - RPG
+      - ACTION
+      - ADVENTURE
+      - SIMULATION
+      - OTHER
+
+    GameAlias:
+      type: object
+      properties:
+        id:
+          type: string
+        alias:
+          type: string
+        normalized:
+          type: string
+        locale:
+          type: string
+          nullable: true
+          enum:
+          - fa
+          - en
+
+    GameAliasInput:
+      oneOf:
+      - type: string
+      - type: object
+        required:
+        - alias
+        properties:
+          alias:
+            type: string
+          locale:
+            type: string
+            enum:
+            - fa
+            - en
+
+    MatchedGameStation:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        stationType:
+          type: string
+        isVip:
+          type: boolean
+        hourlyPrice:
+          type: number
+        finalPrice:
+          type: number
+        isActive:
+          type: boolean
+        isBookable:
+          type: boolean
+        isAvailableInWindow:
+          type: boolean
+          nullable: true
+
+    MatchedCenterGame:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+          nullable: true
+        title:
+          type: string
+        titleFa:
+          type: string
+          nullable: true
+        titleEn:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        coverImageUrl:
+          type: string
+          nullable: true
+        supportsOnline:
+          type: boolean
+        playMode:
+          $ref: '#/components/schemas/GamePlayMode'
+        supportedPlatforms:
+          type: array
+          items:
+            type: string
+        availablePlatforms:
+          type: array
+          items:
+            type: string
+        activeStationCount:
+          type: integer
+        bookableStationCount:
+          type: integer
+        matchScore:
+          type: number
+        matchedTerm:
+          type: string
+          nullable: true
+        stations:
+          type: array
+          items:
+            $ref: '#/components/schemas/MatchedGameStation'
+
+    CenterAvailabilitySummary:
+      type: object
+      properties:
+        checkedWindow:
+          type: object
+          nullable: true
+          properties:
+            startTime:
+              type: string
+              format: date-time
+            endTime:
+              type: string
+              format: date-time
+            durationHours:
+              type: integer
+        totalActiveStations:
+          type: integer
+        matchingActiveStations:
+          type: integer
+        availableMatchingStations:
+          type: integer
+          nullable: true
+        canBookOnline:
+          type: boolean
+
+    SearchRelevanceBreakdown:
+      type: object
+      properties:
+        totalScore:
+          type: number
+        textScore:
+          type: number
+        gameScore:
+          type: number
+        deviceScore:
+          type: number
+        geoScore:
+          type: number
+        credibilityScore:
+          type: number
+        operationalScore:
+          type: number
+        matchType:
+          type: string
+          enum:
+          - exact
+          - compact
+          - prefix
+          - word
+          - substring
+          - fuzzy
+          - none
+
+    SearchGameCenterItem:
+      allOf:
+      - $ref: '#/components/schemas/PublicGameCenter'
+      - type: object
+        properties:
+          distanceKm:
+            type: number
+            nullable: true
+          matchedGames:
+            type: array
+            items:
+              $ref: '#/components/schemas/MatchedCenterGame'
+          availabilitySummary:
+            $ref: '#/components/schemas/CenterAvailabilitySummary'
+          searchRelevance:
+            $ref: '#/components/schemas/SearchRelevanceBreakdown'
+
+    SearchFacetBucket:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        count:
+          type: integer
+
+    SearchFacets:
+      type: object
+      properties:
+        cities:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchFacetBucket'
+        deviceTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchFacetBucket'
+        amenities:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchFacetBucket'
+        games:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              slug:
+                type: string
+                nullable: true
+              title:
+                type: string
+              titleFa:
+                type: string
+                nullable: true
+              count:
+                type: integer
+        priceRange:
+          type: object
+          properties:
+            min:
+              type: number
+              nullable: true
+            max:
+              type: number
+              nullable: true
+            currency:
+              type: string
+              example: IRT
+        openNowCount:
+          type: integer
+
+    ZeroResultSuggestion:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - DID_YOU_MEAN_GAME
+          - RELAX_FILTER
+          - NEARBY_CITY
+        label:
+          type: string
+        filterKey:
+          type: string
+        suggestedValue:
+          type: string
+        estimatedCount:
+          type: integer
+
+    PublicSearchGameCentersPayload:
+      type: object
+      required:
+      - data
+      - meta
+      - appliedFilters
+      - resolvedGames
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchGameCenterItem'
+        meta:
+          type: object
+          properties:
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+            totalPages:
+              type: integer
+        appliedFilters:
+          type: object
+          additionalProperties: true
+        resolvedGames:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              slug:
+                type: string
+                nullable: true
+              title:
+                type: string
+              titleFa:
+                type: string
+                nullable: true
+              titleEn:
+                type: string
+                nullable: true
+              category:
+                type: string
+                nullable: true
+              matchType:
+                type: string
+              score:
+                type: number
+        facets:
+          $ref: '#/components/schemas/SearchFacets'
+        suggestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZeroResultSuggestion'
+
+    PublicSearchSuggestPayload:
+      type: object
+      required:
+      - query
+      - games
+      - gameCenters
+      - locations
+      - devices
+      properties:
+        query:
+          type: string
+        games:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              slug:
+                type: string
+                nullable: true
+              title:
+                type: string
+              titleFa:
+                type: string
+                nullable: true
+              titleEn:
+                type: string
+                nullable: true
+              category:
+                type: string
+                nullable: true
+              coverImageUrl:
+                type: string
+                nullable: true
+              supportedPlatforms:
+                type: array
+                items:
+                  type: string
+              centerCount:
+                type: integer
+              matchType:
+                type: string
+              score:
+                type: number
+        gameCenters:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              slug:
+                type: string
+              city:
+                type: string
+                nullable: true
+              neighborhood:
+                type: string
+                nullable: true
+              coverUrl:
+                type: string
+                nullable: true
+              ratingAverage:
+                type: number
+              isOpenNow:
+                type: boolean
+              detailUrl:
+                type: string
+              matchType:
+                type: string
+              score:
+                type: number
+        locations:
+          type: object
+          properties:
+            cities:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  count:
+                    type: integer
+            neighborhoods:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  city:
+                    type: string
+                  count:
+                    type: integer
+        devices:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              label:
+                type: string
+
+    PublicSearchGamesPayload:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              slug:
+                type: string
+                nullable: true
+              title:
+                type: string
+              titleFa:
+                type: string
+                nullable: true
+              titleEn:
+                type: string
+                nullable: true
+              category:
+                type: string
+                nullable: true
+              genre:
+                type: string
+                nullable: true
+              description:
+                type: string
+                nullable: true
+              coverImageUrl:
+                type: string
+              supportedPlatforms:
+                type: array
+                items:
+                  type: string
+              supportsOnline:
+                type: boolean
+              popularityScore:
+                type: integer
+              aliases:
+                type: array
+                items:
+                  type: string
+              centerCount:
+                type: integer
+              matchScore:
+                type: number
+        meta:
+          type: object
+          properties:
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+            totalPages:
+              type: integer
     CustomerWalletOverview:
       type: object
       properties:
@@ -981,8 +1476,31 @@ components:
       properties:
         id:
           type: string
+        slug:
+          type: string
+          nullable: true
         title:
           type: string
+        titleFa:
+          type: string
+          nullable: true
+        titleEn:
+          type: string
+          nullable: true
+        category:
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/GameCatalogCategory'
+        normalizedKey:
+          type: string
+          nullable: true
+        popularityScore:
+          type: integer
+          default: 0
+        aliases:
+          type: array
+          items:
+            $ref: '#/components/schemas/GameAlias'
         coverImageUrl:
           type: string
           format: uri
@@ -1194,10 +1712,29 @@ components:
       type: object
       required:
         - title
-        - coverImageUrl
       properties:
         title:
           type: string
+        slug:
+          type: string
+        titleFa:
+          type: string
+          nullable: true
+        titleEn:
+          type: string
+          nullable: true
+        category:
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/GameCatalogCategory'
+        popularityScore:
+          type: integer
+          minimum: 0
+          default: 0
+        aliases:
+          type: array
+          items:
+            $ref: '#/components/schemas/GameAliasInput'
         coverImageUrl:
           type: string
           format: uri
@@ -1223,6 +1760,25 @@ components:
       properties:
         title:
           type: string
+        slug:
+          type: string
+        titleFa:
+          type: string
+          nullable: true
+        titleEn:
+          type: string
+          nullable: true
+        category:
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/GameCatalogCategory'
+        popularityScore:
+          type: integer
+          minimum: 0
+        aliases:
+          type: array
+          items:
+            $ref: '#/components/schemas/GameAliasInput'
         coverImageUrl:
           type: string
           format: uri
@@ -1296,6 +1852,15 @@ components:
                   playMode:
                     $ref: '#/components/schemas/GamePlayMode'
                     default: OFFLINE
+                  platforms:
+                    type: array
+                    items:
+                      type: string
+                      enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
+                  stationIds:
+                    type: array
+                    items:
+                      type: string
         - type: object
           description: Legacy format assigning OFFLINE playMode to all provided game catalog IDs
           required:
@@ -4721,7 +5286,7 @@ paths:
   /catalog/games:
     get:
       summary: Browse game catalog (public / gaming center manager)
-      description: Retrieve catalog of video games with cover images, genres, and supported platforms.
+      description: Retrieve catalog of video games with cover images, genres, categories, bilingual titles, and supported platforms.
       tags:
       - Catalog
       parameters:
@@ -4740,6 +5305,10 @@ paths:
         schema:
           type: string
           enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
+      - name: category
+        in: query
+        schema:
+          $ref: '#/components/schemas/GameCatalogCategory'
       - name: genre
         in: query
         schema:
@@ -5343,6 +5912,19 @@ paths:
               properties:
                 title:
                   type: string
+                slug:
+                  type: string
+                titleFa:
+                  type: string
+                titleEn:
+                  type: string
+                category:
+                  $ref: '#/components/schemas/GameCatalogCategory'
+                popularityScore:
+                  type: integer
+                aliases:
+                  type: string
+                  description: JSON array or comma-separated alternative names
                 coverImageUrl:
                   type: string
                 file:
@@ -5405,6 +5987,10 @@ paths:
         schema:
           type: string
           enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
+      - name: category
+        in: query
+        schema:
+          $ref: '#/components/schemas/GameCatalogCategory'
       - name: genre
         in: query
         schema:
@@ -5444,6 +6030,162 @@ paths:
         '403':
           $ref: '#/components/responses/ForbiddenError'
       operationId: get_platform_admin_catalog_games
+
+  /platform-admin/catalog/games/duplicates:
+    get:
+      summary: Detect potential duplicate games in catalog (Platform Admin)
+      description: Finds duplicate GameCatalog entries sharing the same normalizedKey or normalized alias string.
+      tags:
+      - PlatformAdmin
+      - Catalog
+      security:
+      - bearerAuth: []
+      operationId: get_platform_admin_catalog_games_duplicates
+      responses:
+        '200':
+          description: Candidate duplicate game groups
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        reason:
+                          type: string
+                          enum: [NORMALIZED_KEY, SHARED_ALIAS]
+                        key:
+                          type: string
+                        games:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/GameCatalog'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /platform-admin/catalog/games/merge:
+    post:
+      summary: Merge duplicate catalog games into a canonical target game (Platform Admin)
+      description: Re-links GamingCenterGame and GameStationGame associations, preserves aliases and supported platforms, and optionally deactivates or deletes merged source entries.
+      tags:
+      - PlatformAdmin
+      - Catalog
+      security:
+      - bearerAuth: []
+      operationId: post_platform_admin_catalog_games_merge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - targetGameId
+              - sourceGameIds
+              properties:
+                targetGameId:
+                  type: string
+                sourceGameIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items:
+                    type: string
+                deactivateSources:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Merge result summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      targetGameId:
+                        type: string
+                      mergedSourceIds:
+                        type: array
+                        items:
+                          type: string
+                      deactivatedSources:
+                        type: boolean
+                      addedAliasesCount:
+                        type: integer
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /platform-admin/catalog/games/{id}/aliases:
+    put:
+      summary: Replace alternative titles and aliases for a catalog game (Platform Admin)
+      description: Replaces user-managed aliases while retaining canonical Persian and English title entries.
+      tags:
+      - PlatformAdmin
+      - Catalog
+      security:
+      - bearerAuth: []
+      operationId: put_platform_admin_catalog_games_id_aliases
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - aliases
+              properties:
+                aliases:
+                  type: array
+                  maxItems: 50
+                  items:
+                    $ref: '#/components/schemas/GameAliasInput'
+      responses:
+        '200':
+          description: Updated catalog game with normalized aliases
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/GameCatalog'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
 
   /platform-admin/catalog/games/{id}:
     get:
@@ -7701,7 +8443,7 @@ paths:
   /public/gamecenters:
     get:
       summary: List public active and approved gaming centers
-      description: Returns sanitized public details for active, APPROVED gaming centers. Supports batch fetch via `ids` (max 50) as well as filtering by city, neighborhood/district, activity status, deviceType, amenities, and search query. Exposed at both `/api/public/gamecenters` and `/api/v1/public/gamecenters`.
+      description: Returns sanitized public details for active, APPROVED gaming centers. Supports batch fetch via `ids` (max 50) as well as combined filtering by city, province, neighborhood/district, game, hardware deviceType/alias, amenities, price range, rating, open_now status, geo-distance, sorting, and search query. Exposed at both `/api/public/gamecenters` and `/api/v1/public/gamecenters`.
       tags:
       - Public
       operationId: list_public_gamecenters_v2
@@ -7713,6 +8455,11 @@ paths:
         schema:
           type: string
       - name: city
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: province
         in: query
         required: false
         schema:
@@ -7736,9 +8483,15 @@ paths:
           - active
           - open_now
           default: active
+      - name: isOpen
+        in: query
+        required: false
+        schema:
+          type: boolean
       - name: deviceType
         in: query
         required: false
+        description: Hardware platform (`PC`, `PLAYSTATION 4`, `PLAYSTATION 5`, `XBOX`, `SWITCH`, `VR`, or search aliases like `PS5`)
         schema:
           type: string
           example: PC
@@ -7750,6 +8503,87 @@ paths:
           type: array
           items:
             $ref: '#/components/schemas/PublicAmenityKey'
+      - name: game
+        in: query
+        required: false
+        description: Filter centers running the specified game via catalog/center/station links (bilingual & alias aware)
+        schema:
+          type: string
+      - name: gameId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: gameSlug
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: playMode
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/GamePlayMode'
+      - name: minPrice
+        in: query
+        required: false
+        description: Minimum effective hourly station price (after active discounts)
+        schema:
+          type: number
+          minimum: 0
+      - name: maxPrice
+        in: query
+        required: false
+        description: Maximum effective hourly station price (after active discounts)
+        schema:
+          type: number
+          minimum: 0
+      - name: minRating
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: 0
+          maximum: 5
+      - name: lat
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: -90
+          maximum: 90
+      - name: lng
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: -180
+          maximum: 180
+      - name: radiusKm
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: 0.5
+          maximum: 200
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - newest
+          - bayesian
+          - rating
+          - reviews
+          - price_asc
+          - price_desc
+          - distance
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
       - name: search
         in: query
         required: false
@@ -7802,6 +8636,11 @@ paths:
         required: false
         schema:
           type: string
+      - name: province
+        in: query
+        required: false
+        schema:
+          type: string
       - name: neighborhood
         in: query
         required: false
@@ -7824,6 +8663,26 @@ paths:
           type: array
           items:
             $ref: '#/components/schemas/PublicAmenityKey'
+      - name: game
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: gameId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: gameSlug
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: playMode
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/GamePlayMode'
       - name: limit
         in: query
         required: false
@@ -7924,6 +8783,401 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /public/search/gamecenters:
+    get:
+      summary: Unified multi-criteria search across gaming centers, games, hardware, availability, and geo-location
+      description: Searches active, APPROVED gaming centers by bilingual Persian/Arabic/English text, catalog games/aliases (via real catalog/center/station links), hardware device types/aliases, amenities, effective discounted station prices, real Bayesian/average ratings, schedule/closure-aware open status, batched slot availability windows, and Haversine radius distance. Also returns dynamic facets and zero-result recovery suggestions. Exposed at both `/api/public/search/gamecenters` and `/api/v1/public/search/gamecenters`.
+      tags:
+      - Public
+      operationId: get_public_search_gamecenters
+      parameters:
+      - name: q
+        in: query
+        required: false
+        description: Unified Persian/English search query (matches centers, locations, or catalog games & aliases)
+        schema:
+          type: string
+      - name: search
+        in: query
+        required: false
+        description: Alias for `q`
+        schema:
+          type: string
+      - name: game
+        in: query
+        required: false
+        description: Game title or alias (`FC 26`, `FIFA 26`, `فیفا ۲۶`, `GTA V`, `Valorant`)
+        schema:
+          type: string
+      - name: gameId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: gameSlug
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: gameIds
+        in: query
+        required: false
+        description: Comma-separated game catalog IDs (max 10)
+        schema:
+          type: string
+      - name: playMode
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/GamePlayMode'
+      - name: city
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: province
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: neighborhood
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: district
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: lat
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: -90
+          maximum: 90
+      - name: lng
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: -180
+          maximum: 180
+      - name: radiusKm
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: 0.5
+          maximum: 200
+      - name: deviceType
+        in: query
+        required: false
+        description: Hardware platform(s) or friendly aliases (`PC`, `PS5`, `PLAYSTATION 5`, `XBOX`, `SWITCH`, `VR`)
+        schema:
+          type: string
+      - name: stationType
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: type
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: amenities
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicAmenityKey'
+      - name: hasFoodService
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: isVip
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: allowOnlineBooking
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: hasDiscount
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: minPrice
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: 0
+      - name: maxPrice
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: 0
+      - name: minHourlyRate
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: 0
+      - name: maxHourlyRate
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: 0
+      - name: minRating
+        in: query
+        required: false
+        schema:
+          type: number
+          minimum: 0
+          maximum: 5
+      - name: minStationCount
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+      - name: isOpen
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - active
+          - open_now
+      - name: availableNow
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: availableAt
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: date
+        in: query
+        required: false
+        description: Target date formatted as YYYY-MM-DD
+        schema:
+          type: string
+      - name: startTime
+        in: query
+        required: false
+        description: Window start time formatted as HH:mm
+        schema:
+          type: string
+      - name: durationHours
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 12
+          default: 1
+      - name: minAvailableStations
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 1
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - relevance
+          - bayesian
+          - rating
+          - reviews
+          - price_asc
+          - price_desc
+          - distance
+          - newest
+          default: relevance
+      - name: includeFacets
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: true
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+      responses:
+        '200':
+          description: Unified search results with matched games, station support, availability summary, facets, and suggestions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PublicSearchGameCentersPayload'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /public/search/suggest:
+    get:
+      summary: Autocomplete suggestions for games, gaming centers, cities, neighborhoods, and hardware devices
+      description: Fast typeahead endpoint grouped across bilingual game titles/aliases, active approved gaming centers, cities/neighborhoods, and hardware categories. Exposed at both `/api/public/search/suggest` and `/api/v1/public/search/suggest`.
+      tags:
+      - Public
+      operationId: get_public_search_suggest
+      parameters:
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 100
+      - name: city
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+      responses:
+        '200':
+          description: Grouped autocomplete suggestions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PublicSearchSuggestPayload'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /public/search/games:
+    get:
+      summary: Search canonical bilingual game catalog with active gaming center counts
+      description: Searches active GameCatalog entries using bilingual Persian/English normalization, aliases, and guarded fuzzy matching. Exposed at both `/api/public/search/games` and `/api/v1/public/search/games`.
+      tags:
+      - Public
+      operationId: get_public_search_games
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: platform
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: deviceType
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: category
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/GameCatalogCategory'
+      - name: supportsOnline
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+      responses:
+        '200':
+          description: Matching catalog games with active center counts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PublicSearchGamesPayload'
+        '400':
+          $ref: '#/components/responses/ValidationError'
         '429':
           $ref: '#/components/responses/TooManyRequestsError'
         '500':
@@ -9221,6 +10475,66 @@ paths:
         description: Filter stations by catalog device ID
         schema:
           type: string
+      - name: stationType
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
+      - name: type
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
+      - name: isVip
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: isActive
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: game
+        in: query
+        required: false
+        description: Filter stations that support the specified game (via GameStationGame or compatible platform fallback)
+        schema:
+          type: string
+      - name: gameCatalogId
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: minPrice
+        in: query
+        required: false
+        schema:
+          type: number
+      - name: maxPrice
+        in: query
+        required: false
+        schema:
+          type: number
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 20
       responses:
         '200':
           description: List of stations
@@ -9237,7 +10551,7 @@ paths:
                     items:
                       $ref: '#/components/schemas/GameStation'
       operationId: get_gamingCenters_gamingCenterId_stations
-      description: List stations for a gamingCenter
+      description: List stations for a gamingCenter (supports hardware, VIP boolean, game support, price, and text filters)
     post:
       summary: Create a new station
       tags:
@@ -9497,9 +10811,151 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
       operationId: get_public_gamingCenters_gamingCenterSlug_stations_stationId_extra-controllers
+  /gamingCenters/{gamingCenterId}/stations/{stationId}/games:
+    get:
+      summary: List games installed/supported on a specific station
+      description: Returns games linked to the station explicitly via GameStationGame or inferred via center catalog compatibility.
+      tags:
+      - Stations
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: stationId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: List of station games
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GamingCenterGameItem'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      operationId: get_gamingCenters_gamingCenterId_stations_stationId_games
+    put:
+      summary: Replace installed games assigned to a station (Manager)
+      description: Assigns or replaces the explicit GameStationGame mappings for a specific station.
+      tags:
+      - Stations
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: stationId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - games
+              properties:
+                games:
+                  type: array
+                  maxItems: 200
+                  items:
+                    type: object
+                    required:
+                    - gameCatalogId
+                    properties:
+                      gameCatalogId:
+                        type: string
+                      playMode:
+                        $ref: '#/components/schemas/GamePlayMode'
+                        default: OFFLINE
+                      isActive:
+                        type: boolean
+                        default: true
+      responses:
+        '200':
+          description: Updated station game list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GamingCenterGameItem'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      operationId: put_gamingCenters_gamingCenterId_stations_stationId_games
+
+  /gamingCenters/{gamingCenterId}/stations/{stationId}/games/{gameCatalogId}:
+    delete:
+      summary: Remove a catalog game assignment from a specific station (Manager)
+      tags:
+      - Stations
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: stationId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: gameCatalogId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Game removed from station
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      operationId: delete_gamingCenters_gamingCenterId_stations_stationId_games_gameCatalogId
+
   /gamingCenters:
     get:
-      summary: List all gamingCenters
+      summary: List public active and approved gamingCenters
+      description: Public discovery listing strictly locked to active (`isActive=true`) and approved (`verificationStatus=APPROVED`) gaming centers. Any public query attempts to override `verificationStatus` or `isActive` are ignored. Supports normalized Persian/Arabic search, game/station/price/rating/open-hours/availability/geo filters, and accurate pagination.
       tags:
       - GamingCenters
       parameters:
@@ -9517,7 +10973,7 @@ paths:
           default: 10
       - name: search
         in: query
-        description: Search term across name or slug
+        description: Normalized Persian/Arabic/English search term across name, slug, or description
         schema:
           type: string
       - name: city
@@ -9535,35 +10991,68 @@ paths:
         description: Filter by address district name
         schema:
           type: string
-      - name: verificationStatus
+      - name: neighborhood
         in: query
-        description: Filter by verification status (default is APPROVED for public listing)
+        description: Alias for district filter
         schema:
-          $ref: '#/components/schemas/GamingCenterVerificationStatus'
+          type: string
       - name: game
         in: query
-        description: Filter by game offered
+        description: Filter by game offered (resolved via GameCatalog / GameAlias / GamingCenterGame / GameStationGame)
         schema:
           type: string
+      - name: gameId
+        in: query
+        description: Filter by catalog game ID
+        schema:
+          type: string
+      - name: gameSlug
+        in: query
+        description: Filter by catalog game slug
+        schema:
+          type: string
+      - name: playMode
+        in: query
+        schema:
+          $ref: '#/components/schemas/GamePlayMode'
       - name: stationType
         in: query
-        description: Filter by station hardware type
+        description: Filter by station hardware type or search alias (`PS5`, `PC`, `VR`, etc.)
         schema:
           type: string
-          enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
+      - name: deviceType
+        in: query
+        description: Alias for `stationType`
+        schema:
+          type: string
+      - name: type
+        in: query
+        description: Alias for `stationType`
+        schema:
+          type: string
       - name: minStationCount
         in: query
-        description: Minimum count of stations for the specified hardware type
+        description: Minimum count of active stations (evaluated with accurate pre-pagination counts)
         schema:
           type: integer
       - name: minHourlyRate
         in: query
-        description: Minimum hourly price
+        description: Minimum effective hourly station price (including active discounts)
         schema:
           type: number
       - name: maxHourlyRate
         in: query
-        description: Maximum hourly price
+        description: Maximum effective hourly station price (including active discounts)
+        schema:
+          type: number
+      - name: minPrice
+        in: query
+        description: Alias for `minHourlyRate`
+        schema:
+          type: number
+      - name: maxPrice
+        in: query
+        description: Alias for `maxHourlyRate`
         schema:
           type: number
       - name: hasFoodService
@@ -9571,16 +11060,51 @@ paths:
         description: Filter by food service availability
         schema:
           type: boolean
+      - name: isVip
+        in: query
+        description: Filter centers offering VIP stations or VIP pricing
+        schema:
+          type: boolean
+      - name: amenities
+        in: query
+        description: Comma-separated or repeated amenity keys (`food_service`, `vip`, `online_booking`, `online_games`, `extra_controllers`)
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicAmenityKey'
       - name: minRating
         in: query
-        description: Filter by minimum customer review score
+        description: Filter by minimum average PUBLISHED customer rating (computed via groupBy mean)
         schema:
           type: number
       - name: isOpen
         in: query
-        description: Filter by current opening status
+        description: Filter by current schedule, closedDays, overnight shift, and closure-aware opening status
         schema:
           type: boolean
+      - name: availableNow
+        in: query
+        description: Filter centers with at least one unblocked active matching station right now
+        schema:
+          type: boolean
+      - name: lat
+        in: query
+        schema:
+          type: number
+          minimum: -90
+          maximum: 90
+      - name: lng
+        in: query
+        schema:
+          type: number
+          minimum: -180
+          maximum: 180
+      - name: radiusKm
+        in: query
+        schema:
+          type: number
+          minimum: 0.5
+          maximum: 200
       - name: sortBy
         in: query
         description: Field to sort by
@@ -9603,7 +11127,6 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequestsError'
       operationId: get_gamingCenters
-      description: List all gamingCenters
     post:
       summary: Create a new gamingCenter
       tags:
@@ -12400,7 +13923,7 @@ paths:
   /public/gamingCenters/{gamingCenterSlug}/stations:
     get:
       summary: Public list of active game stations for a gaming center
-      description: Public list of active game stations for a gaming center
+      description: Public list of active game stations for a gaming center (supports hardware type, VIP boolean, game title/catalog ID, and price filtering).
       tags:
       - Stations
       - Public
@@ -12413,12 +13936,32 @@ paths:
           type: string
       - name: type
         in: query
+        required: false
         schema:
           type: string
-          enum:
-          - PC
-          - CONSOLE
-          - VR
+          enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
+      - name: stationType
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [PC, 'PLAYSTATION 4', 'PLAYSTATION 5', XBOX, SWITCH, VR]
+      - name: isVip
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: game
+        in: query
+        required: false
+        description: Filter active stations supporting the requested game
+        schema:
+          type: string
+      - name: gameCatalogId
+        in: query
+        required: false
+        schema:
+          type: string
       responses:
         '200':
           description: List of active stations
@@ -12428,6 +13971,42 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/GameStation'
+  /public/gamingCenters/{gamingCenterSlug}/stations/{stationId}/games:
+    get:
+      summary: Public list of games supported on a specific station
+      description: Returns games linked to the station explicitly via GameStationGame or compatible center catalog assignments.
+      tags:
+      - Stations
+      - Public
+      operationId: get_public_gamingCenters_gamingCenterSlug_stations_stationId_games
+      parameters:
+      - name: gamingCenterSlug
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: stationId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: List of games playable on this station
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GamingCenterGameItem'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
   /gamingCenters/{gamingCenterId}/staff/{userId}:
     get:
       summary: Get staff member by user ID

@@ -2,6 +2,16 @@ import { Response } from 'express';
 import { redis } from '../../config/redis';
 
 const CACHE_TIMEOUT_MS = 150;
+const inFlight = new Map<string, Promise<unknown>>();
+let gameIndexVersion = 1;
+
+export function getGameIndexVersion(): number {
+  return gameIndexVersion;
+}
+
+export function bumpGameIndexVersion(): void {
+  gameIndexVersion += 1;
+}
 
 function isCacheActive(): boolean {
   return process.env.NODE_ENV !== 'test' && redis?.status === 'ready';
@@ -33,7 +43,8 @@ export function setPublicCacheHeaders(
 }
 
 /**
- * Fail-open Redis JSON read-through cache for public read endpoints.
+ * Fail-open Redis JSON read-through cache with in-process singleflight coalescing
+ * to prevent duplicate concurrent DB queries on cache misses.
  * Bypassed during automated tests or when Redis is not ready.
  */
 export async function withPublicCache<T>(
@@ -64,17 +75,29 @@ export async function withPublicCache<T>(
     }
   }
 
-  const fresh = await fetcher();
-
-  try {
-    if (isCacheActive() && fresh !== undefined && fresh !== null) {
-      void redis.set(key, JSON.stringify(fresh), 'EX', ttlSeconds).catch(() => undefined);
-    }
-  } catch {
-    // Ignore cache write errors
+  const existingFlight = inFlight.get(key) as Promise<T> | undefined;
+  if (existingFlight) {
+    return existingFlight;
   }
 
-  return fresh;
+  const flightPromise = (async () => {
+    const fresh = await fetcher();
+    try {
+      if (isCacheActive() && fresh !== undefined && fresh !== null) {
+        void redis.set(key, JSON.stringify(fresh), 'EX', ttlSeconds).catch(() => undefined);
+      }
+    } catch {
+      // Ignore cache write errors
+    }
+    return fresh;
+  })();
+
+  inFlight.set(key, flightPromise);
+  try {
+    return await flightPromise;
+  } finally {
+    inFlight.delete(key);
+  }
 }
 
 /**
@@ -97,4 +120,17 @@ export async function invalidatePublicCacheByPrefix(prefix: string): Promise<voi
   } catch {
     // Best-effort invalidation
   }
+}
+
+/**
+ * Invalidates all public discovery, catalog, game-index, and search caches across Sayra.
+ */
+export async function invalidateAllPublicDiscoveryCaches(): Promise<void> {
+  bumpGameIndexVersion();
+  await Promise.allSettled([
+    invalidatePublicCacheByPrefix('public:gc:'),
+    invalidatePublicCacheByPrefix('public:gamecenters:'),
+    invalidatePublicCacheByPrefix('public:search:'),
+    invalidatePublicCacheByPrefix('public:catalog:'),
+  ]);
 }

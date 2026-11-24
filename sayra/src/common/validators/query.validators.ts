@@ -1,5 +1,19 @@
-
 import { z } from 'zod';
+
+/**
+ * Safely parses optional boolean query/form parameters without JavaScript's Boolean("false") === true bug.
+ */
+export const parseOptionalBoolean = () =>
+  z.preprocess((val) => {
+    if (val === undefined || val === null || val === '') return undefined;
+    if (typeof val === 'boolean') return val;
+    if (typeof val === 'string') {
+      const normalized = val.trim().toLowerCase();
+      if (normalized === 'true' || normalized === '1') return true;
+      if (normalized === 'false' || normalized === '0') return false;
+    }
+    return val;
+  }, z.boolean().optional());
 
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -13,10 +27,7 @@ export const sortSchema = z.object({
 
 export const baseFilterSchema = paginationSchema.merge(sortSchema).extend({
   search: z.string().optional(),
-  isActive: z.preprocess(
-    (val) => (val === 'true' ? true : val === 'false' ? false : undefined),
-    z.boolean().optional()
-  ),
+  isActive: parseOptionalBoolean(),
 });
 
 export type BaseFilterQuery = z.infer<typeof baseFilterSchema>;

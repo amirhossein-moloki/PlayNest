@@ -8,6 +8,8 @@ import {
   updateDeviceCatalogSchema,
   createGameCatalogSchema,
   updateGameCatalogSchema,
+  replaceGameAliasesSchema,
+  mergeGamesSchema,
   catalogIdParamSchema,
 } from './catalog.validator';
 import { authMiddleware } from '../../common/middleware/auth';
@@ -92,7 +94,16 @@ platformAdminCatalogRouter.delete(
   asyncHandler(CatalogController.deleteDevice)
 );
 
-// Games
+// Games (Register static sub-paths BEFORE /games/:id)
+platformAdminCatalogRouter.get(
+  '/games/duplicates',
+  asyncHandler(CatalogController.getDuplicateGames)
+);
+platformAdminCatalogRouter.post(
+  '/games/merge',
+  validate(mergeGamesSchema),
+  asyncHandler(CatalogController.mergeGames)
+);
 platformAdminCatalogRouter.post(
   '/games',
   catalogUpload.single('file'),
@@ -107,6 +118,11 @@ platformAdminCatalogRouter.get(
   '/games/:id',
   validate(catalogIdParamSchema),
   asyncHandler(CatalogController.getGameById)
+);
+platformAdminCatalogRouter.put(
+  '/games/:id/aliases',
+  validate(replaceGameAliasesSchema),
+  asyncHandler(CatalogController.replaceGameAliases)
 );
 platformAdminCatalogRouter.patch(
   '/games/:id',

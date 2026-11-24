@@ -3,6 +3,7 @@ import { CreateUserInput, UpdateUserInput, ListUsersQuery } from './users.valida
 import { Prisma } from '@prisma/client';
 import { getPaginationParams, formatPaginatedResult } from '../../common/utils/pagination';
 import { getPhoneVariants } from '../../common/utils/phone';
+import { buildPersianArabicSearchVariants } from '../../common/utils/searchText';
 
 export const createUser = async (gamingCenterId: string, data: CreateUserInput) => {
   const createInput: Prisma.UserUncheckedCreateInput = {
@@ -36,10 +37,11 @@ export const listUsersByGamingCenter = async (gamingCenterId: string, query: Lis
   };
 
   if (search) {
-    where.OR = [
-      { fullName: { contains: search, mode: 'insensitive' } },
-      { phone: { contains: search, mode: 'insensitive' } },
-    ];
+    const variants = buildPersianArabicSearchVariants(search);
+    where.OR = variants.flatMap((v) => [
+      { fullName: { contains: v, mode: 'insensitive' as const } },
+      { phone: { contains: v, mode: 'insensitive' as const } },
+    ]);
   }
 
   if (role) {

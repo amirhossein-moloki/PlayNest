@@ -1,8 +1,11 @@
 import { NextFunction, Request, Response } from 'express';
 import * as CatalogStation from './catalog.station';
+import * as uploadStation from '../../common/stations/upload.station';
+import AppError from '../../common/errors/AppError';
+import httpStatus from 'http-status';
 import {
   buildSortedCacheKey,
-  invalidatePublicCacheByPrefix,
+  invalidateAllPublicDiscoveryCaches,
   setPublicCacheHeaders,
   withPublicCache,
 } from '../../common/utils/publicCache';
@@ -16,6 +19,8 @@ import {
   UpdateGameCatalogInput,
   listDeviceCatalogSchema,
   listGameCatalogSchema,
+  ReplaceGameAliasesInput,
+  MergeGamesInput,
 } from './catalog.validator';
 
 // ==========================================
@@ -29,7 +34,7 @@ export async function createDeviceType(
 ) {
   try {
     const deviceType = await CatalogStation.createDeviceType(req.body);
-    void invalidatePublicCacheByPrefix('public:catalog:');
+    void invalidateAllPublicDiscoveryCaches();
     res.created(deviceType);
   } catch (error) {
     next(error);
@@ -86,7 +91,7 @@ export async function updateDeviceType(
 ) {
   try {
     const updated = await CatalogStation.updateDeviceType(req.params.id, req.body);
-    void invalidatePublicCacheByPrefix('public:catalog:');
+    void invalidateAllPublicDiscoveryCaches();
     res.ok(updated);
   } catch (error) {
     next(error);
@@ -100,7 +105,7 @@ export async function deleteDeviceType(
 ) {
   try {
     await CatalogStation.deleteDeviceType(req.params.id);
-    void invalidatePublicCacheByPrefix('public:catalog:');
+    void invalidateAllPublicDiscoveryCaches();
     res.noContent();
   } catch (error) {
     next(error);
@@ -110,10 +115,6 @@ export async function deleteDeviceType(
 // ==========================================
 // Device Catalog Controllers
 // ==========================================
-
-import * as uploadStation from '../../common/stations/upload.station';
-import AppError from '../../common/errors/AppError';
-import httpStatus from 'http-status';
 
 export async function createDevice(
   req: Request<unknown, unknown, CreateDeviceCatalogInput>,
@@ -135,7 +136,7 @@ export async function createDevice(
       ...req.body,
       coverImageUrl,
     });
-    void invalidatePublicCacheByPrefix('public:catalog:');
+    void invalidateAllPublicDiscoveryCaches();
     res.created(device);
   } catch (error) {
     next(error);
@@ -201,7 +202,7 @@ export async function updateDevice(
       ...req.body,
       ...(coverImageUrl ? { coverImageUrl } : {}),
     });
-    void invalidatePublicCacheByPrefix('public:catalog:');
+    void invalidateAllPublicDiscoveryCaches();
     res.ok(updated);
   } catch (error) {
     next(error);
@@ -215,7 +216,7 @@ export async function deleteDevice(
 ) {
   try {
     await CatalogStation.deleteDevice(req.params.id);
-    void invalidatePublicCacheByPrefix('public:catalog:');
+    void invalidateAllPublicDiscoveryCaches();
     res.noContent();
   } catch (error) {
     next(error);
@@ -246,7 +247,7 @@ export async function createGame(
       ...req.body,
       coverImageUrl,
     });
-    void invalidatePublicCacheByPrefix('public:catalog:');
+    void invalidateAllPublicDiscoveryCaches();
     res.created(game);
   } catch (error) {
     next(error);
@@ -312,8 +313,45 @@ export async function updateGame(
       ...req.body,
       ...(coverImageUrl ? { coverImageUrl } : {}),
     });
-    void invalidatePublicCacheByPrefix('public:catalog:');
+    void invalidateAllPublicDiscoveryCaches();
     res.ok(updated);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function replaceGameAliases(
+  req: Request<{ id: string }, unknown, ReplaceGameAliasesInput>,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const updated = await CatalogStation.replaceGameAliases(req.params.id, req.body.aliases);
+    void invalidateAllPublicDiscoveryCaches();
+    res.ok(updated);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getDuplicateGames(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const duplicates = await CatalogStation.findDuplicateGames();
+    res.ok(duplicates);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function mergeGames(
+  req: Request<unknown, unknown, MergeGamesInput>,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const result = await CatalogStation.mergeGames(req.body);
+    void invalidateAllPublicDiscoveryCaches();
+    res.ok(result);
   } catch (error) {
     next(error);
   }
@@ -326,7 +364,7 @@ export async function deleteGame(
 ) {
   try {
     await CatalogStation.deleteGame(req.params.id);
-    void invalidatePublicCacheByPrefix('public:catalog:');
+    void invalidateAllPublicDiscoveryCaches();
     res.noContent();
   } catch (error) {
     next(error);

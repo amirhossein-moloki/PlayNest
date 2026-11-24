@@ -9,6 +9,8 @@ import {
   CreateGameCatalogInput,
   UpdateGameCatalogInput,
   ListGameCatalogQuery,
+  GameAliasInput,
+  MergeGamesInput,
 } from './catalog.validator';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
@@ -96,6 +98,22 @@ export async function getGames(query: ListGameCatalogQuery) {
 export async function updateGame(id: string, data: UpdateGameCatalogInput) {
   await getGameById(id);
   return CatalogRepo.updateGame(id, data);
+}
+
+export async function replaceGameAliases(id: string, aliases: GameAliasInput[]) {
+  return CatalogRepo.replaceGameAliases(id, aliases);
+}
+
+export async function findDuplicateGames() {
+  return CatalogRepo.findDuplicateGames();
+}
+
+export async function mergeGames(input: MergeGamesInput) {
+  return CatalogRepo.mergeGames(
+    input.targetGameId,
+    input.sourceGameIds,
+    input.deactivateSources
+  );
 }
 
 export async function deleteGame(id: string) {

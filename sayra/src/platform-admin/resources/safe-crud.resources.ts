@@ -12,11 +12,12 @@ import { ADMIN_NAVIGATION_GROUPS } from '../config/admin.navigation';
 import { AdminAuditService } from '../services/admin-audit.service';
 import { PlatformMediaStation } from '../../modules/platform-admin/media.station';
 import { STATION_TYPE_AVAILABLE_VALUES } from '../../common/utils/station-type';
+import { invalidateAllPublicDiscoveryCaches } from '../../common/utils/publicCache';
 
 /**
- * Creates actions with audit logging and media lifecycle management for catalog items.
+ * Creates actions with audit logging, cache invalidation, and media lifecycle management for catalog items.
  */
-function createCatalogActions(entityName: 'DeviceCatalog' | 'GameCatalog' | 'DeviceType'): Record<string, any> {
+function createCatalogActions(entityName: 'DeviceCatalog' | 'GameCatalog' | 'DeviceType' | 'GameAlias' | 'GameStationGame'): Record<string, any> {
   return {
     edit: {
       after: async (originalResponse: any, request: any, context: any) => {
@@ -62,6 +63,7 @@ function createCatalogActions(entityName: 'DeviceCatalog' | 'GameCatalog' | 'Dev
             oldData: context.record?.params,
             newData: originalResponse.record?.params,
           });
+          void invalidateAllPublicDiscoveryCaches();
         }
         return originalResponse;
       },
@@ -85,6 +87,7 @@ function createCatalogActions(entityName: 'DeviceCatalog' | 'GameCatalog' | 'Dev
             entityId: String(entityId),
             oldData: context.record.params,
           });
+          void invalidateAllPublicDiscoveryCaches();
         }
         return originalResponse;
       },
@@ -103,6 +106,7 @@ function createCatalogActions(entityName: 'DeviceCatalog' | 'GameCatalog' | 'Dev
             entityId: originalResponse.record.id,
             newData: originalResponse.record?.params,
           });
+          void invalidateAllPublicDiscoveryCaches();
         }
         return originalResponse;
       },
@@ -191,6 +195,12 @@ export function getSafeCrudResources(components?: { coverImageComponentId?: stri
         properties: {
           ...buildSensitivePropertiesConfiguration(),
           id: { isVisible: { list: true, show: true, edit: false, filter: true } },
+          title: { isVisible: { list: true, show: true, edit: true, filter: true } },
+          titleFa: { isVisible: { list: true, show: true, edit: true, filter: true } },
+          titleEn: { isVisible: { list: true, show: true, edit: true, filter: true } },
+          slug: { isVisible: { list: true, show: true, edit: true, filter: true } },
+          category: { isVisible: { list: true, show: true, edit: true, filter: true } },
+          popularityScore: { isVisible: { list: true, show: true, edit: true, filter: true } },
           supportsOnline: {
             isVisible: { list: true, show: true, edit: true, filter: true },
           },
@@ -202,6 +212,31 @@ export function getSafeCrudResources(components?: { coverImageComponentId?: stri
               list: coverImageComponent,
             },
           },
+        },
+      },
+    },
+    {
+      resource: getPrismaModelTarget('GameAlias'),
+      options: {
+        navigation: ADMIN_NAVIGATION_GROUPS.STATIONS_CATALOG,
+        actions: createCatalogActions('GameAlias'),
+        properties: {
+          ...buildSensitivePropertiesConfiguration(),
+          id: { isVisible: { list: true, show: true, edit: false, filter: true } },
+          createdAt: { isVisible: { list: true, show: true, edit: false, filter: true } },
+        },
+      },
+    },
+    {
+      resource: getPrismaModelTarget('GameStationGame'),
+      options: {
+        navigation: ADMIN_NAVIGATION_GROUPS.STATIONS_CATALOG,
+        actions: createCatalogActions('GameStationGame'),
+        properties: {
+          ...buildSensitivePropertiesConfiguration(),
+          id: { isVisible: { list: true, show: true, edit: false, filter: true } },
+          createdAt: { isVisible: { list: true, show: true, edit: false, filter: true } },
+          updatedAt: { isVisible: { list: false, show: true, edit: false, filter: false } },
         },
       },
     },

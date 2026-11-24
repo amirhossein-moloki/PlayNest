@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { GamePlayMode, GameStationType } from '@prisma/client';
 import { zodGameStationType, zodGameStationTypeOptional } from '../../common/utils/station-type';
-import { baseFilterSchema } from '../../common/validators/query.validators';
+import { baseFilterSchema, parseOptionalBoolean } from '../../common/validators/query.validators';
 import { idSchema } from '../../common/validators/common.validators';
 
 // Extra Controller config item schema
@@ -105,6 +105,34 @@ export const createStationsFromCatalogSchema = z.object({
 const addGameFromCatalogItemSchema = z.object({
   gameCatalogId: idSchema('Invalid game catalog ID format'),
   playMode: z.nativeEnum(GamePlayMode).optional().default(GamePlayMode.OFFLINE),
+  platforms: z.array(zodGameStationType()).optional(),
+  stationIds: z.array(idSchema('Invalid station ID format')).optional(),
+});
+
+export const replaceStationGamesSchema = z.object({
+  params: z.object({
+    gamingCenterId: idSchema('Invalid gaming center ID format').optional(),
+    stationId: idSchema('Invalid station ID format'),
+  }),
+  body: z.object({
+    games: z
+      .array(
+        z.object({
+          gameCatalogId: idSchema('Invalid game catalog ID format'),
+          playMode: z.nativeEnum(GamePlayMode).optional().default(GamePlayMode.OFFLINE),
+          isActive: z.boolean().optional().default(true),
+        })
+      )
+      .max(200),
+  }),
+});
+
+export const stationGameIdParamSchema = z.object({
+  params: z.object({
+    gamingCenterId: idSchema('Invalid gaming center ID format').optional(),
+    stationId: idSchema('Invalid station ID format'),
+    gameCatalogId: idSchema('Invalid game catalog ID format'),
+  }),
 });
 
 export const addGamesFromCatalogSchema = z.object({
@@ -190,8 +218,10 @@ export const listStationsSchema = baseFilterSchema.extend({
   catalogDeviceId: idSchema('Invalid catalog device ID format').optional(),
   stationType: zodGameStationTypeOptional(),
   type: zodGameStationTypeOptional(),
-  isVip: z.coerce.boolean().optional(),
+  isVip: parseOptionalBoolean(),
   staffId: z.string().optional(),
+  game: z.string().trim().min(1).optional(),
+  gameCatalogId: idSchema('Invalid game catalog ID format').optional(),
   ids: z
     .union([z.string(), z.array(z.string())])
     .optional()

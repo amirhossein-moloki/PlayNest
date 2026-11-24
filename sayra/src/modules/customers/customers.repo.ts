@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { CustomerFilters, UpdateCustomerInput } from './customers.types';
+import { buildPersianArabicSearchVariants } from '../../common/utils/searchText';
 
 export async function findManyProfiles(gamingCenterId: string, filters: CustomerFilters) {
   const { search, page = 1, limit = 10 } = filters;
@@ -11,11 +12,12 @@ export async function findManyProfiles(gamingCenterId: string, filters: Customer
   };
 
   if (search) {
-    where.OR = [
-      { displayName: { contains: search, mode: 'insensitive' } },
-      { customerAccount: { fullName: { contains: search, mode: 'insensitive' } } },
-      { customerAccount: { phone: { contains: search } } },
-    ];
+    const variants = buildPersianArabicSearchVariants(search);
+    where.OR = variants.flatMap((v) => [
+      { displayName: { contains: v, mode: 'insensitive' as const } },
+      { customerAccount: { fullName: { contains: v, mode: 'insensitive' as const } } },
+      { customerAccount: { phone: { contains: v } } },
+    ]);
   }
 
   const [customers, total] = await Promise.all([

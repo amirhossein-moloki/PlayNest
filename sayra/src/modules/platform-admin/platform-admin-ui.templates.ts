@@ -233,6 +233,7 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
       <button class="tab-btn" onclick="switchTab('customers')"><i class="fa-solid fa-user-tag"></i> Customers</button>
       <button class="tab-btn" onclick="switchTab('settings')"><i class="fa-solid fa-sliders"></i> Platform Settings</button>
       <button class="tab-btn" onclick="switchTab('device-types')"><i class="fa-solid fa-gamepad"></i> Device Types</button>
+      <button class="tab-btn" onclick="switchTab('games-catalog')"><i class="fa-solid fa-dice"></i> Games Catalog</button>
       <button class="tab-btn" onclick="switchTab('audit')"><i class="fa-solid fa-list-check"></i> Audit Logs</button>
     </div>
 
@@ -490,6 +491,97 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
         </thead>
         <tbody id="device-types-table-body">
           <tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Tab: Smart Games Catalog -->
+    <div id="tab-games-catalog" class="card" style="display:none;">
+      <div class="section-header">
+        <div class="section-title"><i class="fa-solid fa-dice"></i> Smart Games Catalog Management</div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="checkDuplicateGames()"><i class="fa-solid fa-clone"></i> Detect Duplicates</button>
+          <button class="btn btn-secondary btn-sm" onclick="loadCatalogGames()"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; align-items:flex-end;">
+        <div style="flex:1; min-width:180px;">
+          <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Search Games (FA / EN / Alias)</label>
+          <input id="gc-search-input" type="text" placeholder="e.g. FC 26, فیفا ۲۶, Call of Duty..." oninput="loadCatalogGames()" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:white;">
+        </div>
+      </div>
+      <div style="border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:16px;">
+        <div style="font-size:13px; font-weight:600; margin-bottom:10px;" id="gc-form-title">Add New Catalog Game</div>
+        <input type="hidden" id="gc-edit-id" value="">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px; margin-bottom:10px;">
+          <div>
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Display Title</label>
+            <input id="gc-title" type="text" placeholder="EA Sports FC 26" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:white;">
+          </div>
+          <div>
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Persian Title</label>
+            <input id="gc-title-fa" type="text" placeholder="اف سی ۲۶" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:white;">
+          </div>
+          <div>
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">English Title</label>
+            <input id="gc-title-en" type="text" placeholder="EA Sports FC 26" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:white;">
+          </div>
+          <div>
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Category</label>
+            <select id="gc-category" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:white;">
+              <option value="SPORTS">SPORTS</option>
+              <option value="FPS">FPS</option>
+              <option value="BATTLE_ROYALE">BATTLE_ROYALE</option>
+              <option value="OPEN_WORLD">OPEN_WORLD</option>
+              <option value="MOBA">MOBA</option>
+              <option value="RACING">RACING</option>
+              <option value="FIGHTING">FIGHTING</option>
+              <option value="SANDBOX">SANDBOX</option>
+              <option value="RPG">RPG</option>
+              <option value="ACTION">ACTION</option>
+              <option value="OTHER">OTHER</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Cover Image URL</label>
+            <input id="gc-cover-url" type="text" placeholder="https://..." style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:white;">
+          </div>
+          <div>
+            <label style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;">Aliases (comma-separated)</label>
+            <input id="gc-aliases" type="text" placeholder="FC26, FIFA 26, فیفا ۲۶" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:white;">
+          </div>
+        </div>
+        <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
+          <div style="display:flex; gap:12px; flex-wrap:wrap; font-size:12px;">
+            <label><input type="checkbox" class="gc-platform-cb" value="PC" checked> PC</label>
+            <label><input type="checkbox" class="gc-platform-cb" value="PLAYSTATION 5" checked> PS5</label>
+            <label><input type="checkbox" class="gc-platform-cb" value="PLAYSTATION 4"> PS4</label>
+            <label><input type="checkbox" class="gc-platform-cb" value="XBOX"> XBOX</label>
+            <label><input type="checkbox" class="gc-platform-cb" value="SWITCH"> SWITCH</label>
+            <label><input type="checkbox" class="gc-platform-cb" value="VR"> VR</label>
+            <label style="margin-left:12px;"><input type="checkbox" id="gc-supports-online"> Supports Online</label>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-secondary btn-sm" onclick="resetGameForm()">Clear</button>
+            <button class="btn btn-primary btn-sm" onclick="saveCatalogGame()"><i class="fa-solid fa-floppy-disk"></i> Save Game</button>
+          </div>
+        </div>
+      </div>
+      <div id="gc-duplicates-box" style="display:none; border:1px solid var(--warning); border-radius:8px; padding:12px; margin-bottom:14px;"></div>
+      <table>
+        <thead>
+          <tr>
+            <th>Title (FA / EN)</th>
+            <th>Category</th>
+            <th>Platforms</th>
+            <th>Aliases</th>
+            <th>Centers</th>
+            <th>Online</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="games-catalog-table-body">
+          <tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Loading games catalog...</td></tr>
         </tbody>
       </table>
     </div>
@@ -761,7 +853,7 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
       }
     }
 
-    var tabList = ['centers', 'verifications', 'ads', 'campaigns', 'reservations', 'users', 'customers', 'settings', 'device-types', 'audit'];
+    var tabList = ['centers', 'verifications', 'ads', 'campaigns', 'reservations', 'users', 'customers', 'settings', 'device-types', 'games-catalog', 'audit'];
 
     function switchTab(targetTab) {
       tabList.forEach(function(tab) {
@@ -782,6 +874,7 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
       if (targetTab === 'customers') loadCustomers();
       if (targetTab === 'settings') loadSettings();
       if (targetTab === 'device-types') loadDeviceTypes();
+      if (targetTab === 'games-catalog') loadCatalogGames();
       if (targetTab === 'audit') loadAudit();
     }
 
@@ -1472,6 +1565,144 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
         headers: headers()
       });
       if (res.ok) loadDeviceTypes();
+    }
+
+    var cachedCatalogGames = [];
+
+    async function loadCatalogGames() {
+      var tbody = document.getElementById('games-catalog-table-body');
+      var search = (document.getElementById('gc-search-input') && document.getElementById('gc-search-input').value.trim()) || '';
+      try {
+        var qs = '?limit=100' + (search ? '&search=' + encodeURIComponent(search) : '');
+        var res = await fetch('/api/v1/platform-admin/catalog/games' + qs, { headers: headers() });
+        var json = await res.json();
+        var items = (json.data && (json.data.data || json.data.items || json.data)) || [];
+        cachedCatalogGames = Array.isArray(items) ? items : [];
+        if (cachedCatalogGames.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">No games found.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = cachedCatalogGames.map(function(g) {
+          var aliasList = Array.isArray(g.aliases) ? g.aliases.map(function(a) { return a.alias || a; }).join(', ') : '-';
+          var centerCount = (g._count && g._count.centerGames) || 0;
+          return '<tr>' +
+            '<td><strong>' + escapeHtml(g.title) + '</strong><br><small style="color:var(--text-muted);">' + escapeHtml(g.titleFa || '-') + ' | ' + escapeHtml(g.slug || '-') + '</small></td>' +
+            '<td>' + escapeHtml(g.category || g.genre || '-') + '</td>' +
+            '<td>' + escapeHtml((g.supportedPlatforms || []).join(', ')) + '</td>' +
+            '<td style="max-width:220px; font-size:12px;">' + escapeHtml(aliasList) + '</td>' +
+            '<td>' + centerCount + '</td>' +
+            '<td>' + (g.supportsOnline ? '<span class="badge badge-success">ONLINE</span>' : '<span class="badge badge-secondary">OFFLINE</span>') + '</td>' +
+            '<td><button class="btn btn-secondary btn-sm" onclick="editCatalogGame(\'' + g.id + '\')"><i class="fa-solid fa-pen"></i></button> ' +
+            '<button class="btn btn-danger btn-sm" onclick="deleteCatalogGame(\'' + g.id + '\')"><i class="fa-solid fa-trash"></i></button></td>' +
+          '</tr>';
+        }).join('');
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--danger);">Failed to load games catalog</td></tr>';
+      }
+    }
+
+    function editCatalogGame(id) {
+      var g = cachedCatalogGames.find(function(item) { return item.id === id; });
+      if (!g) return;
+      document.getElementById('gc-edit-id').value = g.id;
+      document.getElementById('gc-form-title').textContent = 'Edit Game: ' + g.title;
+      document.getElementById('gc-title').value = g.title || '';
+      document.getElementById('gc-title-fa').value = g.titleFa || '';
+      document.getElementById('gc-title-en').value = g.titleEn || '';
+      document.getElementById('gc-category').value = g.category || 'OTHER';
+      document.getElementById('gc-cover-url').value = g.coverImageUrl || '';
+      document.getElementById('gc-aliases').value = Array.isArray(g.aliases) ? g.aliases.map(function(a) { return a.alias || a; }).join(', ') : '';
+      document.getElementById('gc-supports-online').checked = Boolean(g.supportsOnline);
+      document.querySelectorAll('.gc-platform-cb').forEach(function(cb) {
+        cb.checked = Array.isArray(g.supportedPlatforms) && g.supportedPlatforms.indexOf(cb.value) !== -1;
+      });
+    }
+
+    function resetGameForm() {
+      document.getElementById('gc-edit-id').value = '';
+      document.getElementById('gc-form-title').textContent = 'Add New Catalog Game';
+      document.getElementById('gc-title').value = '';
+      document.getElementById('gc-title-fa').value = '';
+      document.getElementById('gc-title-en').value = '';
+      document.getElementById('gc-category').value = 'SPORTS';
+      document.getElementById('gc-cover-url').value = '';
+      document.getElementById('gc-aliases').value = '';
+      document.getElementById('gc-supports-online').checked = false;
+    }
+
+    async function saveCatalogGame() {
+      var id = document.getElementById('gc-edit-id').value.trim();
+      var title = document.getElementById('gc-title').value.trim();
+      if (!title) { alert('Title is required'); return; }
+      var platforms = [];
+      document.querySelectorAll('.gc-platform-cb:checked').forEach(function(cb) { platforms.push(cb.value); });
+      var payload = {
+        title: title,
+        titleFa: document.getElementById('gc-title-fa').value.trim() || null,
+        titleEn: document.getElementById('gc-title-en').value.trim() || null,
+        category: document.getElementById('gc-category').value,
+        coverImageUrl: document.getElementById('gc-cover-url').value.trim() || undefined,
+        aliases: document.getElementById('gc-aliases').value.trim(),
+        supportedPlatforms: platforms.length ? platforms : ['PC'],
+        supportsOnline: document.getElementById('gc-supports-online').checked
+      };
+      var url = id ? '/api/v1/platform-admin/catalog/games/' + id : '/api/v1/platform-admin/catalog/games';
+      var res = await fetch(url, {
+        method: id ? 'PATCH' : 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        var err = await res.json().catch(function() { return {}; });
+        alert(err.message || 'Failed to save game');
+        return;
+      }
+      resetGameForm();
+      loadCatalogGames();
+      showToast('Game saved to catalog.');
+    }
+
+    async function checkDuplicateGames() {
+      var box = document.getElementById('gc-duplicates-box');
+      var res = await fetch('/api/v1/platform-admin/catalog/games/duplicates', { headers: headers() });
+      var json = await res.json();
+      var groups = json.data || [];
+      box.style.display = 'block';
+      if (!Array.isArray(groups) || groups.length === 0) {
+        box.innerHTML = '<span style="color:var(--success);">No duplicate games detected.</span>';
+        return;
+      }
+      box.innerHTML = '<strong>Potential Duplicates (' + groups.length + '):</strong>' + groups.map(function(grp) {
+        var target = grp.games[0];
+        var sourceIds = grp.games.slice(1).map(function(x) { return x.id; });
+        return '<div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;">' +
+          '<span>' + grp.games.map(function(x) { return escapeHtml(x.title) + ' (' + x.id + ')'; }).join(' | ') + '</span>' +
+          '<button class="btn btn-warning btn-sm" onclick="mergeDuplicateGroup(\'' + target.id + '\', \'' + sourceIds.join(',') + '\')">Merge into ' + escapeHtml(target.title) + '</button>' +
+        '</div>';
+      }).join('');
+    }
+
+    async function mergeDuplicateGroup(targetId, sourceCsv) {
+      if (!confirm('Merge duplicate game entries into target game?')) return;
+      var res = await fetch('/api/v1/platform-admin/catalog/games/merge', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
+        body: JSON.stringify({ targetGameId: targetId, sourceGameIds: sourceCsv.split(','), deactivateSources: true })
+      });
+      if (res.ok) {
+        showToast('Duplicate games merged.');
+        checkDuplicateGames();
+        loadCatalogGames();
+      }
+    }
+
+    async function deleteCatalogGame(id) {
+      if (!confirm('Delete this game from catalog?')) return;
+      var res = await fetch('/api/v1/platform-admin/catalog/games/' + id, {
+        method: 'DELETE',
+        headers: headers()
+      });
+      if (res.ok) loadCatalogGames();
     }
 
     async function loadAudit() {

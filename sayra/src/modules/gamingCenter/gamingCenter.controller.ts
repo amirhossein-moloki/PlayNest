@@ -3,7 +3,7 @@ import { gamingCenterStation } from './gamingCenter.station';
 import { PublicGamingCentersRepo } from '../public/gamingCenters.public.repo';
 import {
   buildSortedCacheKey,
-  invalidatePublicCacheByPrefix,
+  invalidateAllPublicDiscoveryCaches,
   setPublicCacheHeaders,
   withPublicCache,
 } from '../../common/utils/publicCache';
@@ -25,7 +25,7 @@ export const gamingCenterController = {
         { ip: req.ip, userAgent: req.headers['user-agent'] }
       );
       res.created(gamingCenter);
-      void invalidatePublicCacheByPrefix('public:gc:');
+      void invalidateAllPublicDiscoveryCaches();
     } catch (error) {
       next(error);
     }
@@ -90,7 +90,7 @@ export const gamingCenterController = {
         req.actor!,
         { ip: req.ip, userAgent: req.headers['user-agent'] }
       );
-      void invalidatePublicCacheByPrefix('public:gc:');
+      void invalidateAllPublicDiscoveryCaches();
       res.ok(updatedGamingCenter);
     } catch (error) {
       next(error);
@@ -105,7 +105,7 @@ export const gamingCenterController = {
         req.actor!,
         { ip: req.ip, userAgent: req.headers['user-agent'] }
       );
-      void invalidatePublicCacheByPrefix('public:gc:');
+      void invalidateAllPublicDiscoveryCaches();
       res.noContent();
     } catch (error) {
       next(error);

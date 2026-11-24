@@ -1,6 +1,7 @@
 import {
   CampaignStatus,
   GamePlayMode,
+  GameStationType,
   GamingCenterVerificationStatus,
   Prisma,
   RatingStatus,
@@ -10,12 +11,20 @@ import { prisma } from '../../config/prisma';
 import { env } from '../../config/env';
 import { toPublicStationType } from '../../common/utils/station-type';
 import { formatPaginatedResult, getPaginationParams } from '../../common/utils/pagination';
+import { evaluateCenterOpenStatus } from '../../common/utils/operatingHours';
+import {
+  buildPersianArabicSearchVariants,
+  calculateHaversineDistanceKm,
+  getGeoBoundingBox,
+  isValidCoordinatePair,
+} from '../../common/utils/searchText';
 import {
   calculateGamingCenterPricing,
-  checkIsOpen,
   extractCoverImages,
 } from '../gamingCenter/gamingCenter.repository';
-import { resolveActiveClosureSummary } from '../closures/closures.validators';
+import { resolveMatchingGames } from '../search/gameIndex.service';
+import { resolveCenterGameStations } from '../search/search.service';
+import { ResolvedGameMatch } from '../search/search.types';
 import {
   CenterRatingAggregate,
   computeBayesianScore,
@@ -45,6 +54,7 @@ interface RawCenterRecord {
   consoleCount: number;
   openingTime: string | null;
   closingTime: string | null;
+  closedDays?: number[];
   timezone: string;
   hourlyRate: number;
   vipHourlyRate: number | null;
@@ -69,6 +79,11 @@ interface RawCenterRecord {
     hourlyPrice: number;
     isVip: boolean;
     isActive: boolean;
+    stationGames?: Array<{
+      gameCatalogId: string;
+      playMode: GamePlayMode;
+      isActive: boolean;
+    }>;
   }>;
   settings: {
     workStartTime: string | null;
@@ -76,6 +91,12 @@ interface RawCenterRecord {
     timeZone: string | null;
     allowOnlineBooking: boolean;
   } | null;
+  schedules?: Array<{
+    dayOfWeek: number;
+    startTime: string | null;
+    endTime: string | null;
+    isClosed: boolean;
+  }>;
   media: Array<{
     url: string;
     thumbUrl: string | null;
@@ -85,6 +106,9 @@ interface RawCenterRecord {
     sortOrder: number;
   }>;
   discounts: Array<{
+    id?: string;
+    targetType?: string;
+    targetId?: string;
     isActive: boolean;
     valueType: string;
     value: number;
@@ -108,7 +132,12 @@ interface RawCenterRecord {
     startDate: Date;
     endDate: Date;
   }>;
-  centerGames?: Array<{ id: string }>;
+  centerGames?: Array<{
+    id?: string;
+    gameCatalogId?: string;
+    playMode?: GamePlayMode;
+    platforms?: GameStationType[];
+  }>;
   stationExtraControllers?: Array<{ id: string }>;
 }
 
@@ -130,23 +159,60 @@ function buildPublicEligibilityWhere(
 
 function buildFilterConditions(params: {
   city?: string;
+  province?: string;
   neighborhood?: string;
   district?: string;
   deviceType?: string;
   amenities?: PublicAmenityKey[];
   search?: string;
+  lat?: number;
+  lng?: number;
+  radiusKm?: number;
+  resolvedGameIds?: string[];
 }): Prisma.GamingCenterWhereInput {
   const andConditions: Prisma.GamingCenterWhereInput[] = [];
   const resolvedNeighborhood = params.neighborhood || params.district;
 
-  if (params.city || resolvedNeighborhood) {
+  if (params.city || params.province || resolvedNeighborhood) {
+    const addrAnd: Prisma.AddressWhereInput[] = [];
+    if (params.city) {
+      const variants = buildPersianArabicSearchVariants(params.city);
+      addrAnd.push(
+        variants.length <= 1
+          ? { city: { contains: variants[0] ?? params.city, mode: 'insensitive' } }
+          : { OR: variants.map((v) => ({ city: { contains: v, mode: 'insensitive' } })) }
+      );
+    }
+    if (params.province) {
+      const variants = buildPersianArabicSearchVariants(params.province);
+      addrAnd.push(
+        variants.length <= 1
+          ? { province: { contains: variants[0] ?? params.province, mode: 'insensitive' } }
+          : { OR: variants.map((v) => ({ province: { contains: v, mode: 'insensitive' } })) }
+      );
+    }
+    if (resolvedNeighborhood) {
+      const variants = buildPersianArabicSearchVariants(resolvedNeighborhood);
+      addrAnd.push(
+        variants.length <= 1
+          ? { district: { contains: variants[0] ?? resolvedNeighborhood, mode: 'insensitive' } }
+          : { OR: variants.map((v) => ({ district: { contains: v, mode: 'insensitive' } })) }
+      );
+    }
+    andConditions.push({
+      addresses: {
+        some: addrAnd.length === 1 ? addrAnd[0] : { AND: addrAnd },
+      },
+    });
+  }
+
+  if (params.lat !== undefined && params.lng !== undefined) {
+    const box = getGeoBoundingBox(params.lat, params.lng, params.radiusKm ?? 50);
     andConditions.push({
       addresses: {
         some: {
-          ...(params.city ? { city: { contains: params.city, mode: 'insensitive' } } : {}),
-          ...(resolvedNeighborhood
-            ? { district: { contains: resolvedNeighborhood, mode: 'insensitive' } }
-            : {}),
+          lat: { gte: box.minLat, lte: box.maxLat },
+          lng: { gte: box.minLng, lte: box.maxLng },
         },
       },
     });
@@ -164,24 +230,47 @@ function buildFilterConditions(params: {
   }
 
   if (params.search) {
+    const variants = buildPersianArabicSearchVariants(params.search);
     andConditions.push({
-      OR: [
-        { name: { contains: params.search, mode: 'insensitive' } },
-        { slug: { contains: params.search, mode: 'insensitive' } },
-        { description: { contains: params.search, mode: 'insensitive' } },
+      OR: variants.flatMap((v) => [
+        { name: { contains: v, mode: 'insensitive' as const } },
+        { slug: { contains: v, mode: 'insensitive' as const } },
+        { description: { contains: v, mode: 'insensitive' as const } },
         {
           addresses: {
             some: {
               OR: [
-                { city: { contains: params.search, mode: 'insensitive' } },
-                { district: { contains: params.search, mode: 'insensitive' } },
-                { addressLine: { contains: params.search, mode: 'insensitive' } },
+                { city: { contains: v, mode: 'insensitive' as const } },
+                { district: { contains: v, mode: 'insensitive' as const } },
+                { addressLine: { contains: v, mode: 'insensitive' as const } },
               ],
             },
           },
         },
-      ],
+      ]),
     });
+  }
+
+  if (params.resolvedGameIds && params.resolvedGameIds.length > 0) {
+    const hasCenterGames = typeof prisma.gamingCenterGame?.findMany === 'function';
+    const hasStationGames = typeof prisma.gameStationGame?.findMany === 'function';
+    const gameOr: Prisma.GamingCenterWhereInput[] = [];
+    if (hasCenterGames) {
+      gameOr.push({ centerGames: { some: { gameCatalogId: { in: params.resolvedGameIds } } } });
+    }
+    if (hasStationGames) {
+      gameOr.push({
+        stations: {
+          some: {
+            isActive: true,
+            stationGames: { some: { gameCatalogId: { in: params.resolvedGameIds }, isActive: true } },
+          },
+        },
+      });
+    }
+    if (gameOr.length > 0) {
+      andConditions.push({ OR: gameOr });
+    }
   }
 
   if (Array.isArray(params.amenities) && params.amenities.length > 0) {
@@ -218,7 +307,10 @@ function buildFilterConditions(params: {
   return buildPublicEligibilityWhere({ AND: andConditions });
 }
 
-function buildCenterInclude(now: Date): Prisma.GamingCenterInclude {
+function buildCenterInclude(now: Date, includeAllCenterGames = false): Prisma.GamingCenterInclude {
+  const hasSchedules = typeof prisma.gamingCenterSchedule?.findMany === 'function';
+  const hasStationGames = typeof prisma.gameStationGame?.findMany === 'function';
+
   return {
     addresses: {
       orderBy: [{ isPrimary: 'desc' as const }, { createdAt: 'asc' as const }],
@@ -242,6 +334,18 @@ function buildCenterInclude(now: Date): Prisma.GamingCenterInclude {
         hourlyPrice: true,
         isVip: true,
         isActive: true,
+        ...(hasStationGames
+          ? {
+              stationGames: {
+                where: { isActive: true },
+                select: {
+                  gameCatalogId: true,
+                  playMode: true,
+                  isActive: true,
+                },
+              },
+            }
+          : {}),
       },
     },
     settings: {
@@ -252,6 +356,18 @@ function buildCenterInclude(now: Date): Prisma.GamingCenterInclude {
         allowOnlineBooking: true,
       },
     },
+    ...(hasSchedules
+      ? {
+          schedules: {
+            select: {
+              dayOfWeek: true,
+              startTime: true,
+              endTime: true,
+              isClosed: true,
+            },
+          },
+        }
+      : {}),
     media: {
       where: { isActive: true },
       orderBy: { sortOrder: 'asc' as const },
@@ -271,6 +387,9 @@ function buildCenterInclude(now: Date): Prisma.GamingCenterInclude {
         endAt: { gte: now },
       },
       select: {
+        id: true,
+        targetType: true,
+        targetId: true,
         isActive: true,
         valueType: true,
         value: true,
@@ -311,11 +430,20 @@ function buildCenterInclude(now: Date): Prisma.GamingCenterInclude {
         endDate: true,
       },
     },
-    centerGames: {
-      where: { playMode: GamePlayMode.ONLINE },
-      take: 1,
-      select: { id: true },
-    },
+    centerGames: includeAllCenterGames
+      ? {
+          select: {
+            id: true,
+            gameCatalogId: true,
+            playMode: true,
+            platforms: true,
+          },
+        }
+      : {
+          where: { playMode: GamePlayMode.ONLINE },
+          take: 1,
+          select: { id: true },
+        },
     stationExtraControllers: {
       where: { isActive: true },
       take: 1,
@@ -393,7 +521,10 @@ function deriveAmenities(gc: RawCenterRecord): PublicAmenityKey[] {
   if (gc.settings?.allowOnlineBooking === true) {
     amenities.push('online_booking');
   }
-  if (Array.isArray(gc.centerGames) && gc.centerGames.length > 0) {
+  if (
+    Array.isArray(gc.centerGames) &&
+    gc.centerGames.some((cg) => cg.playMode === undefined || cg.playMode === GamePlayMode.ONLINE)
+  ) {
     amenities.push('online_games');
   }
   if (Array.isArray(gc.stationExtraControllers) && gc.stationExtraControllers.length > 0) {
@@ -490,22 +621,10 @@ function toPublicGameCenterDto(
   const primaryAddress =
     (gc.addresses || []).find((a) => a.isPrimary) ?? (gc.addresses || [])[0] ?? null;
 
-  const latNum =
-    primaryAddress?.lat !== null && primaryAddress?.lat !== undefined
-      ? Number(primaryAddress.lat)
-      : null;
-  const lngNum =
-    primaryAddress?.lng !== null && primaryAddress?.lng !== undefined
-      ? Number(primaryAddress.lng)
-      : null;
-  const coordinates =
-    latNum !== null &&
-    lngNum !== null &&
-    Number.isFinite(latNum) &&
-    Number.isFinite(lngNum) &&
-    !(latNum === 0 && lngNum === 0)
-      ? { lat: latNum, lng: lngNum }
-      : null;
+  const hasValidCoords = primaryAddress && isValidCoordinatePair(primaryAddress.lat, primaryAddress.lng);
+  const coordinates = hasValidCoords
+    ? { lat: Number(primaryAddress!.lat), lng: Number(primaryAddress!.lng) }
+    : null;
 
   const activeMedia = (gc.media || []).filter((m) => m.isActive !== false);
   const { coverImageUrl } = extractCoverImages(activeMedia);
@@ -519,12 +638,16 @@ function toPublicGameCenterDto(
     now
   );
 
-  const openTime = gc.settings?.workStartTime || gc.openingTime;
-  const closeTime = gc.settings?.workEndTime || gc.closingTime;
-  const tz = gc.settings?.timeZone || gc.timezone || 'Asia/Tehran';
-  const closureSummary = resolveActiveClosureSummary(gc.closures, now);
-  const isOpenNow =
-    !closureSummary.isBookingTemporarilyClosed && checkIsOpen(openTime, closeTime, tz, now);
+  const openStatus = evaluateCenterOpenStatus({
+    openingTime: gc.openingTime,
+    closingTime: gc.closingTime,
+    closedDays: gc.closedDays,
+    timezone: gc.timezone,
+    settings: gc.settings,
+    schedules: gc.schedules,
+    closures: gc.closures,
+    now,
+  });
 
   const v = ratingStats.validReviewsCount;
   const exactR = v > 0 ? ratingStats.sumRatings / v : 0;
@@ -574,12 +697,12 @@ function toPublicGameCenterDto(
     },
     activityStatus: {
       isActive: true,
-      isOpenNow,
-      openingTime: openTime ?? null,
-      closingTime: closeTime ?? null,
-      timezone: tz,
-      isTemporarilyClosed: closureSummary.isBookingTemporarilyClosed,
-      closedUntil: closureSummary.bookingClosedUntil,
+      isOpenNow: openStatus.isOpenNow,
+      openingTime: openStatus.openingTime,
+      closingTime: openStatus.closingTime,
+      timezone: openStatus.timezone,
+      isTemporarilyClosed: openStatus.isTemporarilyClosed,
+      closedUntil: openStatus.closedUntil,
     },
     rating: {
       average: rawAvg,
@@ -600,6 +723,44 @@ function toPublicGameCenterDto(
     absoluteDetailUrl: `${FRONTEND_BASE_URL}${detailUrl}`,
     updatedAt: gc.updatedAt.toISOString(),
   };
+}
+
+function filterCentersByGameSupport(
+  centers: RawCenterRecord[],
+  resolvedGames: ResolvedGameMatch[],
+  options: {
+    deviceType?: GameStationType;
+    playMode?: GamePlayMode;
+    now: Date;
+  }
+): RawCenterRecord[] {
+  if (resolvedGames.length === 0) return centers;
+  return centers.filter((gc) =>
+    resolvedGames.some((gm) =>
+      Boolean(
+        resolveCenterGameStations(
+          gc as unknown as Parameters<typeof resolveCenterGameStations>[0],
+          gm,
+          {
+            deviceTypes: options.deviceType ? [options.deviceType] : undefined,
+            playMode: options.playMode,
+            allowOnlineBooking: gc.settings?.allowOnlineBooking === true,
+            isTemporarilyClosed: evaluateCenterOpenStatus({
+              openingTime: gc.openingTime,
+              closingTime: gc.closingTime,
+              closedDays: gc.closedDays,
+              timezone: gc.timezone,
+              settings: gc.settings,
+              schedules: gc.schedules,
+              closures: gc.closures,
+              now: options.now,
+            }).isTemporarilyClosed,
+            now: options.now,
+          }
+        )
+      )
+    )
+  );
 }
 
 export const PublicGameCentersRepo = {
@@ -664,12 +825,12 @@ export const PublicGameCentersRepo = {
 
   async findMany(query: ListPublicGameCentersQuery) {
     const now = new Date();
-    const include = buildCenterInclude(now);
     const m = env.RANKING_BAYESIAN_M;
     const minReviews = env.RANKING_MIN_REVIEWS_DEFAULT;
 
     // Batch fetch by IDs (used by Django Blog to prevent N+1 calls)
     if (query.ids && query.ids.length > 0) {
+      const include = buildCenterInclude(now);
       const requestedIds = query.ids;
       const centers = (await prisma.gamingCenter.findMany({
         where: buildPublicEligibilityWhere({
@@ -707,19 +868,50 @@ export const PublicGameCentersRepo = {
       return formatPaginatedResult(ordered, ordered.length, 1, requestedIds.length);
     }
 
+    const hasGameFilter = Boolean(query.game || query.gameId || query.gameSlug);
+    const resolvedGames = hasGameFilter
+      ? await resolveMatchingGames(query.game, {
+          gameIds: query.gameId ? [query.gameId] : undefined,
+          gameSlug: query.gameSlug,
+          minScore: 55,
+        })
+      : [];
+
+    if (hasGameFilter && resolvedGames.length === 0) {
+      return formatPaginatedResult([], 0, query.page, query.limit);
+    }
+
+    const include = buildCenterInclude(now, hasGameFilter);
     const where = buildFilterConditions({
       city: query.city,
+      province: query.province,
       neighborhood: query.neighborhood,
       district: query.district,
       deviceType: query.deviceType,
       amenities: query.amenities,
       search: query.search,
+      lat: query.lat,
+      lng: query.lng,
+      radiusKm: query.radiusKm,
+      resolvedGameIds: resolvedGames.map((g) => g.game.id),
     });
 
-    const isOpenNowFilter = query.status === 'open_now';
+    const isOpenNowFilter = query.status === 'open_now' || query.isOpen === true;
+    const isClosedFilter = query.isOpen === false;
+    const hasPostDbFilter = Boolean(
+      isOpenNowFilter ||
+        isClosedFilter ||
+        hasGameFilter ||
+        query.minPrice !== undefined ||
+        query.maxPrice !== undefined ||
+        query.minRating !== undefined ||
+        (query.lat !== undefined && query.lng !== undefined) ||
+        (query.sort && query.sort !== 'newest')
+    );
+
     const { skip, take } = getPaginationParams(query.page, query.limit);
 
-    if (isOpenNowFilter) {
+    if (hasPostDbFilter) {
       const [rawCenters, allRatingsMap] = await Promise.all([
         prisma.gamingCenter.findMany({
           where,
@@ -730,24 +922,81 @@ export const PublicGameCentersRepo = {
       ]);
 
       const { globalAverageC } = computeGlobalAverageC(Array.from(allRatingsMap.values()));
-      const dtos = rawCenters
+
+      const gameMatchedCenters = hasGameFilter
+        ? filterCentersByGameSupport(rawCenters, resolvedGames, {
+            deviceType: query.deviceType,
+            playMode: query.playMode,
+            now,
+          })
+        : rawCenters;
+
+      const evaluated = gameMatchedCenters
         .map((gc) => {
           const stats = allRatingsMap.get(gc.id) ?? {
             sumRatings: 0,
             validReviewsCount: 0,
             latestReviewAt: null,
           };
-          return toPublicGameCenterDto(
+          const dto = toPublicGameCenterDto(
             gc,
             stats,
             { globalAverageC, m, minReviews, rank: null },
             now
           );
+          const distanceKm =
+            query.lat !== undefined &&
+            query.lng !== undefined &&
+            dto.coordinates
+              ? calculateHaversineDistanceKm(
+                  query.lat,
+                  query.lng,
+                  dto.coordinates.lat,
+                  dto.coordinates.lng
+                )
+              : null;
+          return { dto, distanceKm, createdAt: gc.createdAt };
         })
-        .filter((dto) => dto.activityStatus.isOpenNow);
+        .filter(({ dto, distanceKm }) => {
+          if (isOpenNowFilter && !dto.activityStatus.isOpenNow) return false;
+          if (isClosedFilter && dto.activityStatus.isOpenNow) return false;
+          if (query.minPrice !== undefined && dto.pricing.finalPrice < query.minPrice) return false;
+          if (query.maxPrice !== undefined && dto.pricing.finalPrice > query.maxPrice) return false;
+          if (query.minRating !== undefined && dto.rating.average < query.minRating) return false;
+          if (query.lat !== undefined && query.lng !== undefined) {
+            if (distanceKm === null) return false;
+            if (query.radiusKm !== undefined && distanceKm > query.radiusKm) return false;
+          }
+          return true;
+        });
 
-      const paged = dtos.slice(skip, skip + take);
-      return formatPaginatedResult(paged, dtos.length, query.page, query.limit);
+      if (query.sort) {
+        evaluated.sort((a, b) => {
+          switch (query.sort) {
+            case 'bayesian':
+              return (b.dto.ranking?.bayesianScore ?? 0) - (a.dto.ranking?.bayesianScore ?? 0);
+            case 'rating':
+              return b.dto.rating.average - a.dto.rating.average;
+            case 'reviews':
+              return b.dto.rating.validReviewsCount - a.dto.rating.validReviewsCount;
+            case 'price_asc':
+              return a.dto.pricing.finalPrice - b.dto.pricing.finalPrice;
+            case 'price_desc':
+              return b.dto.pricing.finalPrice - a.dto.pricing.finalPrice;
+            case 'distance':
+              return (
+                (a.distanceKm ?? Number.POSITIVE_INFINITY) -
+                (b.distanceKm ?? Number.POSITIVE_INFINITY)
+              );
+            case 'newest':
+            default:
+              return b.createdAt.getTime() - a.createdAt.getTime();
+          }
+        });
+      }
+
+      const paged = evaluated.slice(skip, skip + take).map((e) => e.dto);
+      return formatPaginatedResult(paged, evaluated.length, query.page, query.limit);
     }
 
     const [rawCenters, total, allRatingsMap] = await Promise.all([
@@ -788,20 +1037,64 @@ export const PublicGameCentersRepo = {
     const minReviews = query.minReviews ?? env.RANKING_MIN_REVIEWS_DEFAULT;
     const resolvedNeighborhood = query.neighborhood || query.district || null;
 
+    const hasGameFilter = Boolean(query.game || query.gameId || query.gameSlug);
+    const resolvedGames = hasGameFilter
+      ? await resolveMatchingGames(query.game, {
+          gameIds: query.gameId ? [query.gameId] : undefined,
+          gameSlug: query.gameSlug,
+          minScore: 55,
+        })
+      : [];
+
+    if (hasGameFilter && resolvedGames.length === 0) {
+      return {
+        ranked: [],
+        newlyRegistered: [],
+        methodology: {
+          algorithm: 'bayesian_average',
+          formula: '(v / (v + m)) * R + (m / (v + m)) * C',
+          m,
+          minReviews,
+          globalAverageC: 0,
+          scopeTotalValidReviews: 0,
+          scope: {
+            city: query.city ?? null,
+            neighborhood: resolvedNeighborhood,
+            deviceType: query.deviceType ? toPublicStationType(query.deviceType) : null,
+            amenities: query.amenities ?? [],
+          },
+          sort: query.sort,
+          rankedCount: 0,
+          newlyRegisteredCount: 0,
+          calculatedAt: now.toISOString(),
+        },
+      };
+    }
+
     const where = buildFilterConditions({
       city: query.city,
+      province: query.province,
       neighborhood: query.neighborhood,
       district: query.district,
       deviceType: query.deviceType,
       amenities: query.amenities,
+      resolvedGameIds: resolvedGames.map((g) => g.game.id),
     });
 
     const rawCenters = (await prisma.gamingCenter.findMany({
       where,
-      include: buildCenterInclude(now),
+      include: buildCenterInclude(now, hasGameFilter),
     })) as unknown as RawCenterRecord[];
 
-    const scopedIds = rawCenters.map((c) => c.id);
+    const matchedCenters = hasGameFilter
+      ? filterCentersByGameSupport(rawCenters, resolvedGames, {
+          deviceType: query.deviceType,
+          playMode: query.playMode,
+          now,
+        })
+      : rawCenters;
+
+    const scopedIds = matchedCenters.map((c) => c.id);
     const [scopedRatingsMap, globalRatingsMap] = await Promise.all([
       aggregateValidRatings(scopedIds),
       aggregateValidRatings(),
@@ -813,7 +1106,7 @@ export const PublicGameCentersRepo = {
         ? scopedC
         : computeGlobalAverageC(Array.from(globalRatingsMap.values()));
 
-    const candidates = rawCenters.map((gc) => {
+    const candidates = matchedCenters.map((gc) => {
       const stats = scopedRatingsMap.get(gc.id) ?? {
         sumRatings: 0,
         validReviewsCount: 0,

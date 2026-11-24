@@ -13,6 +13,8 @@ import {
   updateExtraControllerSchema,
   extraControllerIdParamSchema,
   publicExtraControllersQuerySchema,
+  replaceStationGamesSchema,
+  stationGameIdParamSchema,
 } from './station.validator';
 import { authMiddleware } from '../../common/middleware/auth';
 import { requireRole } from '../../common/middleware/requireRole';
@@ -182,6 +184,35 @@ privateStationRouter.delete(
   asyncHandler(StationController.deleteExtraController)
 );
 
+// Station-level Game Management
+privateStationRouter.get(
+  '/:stationId/games',
+  publicApiRateLimiter,
+  resolveGamingCenterParam,
+  validate(stationIdParamSchema),
+  asyncHandler(StationController.getStationGames)
+);
+
+privateStationRouter.put(
+  '/:stationId/games',
+  privateApiRateLimiter,
+  authMiddleware,
+  tenantGuard,
+  requireRole([UserRole.MANAGER]),
+  validate(replaceStationGamesSchema),
+  asyncHandler(StationController.replaceStationGames)
+);
+
+privateStationRouter.delete(
+  '/:stationId/games/:gameCatalogId',
+  privateApiRateLimiter,
+  authMiddleware,
+  tenantGuard,
+  requireRole([UserRole.MANAGER]),
+  validate(stationGameIdParamSchema),
+  asyncHandler(StationController.removeStationGame)
+);
+
 // --- Public Router (to be mounted under /api/v1/public/gamingCenters/:gamingCenterSlug/stations) ---
 export const publicStationRouter = Router({ mergeParams: true });
 
@@ -210,4 +241,11 @@ publicStationRouter.get(
   resolveGamingCenterBySlug,
   validate(publicExtraControllersQuerySchema),
   asyncHandler(StationController.getPublicExtraControllers)
+);
+
+publicStationRouter.get(
+  '/:stationId/games',
+  publicApiRateLimiter,
+  resolveGamingCenterBySlug,
+  asyncHandler(StationController.getStationGames)
 );

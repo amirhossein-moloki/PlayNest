@@ -8,11 +8,20 @@ import { prisma } from '../../config/prisma';
 import { auditService } from '../audit/audit.station';
 import { invalidateActorCache } from '../../common/middleware/auth';
 import { invalidateTenantCache } from '../../common/utils/tenantCache';
-import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
+import { invalidateAllPublicDiscoveryCaches } from '../../common/utils/publicCache';
 import { recordGamingCenterChangeEvent } from '../integrations/outbox.service';
+import { buildPersianArabicSearchVariants } from '../../common/utils/searchText';
 
 export const PlatformAdminStation = {
-  async getAllGamingCenters(query?: { page?: number; limit?: number; search?: string }) {
+  async getAllGamingCenters(query?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    city?: string;
+    isActive?: boolean;
+    verificationStatus?: string;
+    game?: string;
+  }) {
     const page = query?.page ?? 1;
     const limit = query?.limit ?? 20;
     const skip = (page - 1) * limit;
@@ -21,6 +30,10 @@ export const PlatformAdminStation = {
       skip,
       take: limit,
       search: query?.search,
+      city: query?.city,
+      isActive: query?.isActive,
+      verificationStatus: query?.verificationStatus,
+      game: query?.game,
     });
 
     const formatted = items.map((gc: any) => {
@@ -110,7 +123,7 @@ export const PlatformAdminStation = {
     const updated = await PlatformAdminRepo.updateGamingCenter(gamingCenterId, data);
 
     void invalidateTenantCache(gamingCenterId, center.slug, updated?.slug);
-    void invalidatePublicCacheByPrefix('public:gc:');
+    void invalidateAllPublicDiscoveryCaches();
     void recordGamingCenterChangeEvent({
       gamingCenterId,
       gamingCenterSlug: updated?.slug ?? center.slug,
@@ -155,7 +168,7 @@ export const PlatformAdminStation = {
     const updated = await PlatformAdminRepo.updateGamingCenter(gamingCenterId, data);
 
     void invalidateTenantCache(gamingCenterId, center.slug, updated?.slug);
-    void invalidatePublicCacheByPrefix('public:gc:');
+    void invalidateAllPublicDiscoveryCaches();
     void recordGamingCenterChangeEvent({
       gamingCenterId,
       gamingCenterSlug: updated?.slug ?? center.slug,
@@ -456,10 +469,11 @@ export const PlatformAdminStation = {
       where.isActive = query.isActive;
     }
     if (query.search) {
-      where.OR = [
-        { fullName: { contains: query.search, mode: 'insensitive' } },
-        { phone: { contains: query.search } },
-      ];
+      const variants = buildPersianArabicSearchVariants(query.search);
+      where.OR = variants.flatMap((v) => [
+        { fullName: { contains: v, mode: 'insensitive' as const } },
+        { phone: { contains: v } },
+      ]);
     }
 
     const { items, total } = await PlatformAdminRepo.listUsers({
@@ -681,10 +695,11 @@ export const PlatformAdminStation = {
     }
 
     if (query.city) {
+      const cityVariants = buildPersianArabicSearchVariants(query.city);
       where.gamingCenter = {
         addresses: {
           some: {
-            city: { contains: query.city, mode: 'insensitive' },
+            OR: cityVariants.map((v) => ({ city: { contains: v, mode: 'insensitive' as const } })),
           },
         },
       };
@@ -713,22 +728,23 @@ export const PlatformAdminStation = {
     }
 
     if (query.search) {
-      const searchConditions: Prisma.ReservationWhereInput[] = [
-        { id: { contains: query.search, mode: 'insensitive' } },
+      const variants = buildPersianArabicSearchVariants(query.search);
+      const searchConditions: Prisma.ReservationWhereInput[] = variants.flatMap((v) => [
+        { id: { contains: v, mode: 'insensitive' as const } },
         {
           customerAccount: {
             OR: [
-              { fullName: { contains: query.search, mode: 'insensitive' } },
-              { phone: { contains: query.search } },
+              { fullName: { contains: v, mode: 'insensitive' as const } },
+              { phone: { contains: v } },
             ],
           },
         },
         {
           customerProfile: {
-            displayName: { contains: query.search, mode: 'insensitive' },
+            displayName: { contains: v, mode: 'insensitive' as const },
           },
         },
-      ];
+      ]);
 
       if (where.OR) {
         where.AND = [

@@ -1,7 +1,8 @@
 import { z } from 'zod';
-import { GamingCenterVerificationStatus } from '@prisma/client';
+import { GamePlayMode } from '@prisma/client';
 import { zodGameStationTypeOptional } from '../../common/utils/station-type';
-import { baseFilterSchema } from '../../common/validators/query.validators';
+import { baseFilterSchema, parseOptionalBoolean } from '../../common/validators/query.validators';
+import { isValidCoordinatePair, parseSearchDeviceAlias } from '../../common/utils/searchText';
 
 export const createGamingCenterSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters long'),
@@ -97,29 +98,76 @@ export const getGamingCenterDetailsSchema = z.object({
 
 export type GetGamingCenterDetailsQuery = z.infer<typeof getGamingCenterDetailsSchema>;
 
-export const listGamingCentersSchema = baseFilterSchema.extend({
-  city: z.string().optional(),
-  province: z.string().optional(),
-  district: z.string().optional(),
-  game: z.string().optional(),
-  stationType: zodGameStationTypeOptional(),
-  type: zodGameStationTypeOptional(),
-  minStationCount: z.coerce.number().int().min(1).optional(),
-  minHourlyRate: z.coerce.number().min(0).optional(),
-  maxHourlyRate: z.coerce.number().min(0).optional(),
-  minPrice: z.coerce.number().min(0).optional(),
-  maxPrice: z.coerce.number().min(0).optional(),
-  hasFoodService: z.preprocess(
-    (val) => (val === 'true' || val === true ? true : val === 'false' || val === false ? false : val),
-    z.boolean().optional()
-  ),
-  minRating: z.coerce.number().min(0).max(5).optional(),
-  isOpen: z.preprocess(
-    (val) => (val === 'true' || val === true ? true : val === 'false' || val === false ? false : val),
-    z.boolean().optional()
-  ),
-  verificationStatus: z.nativeEnum(GamingCenterVerificationStatus).optional(),
-});
+const parseCommaStrings = (val: unknown): string[] | undefined => {
+  if (val === undefined || val === null || val === '') return undefined;
+  const arr = Array.isArray(val) ? val : [val];
+  const tokens = arr
+    .flatMap((item) => (typeof item === 'string' ? item.split(',') : []))
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return tokens.length > 0 ? Array.from(new Set(tokens)) : undefined;
+};
+
+export const listGamingCentersSchema = baseFilterSchema
+  .extend({
+    city: z.string().trim().optional(),
+    province: z.string().trim().optional(),
+    district: z.string().trim().optional(),
+    neighborhood: z.string().trim().optional(),
+    game: z.string().trim().optional(),
+    gameId: z.string().trim().optional(),
+    gameSlug: z.string().trim().optional(),
+    playMode: z.preprocess(
+      (val) => (typeof val === 'string' ? val.trim().toUpperCase() : val),
+      z.nativeEnum(GamePlayMode).optional()
+    ),
+    stationType: z.preprocess(
+      (val) => (typeof val === 'string' ? parseSearchDeviceAlias(val) ?? val : val),
+      zodGameStationTypeOptional()
+    ),
+    type: z.preprocess(
+      (val) => (typeof val === 'string' ? parseSearchDeviceAlias(val) ?? val : val),
+      zodGameStationTypeOptional()
+    ),
+    minStationCount: z.coerce.number().int().min(1).optional(),
+    minHourlyRate: z.coerce.number().min(0).optional(),
+    maxHourlyRate: z.coerce.number().min(0).optional(),
+    minPrice: z.coerce.number().min(0).optional(),
+    maxPrice: z.coerce.number().min(0).optional(),
+    hasFoodService: parseOptionalBoolean(),
+    isVip: parseOptionalBoolean(),
+    amenities: z.preprocess(
+      parseCommaStrings,
+      z
+        .array(
+          z.enum(['food_service', 'vip', 'online_booking', 'online_games', 'extra_controllers'])
+        )
+        .optional()
+    ),
+    minRating: z.coerce.number().min(0).max(5).optional(),
+    isOpen: parseOptionalBoolean(),
+    availableNow: parseOptionalBoolean(),
+    lat: z.coerce.number().finite().min(-90).max(90).optional(),
+    lng: z.coerce.number().finite().min(-180).max(180).optional(),
+    radiusKm: z.coerce.number().finite().min(0.5).max(200).optional(),
+  })
+  .superRefine((data, ctx) => {
+    const hasLat = data.lat !== undefined;
+    const hasLng = data.lng !== undefined;
+    if (hasLat !== hasLng) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Both lat and lng must be provided together',
+        path: [hasLat ? 'lng' : 'lat'],
+      });
+    } else if (hasLat && hasLng && !isValidCoordinatePair(data.lat, data.lng)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Invalid coordinates provided',
+        path: ['lat'],
+      });
+    }
+  });
 
 export type ListGamingCentersQuery = z.infer<typeof listGamingCentersSchema>;
 

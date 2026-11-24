@@ -44,6 +44,7 @@ import {
   publicAdvertisementsRouter,
 } from '../modules/public/public.routes';
 import { publicGameCentersV2Router } from '../modules/public-gamecenters/public-gamecenters.routes';
+import { publicSearchRouter } from '../modules/search/search.routes';
 import { advertisementRouter } from '../modules/advertisement/advertisement.routes';
 import { paymentsRoutes, paymentsManagementRouter } from '../modules/payments/payments.routes';
 import { paymentsCallbackRouter } from '../modules/payments/payments.callback.routes';
@@ -149,6 +150,7 @@ router.use('/gamingCenters/:gamingCenterId/ratings', privateReviewsRouter);
 
 // Public GamingCenter Root & Reviews
 router.use('/public/gamecenters', publicGameCentersV2Router);
+router.use('/public/search', publicSearchRouter);
 router.use('/public/gaming-centers', publicGamingCentersRouter);
 router.use('/public/gamingCenters', publicGamingCentersRouter);
 router.use('/public/gamingCenters/:gamingCenterSlug', publicGamingCenterRouter);

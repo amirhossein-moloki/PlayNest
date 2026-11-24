@@ -103,7 +103,9 @@ export const AdvertisementStation = {
     }
 
     if (query.search) {
-      where.title = { contains: query.search.trim(), mode: 'insensitive' };
+      const { buildPersianArabicSearchVariants } = await import('../../common/utils/searchText');
+      const variants = buildPersianArabicSearchVariants(query.search.trim());
+      where.OR = variants.map((v) => ({ title: { contains: v, mode: 'insensitive' as const } }));
     }
 
     const sortField = query.sortBy || 'createdAt';

@@ -1365,6 +1365,7 @@ model Address {
   @@index([province])
   @@index([city])
   @@index([city, district])
+  @@index([lat, lng])
 }
 
 // =======================
@@ -1480,31 +1481,57 @@ enum GamePlayMode {
 }
 
 model GameCatalog {
-  id                 String             @id @default(cuid())
+  id                 String            @id @default(cuid())
   title              String
+  slug               String?           @unique
+  titleFa            String?
+  titleEn            String?
+  category           String?
+  normalizedKey      String?
+  popularityScore    Int               @default(0)
   coverImageUrl      String
-  supportedPlatforms GameStationType[]  @default([PC])
+  supportedPlatforms GameStationType[] @default([PC])
   genre              String?
   description        String?
-  supportsOnline     Boolean            @default(false)
-  isActive           Boolean            @default(true)
+  supportsOnline     Boolean           @default(false)
+  isActive           Boolean           @default(true)
 
-  centerGames GamingCenterGame[]
+  aliases      GameAlias[]
+  centerGames  GamingCenterGame[]
+  stationGames GameStationGame[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([isActive])
   @@index([supportsOnline])
+  @@index([normalizedKey])
+  @@index([category, isActive])
+  @@index([isActive, popularityScore(sort: Desc)])
+}
+
+model GameAlias {
+  id            String      @id @default(cuid())
+  gameCatalogId String
+  gameCatalog   GameCatalog @relation(fields: [gameCatalogId], references: [id], onDelete: Cascade)
+  alias         String
+  normalized    String
+  locale        String?
+  createdAt     DateTime    @default(now())
+
+  @@unique([gameCatalogId, normalized])
+  @@index([normalized])
+  @@index([gameCatalogId])
 }
 
 model GamingCenterGame {
-  id             String       @id @default(cuid())
+  id             String            @id @default(cuid())
   gamingCenterId String
   gameCatalogId  String
-  playMode       GamePlayMode @default(OFFLINE)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  playMode       GamePlayMode      @default(OFFLINE)
+  platforms      GameStationType[] @default([])
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   gamingCenter GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
   gameCatalog  GameCatalog  @relation(fields: [gameCatalogId], references: [id], onDelete: Cascade)
@@ -1513,6 +1540,23 @@ model GamingCenterGame {
   @@index([gamingCenterId])
   @@index([gameCatalogId])
   @@index([gamingCenterId, playMode])
+}
+
+model GameStationGame {
+  id            String       @id @default(cuid())
+  stationId     String
+  gameCatalogId String
+  playMode      GamePlayMode @default(OFFLINE)
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  station     GameStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  gameCatalog GameCatalog @relation(fields: [gameCatalogId], references: [id], onDelete: Cascade)
+
+  @@unique([stationId, gameCatalogId])
+  @@index([stationId, isActive])
+  @@index([gameCatalogId, isActive])
 }
 
 model GameStation {
@@ -1549,12 +1593,15 @@ model GameStation {
   waitlistEntries   WaitlistEntry[]
   waitlistOffers    WaitlistOffer[]
   extraControllers  StationExtraController[]
+  stationGames      GameStationGame[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([gamingCenterId, isActive])
   @@index([gamingCenterId, isActive, stationType])
+  @@index([gamingCenterId, isActive, hourlyPrice])
+  @@index([gamingCenterId, isActive, isVip])
   @@index([gamingCenterId, name])
   @@index([gamingCenterId, catalogDeviceId])
   @@index([updatedAt, id])

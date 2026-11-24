@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { MediaPurpose, MediaType } from '@prisma/client';
 import { idSchema, CUID_MESSAGE } from '../../common/validators/common.validators';
+import { parseOptionalBoolean } from '../../common/validators/query.validators';
 const ALT_TEXT_REQUIRED_PURPOSES = new Set<MediaPurpose>([
   MediaPurpose.LOGO,
   MediaPurpose.COVER,
@@ -50,7 +51,7 @@ export const uploadMediaSchema = z.object({
       category: baseFields.category,
       caption: baseFields.caption,
       sortOrder: z.coerce.number().int().min(0).optional(),
-      isActive: z.coerce.boolean().optional(),
+      isActive: parseOptionalBoolean(),
     })
     .superRefine((data, ctx) => {
       validateAltTextForPurpose(data.purpose, data.altText, ctx);

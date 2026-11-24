@@ -22,8 +22,25 @@ export const PlatformAdminController = {
       const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
       const search = req.query.search as string | undefined;
+      const city = req.query.city as string | undefined;
+      const verificationStatus = req.query.verificationStatus as string | undefined;
+      const game = req.query.game as string | undefined;
+      const isActive =
+        req.query.isActive === 'true'
+          ? true
+          : req.query.isActive === 'false'
+            ? false
+            : undefined;
 
-      const result = await PlatformAdminStation.getAllGamingCenters({ page, limit, search });
+      const result = await PlatformAdminStation.getAllGamingCenters({
+        page,
+        limit,
+        search,
+        city,
+        isActive,
+        verificationStatus,
+        game,
+      });
       res.ok(result.items, {
         pagination: {
           page: result.pagination.page,

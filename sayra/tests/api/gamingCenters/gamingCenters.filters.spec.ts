@@ -17,6 +17,10 @@ jest.mock('../../../src/config/prisma', () => ({
       count: jest.fn(),
       groupBy: jest.fn(),
     },
+    rating: {
+      groupBy: jest.fn(),
+      findMany: jest.fn(),
+    },
     user: {
       findUnique: jest.fn(),
     },
@@ -193,6 +197,25 @@ describe('Gaming Centers Advanced Filters & Station Custom Selection API', () =>
         })
       );
     });
+
+    it('should parse isVip=false accurately as boolean false instead of coercing non-empty string to true', async () => {
+      (prisma.gamingCenter.findUnique as jest.Mock).mockResolvedValue(mockCenter1);
+      (prisma.gameStation.findMany as jest.Mock).mockResolvedValue([mockStations[1]]);
+      (prisma.gameStation.count as jest.Mock).mockResolvedValue(1);
+
+      const res = await request(app)
+        .get('/api/v1/gamingCenters/center_10/stations?isVip=false');
+
+      expect(res.status).toBe(200);
+      expect(prisma.gameStation.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            gamingCenterId: 'center_10',
+            isVip: false,
+          }),
+        })
+      );
+    });
   });
 
   describe('3. Optimized Gaming Center List API (Device Aggregation & Advanced Filters)', () => {
@@ -226,47 +249,151 @@ describe('Gaming Centers Advanced Filters & Station Custom Selection API', () =>
       expect(center.stations).toBeUndefined();
     });
 
-    it('should apply advanced location, pricing, rating and amenities filters in Prisma where clause', async () => {
+    it('should lock public list to APPROVED & isActive=true even if query tries to override them, and apply location/stationType filters with Persian/Arabic variants', async () => {
       (prisma.gamingCenter.findMany as jest.Mock).mockResolvedValue([]);
       (prisma.gamingCenter.count as jest.Mock).mockResolvedValue(0);
 
-      await request(app).get(
-        '/api/v1/gamingCenters?city=تبریز&province=آذربایجان شرقی&district=باغمیشه&minHourlyRate=50000&maxHourlyRate=150000&hasFoodService=true&stationType=PLAYSTATION%205&minRating=4&sortBy=hourlyRate&sortOrder=asc'
+      const res = await request(app).get(
+        '/api/v1/gamingCenters?verificationStatus=PENDING&isActive=false&city=تبریز&province=آذربایجان شرقی&district=باغمیشه&hasFoodService=true&stationType=PLAYSTATION%205&sortBy=hourlyRate&sortOrder=asc'
       );
 
+      expect(res.status).toBe(200);
       expect(prisma.gamingCenter.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
+            isActive: true,
+            verificationStatus: 'APPROVED',
+            hasFoodService: true,
             addresses: {
               some: {
-                city: { contains: 'تبریز', mode: 'insensitive' },
-                province: { contains: 'آذربایجان شرقی', mode: 'insensitive' },
-                district: { contains: 'باغمیشه', mode: 'insensitive' },
+                AND: [
+                  {
+                    OR: expect.arrayContaining([
+                      { city: { contains: 'تبریز', mode: 'insensitive' } },
+                      { city: { contains: 'تبريز', mode: 'insensitive' } },
+                    ]),
+                  },
+                  {
+                    OR: expect.arrayContaining([
+                      { province: { contains: 'آذربایجان شرقی', mode: 'insensitive' } },
+                    ]),
+                  },
+                  {
+                    OR: expect.arrayContaining([
+                      { district: { contains: 'باغمیشه', mode: 'insensitive' } },
+                    ]),
+                  },
+                ],
               },
             },
-            hourlyRate: {
-              gte: 50000,
-              lte: 150000,
-            },
-            hasFoodService: true,
             stations: {
               some: {
                 stationType: 'PLAYSTATION_5',
                 isActive: true,
               },
             },
-            ratings: {
-              some: {
-                status: 'PUBLISHED',
-                rating: {
-                  gte: 4,
-                },
-              },
-            },
           }),
           orderBy: { hourlyRate: 'asc' },
         })
       );
+    });
+
+    it('should filter by real average rating and discounted effective station price with accurate post-filter pagination', async () => {
+      const highAvgLowDiscountCenter = {
+        ...mockCenter1,
+        id: 'center_high',
+        slug: 'center-high',
+        ratings: undefined,
+        hourlyRate: 200000, // Scalar differs from actual discounted station price!
+        openingTime: '00:00',
+        closingTime: '00:00',
+        stations: [
+          { id: 'st_h1', stationType: 'PLAYSTATION_5', hourlyPrice: 150000, isVip: true, isActive: true },
+          { id: 'st_h2', stationType: 'PLAYSTATION_5', hourlyPrice: 150000, isVip: false, isActive: true },
+        ],
+        discounts: [
+          {
+            isActive: true,
+            targetType: 'GAMING_CENTER',
+            targetId: 'center_high',
+            valueType: 'PERCENTAGE',
+            value: 20, // Effective station price: 150000 * 0.8 = 120000
+            startAt: new Date(Date.now() - 3600_000),
+            endAt: new Date(Date.now() + 3600_000),
+          },
+        ],
+        discountCampaigns: [],
+        closures: [],
+        media: [],
+      };
+
+      const lowAvgCenter = {
+        ...mockCenter1,
+        id: 'center_low',
+        slug: 'center-low',
+        ratings: undefined,
+        hourlyRate: 120000,
+        openingTime: '00:00',
+        closingTime: '00:00',
+        stations: [
+          { id: 'st_l1', stationType: 'PLAYSTATION_5', hourlyPrice: 120000, isVip: false, isActive: true },
+          { id: 'st_l2', stationType: 'PLAYSTATION_5', hourlyPrice: 120000, isVip: false, isActive: true },
+        ],
+        discounts: [],
+        discountCampaigns: [],
+        closures: [],
+        media: [],
+      };
+
+      const closedOrUnderCountCenter = {
+        ...mockCenter1,
+        id: 'center_closed',
+        slug: 'center-closed',
+        ratings: undefined,
+        openingTime: '09:00',
+        closingTime: '10:00',
+        closures: [
+          {
+            id: 'cl_now',
+            startDate: new Date(Date.now() - 3600_000),
+            endDate: new Date(Date.now() + 3600_000),
+          },
+        ],
+        stations: [
+          { id: 'st_c1', stationType: 'PLAYSTATION_5', hourlyPrice: 100000, isVip: false, isActive: true },
+        ],
+        discounts: [],
+        discountCampaigns: [],
+        media: [],
+      };
+
+      (prisma.gamingCenter.findMany as jest.Mock).mockResolvedValue([
+        highAvgLowDiscountCenter,
+        lowAvgCenter,
+        closedOrUnderCountCenter,
+      ]);
+      (prisma.gameStation.groupBy as jest.Mock).mockResolvedValue([
+        { gamingCenterId: 'center_high', stationType: 'PLAYSTATION_5', _count: { _all: 3 }, _min: { hourlyPrice: 150000 } },
+        { gamingCenterId: 'center_low', stationType: 'PLAYSTATION_5', _count: { _all: 3 }, _min: { hourlyPrice: 120000 } },
+        { gamingCenterId: 'center_closed', stationType: 'PLAYSTATION_5', _count: { _all: 3 }, _min: { hourlyPrice: 100000 } },
+      ]);
+      (prisma.rating.groupBy as jest.Mock).mockResolvedValue([
+        // Average = 4.6 -> passes minRating=4
+        { gamingCenterId: 'center_high', _avg: { rating: 4.6 }, _count: { _all: 5, comment: 2 } },
+        // Average = 3.0 -> MUST fail minRating=4 even though it may have had one 5-star review!
+        { gamingCenterId: 'center_low', _avg: { rating: 3.0 }, _count: { _all: 2, comment: 1 } },
+        { gamingCenterId: 'center_closed', _avg: { rating: 4.8 }, _count: { _all: 4, comment: 1 } },
+      ]);
+
+      const res = await request(app).get(
+        '/api/v1/gamingCenters?minRating=4&minHourlyRate=110000&maxHourlyRate=130000&isOpen=true&minStationCount=2&page=1&limit=10'
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.data).toHaveLength(1);
+      expect(res.body.data.data[0].id).toBe('center_high');
+      expect(res.body.data.meta.total).toBe(1);
+      expect(res.body.data.meta.totalPages).toBe(1);
     });
   });
 });

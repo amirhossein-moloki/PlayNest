@@ -858,13 +858,15 @@ export const reservationStation = {
       ...(checkInCode ? { checkInCode } : {}),
       ...(search
         ? {
-            OR: [
-              { checkInCode: { contains: search, mode: 'insensitive' } },
-              { customerProfile: { displayName: { contains: search, mode: 'insensitive' } } },
-              { customerAccount: { fullName: { contains: search, mode: 'insensitive' } } },
-              { customerAccount: { phone: { contains: search } } },
-              { id: { contains: search, mode: 'insensitive' } },
-            ],
+            OR: (await import('../../common/utils/searchText'))
+              .buildPersianArabicSearchVariants(search)
+              .flatMap((v) => [
+                { checkInCode: { contains: v, mode: 'insensitive' as const } },
+                { customerProfile: { displayName: { contains: v, mode: 'insensitive' as const } } },
+                { customerAccount: { fullName: { contains: v, mode: 'insensitive' as const } } },
+                { customerAccount: { phone: { contains: v } } },
+                { id: { contains: v, mode: 'insensitive' as const } },
+              ]),
           }
         : {}),
       startTime: {

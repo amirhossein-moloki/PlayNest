@@ -1,12 +1,22 @@
 import { prisma } from '../../config/prisma';
 import { CreateGamingCenterInput, UpdateGamingCenterInput, GamingCenterListItem, GamingCenterPricing, DeviceTypeCounts } from './gamingCenter.types';
 import { toPublicStationType } from '../../common/utils/station-type';
-import { Prisma, GameStation, Rating, Settings, Address, DiscountValueType, GamingCenterVerificationStatus } from '@prisma/client';
+import { Prisma, GameStation, GameStationType, GamePlayMode, Rating, Settings, Address, DiscountValueType, GamingCenterVerificationStatus } from '@prisma/client';
 import { ListGamingCentersQuery, GetGamingCenterDetailsQuery } from './gamingCenter.validation';
 import { getPaginationParams, formatPaginatedResult } from '../../common/utils/pagination';
-import { toZonedTime } from 'date-fns-tz';
 import { resolveCancellationWindowMinutes } from '../reservation/reservation.validation';
 import { resolveActiveClosureSummary } from '../closures/closures.validators';
+import { evaluateCenterOpenStatus } from '../../common/utils/operatingHours';
+import {
+  buildPersianArabicSearchVariants,
+  calculateHaversineDistanceKm,
+  getGeoBoundingBox,
+  isValidCoordinatePair,
+} from '../../common/utils/searchText';
+import { resolveMatchingGames } from '../search/gameIndex.service';
+import { resolveCenterGameStations } from '../search/search.service';
+import { computeBayesianScore, computeGlobalAverageC } from '../public-gamecenters/bayesian.ranking';
+import { env } from '../../config/env';
 
 export function checkIsOpen(
   openingTime?: string | null,
@@ -14,43 +24,19 @@ export function checkIsOpen(
   timeZone: string = 'Asia/Tehran',
   now: Date = new Date()
 ): boolean {
-  if (!openingTime || !closingTime) {
-    return true; // Default open if no schedule defined
-  }
-
-  const [openH, openM] = openingTime.split(':').map(Number);
-  const [closeH, closeM] = closingTime.split(':').map(Number);
-
-  if (isNaN(openH) || isNaN(openM) || isNaN(closeH) || isNaN(closeM)) {
-    return true;
-  }
-
-  let zonedDate: Date;
-  try {
-    zonedDate = toZonedTime(now, timeZone);
-  } catch {
-    zonedDate = now;
-  }
-
-  const currentMinutes = zonedDate.getHours() * 60 + zonedDate.getMinutes();
-  const openMinutes = openH * 60 + openM;
-  const closeMinutes = closeH * 60 + closeM;
-
-  if (openMinutes === closeMinutes) {
-    return true; // Open 24h
-  }
-
-  if (closeMinutes > openMinutes) {
-    // Normal day interval (e.g. 10:00 to 23:00)
-    return currentMinutes >= openMinutes && currentMinutes < closeMinutes;
-  } else {
-    // Overnight interval (e.g. 14:00 to 02:00)
-    return currentMinutes >= openMinutes || currentMinutes < closeMinutes;
-  }
+  return evaluateCenterOpenStatus({
+    openingTime,
+    closingTime,
+    timezone: timeZone,
+    now,
+  }).isOpenNow;
 }
 
 type NarrowedSettings = Partial<Settings>;
-type NarrowedStation = Pick<GameStation, 'id' | 'stationType' | 'name' | 'hourlyPrice' | 'isActive'>;
+type NarrowedStation = Pick<GameStation, 'id' | 'stationType' | 'name' | 'hourlyPrice' | 'isActive'> & {
+  isVip?: boolean;
+  stationGames?: Array<{ gameCatalogId: string; playMode: GamePlayMode; isActive: boolean }>;
+};
 type NarrowedManager = {
   id: string;
   fullName: string;
@@ -69,6 +55,18 @@ type GamingCenterWithRelations = Omit<
   settings?: NarrowedSettings | null;
   manager?: NarrowedManager | null;
   stations?: NarrowedStation[];
+  schedules?: Array<{
+    dayOfWeek: number;
+    startTime: string | null;
+    endTime: string | null;
+    isClosed: boolean;
+  }>;
+  centerGames?: Array<{
+    gameCatalogId: string;
+    playMode: GamePlayMode;
+    platforms?: GameStationType[];
+  }>;
+  stationExtraControllers?: Array<{ id: string }>;
   media?: Array<{
     url: string;
     thumbUrl?: string | null;
@@ -373,10 +371,16 @@ export function transformGamingCenter(
     commentCount = publishedRatings.filter((r) => r.comment && r.comment.trim().length > 0).length;
   }
 
-  const openTime = settings?.workStartTime || gc.openingTime;
-  const closeTime = settings?.workEndTime || gc.closingTime;
-  const tz = settings?.timeZone || 'Asia/Tehran';
-  const isOpen = checkIsOpen(openTime, closeTime, tz);
+  const openStatus = evaluateCenterOpenStatus({
+    openingTime: gc.openingTime,
+    closingTime: gc.closingTime,
+    closedDays: gc.closedDays,
+    timezone: gc.timezone,
+    settings,
+    schedules: gc.schedules,
+    closures: gc.closures,
+  });
+  const isOpen = openStatus.isOpenNow;
 
   const finalPcCount = deviceCounts && (deviceCounts.PC > 0 || gc.stations !== undefined) ? deviceCounts.PC : gc.pcCount;
   const totalConsoleDevices = deviceCounts
@@ -635,6 +639,18 @@ export const gamingCenterRepository = {
               endDate: 'desc',
             },
           },
+          ...(typeof prisma.gamingCenterSchedule?.findMany === 'function'
+            ? {
+                schedules: {
+                  select: {
+                    dayOfWeek: true,
+                    startTime: true,
+                    endTime: true,
+                    isClosed: true,
+                  },
+                },
+              }
+            : {}),
         },
       });
 
@@ -772,13 +788,16 @@ export const gamingCenterRepository = {
       page,
       limit,
       search,
-      isActive,
       sortBy,
       sortOrder,
       city,
       province,
       district,
+      neighborhood,
       game,
+      gameId,
+      gameSlug,
+      playMode,
       stationType,
       type,
       minStationCount,
@@ -787,55 +806,125 @@ export const gamingCenterRepository = {
       minPrice,
       maxPrice,
       hasFoodService,
+      isVip,
+      amenities,
       minRating,
       isOpen,
+      availableNow,
+      lat,
+      lng,
+      radiusKm,
     } = query;
     const { skip, take } = getPaginationParams(page, limit);
+    const resolvedDistrict = neighborhood || district;
 
+    // Security invariant: public /api/v1/gamingCenters strictly exposes ONLY active, approved centers.
+    const andConditions: Prisma.GamingCenterWhereInput[] = [];
     const where: Prisma.GamingCenterWhereInput = {
-      isActive: isActive !== undefined ? isActive : true,
-      verificationStatus: query.verificationStatus || GamingCenterVerificationStatus.APPROVED,
+      isActive: true,
+      verificationStatus: GamingCenterVerificationStatus.APPROVED,
     };
 
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { slug: { contains: search, mode: 'insensitive' } },
-      ];
+      const variants = buildPersianArabicSearchVariants(search);
+      where.OR = variants.flatMap((v) => [
+        { name: { contains: v, mode: 'insensitive' as const } },
+        { slug: { contains: v, mode: 'insensitive' as const } },
+        { addresses: { some: { city: { contains: v, mode: 'insensitive' as const } } } },
+        { addresses: { some: { district: { contains: v, mode: 'insensitive' as const } } } },
+      ]);
     }
 
-    // Geographic / address filtering directly in database
-    if (city || province || district) {
+    // Geographic / address filtering directly in database with Persian/Arabic variants
+    if (city || province || resolvedDistrict) {
+      const addressAnd: Prisma.AddressWhereInput[] = [];
+      if (city) {
+        const variants = buildPersianArabicSearchVariants(city);
+        addressAnd.push(
+          variants.length <= 1
+            ? { city: { contains: variants[0] ?? city, mode: 'insensitive' } }
+            : { OR: variants.map((v) => ({ city: { contains: v, mode: 'insensitive' } })) }
+        );
+      }
+      if (province) {
+        const variants = buildPersianArabicSearchVariants(province);
+        addressAnd.push(
+          variants.length <= 1
+            ? { province: { contains: variants[0] ?? province, mode: 'insensitive' } }
+            : { OR: variants.map((v) => ({ province: { contains: v, mode: 'insensitive' } })) }
+        );
+      }
+      if (resolvedDistrict) {
+        const variants = buildPersianArabicSearchVariants(resolvedDistrict);
+        addressAnd.push(
+          variants.length <= 1
+            ? { district: { contains: variants[0] ?? resolvedDistrict, mode: 'insensitive' } }
+            : { OR: variants.map((v) => ({ district: { contains: v, mode: 'insensitive' } })) }
+        );
+      }
       where.addresses = {
-        some: {
-          ...(city ? { city: { contains: city, mode: 'insensitive' } } : {}),
-          ...(province ? { province: { contains: province, mode: 'insensitive' } } : {}),
-          ...(district ? { district: { contains: district, mode: 'insensitive' } } : {}),
-        },
+        some: addressAnd.length === 1 ? addressAnd[0] : { AND: addressAnd },
       };
     }
 
-    if (game) {
-      where.games = {
-        has: game,
-      };
+    if (lat !== undefined && lng !== undefined) {
+      const box = getGeoBoundingBox(lat, lng, radiusKm ?? 50);
+      andConditions.push({
+        addresses: {
+          some: {
+            lat: { gte: box.minLat, lte: box.maxLat },
+            lng: { gte: box.minLng, lte: box.maxLng },
+          },
+        },
+      });
     }
 
     if (hasFoodService !== undefined) {
       where.hasFoodService = hasFoodService;
     }
 
-    // Price range filtering
-    const effectiveMinRate = minHourlyRate !== undefined ? minHourlyRate : minPrice;
-    const effectiveMaxRate = maxHourlyRate !== undefined ? maxHourlyRate : maxPrice;
-    if (effectiveMinRate !== undefined || effectiveMaxRate !== undefined) {
-      where.hourlyRate = {
-        ...(effectiveMinRate !== undefined ? { gte: effectiveMinRate } : {}),
-        ...(effectiveMaxRate !== undefined ? { lte: effectiveMaxRate } : {}),
-      };
+    if (isVip === true) {
+      andConditions.push({
+        OR: [
+          { vipHourlyRate: { not: null } },
+          { stations: { some: { isActive: true, isVip: true } } },
+        ],
+      });
     }
 
-    // Filter by station types and minimum station count
+    if (amenities && amenities.length > 0) {
+      for (const amenity of amenities) {
+        switch (amenity) {
+          case 'food_service':
+            where.hasFoodService = true;
+            break;
+          case 'vip':
+            andConditions.push({
+              OR: [
+                { vipHourlyRate: { not: null } },
+                { stations: { some: { isActive: true, isVip: true } } },
+              ],
+            });
+            break;
+          case 'online_booking':
+            andConditions.push({ settings: { allowOnlineBooking: true } });
+            break;
+          case 'online_games':
+            if (typeof prisma.gamingCenterGame?.findMany === 'function') {
+              andConditions.push({ centerGames: { some: { playMode: GamePlayMode.ONLINE } } });
+            }
+            break;
+          case 'extra_controllers':
+            andConditions.push({ stationExtraControllers: { some: { isActive: true } } });
+            break;
+        }
+      }
+    }
+
+    const effectiveMinRate = minHourlyRate !== undefined ? minHourlyRate : minPrice;
+    const effectiveMaxRate = maxHourlyRate !== undefined ? maxHourlyRate : maxPrice;
+
+    // Filter by station types
     const resolvedStationType = stationType || type;
     if (resolvedStationType) {
       where.stations = {
@@ -846,17 +935,73 @@ export const gamingCenterRepository = {
       };
     }
 
-    // Filter by rating directly via relation filter
-    if (minRating !== undefined && minRating > 0) {
-      where.ratings = {
-        some: {
-          status: 'PUBLISHED',
-          rating: {
-            gte: minRating,
-          },
-        },
-      };
+    // Resolve game filter via catalog/aliases when game, gameId, or gameSlug is specified
+    const hasGameFilter = Boolean(game || gameId || gameSlug);
+    const resolvedGames = hasGameFilter
+      ? await resolveMatchingGames(game, {
+          gameIds: gameId ? [gameId] : undefined,
+          gameSlug,
+          minScore: 55,
+        })
+      : [];
+
+    if (hasGameFilter && resolvedGames.length === 0 && typeof prisma.gameCatalog?.findMany === 'function') {
+      // Fallback: if catalog table is empty in legacy tests, don't crash; if catalog exists and didn't match, return empty
+      const totalCatalogCount =
+        typeof prisma.gameCatalog?.count === 'function'
+          ? await prisma.gameCatalog.count().catch(() => 0)
+          : 0;
+      if (totalCatalogCount > 0) {
+        return formatPaginatedResult([], 0, page, limit);
+      }
     }
+
+    if (hasGameFilter && resolvedGames.length > 0) {
+      const gameIds = resolvedGames.map((g) => g.game.id);
+      const hasCenterGames = typeof prisma.gamingCenterGame?.findMany === 'function';
+      const hasStationGames = typeof prisma.gameStationGame?.findMany === 'function';
+      const gameOr: Prisma.GamingCenterWhereInput[] = [];
+      if (hasCenterGames) {
+        gameOr.push({ centerGames: { some: { gameCatalogId: { in: gameIds } } } });
+      }
+      if (hasStationGames) {
+        gameOr.push({
+          stations: {
+            some: {
+              isActive: true,
+              stationGames: { some: { gameCatalogId: { in: gameIds }, isActive: true } },
+            },
+          },
+        });
+      }
+      if (gameOr.length > 0) {
+        andConditions.push({ OR: gameOr });
+      }
+    } else if (hasGameFilter && game && resolvedGames.length === 0) {
+      // Legacy fallback only when GameCatalog is unavailable/empty
+      where.games = { has: game };
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
+    }
+
+    const needsPostDbEvaluation = Boolean(
+      isOpen !== undefined ||
+        availableNow === true ||
+        minStationCount !== undefined ||
+        (minRating !== undefined && minRating > 0) ||
+        effectiveMinRate !== undefined ||
+        effectiveMaxRate !== undefined ||
+        hasGameFilter ||
+        isVip !== undefined ||
+        (lat !== undefined && lng !== undefined) ||
+        (amenities && amenities.length > 0) ||
+        sortBy === 'rating' ||
+        sortBy === 'bayesian' ||
+        sortBy === 'distance' ||
+        sortBy === 'hourlyRate'
+    );
 
     // Sorting
     const allowedSortFields: Record<string, boolean> = {
@@ -871,87 +1016,144 @@ export const gamingCenterRepository = {
     const orderDirection = sortOrder === 'asc' ? 'asc' : 'desc';
 
     const now = new Date();
-    const [rawCenters, total] = await Promise.all([
+    const hasSchedules = typeof prisma.gamingCenterSchedule?.findMany === 'function';
+    const hasCenterGames = typeof prisma.gamingCenterGame?.findMany === 'function';
+    const hasStationGames = typeof prisma.gameStationGame?.findMany === 'function';
+
+    const includeClause: Prisma.GamingCenterInclude = {
+      addresses: true,
+      settings: {
+        select: {
+          workStartTime: true,
+          workEndTime: true,
+          timeZone: true,
+          cancellationHours: true,
+          cancellationWindowMinutes: true,
+          allowOnlineBooking: true,
+        },
+      },
+      manager: {
+        select: {
+          id: true,
+          fullName: true,
+          role: true,
+        },
+      },
+      media: {
+        where: {
+          isActive: true,
+        },
+        orderBy: {
+          sortOrder: 'asc',
+        },
+        select: {
+          url: true,
+          thumbUrl: true,
+          purpose: true,
+          isActive: true,
+          sortOrder: true,
+        },
+      },
+      discounts: {
+        where: {
+          isActive: true,
+          startAt: { lte: now },
+          endAt: { gte: now },
+        },
+      },
+      discountCampaigns: {
+        where: {
+          isActive: true,
+          deletedAt: null,
+          startAt: { lte: now },
+          endAt: { gte: now },
+          OR: [{ status: 'ACTIVE' }, { status: null }],
+        },
+      },
+      closures: {
+        where: {
+          startDate: { lte: now },
+          endDate: { gt: now },
+        },
+        orderBy: {
+          endDate: 'desc',
+        },
+      },
+      ...(hasSchedules
+        ? {
+            schedules: {
+              select: {
+                dayOfWeek: true,
+                startTime: true,
+                endTime: true,
+                isClosed: true,
+              },
+            },
+          }
+        : {}),
+      ...(needsPostDbEvaluation
+        ? {
+            stations: {
+              where: { isActive: true },
+              select: {
+                id: true,
+                name: true,
+                stationType: true,
+                hourlyPrice: true,
+                isVip: true,
+                isActive: true,
+                ...(hasStationGames
+                  ? {
+                      stationGames: {
+                        where: { isActive: true },
+                        select: {
+                          gameCatalogId: true,
+                          playMode: true,
+                          isActive: true,
+                        },
+                      },
+                    }
+                  : {}),
+              },
+            },
+            ...(hasCenterGames
+              ? {
+                  centerGames: {
+                    select: {
+                      gameCatalogId: true,
+                      playMode: true,
+                      platforms: true,
+                    },
+                  },
+                }
+              : {}),
+            stationExtraControllers: {
+              where: { isActive: true },
+              take: 1,
+              select: { id: true },
+            },
+          }
+        : {}),
+    };
+
+    const [rawCenters, totalFromDb] = await Promise.all([
       prisma.gamingCenter.findMany({
         where,
-        skip,
-        take,
+        ...(needsPostDbEvaluation ? {} : { skip, take }),
         orderBy: { [orderField]: orderDirection },
-        include: {
-          addresses: true,
-          settings: {
-            select: {
-              workStartTime: true,
-              workEndTime: true,
-              timeZone: true,
-              cancellationHours: true,
-              cancellationWindowMinutes: true,
-              allowOnlineBooking: true,
-            },
-          },
-          manager: {
-            select: {
-              id: true,
-              fullName: true,
-              role: true,
-            },
-          },
-          media: {
-            where: {
-              isActive: true,
-            },
-            orderBy: {
-              sortOrder: 'asc',
-            },
-            select: {
-              url: true,
-              thumbUrl: true,
-              purpose: true,
-              isActive: true,
-              sortOrder: true,
-            },
-          },
-          discounts: {
-            where: {
-              isActive: true,
-              startAt: { lte: now },
-              endAt: { gte: now },
-            },
-          },
-          discountCampaigns: {
-            where: {
-              isActive: true,
-              deletedAt: null,
-              startAt: { lte: now },
-              endAt: { gte: now },
-              OR: [
-                { status: 'ACTIVE' },
-                { status: null },
-              ],
-            },
-          },
-          closures: {
-            where: {
-              startDate: { lte: now },
-              endDate: { gt: now },
-            },
-            orderBy: {
-              endDate: 'desc',
-            },
-          },
-        },
+        include: includeClause,
       }),
-      prisma.gamingCenter.count({ where }),
+      needsPostDbEvaluation ? Promise.resolve(0) : prisma.gamingCenter.count({ where }),
     ]);
 
     const centerIds = rawCenters.map((c) => c.id);
 
-    // Efficiently aggregate station counts, minimum station price, and published ratings directly in DB
     let groupedCounts: Array<{ gamingCenterId: string; stationType: string; _count: { _all: number }; _min?: { hourlyPrice?: number | null } }> = [];
     let hasGroupResults = false;
     const minPricesMap = new Map<string, number>();
 
     const ratingsSummaryMap = new Map<string, { avgRating: number; count: number; commentCount: number }>();
+    const ratingAggregateForBayesian = new Map<string, { sumRatings: number; validReviewsCount: number; latestReviewAt: Date | null }>();
     let hasRatingGroupResults = false;
 
     const shouldGroupStations = centerIds.length > 0 && typeof prisma.gameStation?.groupBy === 'function';
@@ -990,6 +1192,7 @@ export const gamingCenterRepository = {
             where: {
               gamingCenterId: { in: centerIds },
               status: 'PUBLISHED',
+              reservation: { status: 'COMPLETED' },
             },
             _avg: {
               rating: true,
@@ -1007,11 +1210,11 @@ export const gamingCenterRepository = {
       groupedCounts = stationGroupRes;
       hasGroupResults = stationGroupRes.length > 0;
       for (const item of stationGroupRes) {
-        const minPrice = item._min?.hourlyPrice;
-        if (typeof minPrice === 'number') {
+        const minPriceVal = item._min?.hourlyPrice;
+        if (typeof minPriceVal === 'number') {
           const currentMin = minPricesMap.get(item.gamingCenterId);
-          if (currentMin === undefined || minPrice < currentMin) {
-            minPricesMap.set(item.gamingCenterId, minPrice);
+          if (currentMin === undefined || minPriceVal < currentMin) {
+            minPricesMap.set(item.gamingCenterId, minPriceVal);
           }
         }
       }
@@ -1028,6 +1231,11 @@ export const gamingCenterRepository = {
           avgRating,
           count: totalRatings,
           commentCount,
+        });
+        ratingAggregateForBayesian.set(item.gamingCenterId, {
+          sumRatings: (typeof rawAvg === 'number' ? rawAvg : 0) * totalRatings,
+          validReviewsCount: totalRatings,
+          latestReviewAt: null,
         });
       }
     }
@@ -1052,35 +1260,159 @@ export const gamingCenterRepository = {
       }
     }
 
-    let data = rawCenters.map((gc) => {
+    const { globalAverageC } = computeGlobalAverageC(Array.from(ratingAggregateForBayesian.values()));
+
+    let enrichedEntries = rawCenters.map((gc) => {
+      const typedGc = gc as unknown as GamingCenterWithRelations;
       const deviceCounts = hasGroupResults ? countsMap.get(gc.id) : undefined;
       const lowestStationPrice = minPricesMap.get(gc.id) ?? null;
-      const rawRatings = (gc as GamingCenterWithRelations).ratings;
+      const rawRatings = typedGc.ratings;
       const ratingSummary =
         hasRatingGroupResults && !Array.isArray(rawRatings)
           ? (ratingsSummaryMap.get(gc.id) ?? { avgRating: 0, count: 0, commentCount: 0 })
           : undefined;
-      return transformGamingCenter(gc, deviceCounts, {
+      const dto = transformGamingCenter(typedGc, deviceCounts, {
         lowestStationPrice,
         ...(ratingSummary ? { ratingSummary } : {}),
       });
+
+      const primaryAddress =
+        (typedGc.addresses || []).find((a) => a.isPrimary) ?? (typedGc.addresses || [])[0] ?? null;
+      const distanceKm =
+        lat !== undefined &&
+        lng !== undefined &&
+        primaryAddress &&
+        isValidCoordinatePair(primaryAddress.lat, primaryAddress.lng)
+          ? calculateHaversineDistanceKm(
+              lat,
+              lng,
+              Number(primaryAddress.lat),
+              Number(primaryAddress.lng)
+            )
+          : null;
+
+      return { raw: typedGc, dto, distanceKm };
     });
 
-    // If minStationCount was specified for a device type
-    if (minStationCount !== undefined && resolvedStationType) {
-      data = data.filter((item) => {
-        const count = item.deviceCounts ? (item.deviceCounts as unknown as Record<string, number>)[toPublicStationType(resolvedStationType)] ?? 0 : 0;
-        return count >= minStationCount;
+    if (needsPostDbEvaluation) {
+      enrichedEntries = enrichedEntries.filter(({ raw, dto, distanceKm }) => {
+        // Real average rating check
+        if (minRating !== undefined && minRating > 0 && (dto.rating ?? dto.raiting ?? 0) < minRating) {
+          return false;
+        }
+
+        // Effective discounted price check
+        const effectivePrice = dto.pricing?.finalPrice ?? dto.hourlyRate;
+        if (effectiveMinRate !== undefined && effectivePrice < effectiveMinRate) {
+          return false;
+        }
+        if (effectiveMaxRate !== undefined && effectivePrice > effectiveMaxRate) {
+          return false;
+        }
+
+        // Minimum station count check (works with or without stationType)
+        if (minStationCount !== undefined) {
+          if (resolvedStationType) {
+            const count = dto.deviceCounts
+              ? (dto.deviceCounts as unknown as Record<string, number>)[toPublicStationType(resolvedStationType)] ?? 0
+              : (raw.stations || []).filter(
+                  (s) => s.isActive !== false && s.stationType === resolvedStationType
+                ).length;
+            if (count < minStationCount) return false;
+          } else {
+            const totalActive = (raw.stations || []).filter((s) => s.isActive !== false).length;
+            const fallbackTotal = dto.pcCount + dto.consoleCount;
+            if ((raw.stations ? totalActive : fallbackTotal) < minStationCount) return false;
+          }
+        }
+
+        // Accurate isOpen / availableNow check
+        if (isOpen !== undefined && dto.is_open !== isOpen) {
+          return false;
+        }
+        if (availableNow === true && (!dto.is_open || !dto.allowOnlineBooking)) {
+          return false;
+        }
+
+        // isVip exact check
+        if (isVip !== undefined) {
+          const hasVip =
+            raw.vipHourlyRate !== null ||
+            (raw.stations || []).some((s) => s.isActive !== false && s.isVip === true);
+          if (hasVip !== isVip) return false;
+        }
+
+        // Geo distance check
+        if (lat !== undefined && lng !== undefined) {
+          if (distanceKm === null) return false;
+          if (radiusKm !== undefined && distanceKm > radiusKm) return false;
+        }
+
+        // Real game + compatible active station check
+        if (hasGameFilter && resolvedGames.length > 0) {
+          const hasAnyGame = resolvedGames.some((gm) =>
+            Boolean(
+              resolveCenterGameStations(raw as unknown as Parameters<typeof resolveCenterGameStations>[0], gm, {
+                deviceTypes: resolvedStationType ? [resolvedStationType] : undefined,
+                playMode,
+                allowOnlineBooking: dto.allowOnlineBooking,
+                isTemporarilyClosed: Boolean(dto.isBookingTemporarilyClosed),
+                now,
+              })
+            )
+          );
+          if (!hasAnyGame) return false;
+        }
+
+        return true;
       });
+
+      // Apply computed sorting before slicing pagination
+      if (sortBy === 'rating') {
+        enrichedEntries.sort((a, b) =>
+          orderDirection === 'asc'
+            ? (a.dto.rating ?? 0) - (b.dto.rating ?? 0)
+            : (b.dto.rating ?? 0) - (a.dto.rating ?? 0)
+        );
+      } else if (sortBy === 'bayesian') {
+        enrichedEntries.sort((a, b) => {
+          const aAgg = ratingAggregateForBayesian.get(a.dto.id);
+          const bAgg = ratingAggregateForBayesian.get(b.dto.id);
+          const aScore = computeBayesianScore(
+            a.dto.rating ?? 0,
+            aAgg?.validReviewsCount ?? 0,
+            env.RANKING_BAYESIAN_M,
+            globalAverageC
+          );
+          const bScore = computeBayesianScore(
+            b.dto.rating ?? 0,
+            bAgg?.validReviewsCount ?? 0,
+            env.RANKING_BAYESIAN_M,
+            globalAverageC
+          );
+          return orderDirection === 'asc' ? aScore - bScore : bScore - aScore;
+        });
+      } else if (sortBy === 'distance' && lat !== undefined && lng !== undefined) {
+        enrichedEntries.sort((a, b) => {
+          const dA = a.distanceKm ?? Number.POSITIVE_INFINITY;
+          const dB = b.distanceKm ?? Number.POSITIVE_INFINITY;
+          return orderDirection === 'desc' ? dB - dA : dA - dB;
+        });
+      } else if (sortBy === 'hourlyRate') {
+        enrichedEntries.sort((a, b) => {
+          const pA = a.dto.pricing?.finalPrice ?? a.dto.hourlyRate;
+          const pB = b.dto.pricing?.finalPrice ?? b.dto.hourlyRate;
+          return orderDirection === 'asc' ? pA - pB : pB - pA;
+        });
+      }
+
+      const totalFiltered = enrichedEntries.length;
+      const paged = enrichedEntries.slice(skip, skip + take).map((e) => e.dto);
+      return formatPaginatedResult(paged, totalFiltered, page, limit);
     }
 
-    // If isOpen filter was requested
-    if (isOpen !== undefined) {
-      data = data.filter((item) => item.is_open === isOpen);
-    }
-
-    const effectiveTotal = (minStationCount !== undefined || isOpen !== undefined) ? data.length : total;
-    return formatPaginatedResult(data, effectiveTotal, page, limit);
+    const data = enrichedEntries.map((e) => e.dto);
+    return formatPaginatedResult(data, totalFromDb, page, limit);
   },
 
   async update(id: string, data: UpdateGamingCenterInput, tx?: Prisma.TransactionClient) {
