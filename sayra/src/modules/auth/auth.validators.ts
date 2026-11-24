@@ -43,10 +43,86 @@ export const loginWithOtpSchema = z.object({
 });
 
 export const platformAdminLoginSchema = z.object({
+  body: z
+    .object({
+      username: z.string().trim().min(1).max(100).optional(),
+      phone: z.string().trim().min(1).max(30).optional(),
+      password: z.string().min(1, 'Password is required'),
+    })
+    .refine(
+      (data) => Boolean((data.username && data.username.length > 0) || (data.phone && data.phone.length > 0)),
+      { message: 'Username is required' }
+    ),
+});
+
+export const platformAdminVerify2faSchema = z.object({
+  body: z
+    .object({
+      challengeToken: z.string().min(10, 'Challenge token is required'),
+      code: z.string().trim().regex(/^\d{6}$/, 'TOTP code must be 6 digits').optional(),
+      recoveryCode: z.string().trim().min(6, 'Invalid recovery code format').max(32).optional(),
+    })
+    .refine((data) => Boolean(data.code || data.recoveryCode), {
+      message: 'Either a 6-digit TOTP code or a recovery code is required',
+    }),
+});
+
+export const platformAdminSetup2faSchema = z.object({
+  body: z
+    .object({
+      setupToken: z.string().min(10).optional(),
+      currentPassword: z.string().min(1).optional(),
+      currentTotpCode: z.string().trim().regex(/^\d{6}$/, 'TOTP code must be 6 digits').optional(),
+      label: z.string().trim().min(1).max(60).optional(),
+      mode: z.enum(['INITIAL', 'ADD', 'REPLACE']).optional(),
+    })
+    .default({}),
+});
+
+export const platformAdminConfirm2faSchema = z.object({
   body: z.object({
-    phone: z.string().min(10, 'Phone number must be at least 10 digits'),
-    password: z.string().min(1, 'Password is required'),
+    setupToken: z.string().min(10).optional(),
+    deviceId: z.string().trim().min(1).optional(),
+    code: z.string().trim().regex(/^\d{6}$/, 'TOTP code must be 6 digits'),
+    mode: z.enum(['INITIAL', 'ADD', 'REPLACE']).optional(),
   }),
+});
+
+export const platformAdminReauth2faSchema = z.object({
+  body: z.object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    code: z.string().trim().regex(/^\d{6}$/, 'TOTP code must be 6 digits'),
+  }),
+});
+
+export const platformAdminDeleteDeviceSchema = z.object({
+  params: z.object({
+    deviceId: z.string().trim().min(1, 'Device ID is required'),
+  }),
+  body: z.object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    code: z.string().trim().regex(/^\d{6}$/, 'TOTP code must be 6 digits'),
+  }),
+});
+
+export const platformAdminDisable2faSchema = z.object({
+  body: z
+    .object({
+      currentPassword: z.string().min(1, 'Current password is required'),
+      code: z.string().trim().regex(/^\d{6}$/, 'TOTP code must be 6 digits').optional(),
+      recoveryCode: z.string().trim().min(6).max(32).optional(),
+    })
+    .refine((data) => Boolean(data.code || data.recoveryCode), {
+      message: 'A 6-digit TOTP code or recovery code is required',
+    }),
+});
+
+export const platformAdminRefreshSchema = z.object({
+  body: z
+    .object({
+      refreshToken: z.string().min(16).optional(),
+    })
+    .default({}),
 });
 
 export const updateProfileSchema = z.object({

@@ -96,6 +96,8 @@ describe('PLATFORM_ADMIN Authorization & Tenant Isolation', () => {
       fullName: 'Super User',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     ((prisma as any).gamingCenter.findUnique as jest.Mock).mockResolvedValue({
@@ -119,6 +121,8 @@ describe('PLATFORM_ADMIN Authorization & Tenant Isolation', () => {
       fullName: 'Super User',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     ((prisma as any).gamingCenter.findUnique as jest.Mock).mockResolvedValue(null);
@@ -203,6 +207,8 @@ describe('PLATFORM_ADMIN Authorization & Tenant Isolation', () => {
       fullName: 'Super User',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     ((prisma as any).gamingCenter.count as jest.Mock).mockResolvedValue(5);
@@ -226,6 +232,8 @@ describe('PLATFORM_ADMIN Authorization & Tenant Isolation', () => {
       fullName: 'Super User',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     const targetGc = {
@@ -268,6 +276,8 @@ describe('PLATFORM_ADMIN Authorization & Tenant Isolation', () => {
       fullName: 'Super User',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     ((prisma as any).gamingCenter.findUnique as jest.Mock).mockResolvedValue({

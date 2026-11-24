@@ -336,6 +336,8 @@ describe('POST /api/v1/gamingCenters (Creation & Ownership Architecture)', () =>
     passwordHash: 'argon2id$hashedpassword',
     isActive: true,
     isSuperuser: true,
+    totpEnabled: true,
+    totpSetupCompleted: true,
   };
 
   const platformAdminToken = generateAccessToken({

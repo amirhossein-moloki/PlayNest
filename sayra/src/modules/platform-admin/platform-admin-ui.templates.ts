@@ -235,6 +235,7 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
       <button class="tab-btn" onclick="switchTab('device-types')"><i class="fa-solid fa-gamepad"></i> Device Types</button>
       <button class="tab-btn" onclick="switchTab('games-catalog')"><i class="fa-solid fa-dice"></i> Games Catalog</button>
       <button class="tab-btn" onclick="switchTab('audit')"><i class="fa-solid fa-list-check"></i> Audit Logs</button>
+      <button class="tab-btn" onclick="switchTab('security')"><i class="fa-solid fa-shield-halved"></i> Security &amp; 2FA</button>
     </div>
 
     <!-- Tab 1: Gaming Centers -->
@@ -607,7 +608,131 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
         </tbody>
       </table>
     </div>
+
+    <!-- Tab: Security > Two-Factor Authentication -->
+    <div id="tab-security" class="card" style="display:none;">
+      <div class="section-header">
+        <div class="section-title"><i class="fa-solid fa-shield-halved"></i> Security &gt; Two-Factor Authentication (TOTP)</div>
+        <button class="btn btn-secondary btn-sm" onclick="loadSecuritySettings()"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+      </div>
+
+      <div class="kpi-grid" style="margin-bottom:20px;">
+        <div class="kpi-card">
+          <div class="title"><span>2FA Status</span><i class="fa-solid fa-shield-check" style="color:var(--success);"></i></div>
+          <div class="val" id="sec-totp-status" style="font-size:18px;">-</div>
+        </div>
+        <div class="kpi-card">
+          <div class="title"><span>Activated At</span><i class="fa-solid fa-clock" style="color:var(--info);"></i></div>
+          <div class="val" id="sec-totp-enabled-at" style="font-size:14px; direction:ltr;">-</div>
+        </div>
+        <div class="kpi-card">
+          <div class="title"><span>Recovery Codes Remaining</span><i class="fa-solid fa-key" style="color:var(--warning);"></i></div>
+          <div class="val" id="sec-recovery-remaining">-</div>
+        </div>
+        <div class="kpi-card">
+          <div class="title"><span>Active Admin Sessions</span><i class="fa-solid fa-laptop" style="color:var(--primary);"></i></div>
+          <div class="val" id="sec-active-sessions">-</div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px;">
+        <button class="btn btn-primary btn-sm" onclick="openSecurityActionModal('ADD_DEVICE')"><i class="fa-solid fa-plus"></i> اتصال Authenticator جدید</button>
+        <button class="btn btn-secondary btn-sm" onclick="openSecurityActionModal('REPLACE_DEVICE')"><i class="fa-solid fa-rotate"></i> جایگزینی دستگاه قبلی</button>
+        <button class="btn btn-secondary btn-sm" onclick="openSecurityActionModal('REGEN_RECOVERY')"><i class="fa-solid fa-vault"></i> تولید مجدد Recovery Codes</button>
+        <button class="btn btn-danger btn-sm" onclick="openSecurityActionModal('DISABLE_2FA')"><i class="fa-solid fa-shield-xmark"></i> غیرفعالسازی 2FA</button>
+        <button class="btn btn-danger btn-sm" onclick="revokeAllAdminSessions()"><i class="fa-solid fa-power-off"></i> خاتمه همه نشست‌ها</button>
+      </div>
+
+      <h3 style="font-size:15px; margin-bottom:10px;">دستگاه‌های Authenticator متصل (Google / Microsoft Authenticator)</h3>
+      <table style="margin-bottom:24px;">
+        <thead>
+          <tr>
+            <th>Label</th>
+            <th>Issuer</th>
+            <th>Role</th>
+            <th>Verified At</th>
+            <th>Last Used</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="sec-devices-body">
+          <tr><td colspan="6">Loading authenticators...</td></tr>
+        </tbody>
+      </table>
+
+      <h3 style="font-size:15px; margin-bottom:10px;">نشست‌های فعال مدیر پلتفرم</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Session ID</th>
+            <th>IP Address</th>
+            <th>User Agent</th>
+            <th>MFA Verified</th>
+            <th>Last Used</th>
+            <th>Expires</th>
+          </tr>
+        </thead>
+        <tbody id="sec-sessions-body">
+          <tr><td colspan="6">Loading sessions...</td></tr>
+        </tbody>
+      </table>
+    </div>
   </main>
+
+  <!-- Security Management Modal (Add/Replace Authenticator, Regenerate Recovery Codes, Disable 2FA) -->
+  <div id="securityModal" class="auth-overlay" style="display:none;">
+    <div class="auth-card" style="max-width:480px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h2 id="secModalTitle" style="margin-bottom:0;"><i class="fa-solid fa-shield-halved" style="color:var(--primary);"></i> Security Action</h2>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeSecurityModal()">بستن</button>
+      </div>
+      <div id="secModalError" class="auth-error"></div>
+
+      <!-- Step A: Re-authenticate -->
+      <form id="secReauthForm" onsubmit="submitSecurityReauth(event)">
+        <p id="secModalDesc">لطفاً رمز عبور فعلی و کد ۶ رقمی Authenticator را برای تایید هویت مجدد وارد کنید.</p>
+        <div class="form-group" id="secLabelGroup" style="display:none;">
+          <label for="secDeviceLabel">نام دستگاه Authenticator (اختیاری)</label>
+          <input type="text" id="secDeviceLabel" class="form-control rtl" placeholder="مثلاً: Google Authenticator گوشی دوم" />
+        </div>
+        <div class="form-group">
+          <label for="secCurrentPassword">رمز عبور فعلی (Current Password)</label>
+          <input type="password" id="secCurrentPassword" class="form-control" required autocomplete="current-password" />
+        </div>
+        <div class="form-group">
+          <label for="secCurrentTotp">کد ۶ رقمی Authenticator</label>
+          <input type="text" id="secCurrentTotp" class="form-control" inputmode="numeric" maxlength="6" pattern="\\d{6}" placeholder="000000" required />
+        </div>
+        <button type="submit" id="secReauthBtn" class="btn btn-primary btn-block">تایید و ادامه</button>
+      </form>
+
+      <!-- Step B: Pending QR Enrollment for Add/Replace -->
+      <div id="secQrConfirmBox" style="display:none;">
+        <p>کد QR زیر را در Google Authenticator یا Microsoft Authenticator اسکن کنید و کد ۶ رقمی جدید را وارد نمایید:</p>
+        <div style="text-align:center; background:#fff; padding:12px; border-radius:10px; display:inline-block; margin-bottom:12px;">
+          <img id="secNewQrImg" alt="Authenticator QR" style="width:190px; height:190px; display:block;" />
+        </div>
+        <div class="form-group">
+          <label>کلید دستی (Manual Entry Key)</label>
+          <input type="text" id="secNewManualKey" class="form-control" readonly />
+        </div>
+        <form onsubmit="submitConfirmNewDevice(event)">
+          <div class="form-group">
+            <label for="secNewDeviceCode">کد ۶ رقمی دستگاه جدید</label>
+            <input type="text" id="secNewDeviceCode" class="form-control" inputmode="numeric" maxlength="6" pattern="\\d{6}" placeholder="000000" required />
+          </div>
+          <button type="submit" class="btn btn-success btn-block">تایید و فعال‌سازی دستگاه</button>
+        </form>
+      </div>
+
+      <!-- Step C: Regenerated Recovery Codes Output -->
+      <div id="secRecoveryResultBox" style="display:none;">
+        <p style="color:#fde68a;">کدهای بازیابی جدید صادر شدند و کدهای قبلی باطل شدند. هر کد فقط یک بار قابل استفاده است:</p>
+        <pre id="secRecoveryCodesPre" style="background:var(--bg); border:1px solid var(--border-accent); border-radius:8px; padding:12px; direction:ltr; text-align:left; font-size:12px; margin-bottom:14px; overflow-x:auto;"></pre>
+        <button type="button" class="btn btn-primary btn-block" onclick="closeSecurityModal()">متوجه شدم و ذخیره کردم</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Create Campaign Modal -->
   <div id="campaignModal" class="auth-overlay" style="display: none;">
@@ -754,25 +879,88 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- Platform Admin Authentication Modal (SSR Authentication Flow) -->
+  <!-- Platform Admin Authentication Modal (Mandatory 2FA SSR Flow) -->
   <div id="authOverlay" class="auth-overlay" style="display: none;">
-    <div class="auth-card">
-      <h2><i class="fa-solid fa-shield-halved" style="color: var(--primary);"></i> Platform Admin Login</h2>
-      <p>Enter your platform superuser credentials to access global administration.</p>
+    <div class="auth-card" style="max-width:480px;">
       <div id="authError" class="auth-error"></div>
-      <form id="loginForm" onsubmit="handleLogin(event)">
-        <div class="form-group">
-          <label for="adminPhone">Phone Number</label>
-          <input type="text" id="adminPhone" class="form-control" placeholder="09123456789" required autocomplete="username" />
+
+      <!-- Step 1: Username & Password -->
+      <div id="dashAuthLoginStep">
+        <h2><i class="fa-solid fa-shield-halved" style="color: var(--primary);"></i> Platform Admin Login</h2>
+        <p>نام کاربری (Username) و رمز عبور مدیر کل پلتفرم را وارد کنید. تایید دو مرحله‌ای TOTP الزامی است.</p>
+        <form id="loginForm" onsubmit="handleLogin(event)">
+          <div class="form-group">
+            <label for="adminUsername">Username (or Phone / Email)</label>
+            <input type="text" id="adminUsername" class="form-control" placeholder="superadmin" required autocomplete="username" />
+          </div>
+          <div class="form-group">
+            <label for="adminPassword">Password</label>
+            <input type="password" id="adminPassword" class="form-control" placeholder="••••••••" required autocomplete="current-password" />
+          </div>
+          <button type="submit" id="loginSubmitBtn" class="btn btn-primary btn-block">
+            <i class="fa-solid fa-lock"></i> Continue to Two-Factor Verification
+          </button>
+        </form>
+      </div>
+
+      <!-- Step 2: Two-Factor Verification -->
+      <div id="dashAuthVerifyStep" style="display:none;">
+        <h2><i class="fa-solid fa-key" style="color: var(--primary);"></i> Two-Factor Verification</h2>
+        <p>کد ۶ رقمی Google Authenticator یا Microsoft Authenticator را وارد کنید.</p>
+        <form id="verify2faForm" onsubmit="handleVerify2fa(event)">
+          <div class="form-group" id="dashTotpGroup">
+            <label for="dashTotpCode">6-Digit Authenticator Code</label>
+            <input type="text" id="dashTotpCode" class="form-control" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" />
+          </div>
+          <div class="form-group" id="dashRecoveryGroup" style="display:none;">
+            <label for="dashRecoveryCode">Single-Use Recovery Code</label>
+            <input type="text" id="dashRecoveryCode" class="form-control" placeholder="XXXX-XXXX-XXXX-XXXX" />
+          </div>
+          <button type="submit" id="verify2faBtn" class="btn btn-primary btn-block">
+            <i class="fa-solid fa-shield-check"></i> Verify &amp; Sign In
+          </button>
+        </form>
+        <div style="display:flex; justify-content:space-between; margin-top:12px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="toggleDashRecoveryMode()" id="dashToggleRecoveryBtn">Use Recovery Code</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="showDashStep('login')">Back</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Mandatory Initial Authenticator Setup & QR Enrollment (No Skip) -->
+      <div id="dashAuthSetupStep" style="display:none;">
+        <h2><i class="fa-solid fa-qrcode" style="color: var(--warning);"></i> Mandatory Initial 2FA Setup</h2>
+        <p>در اولین ورود، اتصال Google Authenticator یا Microsoft Authenticator اجباری است و امکان رد کردن آن وجود ندارد.</p>
+        <div style="text-align:center; background:#fff; padding:10px; border-radius:10px; display:inline-block; margin-bottom:12px;">
+          <img id="dashSetupQrImg" alt="2FA QR Code" style="width:185px; height:185px; display:block;" />
         </div>
         <div class="form-group">
-          <label for="adminPassword">Password</label>
-          <input type="password" id="adminPassword" class="form-control" placeholder="••••••••" required autocomplete="current-password" />
+          <label>Manual Entry Key</label>
+          <input type="text" id="dashSetupManualKey" class="form-control" readonly />
         </div>
-        <button type="submit" id="loginSubmitBtn" class="btn btn-primary btn-block">
-          <i class="fa-solid fa-lock"></i> Sign In to Platform Console
+        <form id="setupConfirmForm" onsubmit="handleConfirmInitial2fa(event)">
+          <div class="form-group">
+            <label for="dashSetupCode">Enter 6-Digit Code from Authenticator</label>
+            <input type="text" id="dashSetupCode" class="form-control" inputmode="numeric" maxlength="6" placeholder="000000" required />
+          </div>
+          <button type="submit" id="confirmSetupBtn" class="btn btn-success btn-block">
+            <i class="fa-solid fa-check-double"></i> Confirm &amp; Activate 2FA
+          </button>
+        </form>
+      </div>
+
+      <!-- Step 4: Recovery Codes Display -->
+      <div id="dashAuthRecoveryStep" style="display:none;">
+        <h2><i class="fa-solid fa-vault" style="color: var(--success);"></i> Save Your Recovery Codes</h2>
+        <p>این ۱۰ کد بازیابی فقط یک بار نمایش داده می‌شوند. هر کد فقط یک بار قابل استفاده است.</p>
+        <pre id="dashRecoveryCodesPre" style="background:var(--bg); border:1px solid var(--border-accent); border-radius:8px; padding:12px; direction:ltr; text-align:left; font-size:12px; margin-bottom:12px; overflow-x:auto;"></pre>
+        <label style="display:flex; align-items:center; gap:8px; font-size:12px; margin-bottom:12px; cursor:pointer;">
+          <input type="checkbox" id="dashSavedRecoveryCb" onchange="document.getElementById('dashFinishSetupBtn').disabled = !this.checked;" />
+          کدهای بازیابی را ذخیره کردم
+        </label>
+        <button type="button" id="dashFinishSetupBtn" class="btn btn-primary btn-block" disabled onclick="finishInitialSetup()">
+          ورود به داشبورد مدیریت
         </button>
-      </form>
+      </div>
     </div>
   </div>
 
@@ -780,6 +968,9 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
 
   <script>
     var token = localStorage.getItem('platform_token');
+    var refreshToken = localStorage.getItem('platform_refresh_token');
+    var authFlow = { challengeToken: null, setupToken: null, deviceId: null, usingRecovery: false };
+    var securityActionState = { action: null, deviceId: null, pendingDeviceId: null, mode: null };
 
     function headers() {
       return {
@@ -795,9 +986,17 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
       setTimeout(function() { toast.style.display = 'none'; }, duration || 3000);
     }
 
+    function showDashStep(step) {
+      document.getElementById('dashAuthLoginStep').style.display = step === 'login' ? 'block' : 'none';
+      document.getElementById('dashAuthVerifyStep').style.display = step === 'verify' ? 'block' : 'none';
+      document.getElementById('dashAuthSetupStep').style.display = step === 'setup' ? 'block' : 'none';
+      document.getElementById('dashAuthRecoveryStep').style.display = step === 'recovery' ? 'block' : 'none';
+    }
+
     function showLoginModal(errorMessage) {
       var overlay = document.getElementById('authOverlay');
       var errorDiv = document.getElementById('authError');
+      showDashStep('login');
       if (errorMessage) {
         errorDiv.textContent = errorMessage;
         errorDiv.style.display = 'block';
@@ -805,16 +1004,23 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
         errorDiv.style.display = 'none';
       }
       overlay.style.display = 'flex';
-      document.getElementById('adminPhone').focus();
+      document.getElementById('adminUsername').focus();
     }
 
     function hideLoginModal() {
       document.getElementById('authOverlay').style.display = 'none';
     }
 
+    function toggleDashRecoveryMode() {
+      authFlow.usingRecovery = !authFlow.usingRecovery;
+      document.getElementById('dashTotpGroup').style.display = authFlow.usingRecovery ? 'none' : 'block';
+      document.getElementById('dashRecoveryGroup').style.display = authFlow.usingRecovery ? 'block' : 'none';
+      document.getElementById('dashToggleRecoveryBtn').textContent = authFlow.usingRecovery ? 'Use 6-Digit Code' : 'Use Recovery Code';
+    }
+
     async function handleLogin(e) {
       e.preventDefault();
-      var phone = document.getElementById('adminPhone').value.trim();
+      var username = document.getElementById('adminUsername').value.trim();
       var password = document.getElementById('adminPassword').value;
       var btn = document.getElementById('loginSubmitBtn');
       var errorDiv = document.getElementById('authError');
@@ -827,33 +1033,127 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
         var response = await fetch('/api/v1/auth/platform-admin/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: phone, password: password })
+          body: JSON.stringify({ username: username, password: password })
         });
 
         var resData = await response.json();
         if (!response.ok) {
-          throw new Error(resData.message || 'Invalid credentials or access denied');
+          throw new Error((resData.error && resData.error.message) || resData.message || 'Invalid credentials or access denied');
         }
 
-        var issuedToken = resData.data && resData.data.tokens ? resData.data.tokens.accessToken : (resData.data ? resData.data.token : resData.token);
-        if (!issuedToken) {
-          throw new Error('Authentication failed: Missing token in response');
+        var data = resData.data || {};
+        if (data.requiresTwoFactorSetup && data.setupToken) {
+          authFlow.setupToken = data.setupToken;
+          var setupRes = await fetch('/api/v1/auth/platform-admin/2fa/setup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ setupToken: authFlow.setupToken, mode: 'INITIAL' })
+          });
+          var setupJson = await setupRes.json();
+          if (!setupRes.ok) {
+            throw new Error((setupJson.error && setupJson.error.message) || setupJson.message || 'Failed to initialize 2FA setup');
+          }
+          authFlow.deviceId = setupJson.data.deviceId;
+          document.getElementById('dashSetupQrImg').src = setupJson.data.qrCodeDataUrl;
+          document.getElementById('dashSetupManualKey').value = setupJson.data.manualEntryKey;
+          showDashStep('setup');
+          document.getElementById('dashSetupCode').focus();
+        } else if (data.challengeToken) {
+          authFlow.challengeToken = data.challengeToken;
+          authFlow.usingRecovery = false;
+          showDashStep('verify');
+          document.getElementById('dashTotpCode').focus();
+        } else {
+          throw new Error('Unexpected authentication response');
         }
-
-        token = issuedToken;
-        localStorage.setItem('platform_token', token);
-        hideLoginModal();
-        loadData();
       } catch (err) {
         errorDiv.textContent = err.message || 'Authentication failed';
         errorDiv.style.display = 'block';
       } finally {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-lock"></i> Sign In to Platform Console';
+        btn.innerHTML = '<i class="fa-solid fa-lock"></i> Continue to Two-Factor Verification';
       }
     }
 
-    var tabList = ['centers', 'verifications', 'ads', 'campaigns', 'reservations', 'users', 'customers', 'settings', 'device-types', 'games-catalog', 'audit'];
+    async function handleVerify2fa(e) {
+      e.preventDefault();
+      var errorDiv = document.getElementById('authError');
+      var btn = document.getElementById('verify2faBtn');
+      errorDiv.style.display = 'none';
+      btn.disabled = true;
+
+      try {
+        var body = { challengeToken: authFlow.challengeToken };
+        if (authFlow.usingRecovery) {
+          body.recoveryCode = document.getElementById('dashRecoveryCode').value.trim();
+        } else {
+          body.code = document.getElementById('dashTotpCode').value.trim();
+        }
+        var response = await fetch('/api/v1/auth/platform-admin/verify-2fa', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        var resData = await response.json();
+        if (!response.ok) {
+          throw new Error((resData.error && resData.error.message) || resData.message || '2FA verification failed');
+        }
+        var data = resData.data || {};
+        token = data.accessToken || (data.tokens && data.tokens.accessToken);
+        refreshToken = data.refreshToken || (data.tokens && data.tokens.refreshToken);
+        localStorage.setItem('platform_token', token);
+        if (refreshToken) localStorage.setItem('platform_refresh_token', refreshToken);
+        hideLoginModal();
+        loadData();
+      } catch (err) {
+        errorDiv.textContent = err.message || '2FA verification failed';
+        errorDiv.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function handleConfirmInitial2fa(e) {
+      e.preventDefault();
+      var errorDiv = document.getElementById('authError');
+      var btn = document.getElementById('confirmSetupBtn');
+      errorDiv.style.display = 'none';
+      btn.disabled = true;
+      try {
+        var code = document.getElementById('dashSetupCode').value.trim();
+        var response = await fetch('/api/v1/auth/platform-admin/2fa/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ setupToken: authFlow.setupToken, deviceId: authFlow.deviceId, code: code, mode: 'INITIAL' })
+        });
+        var resData = await response.json();
+        if (!response.ok) {
+          throw new Error((resData.error && resData.error.message) || resData.message || 'Invalid verification code');
+        }
+        var data = resData.data || {};
+        token = data.accessToken || (data.tokens && data.tokens.accessToken);
+        refreshToken = data.refreshToken || (data.tokens && data.tokens.refreshToken);
+        localStorage.setItem('platform_token', token);
+        if (refreshToken) localStorage.setItem('platform_refresh_token', refreshToken);
+
+        document.getElementById('dashRecoveryCodesPre').textContent = (data.recoveryCodes || []).join('\\n');
+        document.getElementById('dashSavedRecoveryCb').checked = false;
+        document.getElementById('dashFinishSetupBtn').disabled = true;
+        showDashStep('recovery');
+      } catch (err) {
+        errorDiv.textContent = err.message || '2FA confirmation failed';
+        errorDiv.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function finishInitialSetup() {
+      hideLoginModal();
+      loadData();
+    }
+
+    var tabList = ['centers', 'verifications', 'ads', 'campaigns', 'reservations', 'users', 'customers', 'settings', 'device-types', 'games-catalog', 'audit', 'security'];
 
     function switchTab(targetTab) {
       tabList.forEach(function(tab) {
@@ -876,6 +1176,7 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
       if (targetTab === 'device-types') loadDeviceTypes();
       if (targetTab === 'games-catalog') loadCatalogGames();
       if (targetTab === 'audit') loadAudit();
+      if (targetTab === 'security') loadSecuritySettings();
     }
 
     async function loadData() {
@@ -1741,9 +2042,204 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
       loadUsers();
     }
 
-    function logout() {
+    async function loadSecuritySettings() {
+      try {
+        var [statusRes, sessRes] = await Promise.all([
+          fetch('/api/v1/auth/platform-admin/2fa/status', { headers: headers() }),
+          fetch('/api/v1/auth/platform-admin/sessions', { headers: headers() })
+        ]);
+        var statusData = (await statusRes.json()).data || {};
+        var sessData = (await sessRes.json()).data || {};
+
+        document.getElementById('sec-totp-status').innerHTML = statusData.totpEnabled
+          ? '<span class="badge badge-success">ACTIVE (TOTP Mandatory)</span>'
+          : '<span class="badge badge-danger">DISABLED</span>';
+        document.getElementById('sec-totp-enabled-at').textContent = statusData.totpEnabledAt
+          ? new Date(statusData.totpEnabledAt).toLocaleString()
+          : '-';
+        document.getElementById('sec-recovery-remaining').textContent = statusData.recoveryCodesRemaining != null
+          ? statusData.recoveryCodesRemaining + ' / 10'
+          : '-';
+        document.getElementById('sec-active-sessions').textContent = statusData.activeSessionsCount != null
+          ? statusData.activeSessionsCount
+          : '-';
+
+        var devices = statusData.devices || [];
+        var devBody = document.getElementById('sec-devices-body');
+        if (!devices.length) {
+          devBody.innerHTML = '<tr><td colspan="6">No active authenticator devices enrolled.</td></tr>';
+        } else {
+          devBody.innerHTML = devices.map(function(d) {
+            return '<tr>' +
+              '<td><strong>' + d.label + '</strong></td>' +
+              '<td>' + d.issuer + '</td>' +
+              '<td>' + (d.isPrimary ? '<span class="badge badge-primary">Primary</span>' : '<span class="badge badge-info">Secondary</span>') + '</td>' +
+              '<td style="direction:ltr; font-size:12px;">' + (d.verifiedAt ? new Date(d.verifiedAt).toLocaleString() : '-') + '</td>' +
+              '<td style="direction:ltr; font-size:12px;">' + (d.lastUsedAt ? new Date(d.lastUsedAt).toLocaleString() : '-') + '</td>' +
+              '<td>' + (devices.length > 1 ? '<button class="btn btn-danger btn-sm" onclick="openSecurityActionModal(\'REMOVE_DEVICE\', \'' + d.id + '\')">حذف</button>' : '<span style="color:var(--text-muted); font-size:12px;">Primary Locked</span>') + '</td>' +
+            '</tr>';
+          }).join('');
+        }
+
+        var sessions = sessData.sessions || [];
+        var sessBody = document.getElementById('sec-sessions-body');
+        if (!sessions.length) {
+          sessBody.innerHTML = '<tr><td colspan="6">No active sessions.</td></tr>';
+        } else {
+          sessBody.innerHTML = sessions.map(function(s) {
+            return '<tr>' +
+              '<td><code>' + s.id + '</code>' + (s.isCurrent ? ' <span class="badge badge-success">Current</span>' : '') + '</td>' +
+              '<td style="direction:ltr;">' + (s.ipAddress || '-') + '</td>' +
+              '<td style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (s.userAgent || '-') + '</td>' +
+              '<td><span class="badge badge-success">' + (s.mfaVerifiedAt ? 'TOTP Verified' : 'No') + '</span></td>' +
+              '<td style="direction:ltr; font-size:12px;">' + (s.lastUsedAt ? new Date(s.lastUsedAt).toLocaleString() : '-') + '</td>' +
+              '<td style="direction:ltr; font-size:12px;">' + new Date(s.expiresAt).toLocaleString() + '</td>' +
+            '</tr>';
+          }).join('');
+        }
+      } catch (e) { console.error(e); }
+    }
+
+    function openSecurityActionModal(action, deviceId) {
+      securityActionState = { action: action, deviceId: deviceId || null, pendingDeviceId: null, mode: null };
+      document.getElementById('secModalError').style.display = 'none';
+      document.getElementById('secReauthForm').style.display = 'block';
+      document.getElementById('secQrConfirmBox').style.display = 'none';
+      document.getElementById('secRecoveryResultBox').style.display = 'none';
+      document.getElementById('secCurrentPassword').value = '';
+      document.getElementById('secCurrentTotp').value = '';
+      document.getElementById('secDeviceLabel').value = '';
+      document.getElementById('secLabelGroup').style.display = (action === 'ADD_DEVICE' || action === 'REPLACE_DEVICE') ? 'block' : 'none';
+
+      var titles = {
+        ADD_DEVICE: 'اتصال Authenticator جدید',
+        REPLACE_DEVICE: 'جایگزینی دستگاه Authenticator',
+        REGEN_RECOVERY: 'تولید مجدد کدهای بازیابی',
+        DISABLE_2FA: 'غیرفعالسازی احراز هویت دو مرحله‌ای',
+        REMOVE_DEVICE: 'حذف دستگاه Authenticator'
+      };
+      document.getElementById('secModalTitle').textContent = titles[action] || 'Security Action';
+      document.getElementById('securityModal').style.display = 'flex';
+    }
+
+    function closeSecurityModal() {
+      document.getElementById('securityModal').style.display = 'none';
+    }
+
+    async function submitSecurityReauth(e) {
+      e.preventDefault();
+      var errEl = document.getElementById('secModalError');
+      errEl.style.display = 'none';
+      var currentPassword = document.getElementById('secCurrentPassword').value;
+      var code = document.getElementById('secCurrentTotp').value.trim();
+      var label = document.getElementById('secDeviceLabel').value.trim();
+
+      try {
+        if (securityActionState.action === 'ADD_DEVICE' || securityActionState.action === 'REPLACE_DEVICE') {
+          var mode = securityActionState.action === 'REPLACE_DEVICE' ? 'REPLACE' : 'ADD';
+          var res = await fetch('/api/v1/auth/platform-admin/2fa/setup', {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify({ currentPassword: currentPassword, currentTotpCode: code, mode: mode, label: label || undefined })
+          });
+          var json = await res.json();
+          if (!res.ok) throw new Error((json.error && json.error.message) || json.message || 'Verification failed');
+          securityActionState.pendingDeviceId = json.data.deviceId;
+          securityActionState.mode = mode;
+          document.getElementById('secNewQrImg').src = json.data.qrCodeDataUrl;
+          document.getElementById('secNewManualKey').value = json.data.manualEntryKey;
+          document.getElementById('secNewDeviceCode').value = '';
+          document.getElementById('secReauthForm').style.display = 'none';
+          document.getElementById('secQrConfirmBox').style.display = 'block';
+        } else if (securityActionState.action === 'REGEN_RECOVERY') {
+          var regenRes = await fetch('/api/v1/auth/platform-admin/2fa/recovery-codes/regenerate', {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify({ currentPassword: currentPassword, code: code })
+          });
+          var regenJson = await regenRes.json();
+          if (!regenRes.ok) throw new Error((regenJson.error && regenJson.error.message) || regenJson.message || 'Failed');
+          document.getElementById('secRecoveryCodesPre').textContent = (regenJson.data.recoveryCodes || []).join('\\n');
+          document.getElementById('secReauthForm').style.display = 'none';
+          document.getElementById('secRecoveryResultBox').style.display = 'block';
+          loadSecuritySettings();
+        } else if (securityActionState.action === 'DISABLE_2FA') {
+          var disRes = await fetch('/api/v1/auth/platform-admin/2fa/disable', {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify({ currentPassword: currentPassword, code: code })
+          });
+          var disJson = await disRes.json();
+          if (!disRes.ok) throw new Error((disJson.error && disJson.error.message) || disJson.message || 'Failed');
+          closeSecurityModal();
+          localStorage.removeItem('platform_token');
+          localStorage.removeItem('platform_refresh_token');
+          token = null;
+          refreshToken = null;
+          showLoginModal('2FA غیرفعال شد و تمام نشست‌ها بسته شدند. در ورود بعدی راه‌اندازی مجدد الزامی است.');
+        } else if (securityActionState.action === 'REMOVE_DEVICE') {
+          var remRes = await fetch('/api/v1/auth/platform-admin/2fa/devices/' + securityActionState.deviceId, {
+            method: 'DELETE',
+            headers: headers(),
+            body: JSON.stringify({ currentPassword: currentPassword, code: code })
+          });
+          var remJson = await remRes.json();
+          if (!remRes.ok) throw new Error((remJson.error && remJson.error.message) || remJson.message || 'Failed');
+          closeSecurityModal();
+          showToast('Authenticator removed.');
+          loadSecuritySettings();
+        }
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+      }
+    }
+
+    async function submitConfirmNewDevice(e) {
+      e.preventDefault();
+      var errEl = document.getElementById('secModalError');
+      errEl.style.display = 'none';
+      try {
+        var code = document.getElementById('secNewDeviceCode').value.trim();
+        var res = await fetch('/api/v1/auth/platform-admin/2fa/confirm', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ deviceId: securityActionState.pendingDeviceId, code: code, mode: securityActionState.mode })
+        });
+        var json = await res.json();
+        if (!res.ok) throw new Error((json.error && json.error.message) || json.message || 'Invalid code');
+        closeSecurityModal();
+        showToast('Authenticator updated successfully.');
+        loadSecuritySettings();
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+      }
+    }
+
+    async function revokeAllAdminSessions() {
+      if (!confirm('همه نشست‌های فعال بسته شوند؟')) return;
+      await fetch('/api/v1/auth/platform-admin/sessions/revoke-all', {
+        method: 'POST',
+        headers: headers()
+      });
       localStorage.removeItem('platform_token');
+      localStorage.removeItem('platform_refresh_token');
       token = null;
+      refreshToken = null;
+      showLoginModal('تمام نشست‌ها لغو شدند.');
+    }
+
+    async function logout() {
+      try {
+        if (token) {
+          await fetch('/api/v1/auth/platform-admin/logout', { method: 'POST', headers: headers() });
+        }
+      } catch (e) { /* ignore */ }
+      localStorage.removeItem('platform_token');
+      localStorage.removeItem('platform_refresh_token');
+      token = null;
+      refreshToken = null;
       showLoginModal('You have been logged out.');
     }
 

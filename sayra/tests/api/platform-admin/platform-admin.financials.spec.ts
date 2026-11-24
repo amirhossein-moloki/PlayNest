@@ -54,6 +54,8 @@ describe('Platform Super Admin Phase 3 Financials API Tests', () => {
       fullName: 'Super Administrator',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
     ((prisma as any).platformSetting.findUnique as jest.Mock).mockResolvedValue({
       id: 'default',

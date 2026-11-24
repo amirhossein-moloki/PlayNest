@@ -120,6 +120,9 @@ describe('Platform Analytics UI & API Tests', () => {
         fullName: 'Global Admin',
         phone: '09121112233',
         isActive: true,
+        isSuperuser: true,
+        totpEnabled: true,
+        totpSetupCompleted: true,
       });
 
       (prisma.payment.aggregate as jest.Mock).mockResolvedValue({

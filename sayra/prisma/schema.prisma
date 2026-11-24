@@ -540,6 +540,17 @@ enum GamingCenterVerificationStatus {
   REJECTED
 }
 
+enum PlatformAdminAuthenticatorStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
+enum PlatformAdminChallengePurpose {
+  TOTP_VERIFY
+  TOTP_SETUP
+}
+
 // =======================
 // Identity Domain
 // =======================
@@ -794,9 +805,13 @@ model Session {
   actorType SessionActorType
   actorId   String
 
-  tokenHash String    @unique
-  revokedAt DateTime?
-  expiresAt DateTime
+  tokenHash     String    @unique
+  revokedAt     DateTime?
+  expiresAt     DateTime
+  mfaVerifiedAt DateTime? @db.Timestamptz
+  ipAddress     String?
+  userAgent     String?
+  lastUsedAt    DateTime? @db.Timestamptz
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2502,8 +2517,9 @@ model Rating {
 model PlatformAdmin {
   id String @id @default(cuid())
 
+  username String? @unique
   fullName String
-  phone    String  @unique
+  phone    String? @unique
   email    String? @unique
 
   passwordHash String
@@ -2511,6 +2527,23 @@ model PlatformAdmin {
   isSuperuser  Boolean   @default(true)
   lastLogin    DateTime?
 
+  // Mandatory TOTP Two-Factor Authentication fields
+  totpSecretEncrypted        String?
+  totpPendingSecretEncrypted String?
+  totpPendingCreatedAt       DateTime? @db.Timestamptz
+  totpEnabled                Boolean   @default(false)
+  totpSetupCompleted         Boolean   @default(false)
+  totpEnabledAt              DateTime? @db.Timestamptz
+  totpLastUsedAt             DateTime? @db.Timestamptz
+  totpLastUsedStep           Int?
+  totpFailedAttempts         Int       @default(0)
+  totpLockedUntil            DateTime? @db.Timestamptz
+  failedLoginAttempts        Int       @default(0)
+  lockedUntil                DateTime? @db.Timestamptz
+
+  authenticators            PlatformAdminAuthenticator[]
+  recoveryCodes             PlatformAdminRecoveryCode[]
+  authChallenges            PlatformAdminChallenge[]
   auditLogs                 AuditLog[]
   reviewedVerifications     GamingCenterVerification[]
   reviewedAdvertisements    AdvertisementRequest[]     @relation("AdRequestReviewer")
@@ -2523,8 +2556,67 @@ model PlatformAdmin {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([username])
   @@index([phone])
   @@index([isActive])
+}
+
+model PlatformAdminAuthenticator {
+  id String @id @default(cuid())
+
+  platformAdminId String
+  platformAdmin   PlatformAdmin @relation(fields: [platformAdminId], references: [id], onDelete: Cascade)
+
+  label            String                           @default("Authenticator App")
+  issuer           String                           @default("PlayNest")
+  secretEncrypted  String
+  status           PlatformAdminAuthenticatorStatus @default(PENDING)
+  isPrimary        Boolean                          @default(false)
+  verifiedAt       DateTime?                        @db.Timestamptz
+  lastUsedAt       DateTime?                        @db.Timestamptz
+  lastUsedStep     Int?
+  pendingExpiresAt DateTime?                        @db.Timestamptz
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  @@index([platformAdminId, status])
+  @@index([platformAdminId, isPrimary])
+}
+
+model PlatformAdminRecoveryCode {
+  id String @id @default(cuid())
+
+  platformAdminId String
+  platformAdmin   PlatformAdmin @relation(fields: [platformAdminId], references: [id], onDelete: Cascade)
+
+  codeHash  String
+  usedAt    DateTime? @db.Timestamptz
+  revokedAt DateTime? @db.Timestamptz
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  @@index([platformAdminId, usedAt, revokedAt])
+}
+
+model PlatformAdminChallenge {
+  id String @id @default(cuid())
+
+  platformAdminId String
+  platformAdmin   PlatformAdmin @relation(fields: [platformAdminId], references: [id], onDelete: Cascade)
+
+  purpose     PlatformAdminChallengePurpose
+  tokenHash   String                        @unique
+  attempts    Int                           @default(0)
+  maxAttempts Int                           @default(5)
+  ipAddress   String?
+  userAgent   String?
+  expiresAt   DateTime                      @db.Timestamptz
+  consumedAt  DateTime?                     @db.Timestamptz
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  @@index([platformAdminId, purpose, expiresAt])
 }
 
 model AuditLog {

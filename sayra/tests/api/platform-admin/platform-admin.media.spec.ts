@@ -83,6 +83,8 @@ describe('Platform Admin Media & Direct Image Upload Test Suite', () => {
       phone: '09121112233',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     (prisma.user.findUnique as jest.Mock).mockResolvedValue({

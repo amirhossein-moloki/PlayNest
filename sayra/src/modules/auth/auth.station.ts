@@ -67,33 +67,13 @@ export const authService = {
     };
   },
 
-  async loginPlatformAdmin(phone: string, password: string) {
-    const admin = await AuthRepository.findPlatformAdminByPhone(phone);
-    if (!admin || !admin.passwordHash) {
-      throw new AppError('Invalid credentials', httpStatus.UNAUTHORIZED);
-    }
-
-    if (!admin.isActive) {
-      throw new AppError('Account is deactivated', httpStatus.UNAUTHORIZED);
-    }
-
-    const isPasswordValid = await argon2.verify(admin.passwordHash, password);
-    if (!isPasswordValid) {
-      throw new AppError('Invalid credentials', httpStatus.UNAUTHORIZED);
-    }
-
-    await AuthRepository.updatePlatformAdminLastLogin(admin.id);
-
-    const { accessToken, refreshToken } = await createAndSaveSession(admin.id, 'PLATFORM_ADMIN');
-
-    const { passwordHash: _passwordHash, ...safeAdmin } = admin; void _passwordHash;
-
-    return {
-      admin: safeAdmin,
-      tokens: { accessToken, refreshToken },
-      accessToken,
-      refreshToken,
-    };
+  async loginPlatformAdmin(
+    identifier: string,
+    password: string,
+    context?: { ip?: string; userAgent?: string }
+  ) {
+    const { PlatformAdminAuthService } = await import('./platform-admin-auth.service');
+    return PlatformAdminAuthService.login(identifier, password, context);
   },
 
   async requestUserOtp(phone: string) {
@@ -300,7 +280,7 @@ export const authService = {
     };
   },
 
-  async refreshAuthToken(token: string) {
+  async refreshAuthToken(token: string, context?: { ip?: string; userAgent?: string }) {
     // The incoming token is the raw refresh token string.
     // 1. Hash the incoming token to find it in the database.
     const tokenHash = hashToken(token);
@@ -309,6 +289,12 @@ export const authService = {
     const session = await AuthRepository.findSessionByToken(tokenHash);
     if (!session || session.revokedAt) {
       throw new AppError('Session is invalid or has been revoked', httpStatus.UNAUTHORIZED);
+    }
+
+    // Platform Admin sessions enforce strict MFA verification & refresh token rotation
+    if (session.actorType === SessionActorType.PLATFORM_ADMIN) {
+      const { PlatformAdminAuthService } = await import('./platform-admin-auth.service');
+      return PlatformAdminAuthService.refreshSession(token, context);
     }
 
     // 3. Check for expiration.
@@ -324,9 +310,13 @@ export const authService = {
     return { accessToken };
   },
 
-  async logout(sessionId: string) {
+  async logout(sessionId: string, context?: { ip?: string; userAgent?: string }) {
     const session = await AuthRepository.findSessionById(sessionId);
     if (session) {
+      if (session.actorType === SessionActorType.PLATFORM_ADMIN) {
+        const { PlatformAdminAuthService } = await import('./platform-admin-auth.service');
+        return PlatformAdminAuthService.logoutSession(sessionId, session.actorId, context);
+      }
       const { invalidateActorCache } = await import('../../common/middleware/auth');
       await invalidateActorCache(session.actorId, session.actorType);
     }

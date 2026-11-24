@@ -53,6 +53,8 @@ describe('PLATFORM_ADMIN Audit Logging', () => {
       fullName: 'Super User',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     ((prisma as any).user.findUnique as jest.Mock).mockResolvedValue({

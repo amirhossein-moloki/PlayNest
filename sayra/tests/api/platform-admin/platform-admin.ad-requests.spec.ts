@@ -111,6 +111,8 @@ describe('Platform Admin Advertisement Management API', () => {
       fullName: 'Chief Superuser',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
   };
 

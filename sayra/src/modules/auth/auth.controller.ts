@@ -1,11 +1,51 @@
 import { Request, Response } from 'express';
-import { Prisma } from '@prisma/client';
+import { Prisma, SessionActorType } from '@prisma/client';
 import { authService } from './auth.station';
 import { AuthRepository } from './auth.repository';
 import { UpdateProfileInput } from './auth.validators';
 import AppError from '../../common/errors/AppError';
 import { invalidateActorCache } from '../../common/middleware/auth';
 import httpStatus from 'http-status';
+import { PlatformAdminAuthService } from './platform-admin-auth.service';
+import {
+  DEFAULT_ADMIN_REFRESH_TTL_MS,
+  PLATFORM_ADMIN_REFRESH_COOKIE_NAME,
+  sanitizePlatformAdmin,
+} from './platform-admin-auth.constants';
+import { parseDurationToMs } from './auth.tokens';
+import { env } from '../../config/env';
+
+function extractRequestMeta(req: Request) {
+  const forwarded = req.headers['x-forwarded-for'];
+  const forwardedIp = Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(',')[0]?.trim();
+  return {
+    ip: req.ip || forwardedIp || req.socket?.remoteAddress,
+    userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined,
+  };
+}
+
+function setPlatformAdminRefreshCookie(res: Response, refreshToken: string) {
+  const maxAge = parseDurationToMs(
+    env.PLATFORM_ADMIN_REFRESH_EXPIRES_IN,
+    DEFAULT_ADMIN_REFRESH_TTL_MS
+  );
+  res.cookie(PLATFORM_ADMIN_REFRESH_COOKIE_NAME, refreshToken, {
+    httpOnly: true,
+    secure: env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge,
+    path: '/api/v1/auth',
+  });
+}
+
+function clearPlatformAdminRefreshCookie(res: Response) {
+  res.clearCookie(PLATFORM_ADMIN_REFRESH_COOKIE_NAME, {
+    httpOnly: true,
+    secure: env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/api/v1/auth',
+  });
+}
 
 export const login = async (req: Request, res: Response) => {
   const { phone, password, gamingCenterId } = req.body;
@@ -16,8 +56,157 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const loginPlatformAdmin = async (req: Request, res: Response) => {
-  const { phone, password } = req.body;
-  const result = await authService.loginPlatformAdmin(phone, password);
+  const { username, phone, password } = req.body;
+  const identifier = (username || phone || '').trim();
+  const result = await authService.loginPlatformAdmin(identifier, password, extractRequestMeta(req));
+  res.ok(result);
+};
+
+export const verifyPlatformAdminTwoFactor = async (req: Request, res: Response) => {
+  const { challengeToken, code, recoveryCode } = req.body;
+  const result = await PlatformAdminAuthService.verifyTwoFactor(
+    { challengeToken, code, recoveryCode },
+    extractRequestMeta(req)
+  );
+  setPlatformAdminRefreshCookie(res, result.refreshToken);
+  res.ok(result);
+};
+
+export const setupPlatformAdminTwoFactor = async (req: Request, res: Response) => {
+  const { setupToken, currentPassword, currentTotpCode, label, mode } = req.body || {};
+  const authenticatedAdminId =
+    req.actor?.actorType === SessionActorType.PLATFORM_ADMIN && req.actor.mfaVerified
+      ? req.actor.id
+      : undefined;
+
+  const result = await PlatformAdminAuthService.startTwoFactorSetup(
+    {
+      setupToken,
+      authenticatedAdminId,
+      currentPassword,
+      currentTotpCode,
+      label,
+      mode,
+    },
+    extractRequestMeta(req)
+  );
+  res.ok(result);
+};
+
+export const confirmPlatformAdminTwoFactor = async (req: Request, res: Response) => {
+  const { setupToken, deviceId, code, mode } = req.body;
+  const authenticatedAdminId =
+    req.actor?.actorType === SessionActorType.PLATFORM_ADMIN && req.actor.mfaVerified
+      ? req.actor.id
+      : undefined;
+
+  const result = await PlatformAdminAuthService.confirmTwoFactorSetup(
+    {
+      setupToken,
+      authenticatedAdminId,
+      deviceId,
+      code,
+      mode,
+    },
+    extractRequestMeta(req)
+  );
+
+  if ('refreshToken' in result && typeof result.refreshToken === 'string') {
+    setPlatformAdminRefreshCookie(res, result.refreshToken);
+  }
+  res.ok(result);
+};
+
+export const getPlatformAdminTwoFactorStatus = async (req: Request, res: Response) => {
+  if (!req.actor || req.actor.actorType !== SessionActorType.PLATFORM_ADMIN) {
+    throw new AppError('Unauthorized', httpStatus.UNAUTHORIZED);
+  }
+  const result = await PlatformAdminAuthService.getTwoFactorStatus(req.actor.id);
+  res.ok(result);
+};
+
+export const removePlatformAdminAuthenticatorDevice = async (req: Request, res: Response) => {
+  if (!req.actor || req.actor.actorType !== SessionActorType.PLATFORM_ADMIN) {
+    throw new AppError('Unauthorized', httpStatus.UNAUTHORIZED);
+  }
+  const { deviceId } = req.params;
+  const { currentPassword, code } = req.body;
+  const result = await PlatformAdminAuthService.removeAuthenticatorDevice(
+    req.actor.id,
+    deviceId,
+    currentPassword,
+    code,
+    extractRequestMeta(req)
+  );
+  res.ok(result);
+};
+
+export const regeneratePlatformAdminRecoveryCodes = async (req: Request, res: Response) => {
+  if (!req.actor || req.actor.actorType !== SessionActorType.PLATFORM_ADMIN) {
+    throw new AppError('Unauthorized', httpStatus.UNAUTHORIZED);
+  }
+  const { currentPassword, code } = req.body;
+  const result = await PlatformAdminAuthService.regenerateRecoveryCodes(
+    req.actor.id,
+    currentPassword,
+    code,
+    extractRequestMeta(req)
+  );
+  res.ok(result);
+};
+
+export const disablePlatformAdminTwoFactor = async (req: Request, res: Response) => {
+  if (!req.actor || req.actor.actorType !== SessionActorType.PLATFORM_ADMIN) {
+    throw new AppError('Unauthorized', httpStatus.UNAUTHORIZED);
+  }
+  const { currentPassword, code, recoveryCode } = req.body;
+  const result = await PlatformAdminAuthService.disableTwoFactor(
+    req.actor.id,
+    currentPassword,
+    { code, recoveryCode },
+    extractRequestMeta(req)
+  );
+  clearPlatformAdminRefreshCookie(res);
+  res.ok(result);
+};
+
+export const refreshPlatformAdminSession = async (req: Request, res: Response) => {
+  const cookieToken = req.cookies?.[PLATFORM_ADMIN_REFRESH_COOKIE_NAME];
+  const rawToken = req.body?.refreshToken || cookieToken;
+  if (!rawToken || typeof rawToken !== 'string') {
+    throw new AppError('Refresh token is required', httpStatus.UNAUTHORIZED);
+  }
+  const result = await PlatformAdminAuthService.refreshSession(rawToken, extractRequestMeta(req));
+  setPlatformAdminRefreshCookie(res, result.refreshToken);
+  res.ok(result);
+};
+
+export const logoutPlatformAdmin = async (req: Request, res: Response) => {
+  if (!req.actor || req.actor.actorType !== SessionActorType.PLATFORM_ADMIN) {
+    throw new AppError('Unauthorized', httpStatus.UNAUTHORIZED);
+  }
+  const sessionId = req.actor.sessionId;
+  if (sessionId) {
+    await PlatformAdminAuthService.logoutSession(sessionId, req.actor.id, extractRequestMeta(req));
+  }
+  clearPlatformAdminRefreshCookie(res);
+  res.ok({ message: 'Logged out successfully' });
+};
+
+export const listPlatformAdminSessions = async (req: Request, res: Response) => {
+  if (!req.actor || req.actor.actorType !== SessionActorType.PLATFORM_ADMIN) {
+    throw new AppError('Unauthorized', httpStatus.UNAUTHORIZED);
+  }
+  const sessions = await PlatformAdminAuthService.listSessions(req.actor.id, req.actor.sessionId);
+  res.ok({ sessions });
+};
+
+export const revokeAllPlatformAdminSessions = async (req: Request, res: Response) => {
+  if (!req.actor || req.actor.actorType !== SessionActorType.PLATFORM_ADMIN) {
+    throw new AppError('Unauthorized', httpStatus.UNAUTHORIZED);
+  }
+  const result = await PlatformAdminAuthService.revokeAllSessions(req.actor.id, extractRequestMeta(req));
+  clearPlatformAdminRefreshCookie(res);
   res.ok(result);
 };
 
@@ -79,7 +268,10 @@ export const loginUserWithOtp = async (req: Request, res: Response) => {
 
 export const refresh = async (req: Request, res: Response) => {
   const { refreshToken } = req.body;
-  const result = await authService.refreshAuthToken(refreshToken);
+  const result = await authService.refreshAuthToken(refreshToken, extractRequestMeta(req));
+  if ('refreshToken' in result && typeof result.refreshToken === 'string') {
+    setPlatformAdminRefreshCookie(res, result.refreshToken);
+  }
   res.ok(result);
 };
 
@@ -89,7 +281,10 @@ export const logout = async (req: Request, res: Response) => {
   if (!sessionId) {
     throw new AppError('Session not found', httpStatus.UNAUTHORIZED);
   }
-  const result = await authService.logout(sessionId);
+  const result = await authService.logout(sessionId, extractRequestMeta(req));
+  if (req.actor?.actorType === SessionActorType.PLATFORM_ADMIN) {
+    clearPlatformAdminRefreshCookie(res);
+  }
   res.ok(result);
 };
 
@@ -116,23 +311,23 @@ export const me = async (req: Request, res: Response) => {
     if (req.actorProfile?.adminProfile) {
       return res.ok({
         ...req.actor,
-        username: null,
+        username: req.actorProfile.adminProfile.username ?? req.actor.username ?? null,
         profile: req.actorProfile.adminProfile,
       });
     }
     const adminId = req.actor.id || req.actor.actorId || '';
     const admin = await AuthRepository.findPlatformAdminById(adminId);
     if (admin) {
-      const { passwordHash: _passwordHash, ...safeAdmin } = admin; void _passwordHash;
+      const safeAdmin = sanitizePlatformAdmin(admin as unknown as Record<string, unknown>);
       return res.ok({
         ...req.actor,
-        username: null,
+        username: safeAdmin.username,
         profile: safeAdmin,
       });
     }
     return res.ok({
       ...req.actor,
-      username: null,
+      username: req.actor.username ?? null,
     });
   }
 

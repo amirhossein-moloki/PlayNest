@@ -16,6 +16,22 @@ export const getActorCacheKey = (actorId: string, actorType: string): string => 
   return `auth:actor:${actorType}:${actorId}`;
 };
 
+export const getRevokedSessionKey = (sessionId: string): string => {
+  return `auth:revoked_session:${sessionId}`;
+};
+
+export const markSessionRevokedInCache = async (
+  sessionId: string,
+  ttlSeconds = 3600
+): Promise<void> => {
+  if (!sessionId) return;
+  try {
+    await redis.set(getRevokedSessionKey(sessionId), '1', 'EX', ttlSeconds);
+  } catch (error) {
+    logger.error({ error, sessionId }, 'Failed to mark session as revoked in Redis');
+  }
+};
+
 export const invalidateActorCache = async (actorId: string, actorType: string): Promise<void> => {
   try {
     const cacheKey = getActorCacheKey(actorId, actorType);
@@ -33,13 +49,30 @@ interface CachedActor {
   actorType: SessionActorType;
   isActive?: boolean;
   isSuperuser?: boolean;
+  totpEnabled?: boolean;
+  totpSetupCompleted?: boolean;
+  username?: string | null;
   profile?: CachedActorProfile;
 }
 
 function extractActorProfile(actorType: SessionActorType, user: Record<string, unknown>): CachedActorProfile | undefined {
   if (actorType === 'PLATFORM_ADMIN') {
-    const { passwordHash: _passwordHash, ...safeAdmin } = user;
-    void _passwordHash;
+    const safeAdmin: Record<string, unknown> = {
+      id: user.id,
+      username: typeof user.username === 'string' ? user.username : null,
+      fullName: user.fullName,
+      phone: user.phone ?? null,
+      email: user.email ?? null,
+      isActive: user.isActive,
+      isSuperuser: user.isSuperuser,
+      totpEnabled: Boolean(user.totpEnabled),
+      totpSetupCompleted: Boolean(user.totpSetupCompleted),
+      totpEnabledAt: user.totpEnabledAt ?? null,
+      totpLastUsedAt: user.totpLastUsedAt ?? null,
+      lastLogin: user.lastLogin ?? null,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
     return { adminProfile: safeAdmin };
   }
   if (actorType === 'USER' && ('username' in user || 'fullName' in user || 'email' in user)) {
@@ -52,11 +85,69 @@ function extractActorProfile(actorType: SessionActorType, user: Record<string, u
   return undefined;
 }
 
+async function isSessionRevokedInCache(sessionId?: string): Promise<boolean> {
+  if (!sessionId) return false;
+  try {
+    const val = await redis.get(getRevokedSessionKey(sessionId));
+    return Boolean(val);
+  } catch {
+    return false;
+  }
+}
+
+async function verifyPlatformAdminSessionRecord(
+  sessionId: string | undefined,
+  actorId: string
+): Promise<boolean> {
+  if (!sessionId) return true;
+  const sessionDelegate = (prisma as unknown as {
+    session?: {
+      findUnique?: (args: {
+        where: { id: string };
+        select?: Record<string, boolean>;
+      }) => Promise<{
+        id: string;
+        actorId: string;
+        actorType: SessionActorType;
+        revokedAt: Date | null;
+        expiresAt: Date;
+        mfaVerifiedAt?: Date | null;
+      } | null>;
+    };
+  }).session;
+
+  if (!sessionDelegate || typeof sessionDelegate.findUnique !== 'function') {
+    return true;
+  }
+
+  const sessionRecord = await sessionDelegate.findUnique({
+    where: { id: sessionId },
+  });
+
+  if (!sessionRecord) {
+    return false;
+  }
+  if (sessionRecord.actorType !== SessionActorType.PLATFORM_ADMIN || sessionRecord.actorId !== actorId) {
+    return false;
+  }
+  if (sessionRecord.revokedAt) {
+    return false;
+  }
+  if (sessionRecord.expiresAt && new Date(sessionRecord.expiresAt) <= new Date()) {
+    return false;
+  }
+  if (!sessionRecord.mfaVerifiedAt) {
+    return false;
+  }
+  return true;
+}
+
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   let actorId: string | undefined;
   let actorType: SessionActorType | undefined;
   let sessionId: string | undefined;
+  let usedBearerAuth = false;
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
@@ -64,9 +155,20 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     if (!payload || !payload.actorId) {
       return next(new AppError('Invalid or expired token', httpStatus.UNAUTHORIZED));
     }
+    if (payload.tokenType && payload.tokenType !== 'ACCESS') {
+      return next(new AppError('Invalid token type', httpStatus.UNAUTHORIZED));
+    }
+    if (payload.actorType === SessionActorType.PLATFORM_ADMIN && payload.mfaVerified !== true) {
+      return next(
+        new AppError('Two-factor verification is required.', httpStatus.UNAUTHORIZED, {
+          code: 'TOTP_VERIFICATION_REQUIRED',
+        })
+      );
+    }
     actorId = payload.actorId;
     actorType = payload.actorType;
     sessionId = payload.sessionId;
+    usedBearerAuth = true;
   } else {
     // Check if an AdminJS session cookie is present for fallback authentication
     const rawCookie =
@@ -86,10 +188,15 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         if (sessionDataRaw) {
           const sessionObj = JSON.parse(sessionDataRaw);
           const adminUser = sessionObj?.adminUser;
-          if (adminUser && adminUser.id) {
+          if (
+            adminUser &&
+            adminUser.id &&
+            adminUser.isSuperuser === true &&
+            adminUser.mfaVerified === true
+          ) {
             actorId = adminUser.id;
             actorType = SessionActorType.PLATFORM_ADMIN;
-            sessionId = adminSessionId;
+            sessionId = adminUser.sessionId || adminSessionId;
           }
         }
       } catch (sessionErr) {
@@ -99,6 +206,26 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
 
     if (!actorId || !actorType) {
       return next(new AppError('Authorization header is missing or invalid', httpStatus.UNAUTHORIZED));
+    }
+  }
+
+  if (actorType === SessionActorType.PLATFORM_ADMIN) {
+    if (await isSessionRevokedInCache(sessionId)) {
+      return next(
+        new AppError('Session has been revoked', httpStatus.UNAUTHORIZED, {
+          code: 'SESSION_REVOKED',
+        })
+      );
+    }
+    if (usedBearerAuth) {
+      const sessionValid = await verifyPlatformAdminSessionRecord(sessionId, actorId);
+      if (!sessionValid) {
+        return next(
+          new AppError('Session is invalid or has been revoked', httpStatus.UNAUTHORIZED, {
+            code: 'SESSION_REVOKED',
+          })
+        );
+      }
     }
   }
 
@@ -122,6 +249,21 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       return next(new AppError('User account is deactivated', httpStatus.UNAUTHORIZED));
     }
 
+    if (cachedActor.actorType === SessionActorType.PLATFORM_ADMIN) {
+      if (cachedActor.isSuperuser !== true) {
+        return next(
+          new AppError('Forbidden: PLATFORM_ADMIN access required.', httpStatus.FORBIDDEN)
+        );
+      }
+      if (cachedActor.totpEnabled !== true || cachedActor.totpSetupCompleted !== true) {
+        return next(
+          new AppError('Two-factor authentication setup is required.', httpStatus.FORBIDDEN, {
+            code: 'TOTP_SETUP_REQUIRED',
+          })
+        );
+      }
+    }
+
     req.actor = {
       id: cachedActor.id,
       actorId: cachedActor.actorId,
@@ -130,6 +272,9 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       actorType: cachedActor.actorType,
       sessionId: sessionId as string | undefined,
       isSuperuser: cachedActor.isSuperuser,
+      ...(cachedActor.actorType === SessionActorType.PLATFORM_ADMIN
+        ? { mfaVerified: true, username: cachedActor.username ?? null }
+        : {}),
     };
     if (cachedActor.profile) {
       req.actorProfile = cachedActor.profile;
@@ -140,6 +285,10 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
   // 3. Cache Miss - Query database
   let user;
   let isSuperuser = false;
+  let totpEnabled = false;
+  let totpSetupCompleted = false;
+  let adminUsername: string | null | undefined;
+
   if (actorType === 'PLATFORM_ADMIN') {
     const admin = await prisma.platformAdmin.findUnique({ where: { id: actorId } });
     if (!admin) {
@@ -148,8 +297,21 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     if (admin.isActive === false) {
       return next(new AppError('User account is deactivated', httpStatus.UNAUTHORIZED));
     }
-    user = admin;
     isSuperuser = admin.isSuperuser ?? true;
+    if (!isSuperuser) {
+      return next(new AppError('Forbidden: PLATFORM_ADMIN access required.', httpStatus.FORBIDDEN));
+    }
+    totpEnabled = Boolean(admin.totpEnabled);
+    totpSetupCompleted = Boolean(admin.totpSetupCompleted);
+    if (!totpEnabled || !totpSetupCompleted) {
+      return next(
+        new AppError('Two-factor authentication setup is required.', httpStatus.FORBIDDEN, {
+          code: 'TOTP_SETUP_REQUIRED',
+        })
+      );
+    }
+    adminUsername = admin.username ?? null;
+    user = admin;
   } else if (actorType === 'USER') {
     user = await prisma.user.findUnique({ where: { id: actorId } });
     if (!user) {
@@ -178,6 +340,9 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     actorType,
     isActive: true,
     ...(isSuperuser ? { isSuperuser: true } : {}),
+    ...(actorType === 'PLATFORM_ADMIN'
+      ? { totpEnabled, totpSetupCompleted, username: adminUsername ?? null }
+      : {}),
     ...(profile ? { profile } : {}),
   };
 
@@ -196,6 +361,9 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     actorType,
     sessionId: sessionId as string | undefined,
     isSuperuser: isSuperuser ? true : undefined,
+    ...(actorType === 'PLATFORM_ADMIN'
+      ? { mfaVerified: true, username: adminUsername ?? null }
+      : {}),
   };
   if (profile) {
     req.actorProfile = profile;
@@ -213,7 +381,15 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
     const payload = verifyToken(token, env.JWT_ACCESS_SECRET);
-    if (payload && payload.actorId && payload.actorType) {
+    if (
+      payload &&
+      payload.actorId &&
+      payload.actorType &&
+      (!payload.tokenType || payload.tokenType === 'ACCESS')
+    ) {
+      if (payload.actorType === SessionActorType.PLATFORM_ADMIN && payload.mfaVerified !== true) {
+        return next();
+      }
       actorId = payload.actorId;
       actorType = payload.actorType;
       sessionId = payload.sessionId;
@@ -222,6 +398,16 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
 
   if (!actorId || !actorType) {
     return next();
+  }
+
+  if (actorType === SessionActorType.PLATFORM_ADMIN) {
+    if (await isSessionRevokedInCache(sessionId)) {
+      return next();
+    }
+    const sessionValid = await verifyPlatformAdminSessionRecord(sessionId, actorId);
+    if (!sessionValid) {
+      return next();
+    }
   }
 
   const cacheKey = getActorCacheKey(actorId, actorType);
@@ -237,7 +423,13 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
   }
 
   if (cachedActor) {
-    if (cachedActor.isActive !== false) {
+    const isAdminAllowed =
+      cachedActor.actorType !== SessionActorType.PLATFORM_ADMIN ||
+      (cachedActor.isSuperuser === true &&
+        cachedActor.totpEnabled === true &&
+        cachedActor.totpSetupCompleted === true);
+
+    if (cachedActor.isActive !== false && isAdminAllowed) {
       req.actor = {
         id: cachedActor.id,
         actorId: cachedActor.actorId,
@@ -246,6 +438,9 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
         actorType: cachedActor.actorType,
         sessionId: sessionId as string | undefined,
         isSuperuser: cachedActor.isSuperuser,
+        ...(cachedActor.actorType === SessionActorType.PLATFORM_ADMIN
+          ? { mfaVerified: true, username: cachedActor.username ?? null }
+          : {}),
       };
       if (cachedActor.profile) {
         req.actorProfile = cachedActor.profile;
@@ -257,12 +452,24 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
   // Cache Miss - Query database
   let user;
   let isSuperuser = false;
+  let totpEnabled = false;
+  let totpSetupCompleted = false;
+  let adminUsername: string | null | undefined;
   try {
     if (actorType === 'PLATFORM_ADMIN') {
       const admin = await prisma.platformAdmin.findUnique({ where: { id: actorId } });
-      if (admin && admin.isActive !== false) {
+      if (
+        admin &&
+        admin.isActive !== false &&
+        (admin.isSuperuser ?? true) &&
+        admin.totpEnabled === true &&
+        admin.totpSetupCompleted === true
+      ) {
         user = admin;
         isSuperuser = admin.isSuperuser ?? true;
+        totpEnabled = true;
+        totpSetupCompleted = true;
+        adminUsername = admin.username ?? null;
       }
     } else if (actorType === 'USER') {
       const foundUser = await prisma.user.findUnique({ where: { id: actorId } });
@@ -289,6 +496,9 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
         actorType,
         isActive: true,
         ...(isSuperuser ? { isSuperuser: true } : {}),
+        ...(actorType === 'PLATFORM_ADMIN'
+          ? { totpEnabled, totpSetupCompleted, username: adminUsername ?? null }
+          : {}),
         ...(profile ? { profile } : {}),
       };
 
@@ -306,6 +516,9 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
         actorType,
         sessionId: sessionId as string | undefined,
         isSuperuser: isSuperuser ? true : undefined,
+        ...(actorType === 'PLATFORM_ADMIN'
+          ? { mfaVerified: true, username: adminUsername ?? null }
+          : {}),
       };
       if (profile) {
         req.actorProfile = profile;

@@ -275,7 +275,7 @@ describe('PlayNest Unified Search, Catalog Intelligence & Filters API', () => {
   beforeAll(() => {
     const SECRET = env.JWT_ACCESS_SECRET || 'test-access-secret';
     adminToken = jwt.sign(
-      { sessionId: 'sess_admin', actorId: adminId, actorType: 'PLATFORM_ADMIN' },
+      { sessionId: 'sess_admin', actorId: adminId, actorType: 'PLATFORM_ADMIN', mfaVerified: true },
       SECRET,
       { expiresIn: '1h' }
     );
@@ -294,6 +294,8 @@ describe('PlayNest Unified Search, Catalog Intelligence & Filters API', () => {
       id: adminId,
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
       role: 'SUPERUSER',
     });
     (prisma.user.findUnique as jest.Mock).mockResolvedValue({

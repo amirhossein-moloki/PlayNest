@@ -8,6 +8,7 @@ import { PlatformAnalyticsController } from './analytics.controller';
 import { VerificationController } from '../verification/verification.controller';
 import { platformAdminDashboardTemplate } from './platform-admin-ui.templates';
 import { platformAnalyticsDashboardTemplate } from './platform-analytics-ui.templates';
+import { platformAdminAuthPageTemplate } from './platform-admin-auth-ui.templates';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
 import { PlatformAdRequestsController } from './ad-requests.controller';
 import { PlatformMediaController } from './media.controller';
@@ -51,6 +52,16 @@ const mediaUpload = multer({
       cb(new AppError('Invalid file type. Allowed formats: JPEG, PNG, WEBP, GIF, AVIF.', httpStatus.BAD_REQUEST) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
     }
   },
+});
+
+// Public Platform Admin 2FA Login & Mandatory Setup Page
+router.get('/login', (_req, res) => {
+  res.type('html').send(
+    platformAdminAuthPageTemplate({
+      redirectTo: '/api/v1/platform-admin/dashboard',
+      mode: 'dashboard',
+    })
+  );
 });
 
 // UI Dashboard route

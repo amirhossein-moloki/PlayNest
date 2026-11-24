@@ -33,6 +33,14 @@ const EnvSchema = z.object({
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
   COOKIE_SECRET: z.string().min(10).optional(),
 
+  // Platform Admin Mandatory TOTP 2FA & Session Security
+  PLATFORM_ADMIN_TOTP_ENCRYPTION_KEY: z.string().min(32, 'PLATFORM_ADMIN_TOTP_ENCRYPTION_KEY must be at least 32 characters').optional(),
+  PLATFORM_ADMIN_TOTP_ISSUER: z.string().min(1).max(40).default('PlayNest'),
+  PLATFORM_ADMIN_ACCESS_EXPIRES_IN: z.string().default('15m'),
+  PLATFORM_ADMIN_REFRESH_EXPIRES_IN: z.string().default('12h'),
+  PLATFORM_ADMIN_CHALLENGE_TTL_SECONDS: z.coerce.number().int().min(60).max(900).default(300),
+  PLATFORM_ADMIN_SETUP_TTL_SECONDS: z.coerce.number().int().min(120).max(1800).default(600),
+
   // CORS
   CORS_ORIGIN: z
     .preprocess(corsOriginTransform, z.union([z.literal('*'), z.array(z.string().min(1))]))
@@ -205,6 +213,14 @@ if (parsed.success) {
     if (parsed.data.JWT_REFRESH_SECRET === 'generate_another_at_least_32_chars_long_random_string') {
       throw new Error(
         'JWT_REFRESH_SECRET must be changed from the default placeholder value in production.'
+      );
+    }
+    if (
+      parsed.data.PLATFORM_ADMIN_TOTP_ENCRYPTION_KEY &&
+      parsed.data.PLATFORM_ADMIN_TOTP_ENCRYPTION_KEY.includes('<YOUR_TOTP_ENCRYPTION_KEY')
+    ) {
+      throw new Error(
+        'PLATFORM_ADMIN_TOTP_ENCRYPTION_KEY must be changed from the placeholder value in production.'
       );
     }
   }

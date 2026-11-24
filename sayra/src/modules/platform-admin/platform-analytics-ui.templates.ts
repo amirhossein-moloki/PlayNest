@@ -689,27 +689,73 @@ export const platformAnalyticsDashboardTemplate = () => `<!DOCTYPE html>
     </div>
   </main>
 
-  <!-- Login Modal -->
+  <!-- Login Modal (Mandatory 2FA) -->
   <div id="authOverlay" class="auth-overlay">
     <div class="auth-card">
-      <h2>Platform Super Admin Login</h2>
-      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
-        Authentication required to access platform-wide analytics.
-      </p>
       <div id="authError" style="display:none; color: var(--accent); background: rgba(239, 68, 68, 0.1); border: 1px solid var(--accent); padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 16px;"></div>
-      <form id="loginForm" onsubmit="handleLogin(event)">
-        <div class="form-group">
-          <label for="adminPhone">Phone Number</label>
-          <input type="text" id="adminPhone" class="form-control" placeholder="09123456789" required autocomplete="tel" />
+
+      <div id="analyticsLoginStep">
+        <h2>Platform Super Admin Login</h2>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
+          Username, Password &amp; TOTP 2FA verification required to access platform-wide analytics.
+        </p>
+        <form id="loginForm" onsubmit="handleLogin(event)">
+          <div class="form-group">
+            <label for="adminUsername">Username (or Phone / Email)</label>
+            <input type="text" id="adminUsername" class="form-control" placeholder="superadmin" required autocomplete="username" />
+          </div>
+          <div class="form-group">
+            <label for="adminPassword">Password</label>
+            <input type="password" id="adminPassword" class="form-control" placeholder="••••••••" required autocomplete="current-password" />
+          </div>
+          <button type="submit" id="loginSubmitBtn" class="btn btn-primary btn-block">
+            <i class="fa-solid fa-lock"></i> Continue to Two-Factor Verification
+          </button>
+        </form>
+      </div>
+
+      <div id="analyticsVerifyStep" style="display:none;">
+        <h2>Two-Factor Verification</h2>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Enter the 6-digit code from Google Authenticator or Microsoft Authenticator.</p>
+        <form onsubmit="handleAnalyticsVerify2fa(event)">
+          <div class="form-group" id="analyticsTotpGroup">
+            <label for="analyticsTotpCode">6-Digit Code</label>
+            <input type="text" id="analyticsTotpCode" class="form-control" inputmode="numeric" maxlength="6" placeholder="000000" />
+          </div>
+          <div class="form-group" id="analyticsRecoveryGroup" style="display:none;">
+            <label for="analyticsRecoveryCode">Recovery Code</label>
+            <input type="text" id="analyticsRecoveryCode" class="form-control" placeholder="XXXX-XXXX-XXXX-XXXX" />
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Verify &amp; Open Analytics</button>
+        </form>
+        <button type="button" class="btn btn-secondary btn-sm" style="margin-top:10px;" onclick="toggleAnalyticsRecovery()">Use Recovery Code</button>
+      </div>
+
+      <div id="analyticsSetupStep" style="display:none;">
+        <h2>Mandatory 2FA Setup</h2>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Scan this QR code in Google or Microsoft Authenticator to activate mandatory 2FA.</p>
+        <div style="text-align:center; background:#fff; padding:10px; border-radius:10px; display:inline-block; margin-bottom:12px;">
+          <img id="analyticsSetupQr" alt="QR Code" style="width:180px; height:180px; display:block;" />
         </div>
         <div class="form-group">
-          <label for="adminPassword">Password</label>
-          <input type="password" id="adminPassword" class="form-control" placeholder="••••••••" required autocomplete="current-password" />
+          <label>Manual Entry Key</label>
+          <input type="text" id="analyticsManualKey" class="form-control" readonly />
         </div>
-        <button type="submit" id="loginSubmitBtn" class="btn btn-primary btn-block">
-          <i class="fa-solid fa-lock"></i> Sign In to Platform Console
-        </button>
-      </form>
+        <form onsubmit="handleAnalyticsConfirmSetup(event)">
+          <div class="form-group">
+            <label for="analyticsSetupCode">6-Digit Confirmation Code</label>
+            <input type="text" id="analyticsSetupCode" class="form-control" inputmode="numeric" maxlength="6" placeholder="000000" required />
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Activate 2FA</button>
+        </form>
+      </div>
+
+      <div id="analyticsRecoveryStep" style="display:none;">
+        <h2>Recovery Codes</h2>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">Save these single-use recovery codes securely:</p>
+        <pre id="analyticsRecoveryPre" style="background:var(--bg); border:1px solid var(--border); padding:10px; border-radius:6px; font-size:12px; margin-bottom:12px; direction:ltr;"></pre>
+        <button type="button" class="btn btn-primary btn-block" onclick="finishAnalyticsSetup()">Proceed to Analytics</button>
+      </div>
     </div>
   </div>
 
@@ -719,6 +765,7 @@ export const platformAnalyticsDashboardTemplate = () => `<!DOCTYPE html>
     var token = localStorage.getItem('platform_token');
     var activeSection = 'overview';
     var cachedGamingCenters = [];
+    var analyticsAuthFlow = { challengeToken: null, setupToken: null, deviceId: null, usingRecovery: false };
 
     function headers() {
       return {
@@ -734,9 +781,17 @@ export const platformAnalyticsDashboardTemplate = () => `<!DOCTYPE html>
       setTimeout(function() { toast.style.display = 'none'; }, duration || 3000);
     }
 
+    function showAnalyticsStep(step) {
+      document.getElementById('analyticsLoginStep').style.display = step === 'login' ? 'block' : 'none';
+      document.getElementById('analyticsVerifyStep').style.display = step === 'verify' ? 'block' : 'none';
+      document.getElementById('analyticsSetupStep').style.display = step === 'setup' ? 'block' : 'none';
+      document.getElementById('analyticsRecoveryStep').style.display = step === 'recovery' ? 'block' : 'none';
+    }
+
     function showLoginModal(errorMessage) {
       var overlay = document.getElementById('authOverlay');
       var errorDiv = document.getElementById('authError');
+      showAnalyticsStep('login');
       if (errorMessage) {
         errorDiv.textContent = errorMessage;
         errorDiv.style.display = 'block';
@@ -744,16 +799,22 @@ export const platformAnalyticsDashboardTemplate = () => `<!DOCTYPE html>
         errorDiv.style.display = 'none';
       }
       overlay.style.display = 'flex';
-      document.getElementById('adminPhone').focus();
+      document.getElementById('adminUsername').focus();
     }
 
     function hideLoginModal() {
       document.getElementById('authOverlay').style.display = 'none';
     }
 
+    function toggleAnalyticsRecovery() {
+      analyticsAuthFlow.usingRecovery = !analyticsAuthFlow.usingRecovery;
+      document.getElementById('analyticsTotpGroup').style.display = analyticsAuthFlow.usingRecovery ? 'none' : 'block';
+      document.getElementById('analyticsRecoveryGroup').style.display = analyticsAuthFlow.usingRecovery ? 'block' : 'none';
+    }
+
     async function handleLogin(e) {
       e.preventDefault();
-      var phone = document.getElementById('adminPhone').value.trim();
+      var username = document.getElementById('adminUsername').value.trim();
       var password = document.getElementById('adminPassword').value;
       var btn = document.getElementById('loginSubmitBtn');
       var errorDiv = document.getElementById('authError');
@@ -766,34 +827,110 @@ export const platformAnalyticsDashboardTemplate = () => `<!DOCTYPE html>
         var response = await fetch('/api/v1/auth/platform-admin/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: phone, password: password })
+          body: JSON.stringify({ username: username, password: password })
         });
 
         var resData = await response.json();
         if (!response.ok) {
-          throw new Error(resData.message || 'Invalid credentials or access denied');
+          throw new Error((resData.error && resData.error.message) || resData.message || 'Invalid credentials or access denied');
         }
 
-        var issuedToken = resData.data && resData.data.tokens ? resData.data.tokens.accessToken : (resData.data ? resData.data.token : resData.token);
-        if (!issuedToken) {
-          throw new Error('Authentication failed: Missing token in response');
+        var data = resData.data || {};
+        if (data.requiresTwoFactorSetup && data.setupToken) {
+          analyticsAuthFlow.setupToken = data.setupToken;
+          var sRes = await fetch('/api/v1/auth/platform-admin/2fa/setup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ setupToken: analyticsAuthFlow.setupToken, mode: 'INITIAL' })
+          });
+          var sJson = await sRes.json();
+          if (!sRes.ok) throw new Error((sJson.error && sJson.error.message) || sJson.message || 'Failed to start setup');
+          analyticsAuthFlow.deviceId = sJson.data.deviceId;
+          document.getElementById('analyticsSetupQr').src = sJson.data.qrCodeDataUrl;
+          document.getElementById('analyticsManualKey').value = sJson.data.manualEntryKey;
+          showAnalyticsStep('setup');
+        } else if (data.challengeToken) {
+          analyticsAuthFlow.challengeToken = data.challengeToken;
+          analyticsAuthFlow.usingRecovery = false;
+          showAnalyticsStep('verify');
+        } else {
+          throw new Error('Authentication failed: Missing 2FA challenge');
         }
-
-        token = issuedToken;
-        localStorage.setItem('platform_token', token);
-        hideLoginModal();
-        initDashboard();
       } catch (err) {
         errorDiv.textContent = err.message || 'Authentication failed';
         errorDiv.style.display = 'block';
       } finally {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-lock"></i> Sign In to Platform Console';
+        btn.innerHTML = '<i class="fa-solid fa-lock"></i> Continue to Two-Factor Verification';
       }
     }
 
-    function logout() {
+    async function handleAnalyticsVerify2fa(e) {
+      e.preventDefault();
+      var errorDiv = document.getElementById('authError');
+      errorDiv.style.display = 'none';
+      try {
+        var body = { challengeToken: analyticsAuthFlow.challengeToken };
+        if (analyticsAuthFlow.usingRecovery) {
+          body.recoveryCode = document.getElementById('analyticsRecoveryCode').value.trim();
+        } else {
+          body.code = document.getElementById('analyticsTotpCode').value.trim();
+        }
+        var res = await fetch('/api/v1/auth/platform-admin/verify-2fa', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        var json = await res.json();
+        if (!res.ok) throw new Error((json.error && json.error.message) || json.message || 'Verification failed');
+        token = json.data.accessToken || (json.data.tokens && json.data.tokens.accessToken);
+        localStorage.setItem('platform_token', token);
+        if (json.data.refreshToken) localStorage.setItem('platform_refresh_token', json.data.refreshToken);
+        hideLoginModal();
+        initDashboard();
+      } catch (err) {
+        errorDiv.textContent = err.message;
+        errorDiv.style.display = 'block';
+      }
+    }
+
+    async function handleAnalyticsConfirmSetup(e) {
+      e.preventDefault();
+      var errorDiv = document.getElementById('authError');
+      errorDiv.style.display = 'none';
+      try {
+        var code = document.getElementById('analyticsSetupCode').value.trim();
+        var res = await fetch('/api/v1/auth/platform-admin/2fa/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ setupToken: analyticsAuthFlow.setupToken, deviceId: analyticsAuthFlow.deviceId, code: code, mode: 'INITIAL' })
+        });
+        var json = await res.json();
+        if (!res.ok) throw new Error((json.error && json.error.message) || json.message || 'Invalid code');
+        token = json.data.accessToken || (json.data.tokens && json.data.tokens.accessToken);
+        localStorage.setItem('platform_token', token);
+        if (json.data.refreshToken) localStorage.setItem('platform_refresh_token', json.data.refreshToken);
+        document.getElementById('analyticsRecoveryPre').textContent = (json.data.recoveryCodes || []).join('\\n');
+        showAnalyticsStep('recovery');
+      } catch (err) {
+        errorDiv.textContent = err.message;
+        errorDiv.style.display = 'block';
+      }
+    }
+
+    function finishAnalyticsSetup() {
+      hideLoginModal();
+      initDashboard();
+    }
+
+    async function logout() {
+      try {
+        if (token) {
+          await fetch('/api/v1/auth/platform-admin/logout', { method: 'POST', headers: headers() });
+        }
+      } catch (e) { /* ignore */ }
       localStorage.removeItem('platform_token');
+      localStorage.removeItem('platform_refresh_token');
       token = null;
       showLoginModal('You have been logged out.');
     }

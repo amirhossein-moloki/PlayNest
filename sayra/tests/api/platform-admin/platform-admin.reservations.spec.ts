@@ -110,6 +110,8 @@ describe('GET /platform-admin/reservations API', () => {
       fullName: 'Super User',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     ((prisma as any).reservation.findMany as jest.Mock).mockResolvedValue([sampleReservation]);
@@ -154,6 +156,8 @@ describe('GET /platform-admin/reservations API', () => {
       fullName: 'Super User',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     ((prisma as any).reservation.findMany as jest.Mock).mockResolvedValue([sampleReservation]);
@@ -185,6 +189,8 @@ describe('GET /platform-admin/reservations API', () => {
       fullName: 'Super User',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     ((prisma as any).reservation.findMany as jest.Mock).mockResolvedValue([sampleReservation]);
@@ -216,6 +222,8 @@ describe('GET /platform-admin/reservations API', () => {
       fullName: 'Super User',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     ((prisma as any).reservation.findMany as jest.Mock).mockResolvedValue([sampleReservation]);
@@ -241,6 +249,8 @@ describe('GET /platform-admin/reservations API', () => {
       fullName: 'Super User',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     ((prisma as any).reservation.findMany as jest.Mock).mockResolvedValue([sampleReservation]);
@@ -269,6 +279,8 @@ describe('GET /platform-admin/reservations API', () => {
       fullName: 'Super User',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     ((prisma as any).reservation.findMany as jest.Mock).mockResolvedValue([sampleReservation]);
@@ -323,6 +335,8 @@ describe('GET /platform-admin/reservations API', () => {
       fullName: 'Super User',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     ((prisma as any).reservation.findMany as jest.Mock).mockResolvedValue([sampleReservation]);
@@ -354,6 +368,8 @@ describe('GET /platform-admin/reservations API', () => {
       fullName: 'Super User',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     ((prisma as any).reservation.findMany as jest.Mock).mockResolvedValue([sampleReservation]);
@@ -394,6 +410,8 @@ describe('GET /platform-admin/reservations API', () => {
       fullName: 'Super User',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     ((prisma as any).reservation.findMany as jest.Mock).mockResolvedValue([sampleReservation]);
@@ -450,6 +468,8 @@ describe('GET /platform-admin/reservations API', () => {
       fullName: 'Super User',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     ((prisma as any).reservation.findMany as jest.Mock).mockResolvedValue([]);
@@ -472,6 +492,8 @@ describe('GET /platform-admin/reservations API', () => {
       fullName: 'Super User',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     const res = await request(app)

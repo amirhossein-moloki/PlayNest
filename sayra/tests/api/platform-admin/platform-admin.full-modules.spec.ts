@@ -105,6 +105,8 @@ describe('Platform Admin Full Modules API Tests', () => {
       fullName: 'Global Admin',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
     ((prisma as any).platformSetting.findUnique as jest.Mock).mockResolvedValue({
       id: 'default',

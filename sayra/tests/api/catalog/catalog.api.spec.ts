@@ -83,6 +83,7 @@ describe('Catalog API & Station From Catalog Flow', () => {
         sessionId: 'session_admin',
         actorId: adminId,
         actorType: 'PLATFORM_ADMIN',
+        mfaVerified: true,
       },
       SECRET,
       { expiresIn: '1h' }
@@ -106,6 +107,8 @@ describe('Catalog API & Station From Catalog Flow', () => {
       id: adminId,
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
       role: 'SUPERUSER',
     });
 

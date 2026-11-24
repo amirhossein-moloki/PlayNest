@@ -56,7 +56,17 @@ export function buildResourceRegistry(components?: { coverImageComponentId?: str
           delete: { isAccessible: false, isVisible: false },
           bulkDelete: { isAccessible: false, isVisible: false },
         },
-        properties: buildSensitivePropertiesConfiguration(),
+        properties: {
+          ...buildSensitivePropertiesConfiguration(),
+          totpEnabled: { isVisible: { list: true, show: true, edit: false, filter: true } },
+          totpSetupCompleted: { isVisible: { list: true, show: true, edit: false, filter: true } },
+          totpEnabledAt: { isVisible: { list: false, show: true, edit: false, filter: false } },
+          totpLastUsedAt: { isVisible: { list: false, show: true, edit: false, filter: false } },
+          totpFailedAttempts: { isVisible: { list: false, show: true, edit: false, filter: false } },
+          totpLockedUntil: { isVisible: { list: false, show: true, edit: false, filter: false } },
+          failedLoginAttempts: { isVisible: { list: false, show: true, edit: false, filter: false } },
+          lockedUntil: { isVisible: { list: false, show: true, edit: false, filter: false } },
+        },
       },
     },
     // 🎮 Stations & Catalog

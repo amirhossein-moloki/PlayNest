@@ -24,23 +24,37 @@ function sanitizeAuditPayload(data: any): any {
 
   const sensitiveKeys = new Set([
     'password',
-    'passwordHash',
+    'passwordhash',
+    'currentpassword',
+    'passwordconfirm',
     'code',
-    'codeHash',
+    'codehash',
+    'totpcode',
     'secret',
-    'secretKey',
+    'secretkey',
+    'secretencrypted',
+    'totpsecret',
+    'totpsecretencrypted',
+    'totppendingsecretencrypted',
+    'manualentrykey',
+    'otpauthurl',
+    'recoverycode',
+    'recoverycodes',
     'token',
-    'refreshToken',
+    'accesstoken',
+    'refreshtoken',
+    'challengetoken',
+    'setuptoken',
     'otp',
     'authorization',
-    'apiKey',
-    'idempotencyKey',
-    'deduplicationKey',
+    'apikey',
+    'idempotencykey',
+    'deduplicationkey',
   ]);
 
   const sanitized: Record<string, any> = {};
   for (const [key, value] of Object.entries(data)) {
-    if (sensitiveKeys.has(key.toLowerCase()) || sensitiveKeys.has(key)) {
+    if (sensitiveKeys.has(key.toLowerCase())) {
       sanitized[key] = '[REDACTED]';
     } else if (typeof value === 'object' && value !== null) {
       sanitized[key] = sanitizeAuditPayload(value);

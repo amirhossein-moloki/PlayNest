@@ -64,7 +64,7 @@ describe('Dynamic Device Types API Test Suite', () => {
 
   beforeAll(() => {
     adminToken = jwt.sign(
-      { actorId: adminId, actorType: 'PLATFORM_ADMIN', role: 'PLATFORM_ADMIN', isSuperuser: true },
+      { actorId: adminId, actorType: 'PLATFORM_ADMIN', role: 'PLATFORM_ADMIN', isSuperuser: true, mfaVerified: true },
       secret,
       { expiresIn: '1h' }
     );
@@ -83,6 +83,8 @@ describe('Dynamic Device Types API Test Suite', () => {
       id: adminId,
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
       role: 'SUPERUSER',
     });
 

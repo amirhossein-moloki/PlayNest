@@ -271,7 +271,7 @@ describe('PlayNest ShortLinks, Analytics, Campaigns, QR, Security & Ads API Suit
   beforeAll(() => {
     const secret = env.JWT_ACCESS_SECRET || 'test-access-secret';
     adminToken = jwt.sign(
-      { sessionId: 'sess_admin', actorId: ADMIN_ID, actorType: 'PLATFORM_ADMIN' },
+      { sessionId: 'sess_admin', actorId: ADMIN_ID, actorType: 'PLATFORM_ADMIN', mfaVerified: true },
       secret,
       { expiresIn: '1h' }
     );
@@ -327,11 +327,30 @@ describe('PlayNest ShortLinks, Analytics, Campaigns, QR, Security & Ads API Suit
     });
 
     (prisma.$transaction as jest.Mock).mockImplementation(async (cb: (tx: any) => any) => cb(prisma));
-    (prisma.session.findUnique as jest.Mock).mockResolvedValue(null);
+    (prisma.session.findUnique as jest.Mock).mockImplementation(async ({ where }: any) => {
+      if (where?.id === 'sess_admin') {
+        return {
+          id: 'sess_admin',
+          actorId: ADMIN_ID,
+          actorType: 'PLATFORM_ADMIN',
+          mfaVerifiedAt: new Date(),
+          revokedAt: null,
+          expiresAt: new Date(Date.now() + 3600_000),
+        };
+      }
+      return null;
+    });
 
     (prisma.platformAdmin.findUnique as jest.Mock).mockImplementation(async ({ where }: any) => {
       if (where.id === ADMIN_ID) {
-        return { id: ADMIN_ID, isActive: true, isSuperuser: true, role: 'SUPERUSER' };
+        return {
+          id: ADMIN_ID,
+          isActive: true,
+          isSuperuser: true,
+          totpEnabled: true,
+          totpSetupCompleted: true,
+          role: 'SUPERUSER',
+        };
       }
       return null;
     });

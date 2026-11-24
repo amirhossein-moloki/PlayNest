@@ -187,3 +187,53 @@ export const shortLinkQrRateLimiter = createShortLinkRateLimiter({
   prefix: 'rl:shortlink:qr:',
   message: 'Too many QR code requests, please try again shortly.',
 });
+
+export interface PlatformAdminRateLimiterOptions {
+  windowMs: number;
+  max: number;
+  prefix: string;
+  message: string;
+  forceEnableInTest?: boolean;
+}
+
+/**
+ * Dedicated rate limiter factory for Platform Admin authentication & 2FA verification endpoints.
+ */
+export function createPlatformAdminRateLimiter(options: PlatformAdminRateLimiterOptions) {
+  if (env.NODE_ENV === 'test' && !options.forceEnableInTest) {
+    return mockMiddleware;
+  }
+
+  const useMemory = Boolean(options.forceEnableInTest) || env.RATE_LIMIT_STORE === 'memory';
+  return rateLimit({
+    windowMs: options.windowMs,
+    max: options.max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    ...(useMemory ? {} : { store: createStore(options.prefix) }),
+    validate: false,
+    message: options.message,
+    handler: rateLimitHandler,
+  });
+}
+
+export const platformAdminLoginRateLimiter = createPlatformAdminRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  prefix: 'rl:pa:login:',
+  message: 'Too many platform administrator login attempts. Please try again later.',
+});
+
+export const platformAdminTotpRateLimiter = createPlatformAdminRateLimiter({
+  windowMs: 5 * 60 * 1000,
+  max: 10,
+  prefix: 'rl:pa:2fa:',
+  message: 'Too many two-factor authentication attempts. Please try again shortly.',
+});
+
+export const platformAdminRefreshRateLimiter = createPlatformAdminRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  prefix: 'rl:pa:refresh:',
+  message: 'Too many session refresh attempts. Please try again shortly.',
+});

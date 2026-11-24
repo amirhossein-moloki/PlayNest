@@ -72,6 +72,8 @@ describe('KYC Verification Flow API', () => {
     role: 'ADMIN',
     isActive: true,
     isSuperuser: true,
+    totpEnabled: true,
+    totpSetupCompleted: true,
   };
 
   const platformAdminToken = generateAccessToken({

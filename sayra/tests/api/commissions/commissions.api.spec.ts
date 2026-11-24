@@ -70,7 +70,7 @@ describe('Commissions API', () => {
   const MANAGER_TOKEN = jwt.sign({ sessionId: 's-1', actorId: 'mgr-1', actorType: 'USER' }, SECRET);
   const STAFF_TOKEN = jwt.sign({ sessionId: 's-2', actorId: 'stf-1', actorType: 'USER' }, SECRET);
   const PLATFORM_ADMIN_TOKEN = jwt.sign(
-    { sessionId: 's-admin', actorId: 'pa-1', actorType: 'PLATFORM_ADMIN' },
+    { sessionId: 's-admin', actorId: 'pa-1', actorType: 'PLATFORM_ADMIN', mfaVerified: true },
     SECRET
   );
 
@@ -91,7 +91,7 @@ describe('Commissions API', () => {
         return Promise.resolve({ id: 's-1', actorId: 'mgr-1', actorType: 'USER', expiresAt: new Date(Date.now() + 100000) });
       }
       if (where.id === 's-admin') {
-        return Promise.resolve({ id: 's-admin', actorId: 'pa-1', actorType: 'PLATFORM_ADMIN', expiresAt: new Date(Date.now() + 100000) });
+        return Promise.resolve({ id: 's-admin', actorId: 'pa-1', actorType: 'PLATFORM_ADMIN', mfaVerifiedAt: new Date(), revokedAt: null, expiresAt: new Date(Date.now() + 100000) });
       }
       return Promise.resolve({ id: 's-2', actorId: 'stf-1', actorType: 'USER', expiresAt: new Date(Date.now() + 100000) });
     });
@@ -107,6 +107,8 @@ describe('Commissions API', () => {
       id: 'pa-1',
       isActive: true,
       isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     (prisma.gamingCenter.findUnique as any).mockResolvedValue({
