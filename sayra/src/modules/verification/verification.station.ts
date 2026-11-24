@@ -7,6 +7,7 @@ import { auditService } from '../audit/audit.station';
 import { prisma } from '../../config/prisma';
 import { invalidateTenantCache } from '../../common/utils/tenantCache';
 import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
+import { recordGamingCenterChangeEvent } from '../integrations/outbox.service';
 
 export const VerificationStation = {
   /**
@@ -223,6 +224,12 @@ export const VerificationStation = {
 
     void invalidateTenantCache(verification.gamingCenterId);
     void invalidatePublicCacheByPrefix('public:gc:');
+    void recordGamingCenterChangeEvent({
+      gamingCenterId: verification.gamingCenterId,
+      eventType: 'GAMING_CENTER_STATUS_CHANGED',
+      changedFields: ['verificationStatus'],
+      metadata: { verificationStatus: 'APPROVED' },
+    });
 
     if (actor) {
       await auditService.log(
@@ -292,6 +299,12 @@ export const VerificationStation = {
 
     void invalidateTenantCache(verification.gamingCenterId);
     void invalidatePublicCacheByPrefix('public:gc:');
+    void recordGamingCenterChangeEvent({
+      gamingCenterId: verification.gamingCenterId,
+      eventType: 'GAMING_CENTER_STATUS_CHANGED',
+      changedFields: ['verificationStatus'],
+      metadata: { verificationStatus: 'REJECTED' },
+    });
 
     if (actor) {
       await auditService.log(

@@ -3,7 +3,7 @@ import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import * as uploadStation from '../../common/stations/upload.station';
 import * as MediaStation from './media.station';
-import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
+import { recordGamingCenterChangeEvent } from '../integrations/outbox.service';
 
 export async function uploadMedia(
   req: Request<{ gamingCenterId: string }>,
@@ -29,7 +29,12 @@ export async function uploadMedia(
       thumbUrl,
     });
 
-    void invalidatePublicCacheByPrefix('public:gc:');
+    void recordGamingCenterChangeEvent({
+      gamingCenterId,
+      eventType: 'GAMING_CENTER_MEDIA_CHANGED',
+      changedFields: ['media'],
+      metadata: { action: 'uploaded', mediaId: media.id },
+    });
     res.created(media);
   } catch (error) {
     next(error);

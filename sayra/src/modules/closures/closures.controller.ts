@@ -3,6 +3,21 @@ import { AppRequest } from '../../types/express';
 import { closuresStation } from './closures.station';
 import { GetClosuresQuery } from './closures.validators';
 import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
+import { recordGamingCenterChangeEvent } from '../integrations/outbox.service';
+
+function emitClosureChange(gamingCenterId?: string) {
+  void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
+  if (gamingCenterId) {
+    void recordGamingCenterChangeEvent({
+      gamingCenterId,
+      eventType: 'GAMING_CENTER_UPDATED',
+      changedFields: ['closures', 'activityStatus'],
+    });
+    return;
+  }
+  void invalidatePublicCacheByPrefix('public:gc:');
+  void invalidatePublicCacheByPrefix('public:gamecenters:');
+}
 
 export const getClosures = async (req: AppRequest, res: Response) => {
   const gamingCenterId = req.params.gamingCenterId || req.tenant?.gamingCenterId;
@@ -24,8 +39,7 @@ export const createClosure = async (req: AppRequest, res: Response) => {
     req.actor,
     { ip: req.ip, userAgent: req.headers['user-agent'] }
   );
-  void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
-  void invalidatePublicCacheByPrefix('public:gc:');
+  emitClosureChange(gamingCenterId);
   res.created(result);
 };
 
@@ -37,8 +51,7 @@ export const closeForNextHours = async (req: AppRequest, res: Response) => {
     req.actor,
     { ip: req.ip, userAgent: req.headers['user-agent'] }
   );
-  void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
-  void invalidatePublicCacheByPrefix('public:gc:');
+  emitClosureChange(gamingCenterId);
   res.created(result);
 };
 
@@ -49,8 +62,7 @@ export const reopenBookings = async (req: AppRequest, res: Response) => {
     req.actor,
     { ip: req.ip, userAgent: req.headers['user-agent'] }
   );
-  void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
-  void invalidatePublicCacheByPrefix('public:gc:');
+  emitClosureChange(gamingCenterId);
   res.ok(result);
 };
 
@@ -63,8 +75,7 @@ export const deleteClosure = async (req: AppRequest, res: Response) => {
     req.actor,
     { ip: req.ip, userAgent: req.headers['user-agent'] }
   );
-  void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
-  void invalidatePublicCacheByPrefix('public:gc:');
+  emitClosureChange(gamingCenterId);
   res.ok(result);
 };
 

@@ -1364,6 +1364,7 @@ model Address {
   @@index([gamingCenterId, isPrimary])
   @@index([province])
   @@index([city])
+  @@index([city, district])
 }
 
 // =======================
@@ -3249,4 +3250,47 @@ model GamingCenterSlugHistory {
   gamingCenter   GamingCenter @relation(fields: [gamingCenterId], references: [id], onDelete: Cascade)
 
   @@index([gamingCenterId])
+}
+
+// =======================
+// Cross-Service Integration Outbox
+// =======================
+
+enum IntegrationEventType {
+  GAMING_CENTER_UPDATED
+  GAMING_CENTER_STATUS_CHANGED
+  GAMING_CENTER_ADDRESS_CHANGED
+  GAMING_CENTER_MEDIA_CHANGED
+  GAMING_CENTER_PRICING_CHANGED
+  GAMING_CENTER_AMENITIES_CHANGED
+  GAMING_CENTER_REVIEW_CHANGED
+}
+
+enum IntegrationOutboxStatus {
+  PENDING
+  PROCESSING
+  DELIVERED
+  FAILED
+  DEAD_LETTER
+}
+
+model IntegrationOutboxEvent {
+  id               String                  @id @default(cuid())
+  eventType        IntegrationEventType
+  gamingCenterId   String
+  gamingCenterSlug String?
+  city             String?
+  payload          Json
+  status           IntegrationOutboxStatus @default(PENDING)
+  attempts         Int                     @default(0)
+  maxAttempts      Int                     @default(5)
+  nextRetryAt      DateTime                @default(now())
+  lastError        String?
+  deliveredAt      DateTime?
+  idempotencyKey   String                  @unique
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@index([status, nextRetryAt])
+  @@index([gamingCenterId, createdAt])
 }

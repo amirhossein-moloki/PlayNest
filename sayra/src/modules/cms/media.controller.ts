@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import * as MediaStation from './media.station';
 import { CreateMediaInput, UpdateMediaInput } from './media.types';
-import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
+import { recordGamingCenterChangeEvent } from '../integrations/outbox.service';
 
 export async function createMedia(
   req: Request<{ gamingCenterId: string }, unknown, CreateMediaInput>,
@@ -9,7 +9,12 @@ export async function createMedia(
 ) {
   const { gamingCenterId } = req.params;
   const media = await MediaStation.createMedia(gamingCenterId, req.body);
-  void invalidatePublicCacheByPrefix('public:gc:');
+  void recordGamingCenterChangeEvent({
+    gamingCenterId,
+    eventType: 'GAMING_CENTER_MEDIA_CHANGED',
+    changedFields: ['media'],
+    metadata: { action: 'created' },
+  });
   res.created(media);
 }
 
@@ -19,7 +24,12 @@ export async function updateMedia(
 ) {
   const { gamingCenterId, mediaId } = req.params;
   const media = await MediaStation.updateMedia(gamingCenterId, mediaId, req.body);
-  void invalidatePublicCacheByPrefix('public:gc:');
+  void recordGamingCenterChangeEvent({
+    gamingCenterId,
+    eventType: 'GAMING_CENTER_MEDIA_CHANGED',
+    changedFields: ['media'],
+    metadata: { action: 'updated', mediaId },
+  });
   res.ok(media);
 }
 
@@ -29,6 +39,11 @@ export async function deleteMedia(
 ) {
   const { gamingCenterId, mediaId } = req.params;
   await MediaStation.deleteMedia(gamingCenterId, mediaId);
-  void invalidatePublicCacheByPrefix('public:gc:');
+  void recordGamingCenterChangeEvent({
+    gamingCenterId,
+    eventType: 'GAMING_CENTER_MEDIA_CHANGED',
+    changedFields: ['media'],
+    metadata: { action: 'deleted', mediaId },
+  });
   res.noContent();
 }

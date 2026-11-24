@@ -242,6 +242,414 @@ components:
           minLength: 3
           description: دلیل رد درخواست احراز هویت گیم‌نت که برای کاربر نمایش داده خواهد شد
           example: تصویر پروانه کسب تار و ناخوانا است
+    PublicAmenityKey:
+      type: string
+      enum:
+      - food_service
+      - vip
+      - online_booking
+      - online_games
+      - extra_controllers
+    PublicGameCenterImage:
+      type: object
+      required:
+      - url
+      - thumbUrl
+      - altText
+      - purpose
+      properties:
+        url:
+          type: string
+        thumbUrl:
+          type: string
+          nullable: true
+        altText:
+          type: string
+          nullable: true
+        purpose:
+          type: string
+    PublicGameCenterDeviceSummary:
+      type: object
+      required:
+      - type
+      - count
+      - minHourlyPrice
+      - hasVip
+      properties:
+        type:
+          type: string
+          example: PLAYSTATION 5
+        count:
+          type: integer
+          example: 6
+        minHourlyPrice:
+          type: integer
+          nullable: true
+          example: 120000
+        hasVip:
+          type: boolean
+    PublicGameCenterDeviceCounts:
+      type: object
+      required:
+      - PC
+      - PLAYSTATION 4
+      - PLAYSTATION 5
+      - XBOX
+      - SWITCH
+      - VR
+      properties:
+        PC:
+          type: integer
+        PLAYSTATION 4:
+          type: integer
+        PLAYSTATION 5:
+          type: integer
+        XBOX:
+          type: integer
+        SWITCH:
+          type: integer
+        VR:
+          type: integer
+    PublicGameCenterRatingSummary:
+      type: object
+      required:
+      - average
+      - validReviewsCount
+      - latestReviewAt
+      properties:
+        average:
+          type: number
+          format: float
+          example: 4.67
+        validReviewsCount:
+          type: integer
+          example: 12
+        latestReviewAt:
+          type: string
+          format: date-time
+          nullable: true
+    PublicGameCenterRankingInfo:
+      type: object
+      required:
+      - bayesianScore
+      - rawAverageR
+      - validReviewsCountV
+      - globalAverageC
+      - m
+      - minReviews
+      - isEligibleForRanking
+      - rank
+      properties:
+        bayesianScore:
+          type: number
+          format: float
+          example: 4.5812
+        rawAverageR:
+          type: number
+          format: float
+          example: 4.67
+        validReviewsCountV:
+          type: integer
+          example: 12
+        globalAverageC:
+          type: number
+          format: float
+          example: 4.49
+        m:
+          type: number
+          format: float
+          example: 3
+        minReviews:
+          type: integer
+          example: 3
+        isEligibleForRanking:
+          type: boolean
+        rank:
+          type: integer
+          nullable: true
+          example: 1
+    PublicGameCenterActivityStatus:
+      type: object
+      required:
+      - isActive
+      - isOpenNow
+      - openingTime
+      - closingTime
+      - timezone
+      - isTemporarilyClosed
+      - closedUntil
+      properties:
+        isActive:
+          type: boolean
+          enum:
+          - true
+        isOpenNow:
+          type: boolean
+        openingTime:
+          type: string
+          nullable: true
+          example: '10:00'
+        closingTime:
+          type: string
+          nullable: true
+          example: '23:30'
+        timezone:
+          type: string
+          example: Asia/Tehran
+        isTemporarilyClosed:
+          type: boolean
+        closedUntil:
+          type: string
+          format: date-time
+          nullable: true
+    PublicGameCenterPricing:
+      type: object
+      required:
+      - startingHourlyRate
+      - originalPrice
+      - finalPrice
+      - hasDiscount
+      - discountPercentage
+      - discountAmount
+      - currency
+      properties:
+        startingHourlyRate:
+          type: integer
+        originalPrice:
+          type: integer
+        finalPrice:
+          type: integer
+        hasDiscount:
+          type: boolean
+        discountPercentage:
+          type: number
+          format: float
+        discountAmount:
+          type: integer
+        currency:
+          type: string
+          enum:
+          - IRT
+    PublicGameCenter:
+      type: object
+      required:
+      - id
+      - name
+      - slug
+      - description
+      - city
+      - province
+      - neighborhood
+      - address
+      - coordinates
+      - images
+      - devices
+      - deviceCounts
+      - pcCount
+      - consoleCount
+      - amenities
+      - games
+      - pricing
+      - activityStatus
+      - rating
+      - ranking
+      - detailUrl
+      - absoluteDetailUrl
+      - updatedAt
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        province:
+          type: string
+          nullable: true
+        neighborhood:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        coordinates:
+          type: object
+          nullable: true
+          required:
+          - lat
+          - lng
+          properties:
+            lat:
+              type: number
+              format: double
+            lng:
+              type: number
+              format: double
+        images:
+          type: object
+          required:
+          - coverUrl
+          - gallery
+          properties:
+            coverUrl:
+              type: string
+              nullable: true
+            gallery:
+              type: array
+              items:
+                $ref: '#/components/schemas/PublicGameCenterImage'
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicGameCenterDeviceSummary'
+        deviceCounts:
+          $ref: '#/components/schemas/PublicGameCenterDeviceCounts'
+        pcCount:
+          type: integer
+        consoleCount:
+          type: integer
+        amenities:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicAmenityKey'
+        games:
+          type: array
+          items:
+            type: string
+        pricing:
+          $ref: '#/components/schemas/PublicGameCenterPricing'
+        activityStatus:
+          $ref: '#/components/schemas/PublicGameCenterActivityStatus'
+        rating:
+          $ref: '#/components/schemas/PublicGameCenterRatingSummary'
+        ranking:
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/PublicGameCenterRankingInfo'
+        detailUrl:
+          type: string
+        absoluteDetailUrl:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+    PublicGameCenterListPayload:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicGameCenter'
+        meta:
+          type: object
+          required:
+          - total
+          - page
+          - limit
+          - totalPages
+          properties:
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+            totalPages:
+              type: integer
+    PublicGameCenterRankingMethodology:
+      type: object
+      required:
+      - algorithm
+      - formula
+      - m
+      - minReviews
+      - globalAverageC
+      - scopeTotalValidReviews
+      - scope
+      - sort
+      - rankedCount
+      - newlyRegisteredCount
+      - calculatedAt
+      properties:
+        algorithm:
+          type: string
+          enum:
+          - bayesian_average
+        formula:
+          type: string
+        m:
+          type: number
+          format: float
+        minReviews:
+          type: integer
+        globalAverageC:
+          type: number
+          format: float
+        scopeTotalValidReviews:
+          type: integer
+        scope:
+          type: object
+          required:
+          - city
+          - neighborhood
+          - deviceType
+          - amenities
+          properties:
+            city:
+              type: string
+              nullable: true
+            neighborhood:
+              type: string
+              nullable: true
+            deviceType:
+              type: string
+              nullable: true
+            amenities:
+              type: array
+              items:
+                $ref: '#/components/schemas/PublicAmenityKey'
+        sort:
+          type: string
+          enum:
+          - bayesian
+          - rating
+          - reviews
+          - newest
+          - price_asc
+          - price_desc
+        rankedCount:
+          type: integer
+        newlyRegisteredCount:
+          type: integer
+        calculatedAt:
+          type: string
+          format: date-time
+    PublicGameCenterRankingsPayload:
+      type: object
+      required:
+      - ranked
+      - newlyRegistered
+      - methodology
+      properties:
+        ranked:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicGameCenter'
+        newlyRegistered:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicGameCenter'
+        methodology:
+          $ref: '#/components/schemas/PublicGameCenterRankingMethodology'
     CustomerWalletOverview:
       type: object
       properties:
@@ -7288,6 +7696,236 @@ paths:
                       $ref: '#/components/schemas/GamingCenterMapItem'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /public/gamecenters:
+    get:
+      summary: List public active and approved gaming centers
+      description: Returns sanitized public details for active, APPROVED gaming centers. Supports batch fetch via `ids` (max 50) as well as filtering by city, neighborhood/district, activity status, deviceType, amenities, and search query. Exposed at both `/api/public/gamecenters` and `/api/v1/public/gamecenters`.
+      tags:
+      - Public
+      operationId: list_public_gamecenters_v2
+      parameters:
+      - name: ids
+        in: query
+        required: false
+        description: Comma-separated gaming center IDs (max 50) for batch lookup preserving order
+        schema:
+          type: string
+      - name: city
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: neighborhood
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: district
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - active
+          - open_now
+          default: active
+      - name: deviceType
+        in: query
+        required: false
+        schema:
+          type: string
+          example: PC
+      - name: amenities
+        in: query
+        required: false
+        description: Comma-separated or repeated amenity keys (`food_service`, `vip`, `online_booking`, `online_games`, `extra_controllers`)
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicAmenityKey'
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+      responses:
+        '200':
+          description: Paginated list of public active & approved gaming centers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PublicGameCenterListPayload'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /public/gamecenters/rankings:
+    get:
+      summary: Get Bayesian rankings of active and approved gaming centers
+      description: Calculates Bayesian Average `(v / (v + m)) * R + (m / (v + m)) * C` across valid `PUBLISHED` reviews linked to `COMPLETED` reservations, separating eligible ranked centers from `newlyRegistered` centers.
+      tags:
+      - Public
+      operationId: get_public_gamecenters_rankings
+      parameters:
+      - name: city
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: neighborhood
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: district
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: deviceType
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: amenities
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicAmenityKey'
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 10
+      - name: newlyRegisteredLimit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 10
+      - name: minReviews
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          maximum: 500
+      - name: m
+        in: query
+        required: false
+        schema:
+          type: number
+          format: float
+          exclusiveMinimum: true
+          minimum: 0
+          maximum: 500
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - bayesian
+          - rating
+          - reviews
+          - newest
+          - price_asc
+          - price_desc
+          default: bayesian
+      - name: includeNewlyRegistered
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: true
+      responses:
+        '200':
+          description: Bayesian ranked and newly registered gaming centers with methodology
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PublicGameCenterRankingsPayload'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /public/gamecenters/{id}:
+    get:
+      summary: Get single public active and approved gaming center by ID or slug
+      description: Returns sanitized public details for a single active, APPROVED gaming center matched by ID, current slug, or slug history.
+      tags:
+      - Public
+      operationId: get_public_gamecenter_by_id
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Public gaming center detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PublicGameCenter'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
         '500':
           $ref: '#/components/responses/InternalServerError'
   /public/gamingCenters/{gamingCenterSlug}:

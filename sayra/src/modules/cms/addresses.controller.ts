@@ -1,6 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 import { AddressesStation } from './addresses.station';
-import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
+import { recordGamingCenterChangeEvent } from '../integrations/outbox.service';
+
+function emitAddressChanged(gamingCenterId: string, action: string) {
+  void recordGamingCenterChangeEvent({
+    gamingCenterId,
+    eventType: 'GAMING_CENTER_ADDRESS_CHANGED',
+    changedFields: ['addresses'],
+    metadata: { action },
+  });
+}
 
 export const getAddresses = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -19,7 +28,7 @@ export const createAddress = async (req: Request, res: Response, next: NextFunct
 
     if (addressId) {
       const address = await AddressesStation.updateAddress(gamingCenterId, addressId, req.body);
-      void invalidatePublicCacheByPrefix('public:gc:');
+      emitAddressChanged(gamingCenterId, 'updated');
       return res.ok(address);
     }
 
@@ -27,12 +36,12 @@ export const createAddress = async (req: Request, res: Response, next: NextFunct
     if (existing && existing.length > 0 && req.body && req.body.createNew !== true) {
       const primary = existing.find((a) => a.isPrimary) || existing[0];
       const address = await AddressesStation.updateAddress(gamingCenterId, primary.id, req.body);
-      void invalidatePublicCacheByPrefix('public:gc:');
+      emitAddressChanged(gamingCenterId, 'updated');
       return res.ok(address);
     }
 
     const address = await AddressesStation.createAddress(gamingCenterId, req.body);
-    void invalidatePublicCacheByPrefix('public:gc:');
+    emitAddressChanged(gamingCenterId, 'created');
     res.created(address);
   } catch (error) {
     next(error);
@@ -49,17 +58,17 @@ export const updateAddress = async (req: Request, res: Response, next: NextFunct
       if (existing && existing.length > 0) {
         const primary = existing.find((a) => a.isPrimary) || existing[0];
         const address = await AddressesStation.updateAddress(gamingCenterId, primary.id, req.body);
-        void invalidatePublicCacheByPrefix('public:gc:');
+        emitAddressChanged(gamingCenterId, 'updated');
         return res.ok(address);
       } else {
         const created = await AddressesStation.createAddress(gamingCenterId, req.body);
-        void invalidatePublicCacheByPrefix('public:gc:');
+        emitAddressChanged(gamingCenterId, 'created');
         return res.created(created);
       }
     }
 
     const address = await AddressesStation.updateAddress(gamingCenterId, addressId, req.body);
-    void invalidatePublicCacheByPrefix('public:gc:');
+    emitAddressChanged(gamingCenterId, 'updated');
     res.ok(address);
   } catch (error) {
     next(error);
@@ -70,7 +79,7 @@ export const deleteAddress = async (req: Request, res: Response, next: NextFunct
   try {
     const { gamingCenterId, addressId } = req.params;
     await AddressesStation.deleteAddress(gamingCenterId, addressId);
-    void invalidatePublicCacheByPrefix('public:gc:');
+    emitAddressChanged(gamingCenterId, 'deleted');
     res.noContent();
   } catch (error) {
     next(error);

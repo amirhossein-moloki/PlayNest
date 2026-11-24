@@ -8,6 +8,7 @@ import { waitlistExpiryWorker } from './waitlistExpiry.worker';
 import { bookingHoldExpiryWorker } from './bookingHoldExpiry.worker';
 import { advertisementExpiryWorker } from './advertisementExpiry.worker';
 import { reservationRemindersWorker } from './reservationReminders.worker';
+import { integrationWebhookWorker } from './integrationWebhook.worker';
 import logger from '../../config/logger';
 import { startQueueMonitor, stopQueueMonitor } from '../monitoring/queue-monitor';
 
@@ -30,6 +31,7 @@ export const initWorkers = () => {
   waitlistExpiryWorker.start();
   bookingHoldExpiryWorker.start();
   advertisementExpiryWorker.start();
+  integrationWebhookWorker.start();
   startQueueMonitor();
 };
 
@@ -42,6 +44,7 @@ export const stopWorkers = async () => {
     reservationRemindersWorker.stop(),
     waitlistExpiryWorker.stop(),
     bookingHoldExpiryWorker.stop(),
+    integrationWebhookWorker.stop(),
     notificationsWorker.close(),
     smsWorker.close(),
     analyticsWorker.close(),

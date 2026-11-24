@@ -28,6 +28,7 @@ import {
   resolveCancellationWindowMinutes,
   validateCancellationWindowMinutes,
 } from '../reservation/reservation.validation';
+import { recordGamingCenterChangeEvent } from '../integrations/outbox.service';
 import { prisma } from '../../config/prisma';
 import { GroupBookingStation } from '../group-booking/group-booking.station';
 import { AppEvents, eventEmitter } from '../../common/events/event-emitter';
@@ -275,6 +276,13 @@ export const CustomerPanelStation = {
       });
 
       AnalyticsRepo.syncAllStatsForReview(rating.id).catch(console.error);
+
+      void recordGamingCenterChangeEvent({
+        gamingCenterId: reservation.gamingCenterId,
+        eventType: 'GAMING_CENTER_REVIEW_CHANGED',
+        changedFields: ['ratings'],
+        metadata: { ratingId: rating.id, action: 'CUSTOMER_CREATED', status: rating.status },
+      });
 
       return rating;
     } catch (error) {

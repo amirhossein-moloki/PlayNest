@@ -3,6 +3,20 @@ import { SessionActorType } from '@prisma/client';
 import { AppRequest } from '../../types/express';
 import { discountsStation } from './discounts.station';
 import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
+import { recordGamingCenterChangeEvent } from '../integrations/outbox.service';
+
+function emitPricingChange(gamingCenterId?: string | null) {
+  if (gamingCenterId) {
+    void recordGamingCenterChangeEvent({
+      gamingCenterId,
+      eventType: 'GAMING_CENTER_PRICING_CHANGED',
+      changedFields: ['pricing', 'discounts'],
+    });
+    return;
+  }
+  void invalidatePublicCacheByPrefix('public:gc:');
+  void invalidatePublicCacheByPrefix('public:gamecenters:');
+}
 import {
   CreateCampaignInput,
   CreateDiscountInput,
@@ -28,7 +42,7 @@ export const createCampaign = async (req: AppRequest, res: Response) => {
     { ip: req.ip, userAgent: req.get('user-agent') }
   );
 
-  void invalidatePublicCacheByPrefix('public:gc:');
+  emitPricingChange(gamingCenterId);
   res.created(campaign);
 };
 
@@ -61,7 +75,7 @@ export const updateCampaign = async (req: AppRequest, res: Response) => {
     { ip: req.ip, userAgent: req.get('user-agent') }
   );
 
-  void invalidatePublicCacheByPrefix('public:gc:');
+  emitPricingChange(gamingCenterId);
   res.ok(campaign);
 };
 
@@ -106,7 +120,7 @@ export const createDiscount = async (req: AppRequest, res: Response) => {
     { ip: req.ip, userAgent: req.get('user-agent') }
   );
 
-  void invalidatePublicCacheByPrefix('public:gc:');
+  emitPricingChange(gamingCenterId);
   res.created(discount);
 };
 
@@ -135,7 +149,7 @@ export const updateDiscount = async (req: AppRequest, res: Response) => {
     { ip: req.ip, userAgent: req.get('user-agent') }
   );
 
-  void invalidatePublicCacheByPrefix('public:gc:');
+  emitPricingChange(gamingCenterId);
   res.ok(discount);
 };
 
@@ -151,7 +165,7 @@ export const updateDiscountStatus = async (req: AppRequest, res: Response) => {
     { ip: req.ip, userAgent: req.get('user-agent') }
   );
 
-  void invalidatePublicCacheByPrefix('public:gc:');
+  emitPricingChange(gamingCenterId);
   res.ok(discount);
 };
 
@@ -165,6 +179,6 @@ export const deleteDiscount = async (req: AppRequest, res: Response) => {
     { ip: req.ip, userAgent: req.get('user-agent') }
   );
 
-  void invalidatePublicCacheByPrefix('public:gc:');
+  emitPricingChange(gamingCenterId);
   res.ok(deleted);
 };

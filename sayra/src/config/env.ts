@@ -147,6 +147,17 @@ const EnvSchema = z.object({
   SAYRA_SMTP_FROM_EMAIL: z.string().email().optional(),
   SAYRA_SMTP_FROM_NAME: z.string().optional(),
   SAYRA_SMTP_REPLY_TO: z.string().email().optional(),
+
+  // Service-to-Service, Ranking & Blog Integration
+  INTERNAL_SSR_SECRET: z.string().optional(),
+  INTERNAL_SERVICE_TOKEN: z.string().optional(),
+  RANKING_BAYESIAN_M: z.coerce.number().positive().default(3),
+  RANKING_MIN_REVIEWS_DEFAULT: z.coerce.number().int().nonnegative().default(3),
+  BLOG_WEBHOOK_URL: z.string().url().optional().or(z.literal('')),
+  BLOG_WEBHOOK_SECRET: z.string().optional(),
+  INTEGRATION_OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(10000),
+  INTEGRATION_OUTBOX_BATCH_SIZE: z.coerce.number().int().positive().default(25),
+  INTEGRATION_OUTBOX_ENABLED: z.preprocess(toBool, z.boolean()).default(true),
 });
 
 const parsed = EnvSchema.safeParse(process.env);

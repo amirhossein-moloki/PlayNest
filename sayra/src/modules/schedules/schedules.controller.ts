@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AppRequest } from '../../types/express';
 import { schedulesStation } from './schedules.station';
 import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
+import { recordGamingCenterChangeEvent } from '../integrations/outbox.service';
 
 export const getSchedules = async (req: AppRequest, res: Response) => {
   const gamingCenterId = req.params.gamingCenterId || req.tenant?.gamingCenterId;
@@ -19,7 +20,16 @@ export const updateSchedules = async (req: AppRequest, res: Response) => {
     { ip: req.ip, userAgent: req.headers['user-agent'] }
   );
   void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
-  void invalidatePublicCacheByPrefix('public:gc:');
+  if (gamingCenterId) {
+    void recordGamingCenterChangeEvent({
+      gamingCenterId,
+      eventType: 'GAMING_CENTER_UPDATED',
+      changedFields: ['schedules', 'activityStatus'],
+    });
+  } else {
+    void invalidatePublicCacheByPrefix('public:gc:');
+    void invalidatePublicCacheByPrefix('public:gamecenters:');
+  }
   res.ok(result);
 };
 

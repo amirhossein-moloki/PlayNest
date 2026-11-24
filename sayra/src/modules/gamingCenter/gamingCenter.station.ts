@@ -10,6 +10,7 @@ import { invalidateActorCache } from '../../common/middleware/auth';
 import { NotificationStation } from '../notifications/notifications.station';
 import { invalidateTenantCache } from '../../common/utils/tenantCache';
 import { CommissionsRepo } from '../commissions/commissions.repo';
+import { recordGamingCenterChangeEvent } from '../integrations/outbox.service';
 
 export interface OwnerInfo {
   id: string;
@@ -254,6 +255,17 @@ export const gamingCenterStation = {
       updatedGamingCenter.slug
     );
 
+    const changedFields = Object.keys(data);
+    void recordGamingCenterChangeEvent({
+      gamingCenterId: id,
+      gamingCenterSlug: updatedGamingCenter.slug,
+      eventType:
+        data.isActive !== undefined
+          ? 'GAMING_CENTER_STATUS_CHANGED'
+          : 'GAMING_CENTER_UPDATED',
+      changedFields,
+    });
+
     await auditService.log(
       id,
       actor,
@@ -281,6 +293,13 @@ export const gamingCenterStation = {
       id,
       typeof gamingCenter.slug === 'string' ? gamingCenter.slug : undefined
     );
+
+    void recordGamingCenterChangeEvent({
+      gamingCenterId: id,
+      gamingCenterSlug: typeof gamingCenter.slug === 'string' ? gamingCenter.slug : undefined,
+      eventType: 'GAMING_CENTER_STATUS_CHANGED',
+      changedFields: ['isActive'],
+    });
 
     await auditService.log(
       id,

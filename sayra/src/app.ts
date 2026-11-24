@@ -8,6 +8,7 @@ import path from 'path';
 import swaggerUi from 'swagger-ui-express';
 import YAML from 'yamljs';
 import routes from './routes';
+import { publicGameCentersV2Router } from './modules/public-gamecenters/public-gamecenters.routes';
 import { ADMIN_CONSTANTS } from './platform-admin/config/admin.constants';
 import healthRouter from './routes/health.routes';
 import { errorHandler } from './common/errors/errorHandler';
@@ -157,6 +158,7 @@ if (enableDocs) {
 }
 
 // API Routes
+app.use('/api/public/gamecenters', publicGameCentersV2Router);
 app.use('/api/v1', routes);
 
 // Platform Admin Panel slot (populated asynchronously during server bootstrap

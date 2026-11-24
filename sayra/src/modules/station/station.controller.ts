@@ -13,6 +13,7 @@ import { GamingCenter } from '@prisma/client';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
+import { recordGamingCenterChangeEvent } from '../integrations/outbox.service';
 
 // Local type extension for Request
 interface RequestWithGamingCenter extends Request {
@@ -34,7 +35,11 @@ export async function createStation(
       (req as any).gamingCenter?.id ||
       req.gamingCenterId;
     const newStation = await stationLogic.createStation(targetGamingCenterId, req.body);
-    void invalidatePublicCacheByPrefix('public:gc:');
+    void recordGamingCenterChangeEvent({
+      gamingCenterId: targetGamingCenterId,
+      eventType: 'GAMING_CENTER_PRICING_CHANGED',
+      changedFields: ['stations', 'devices'],
+    });
     res.created(newStation);
   } catch (error) {
     next(error);
@@ -61,7 +66,11 @@ export async function createStationsFromCatalog(
       (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
       { ip: req.ip, userAgent: req.headers['user-agent'] }
     );
-    void invalidatePublicCacheByPrefix('public:gc:');
+    void recordGamingCenterChangeEvent({
+      gamingCenterId: targetGamingCenterId,
+      eventType: 'GAMING_CENTER_PRICING_CHANGED',
+      changedFields: ['stations', 'devices'],
+    });
     res.created(stations);
   } catch (error) {
     next(error);
@@ -88,7 +97,11 @@ export async function addGamesFromCatalog(
       (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
       { ip: req.ip, userAgent: req.headers['user-agent'] }
     );
-    void invalidatePublicCacheByPrefix('public:gc:');
+    void recordGamingCenterChangeEvent({
+      gamingCenterId: targetGamingCenterId,
+      eventType: 'GAMING_CENTER_AMENITIES_CHANGED',
+      changedFields: ['games', 'amenities'],
+    });
     res.ok(result);
   } catch (error) {
     next(error);
@@ -147,7 +160,11 @@ export async function updateGamingCenterGameMode(
       (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
       { ip: req.ip, userAgent: req.headers['user-agent'] }
     );
-    void invalidatePublicCacheByPrefix('public:gc:');
+    void recordGamingCenterChangeEvent({
+      gamingCenterId: targetGamingCenterId,
+      eventType: 'GAMING_CENTER_AMENITIES_CHANGED',
+      changedFields: ['games', 'amenities'],
+    });
     res.ok(result);
   } catch (error) {
     next(error);
@@ -175,7 +192,11 @@ export async function removeGameFromGamingCenter(
       (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
       { ip: req.ip, userAgent: req.headers['user-agent'] }
     );
-    void invalidatePublicCacheByPrefix('public:gc:');
+    void recordGamingCenterChangeEvent({
+      gamingCenterId: targetGamingCenterId,
+      eventType: 'GAMING_CENTER_AMENITIES_CHANGED',
+      changedFields: ['games', 'amenities'],
+    });
     res.ok(result);
   } catch (error) {
     next(error);
@@ -289,8 +310,12 @@ export async function updateStation(
       (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
       { ip: req.ip, userAgent: req.headers['user-agent'] }
     );
-    void invalidatePublicCacheByPrefix('public:gc:');
     void invalidatePublicCacheByPrefix(`public:avail:${targetGamingCenterId}:`);
+    void recordGamingCenterChangeEvent({
+      gamingCenterId: targetGamingCenterId,
+      eventType: 'GAMING_CENTER_PRICING_CHANGED',
+      changedFields: ['stations', 'pricing', 'devices'],
+    });
     res.ok(updatedStation);
   } catch (error) {
     next(error);
@@ -318,8 +343,12 @@ export async function deleteStation(
       (req as any).actor, // eslint-disable-line @typescript-eslint/no-explicit-any
       { ip: req.ip, userAgent: req.headers['user-agent'] }
     );
-    void invalidatePublicCacheByPrefix('public:gc:');
     void invalidatePublicCacheByPrefix(`public:avail:${targetGamingCenterId}:`);
+    void recordGamingCenterChangeEvent({
+      gamingCenterId: targetGamingCenterId,
+      eventType: 'GAMING_CENTER_PRICING_CHANGED',
+      changedFields: ['stations', 'pricing', 'devices'],
+    });
     res.noContent();
   } catch (error) {
     next(error);

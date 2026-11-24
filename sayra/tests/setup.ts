@@ -26,6 +26,15 @@ jest.mock('../src/config/env', () => ({
     FRONTEND_URL: 'https://sayra-booking.ir',
     PAYMENT_SUCCESS_URL: 'https://sayra-booking.ir/payment/success',
     PAYMENT_FAILED_URL: 'https://sayra-booking.ir/payment/failed',
+    INTERNAL_SSR_SECRET: 'test-ssr-secret',
+    INTERNAL_SERVICE_TOKEN: 'test-service-token',
+    RANKING_BAYESIAN_M: 3,
+    RANKING_MIN_REVIEWS_DEFAULT: 3,
+    BLOG_WEBHOOK_URL: '',
+    BLOG_WEBHOOK_SECRET: 'test-webhook-secret',
+    INTEGRATION_OUTBOX_POLL_INTERVAL_MS: 10000,
+    INTEGRATION_OUTBOX_BATCH_SIZE: 25,
+    INTEGRATION_OUTBOX_ENABLED: false,
   },
 }));
 
@@ -98,6 +107,15 @@ afterAll(async () => {
     const { reservationRemindersWorker } = await import('../src/jobs/workers/reservationReminders.worker');
     if (reservationRemindersWorker?.isRunning()) {
       await reservationRemindersWorker.stop();
+    }
+  } catch {
+    // Ignore
+  }
+
+  try {
+    const { integrationWebhookWorker } = await import('../src/jobs/workers/integrationWebhook.worker');
+    if (integrationWebhookWorker?.isRunning()) {
+      await integrationWebhookWorker.stop();
     }
   } catch {
     // Ignore

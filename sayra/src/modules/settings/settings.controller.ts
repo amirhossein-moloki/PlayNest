@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import * as settingsStation from './settings.station';
 import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
 import { invalidateAnalyticsTimezoneCache } from '../analytics/analytics.cache';
+import { recordGamingCenterChangeEvent } from '../integrations/outbox.service';
 
 export async function getSettings(req: Request, res: Response, next: NextFunction) {
   try {
@@ -33,8 +34,15 @@ export async function updateSettings(req: Request, res: Response, next: NextFunc
     if (gamingCenterId) {
       void invalidatePublicCacheByPrefix(`public:avail:${gamingCenterId}:`);
       void invalidateAnalyticsTimezoneCache(gamingCenterId);
+      void recordGamingCenterChangeEvent({
+        gamingCenterId,
+        eventType: 'GAMING_CENTER_UPDATED',
+        changedFields: ['settings', 'activityStatus'],
+      });
+    } else {
+      void invalidatePublicCacheByPrefix('public:gc:');
+      void invalidatePublicCacheByPrefix('public:gamecenters:');
     }
-    void invalidatePublicCacheByPrefix('public:gc:');
     res.ok(settings);
   } catch (error) {
     next(error);

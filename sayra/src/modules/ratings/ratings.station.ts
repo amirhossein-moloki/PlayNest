@@ -6,6 +6,7 @@ import { RatingStatus, ReservationStatus, NotificationType } from '@prisma/clien
 import { queueAnalyticsSync } from '../../jobs/producers/analytics.producer';
 import { NotificationStation } from '../notifications/notifications.station';
 import logger from '../../config/logger';
+import { recordGamingCenterChangeEvent } from '../integrations/outbox.service';
 
 export async function submitReview(gamingCenterSlug: string, input: SubmitReviewInput) {
   // 1. Verify reservation exists and belongs to the gamingCenter (by slug)
@@ -26,6 +27,14 @@ export async function submitReview(gamingCenterSlug: string, input: SubmitReview
 
   // Sync analytics
   queueAnalyticsSync({ type: 'REVIEW', entityId: rating.id }).catch(console.error);
+
+  void recordGamingCenterChangeEvent({
+    gamingCenterId: reservation.gamingCenterId,
+    gamingCenterSlug,
+    eventType: 'GAMING_CENTER_REVIEW_CHANGED',
+    changedFields: ['ratings'],
+    metadata: { ratingId: rating.id, action: 'CREATED', status: rating.status },
+  });
 
   // Notify GameCenter staff/managers of new review
   NotificationStation.notifyGameCenter({
@@ -65,6 +74,13 @@ export async function moderateReview(gamingCenterId: string, reviewId: string, s
 
   // Sync analytics
   queueAnalyticsSync({ type: 'REVIEW', entityId: reviewId }).catch(console.error);
+
+  void recordGamingCenterChangeEvent({
+    gamingCenterId,
+    eventType: 'GAMING_CENTER_REVIEW_CHANGED',
+    changedFields: ['ratings'],
+    metadata: { ratingId: reviewId, action: 'MODERATED', status },
+  });
 
   return updatedReview;
 }

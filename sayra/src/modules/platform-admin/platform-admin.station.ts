@@ -9,6 +9,7 @@ import { auditService } from '../audit/audit.station';
 import { invalidateActorCache } from '../../common/middleware/auth';
 import { invalidateTenantCache } from '../../common/utils/tenantCache';
 import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
+import { recordGamingCenterChangeEvent } from '../integrations/outbox.service';
 
 export const PlatformAdminStation = {
   async getAllGamingCenters(query?: { page?: number; limit?: number; search?: string }) {
@@ -110,6 +111,15 @@ export const PlatformAdminStation = {
 
     void invalidateTenantCache(gamingCenterId, center.slug, updated?.slug);
     void invalidatePublicCacheByPrefix('public:gc:');
+    void recordGamingCenterChangeEvent({
+      gamingCenterId,
+      gamingCenterSlug: updated?.slug ?? center.slug,
+      eventType:
+        data.isActive !== undefined
+          ? 'GAMING_CENTER_STATUS_CHANGED'
+          : 'GAMING_CENTER_UPDATED',
+      changedFields: Object.keys(data),
+    });
 
     await auditService.recordLog({
       gamingCenterId,
@@ -146,6 +156,15 @@ export const PlatformAdminStation = {
 
     void invalidateTenantCache(gamingCenterId, center.slug, updated?.slug);
     void invalidatePublicCacheByPrefix('public:gc:');
+    void recordGamingCenterChangeEvent({
+      gamingCenterId,
+      gamingCenterSlug: updated?.slug ?? center.slug,
+      eventType:
+        data.isActive !== undefined
+          ? 'GAMING_CENTER_STATUS_CHANGED'
+          : 'GAMING_CENTER_UPDATED',
+      changedFields: Object.keys(data),
+    });
 
     await auditService.recordLog({
       gamingCenterId,

@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import { Request, Response, NextFunction } from 'express';
@@ -5,6 +6,23 @@ import httpStatus from 'http-status';
 import redis from '../../config/redis';
 import { env } from '../../config/env';
 import AppError from '../errors/AppError';
+
+function matchesSecretHeader(actualHeader: unknown, expectedSecret?: string): boolean {
+  if (!expectedSecret || typeof actualHeader !== 'string') {
+    return false;
+  }
+  const trimmedActual = actualHeader.trim();
+  const trimmedExpected = expectedSecret.trim();
+  if (!trimmedActual || !trimmedExpected) {
+    return false;
+  }
+  const actualBuf = Buffer.from(trimmedActual, 'utf8');
+  const expectedBuf = Buffer.from(trimmedExpected, 'utf8');
+  if (actualBuf.length !== expectedBuf.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(actualBuf, expectedBuf);
+}
 
 const mockMiddleware = (req: Request, res: Response, next: NextFunction) => next();
 
@@ -71,8 +89,12 @@ export const publicApiRateLimiter = env.NODE_ENV === 'test'
     keyGenerator: publicApiKeyGenerator,
     validate: false,
     skip: (req: Request) => {
-      const ssrSecret = process.env.INTERNAL_SSR_SECRET;
-      if (ssrSecret && req.headers['x-ssr-secret'] === ssrSecret) {
+      const ssrSecret = process.env.INTERNAL_SSR_SECRET || env.INTERNAL_SSR_SECRET;
+      if (matchesSecretHeader(req.headers['x-ssr-secret'], ssrSecret)) {
+        return true;
+      }
+      const serviceToken = process.env.INTERNAL_SERVICE_TOKEN || env.INTERNAL_SERVICE_TOKEN;
+      if (matchesSecretHeader(req.headers['x-service-token'], serviceToken)) {
         return true;
       }
       return false;
