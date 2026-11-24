@@ -69,6 +69,9 @@ END
 FROM ranked_slugs rs
 WHERE g."id" = rs."id" AND g."slug" IS NULL;
 
+-- Ensure unique constraint exists before ON CONFLICT backfill on GameAlias
+CREATE UNIQUE INDEX IF NOT EXISTS "GameAlias_gameCatalogId_normalized_key" ON "GameAlias"("gameCatalogId", "normalized");
+
 -- Backfill canonical alias for existing GameCatalog titles
 INSERT INTO "GameAlias" ("id", "gameCatalogId", "alias", "normalized", "locale", "createdAt")
 SELECT
