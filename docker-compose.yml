@@ -102,7 +102,7 @@ services:
       - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN:-}
       - RANKING_BAYESIAN_M=${RANKING_BAYESIAN_M:-3}
       - RANKING_MIN_REVIEWS_DEFAULT=${RANKING_MIN_REVIEWS_DEFAULT:-3}
-      - BLOG_WEBHOOK_URL=${BLOG_WEBHOOK_URL:-http://blog_web:8000/api/integrations/webhooks/sayra-events/}
+      - BLOG_WEBHOOK_URL=${BLOG_WEBHOOK_URL:-http://blog-web:8000/api/integrations/webhooks/sayra-events/}
       - BLOG_WEBHOOK_SECRET=${BLOG_WEBHOOK_SECRET:-}
       - INTEGRATION_OUTBOX_ENABLED=${INTEGRATION_OUTBOX_ENABLED:-true}
     cpus: ${SAYRA_CPUS:-1.0}
@@ -156,7 +156,7 @@ services:
       - FRONTEND_URL=${FRONTEND_URL:-https://sayra-booking.ir}
       - PAYMENT_SUCCESS_URL=${PAYMENT_SUCCESS_URL:-https://sayra-booking.ir/payment/success}
       - PAYMENT_FAILED_URL=${PAYMENT_FAILED_URL:-https://sayra-booking.ir/payment/failed}
-      - BLOG_WEBHOOK_URL=${BLOG_WEBHOOK_URL:-http://blog_web:8000/api/integrations/webhooks/sayra-events/}
+      - BLOG_WEBHOOK_URL=${BLOG_WEBHOOK_URL:-http://blog-web:8000/api/integrations/webhooks/sayra-events/}
       - BLOG_WEBHOOK_SECRET=${BLOG_WEBHOOK_SECRET:-}
       - INTEGRATION_OUTBOX_POLL_INTERVAL_MS=${INTEGRATION_OUTBOX_POLL_INTERVAL_MS:-10000}
       - INTEGRATION_OUTBOX_BATCH_SIZE=${INTEGRATION_OUTBOX_BATCH_SIZE:-25}
@@ -264,7 +264,7 @@ services:
       - SECRET_KEY=${BLOG_SECRET_KEY:-replace-this-with-a-very-secret-key-for-blog}
       - DEBUG=${BLOG_DEBUG:-False}
       - DOMAIN=${BLOG_DOMAIN:-blog.sayra-booking.ir}
-      - ALLOWED_HOSTS=${BLOG_ALLOWED_HOSTS:-localhost,127.0.0.1,51.20.249.108,blog.sayra-booking.ir,sayra-booking.ir,api.sayra-booking.ir,blog.playnest.com},blog_web
+      - ALLOWED_HOSTS=${BLOG_ALLOWED_HOSTS:-localhost,127.0.0.1,51.20.249.108,blog.sayra-booking.ir,sayra-booking.ir,api.sayra-booking.ir,blog.playnest.com},blog-web
       - CSRF_TRUSTED_ORIGINS=${BLOG_CSRF_TRUSTED_ORIGINS:-http://localhost,http://127.0.0.1,http://blog.sayra-booking.ir,https://blog.sayra-booking.ir,http://sayra-booking.ir,https://sayra-booking.ir,http://51.20.249.108}
       - CORS_ALLOWED_ORIGINS=${BLOG_CORS_ALLOWED_ORIGINS:-http://localhost,http://127.0.0.1,http://blog.sayra-booking.ir,https://blog.sayra-booking.ir,http://sayra-booking.ir,https://sayra-booking.ir}
       - CORS_ALLOW_ALL_ORIGINS=${BLOG_CORS_ALLOW_ALL_ORIGINS:-False}
@@ -291,6 +291,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    networks:
+      default:
+        aliases:
+          - blog-web
 
   blog_celery_default:
     image: playenest-blog:latest
