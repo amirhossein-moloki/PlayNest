@@ -900,6 +900,23 @@ export const reservationStation = {
         const startAtChanged = !!data.startTime;
         const hasTimeChange = stationChanged || staffChanged || startAtChanged;
 
+        if (stationChanged || startAtChanged) {
+          if (reservation.status === ReservationStatus.IN_PROGRESS) {
+            throw new AppError(
+              'Cannot change time or station of an in-progress reservation.',
+              httpStatus.CONFLICT,
+              { code: 'INVALID_TRANSITION' }
+            );
+          }
+          if (reservation.completedAt || (reservation.endTime && new Date(reservation.endTime) <= new Date())) {
+            throw new AppError(
+              'Cannot reschedule a reservation that has already ended.',
+              httpStatus.CONFLICT,
+              { code: 'RESERVATION_ALREADY_ENDED' }
+            );
+          }
+        }
+
         const effectiveStationId = stationChanged ? data.stationId! : reservation.stationId;
         const effectiveStaffId = staffChanged ? data.staffId! : reservation.staffId;
 

@@ -2445,6 +2445,11 @@ components:
               - OVERLAP_CONFLICT
               - RESERVATION_START_TIME_IN_PAST
               - INVALID_TRANSITION
+              - CANCELLATION_DEADLINE_EXCEEDED
+              - RESERVATION_ALREADY_ENDED
+              - RESERVATION_ALREADY_STARTED
+              - RESERVATION_SESSION_STARTED
+              - PAID_RESERVATION_UPGRADE_NOT_ALLOWED
               - ONLINE_RESERVATION_DISABLED
               - IDEMPOTENCY_KEY_REQUIRED
               - IDEMPOTENCY_KEY_INVALID_LENGTH
@@ -8626,6 +8631,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Proposal or reservation cannot be accepted (INVALID_PROPOSAL_STATE, PROPOSAL_EXPIRED, INVALID_TRANSITION, RESERVATION_ALREADY_ENDED, RESERVATION_ALREADY_STARTED, RESERVATION_SESSION_STARTED, SLOT_NOT_AVAILABLE, OVERLAP_CONFLICT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       operationId: post_customer_reservation_reservationId_proposals_proposalId_accept
       description: Accept a proposed reservation time
   /customer/reservation/{reservationId}/proposals/{proposalId}/reject:
@@ -12019,7 +12032,7 @@ paths:
   /customer/reservation/{reservationId}/cancel:
     post:
       summary: Cancel my reservation
-      description: Cancel customer single reservation or group booking if current time is at least cancellationWindowMinutes before reservation start time (default 15 minutes). Returns 400 CANCELLATION_DEADLINE_EXCEEDED if fewer than cancellationWindowMinutes remain.
+      description: Cancel customer single reservation or group booking if current time is at least cancellationWindowMinutes before reservation start time (default 15 minutes). COMPLETED, NO_SHOW, EXPIRED, IN_PROGRESS, already-started/ended reservations, or reservations with a started/completed gaming session (including any constituent reservation of a group booking) cannot be canceled. Returns 400 CANCELLATION_DEADLINE_EXCEEDED if fewer than cancellationWindowMinutes remain.
       tags:
       - Customer Panel
       security:
@@ -12050,6 +12063,14 @@ paths:
                 $ref: '#/components/schemas/Success'
         '400':
           description: Cancellation deadline exceeded (CANCELLATION_DEADLINE_EXCEEDED when fewer than cancellationWindowMinutes remain before start time, default 15 minutes) or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Reservation state or lifecycle conflict (INVALID_TRANSITION, RESERVATION_ALREADY_ENDED, RESERVATION_ALREADY_STARTED, RESERVATION_SESSION_STARTED)
           content:
             application/json:
               schema:
@@ -16374,6 +16395,12 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Reservation cannot be canceled in its current state or after ending (INVALID_TRANSITION, RESERVATION_ALREADY_ENDED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /gamingCenters/{gamingCenterId}/reservation/{reservationId}/reschedule:
     post:
       summary: Reschedule reservation time slot
@@ -17176,7 +17203,7 @@ paths:
   /customer/reservation/{reservationId}/reschedule:
     post:
       summary: Customer requested reservation reschedule
-      description: Customer requested reservation reschedule
+      description: Reschedule a customer reservation prior to its cancellation deadline and before the session starts or ends.
       tags:
       - Customer Panel
       operationId: post_customer_reservation_reservationId_reschedule
@@ -17195,15 +17222,18 @@ paths:
             schema:
               type: object
               required:
-              - newStartTime
-              - newEndTime
+              - startTime
               properties:
-                newStartTime:
+                startTime:
                   type: string
                   format: date-time
-                newEndTime:
+                stationId:
                   type: string
-                  format: date-time
+                staffId:
+                  type: string
+                reason:
+                  type: string
+                  maxLength: 500
       responses:
         '200':
           description: Reschedule request submitted
@@ -17211,6 +17241,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error, cancellation deadline exceeded, lead time too short, or paid upgrade rejected (CANCELLATION_DEADLINE_EXCEEDED, LEAD_TIME_TOO_SHORT, PAID_RESERVATION_UPGRADE_NOT_ALLOWED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Reservation cannot be rescheduled or slot unavailable (INVALID_TRANSITION, RESERVATION_ALREADY_ENDED, RESERVATION_ALREADY_STARTED, RESERVATION_SESSION_STARTED, SLOT_NOT_AVAILABLE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /gamingCenters/{gamingCenterId}/expenses:
     post:
       summary: Create a new expense for gaming center
@@ -21289,6 +21333,12 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Group booking or constituent reservation cannot be canceled (INVALID_TRANSITION, RESERVATION_ALREADY_ENDED, RESERVATION_ALREADY_STARTED, RESERVATION_SESSION_STARTED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /public/gamingCenters/{gamingCenterSlug}/group-reservations:
     post:
       summary: Create a public group reservation across multiple stations

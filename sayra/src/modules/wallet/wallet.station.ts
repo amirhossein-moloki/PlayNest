@@ -1,4 +1,11 @@
-import { Prisma, WalletTransactionType, ReservationPaymentState, PaymentStatus } from '@prisma/client';
+import {
+  Prisma,
+  WalletTransactionType,
+  ReservationPaymentState,
+  PaymentStatus,
+  ReservationStatus,
+  GamingSessionStatus,
+} from '@prisma/client';
 import { WalletRepo } from './wallet.repo';
 import { prisma } from '../../config/prisma';
 import logger from '../../config/logger';
@@ -48,6 +55,40 @@ export const walletService = {
       if (!reservation) {
         logger.warn({ msg: 'Cannot refund: reservation not found', reservationId });
         return;
+      }
+
+      // Defense-in-depth: never refund reservations that are completed, no-show, active, or not canceled/expired
+      if (
+        (reservation.status &&
+          reservation.status !== ReservationStatus.CANCELED &&
+          reservation.status !== ReservationStatus.EXPIRED) ||
+        reservation.completedAt
+      ) {
+        logger.warn({
+          msg: 'Blocked wallet refund for non-refundable reservation state',
+          reservationId,
+          status: reservation.status,
+          completedAt: reservation.completedAt,
+        });
+        return;
+      }
+
+      if (typeof t.gamingSession?.findFirst === 'function') {
+        const completedSession = await t.gamingSession.findFirst({
+          where: {
+            reservationId,
+            status: GamingSessionStatus.COMPLETED,
+          },
+          select: { id: true },
+        });
+        if (completedSession) {
+          logger.warn({
+            msg: 'Blocked wallet refund for reservation with completed gaming session',
+            reservationId,
+            gamingSessionId: completedSession.id,
+          });
+          return;
+        }
       }
 
       // Check if already refunded to guarantee strict idempotency

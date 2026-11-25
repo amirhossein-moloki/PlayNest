@@ -52,6 +52,14 @@ export const reservationProposals = {
       );
     }
 
+    if (reservation.completedAt || (reservation.endTime && new Date(reservation.endTime) <= new Date())) {
+      throw new AppError(
+        'Cannot propose a new time for a reservation that has already ended.',
+        httpStatus.CONFLICT,
+        { code: 'RESERVATION_ALREADY_ENDED' }
+      );
+    }
+
     const gamingCenter = await ReservationRepo.findGamingCenterWithSettings(gamingCenterId);
     const settings = gamingCenter?.settings;
     const timeZone = resolveValidTimeZone(settings?.timeZone || gamingCenter?.timezone || 'UTC');

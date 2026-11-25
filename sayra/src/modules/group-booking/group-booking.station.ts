@@ -14,6 +14,7 @@ import {
   OtpPurpose,
   CancellationActor,
   CancellationCategory,
+  GamingSessionStatus,
 } from '@prisma/client';
 import { GroupBookingRepo } from './group-booking.repo';
 import { ReservationRepo } from '../reservation/reservation.repo';
@@ -793,6 +794,7 @@ export const GroupBookingStation = {
     reason?: string,
     context?: { ip?: string; userAgent?: string }
   ) {
+    const now = new Date();
     const groupBooking = await GroupBookingRepo.findGroupBookingById(id, gamingCenterId);
     if (!groupBooking) {
       throw new AppError('Group booking not found.', httpStatus.NOT_FOUND);
@@ -814,14 +816,100 @@ export const GroupBookingStation = {
       }
     }
 
-    if (groupBooking.status === ReservationStatus.CANCELED) {
-      throw new AppError('Group booking is already canceled.', httpStatus.CONFLICT);
-    }
+    const validateCancelableGroupState = (
+      gb: {
+        status?: ReservationStatus | null;
+        startTime?: Date | null;
+        endTime?: Date | null;
+        reservations?: Array<{
+          id: string;
+          status?: ReservationStatus | null;
+          startTime?: Date | null;
+          endTime?: Date | null;
+          completedAt?: Date | null;
+          campaignId?: string | null;
+          discountId?: string | null;
+        }>;
+      },
+      checkNow: Date
+    ) => {
+      if (gb.status === ReservationStatus.CANCELED) {
+        throw new AppError('Group booking is already canceled.', httpStatus.CONFLICT);
+      }
 
-    if (groupBooking.status) {
-      ReservationStateMachine.validateTransition(groupBooking.status, ReservationStatus.CANCELED);
-    }
+      if (gb.status) {
+        ReservationStateMachine.validateTransition(gb.status, ReservationStatus.CANCELED);
+      }
 
+      if (isCustomer && gb.status === ReservationStatus.IN_PROGRESS) {
+        throw new AppError(
+          'Cannot cancel an in-progress group booking. Please contact the gaming center staff.',
+          httpStatus.CONFLICT,
+          { code: 'INVALID_TRANSITION' }
+        );
+      }
+
+      if (gb.status !== ReservationStatus.PENDING && gb.endTime && new Date(gb.endTime) <= checkNow) {
+        throw new AppError(
+          'Cannot cancel a group booking that has already ended.',
+          httpStatus.CONFLICT,
+          { code: 'RESERVATION_ALREADY_ENDED' }
+        );
+      }
+
+      if (Array.isArray(gb.reservations)) {
+        for (const res of gb.reservations) {
+          if (
+            res.status === ReservationStatus.COMPLETED ||
+            res.status === ReservationStatus.NO_SHOW ||
+            res.status === ReservationStatus.EXPIRED ||
+            res.completedAt
+          ) {
+            throw new AppError(
+              'Cannot cancel group booking because one or more constituent reservations have already completed or ended.',
+              httpStatus.CONFLICT,
+              { code: 'INVALID_TRANSITION' }
+            );
+          }
+
+          if (res.status !== ReservationStatus.PENDING && res.endTime && new Date(res.endTime) <= checkNow) {
+            throw new AppError(
+              'Cannot cancel group booking because one or more constituent reservations have already ended.',
+              httpStatus.CONFLICT,
+              { code: 'RESERVATION_ALREADY_ENDED' }
+            );
+          }
+
+          if (isCustomer && res.status === ReservationStatus.IN_PROGRESS) {
+            throw new AppError(
+              'Cannot cancel an in-progress group booking. Please contact the gaming center staff.',
+              httpStatus.CONFLICT,
+              { code: 'INVALID_TRANSITION' }
+            );
+          }
+
+          if (isCustomer && res.startTime && new Date(res.startTime) <= checkNow) {
+            throw new AppError(
+              'Cannot cancel a group booking that has already started.',
+              httpStatus.CONFLICT,
+              { code: 'RESERVATION_ALREADY_STARTED' }
+            );
+          }
+        }
+      }
+
+      if (isCustomer && gb.startTime && new Date(gb.startTime) <= checkNow) {
+        throw new AppError(
+          'Cannot cancel a group booking that has already started.',
+          httpStatus.CONFLICT,
+          { code: 'RESERVATION_ALREADY_STARTED' }
+        );
+      }
+    };
+
+    validateCancelableGroupState(groupBooking, now);
+
+    let gbCancellationWindowMinutes: number | null = null;
     if (isCustomer && groupBooking.startTime) {
       const settings =
         (
@@ -837,8 +925,8 @@ export const GroupBookingStation = {
         (typeof ReservationRepo.findSettings === 'function'
           ? await Promise.resolve(ReservationRepo.findSettings(gamingCenterId))
           : null);
-      const cancellationWindowMinutes = resolveCancellationWindowMinutes(settings);
-      validateCancellationWindowMinutes(new Date(groupBooking.startTime), cancellationWindowMinutes);
+      gbCancellationWindowMinutes = resolveCancellationWindowMinutes(settings);
+      validateCancellationWindowMinutes(new Date(groupBooking.startTime), gbCancellationWindowMinutes, now);
     }
 
     const effectiveReason = reason || (isCustomer ? 'Canceled by customer' : undefined);
@@ -850,6 +938,90 @@ export const GroupBookingStation = {
       : CancellationActor.STAFF;
 
     const updated = await GroupBookingRepo.transaction(async (tx) => {
+      if (typeof (tx as { $executeRaw?: unknown })?.$executeRaw === 'function') {
+        await tx.$executeRaw`SELECT id FROM "GroupBooking" WHERE id = ${id} FOR UPDATE`;
+        await tx.$executeRaw`SELECT id FROM "Reservation" WHERE "groupBookingId" = ${id} FOR UPDATE`;
+      }
+
+      let effectiveChildren = groupBooking.reservations || [];
+
+      if (typeof tx?.groupBooking?.findFirst === 'function') {
+        const lockedGroup = await tx.groupBooking.findFirst({
+          where: { id, gamingCenterId },
+          include: {
+            reservations: {
+              select: {
+                id: true,
+                status: true,
+                startTime: true,
+                endTime: true,
+                completedAt: true,
+                campaignId: true,
+                discountId: true,
+              },
+            },
+          },
+        });
+
+        if (!lockedGroup) {
+          throw new AppError('Group booking not found.', httpStatus.NOT_FOUND);
+        }
+
+        const txNow = new Date();
+        validateCancelableGroupState(lockedGroup, txNow);
+        if (isCustomer && lockedGroup.startTime && gbCancellationWindowMinutes !== null) {
+          validateCancellationWindowMinutes(new Date(lockedGroup.startTime), gbCancellationWindowMinutes, txNow);
+        }
+        effectiveChildren = (lockedGroup.reservations || []) as typeof effectiveChildren;
+      }
+
+      const childIds = effectiveChildren.map((r) => r.id);
+      if (childIds.length > 0 && typeof tx?.gamingSession?.findFirst === 'function') {
+        if (isCustomer) {
+          const startedSession = await tx.gamingSession.findFirst({
+            where: { reservationId: { in: childIds } },
+            select: { id: true },
+          });
+          if (startedSession) {
+            throw new AppError(
+              'Cannot cancel a group booking whose gaming session has already started or completed.',
+              httpStatus.CONFLICT,
+              { code: 'RESERVATION_SESSION_STARTED' }
+            );
+          }
+        } else {
+          const completedSession = await tx.gamingSession.findFirst({
+            where: {
+              reservationId: { in: childIds },
+              status: GamingSessionStatus.COMPLETED,
+            },
+            select: { id: true },
+          });
+          if (completedSession) {
+            throw new AppError(
+              'Cannot cancel group booking because a constituent gaming session has already completed.',
+              httpStatus.CONFLICT,
+              { code: 'INVALID_TRANSITION' }
+            );
+          }
+
+          if (typeof tx.gamingSession.updateMany === 'function') {
+            await tx.gamingSession.updateMany({
+              where: {
+                reservationId: { in: childIds },
+                status: { in: [GamingSessionStatus.ACTIVE, GamingSessionStatus.PAUSED] },
+              },
+              data: {
+                status: GamingSessionStatus.INTERRUPTED,
+                endTime: new Date(),
+                pausedAt: null,
+                interruptionReason: effectiveReason || 'Group booking canceled',
+              },
+            });
+          }
+        }
+      }
+
       const canceled = await GroupBookingRepo.cancelGroupBookingAndReservations(
         id,
         gamingCenterId,
@@ -858,6 +1030,14 @@ export const GroupBookingStation = {
         tx,
         { cancelCategory, cancelActor }
       );
+
+      if (!canceled) {
+        throw new AppError(
+          'Group booking can no longer be canceled due to a concurrent state change.',
+          httpStatus.CONFLICT,
+          { code: 'INVALID_TRANSITION' }
+        );
+      }
 
       // Cancel any initiated payments for this group booking, restoring deducted wallet funds
       if (typeof tx.payment?.findMany === 'function') {
@@ -878,8 +1058,11 @@ export const GroupBookingStation = {
       }
 
       // Trigger wallet refunds for all reservations under this group booking if paid
-      if (groupBooking.reservations) {
-        for (const res of groupBooking.reservations) {
+      if (effectiveChildren.length > 0) {
+        for (const res of effectiveChildren) {
+          if (typeof ReservationRepo.cancelPendingProposals === 'function') {
+            await ReservationRepo.cancelPendingProposals(res.id, tx);
+          }
           await walletService.refundReservationToWallet(res.id, tx);
           if (typeof commissionsStation?.reverseCommissionForReservation === 'function') {
             await commissionsStation.reverseCommissionForReservation(
@@ -888,6 +1071,40 @@ export const GroupBookingStation = {
               tx
             );
           }
+          if (
+            (res.campaignId || res.discountId) &&
+            typeof discountsStation?.releaseDiscountForReservation === 'function'
+          ) {
+            await Promise.resolve(
+              discountsStation.releaseDiscountForReservation(
+                res.id,
+                effectiveReason || 'Group booking canceled',
+                tx
+              )
+            ).catch(() => {});
+          }
+        }
+      }
+
+      // After child refunds read group PAID payments, mark group-level PAID payments and paymentState REFUNDED
+      if (
+        typeof tx?.payment?.updateMany === 'function' &&
+        typeof tx?.groupBooking?.updateMany === 'function'
+      ) {
+        const updatedPayments = await tx.payment.updateMany({
+          where: {
+            groupBookingId: id,
+            status: PaymentStatus.PAID,
+          },
+          data: {
+            status: PaymentStatus.REFUNDED,
+          },
+        });
+        if (updatedPayments && updatedPayments.count > 0) {
+          await tx.groupBooking.updateMany({
+            where: { id, gamingCenterId },
+            data: { paymentState: ReservationPaymentState.REFUNDED },
+          });
         }
       }
 

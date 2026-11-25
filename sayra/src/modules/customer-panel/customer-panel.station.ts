@@ -31,6 +31,7 @@ import {
 import { recordGamingCenterChangeEvent } from '../integrations/outbox.service';
 import { prisma } from '../../config/prisma';
 import { GroupBookingStation } from '../group-booking/group-booking.station';
+import { GroupBookingRepo } from '../group-booking/group-booking.repo';
 import { AppEvents, eventEmitter } from '../../common/events/event-emitter';
 import { commissionsStation } from '../commissions/commissions.station';
 import { discountsStation } from '../discounts/discounts.station';
@@ -137,23 +138,111 @@ export const CustomerPanelStation = {
     reason?: string,
     context?: { ip?: string; userAgent?: string }
   ) {
+    const now = new Date();
     const reservation = await CustomerPanelRepo.findReservationById(reservationId, customerAccountId);
     if (!reservation) {
       const groupBooking = await prisma.groupBooking.findFirst({
         where: { id: reservationId, customerAccountId },
-        include: { gamingCenter: { include: { settings: true } } },
+        include: {
+          gamingCenter: { include: { settings: true } },
+          reservations: {
+            select: {
+              id: true,
+              status: true,
+              startTime: true,
+              endTime: true,
+              completedAt: true,
+            },
+          },
+        },
       });
       if (groupBooking) {
         if (groupBooking.status === ReservationStatus.CANCELED) {
           return groupBooking;
         }
+        if (groupBooking.status === ReservationStatus.IN_PROGRESS) {
+          throw new AppError(
+            'Cannot cancel an in-progress group booking. Please contact the gaming center staff.',
+            httpStatus.CONFLICT,
+            { code: 'INVALID_TRANSITION' }
+          );
+        }
+
+        ReservationStateMachine.validateTransition(groupBooking.status, ReservationStatus.CANCELED);
+
+        if (groupBooking.endTime && new Date(groupBooking.endTime) <= now) {
+          throw new AppError(
+            'Cannot cancel a group booking that has already ended.',
+            httpStatus.CONFLICT,
+            { code: 'RESERVATION_ALREADY_ENDED' }
+          );
+        }
+
+        if (groupBooking.startTime && new Date(groupBooking.startTime) <= now) {
+          throw new AppError(
+            'Cannot cancel a group booking that has already started.',
+            httpStatus.CONFLICT,
+            { code: 'RESERVATION_ALREADY_STARTED' }
+          );
+        }
+
+        const childReservations = (
+          groupBooking as {
+            reservations?: Array<{
+              id: string;
+              status: ReservationStatus;
+              startTime?: Date | null;
+              endTime?: Date | null;
+              completedAt?: Date | null;
+            }>;
+          }
+        ).reservations;
+
+        if (Array.isArray(childReservations)) {
+          for (const child of childReservations) {
+            if (
+              child.status === ReservationStatus.COMPLETED ||
+              child.status === ReservationStatus.NO_SHOW ||
+              child.status === ReservationStatus.EXPIRED ||
+              child.completedAt
+            ) {
+              throw new AppError(
+                'Cannot cancel group booking because one or more constituent reservations have already completed or ended.',
+                httpStatus.CONFLICT,
+                { code: 'INVALID_TRANSITION' }
+              );
+            }
+            if (child.endTime && new Date(child.endTime) <= now) {
+              throw new AppError(
+                'Cannot cancel group booking because one or more constituent reservations have already ended.',
+                httpStatus.CONFLICT,
+                { code: 'RESERVATION_ALREADY_ENDED' }
+              );
+            }
+            if (child.status === ReservationStatus.IN_PROGRESS) {
+              throw new AppError(
+                'Cannot cancel an in-progress group booking. Please contact the gaming center staff.',
+                httpStatus.CONFLICT,
+                { code: 'INVALID_TRANSITION' }
+              );
+            }
+            if (child.startTime && new Date(child.startTime) <= now) {
+              throw new AppError(
+                'Cannot cancel a group booking that has already started.',
+                httpStatus.CONFLICT,
+                { code: 'RESERVATION_ALREADY_STARTED' }
+              );
+            }
+          }
+        }
+
         const gbSettings =
           groupBooking.gamingCenter?.settings ||
           (typeof ReservationRepo.findSettings === 'function'
             ? await Promise.resolve(ReservationRepo.findSettings(groupBooking.gamingCenterId))
             : null);
         const gbCancellationWindowMinutes = resolveCancellationWindowMinutes(gbSettings);
-        validateCancellationWindowMinutes(new Date(groupBooking.startTime), gbCancellationWindowMinutes);
+        validateCancellationWindowMinutes(new Date(groupBooking.startTime), gbCancellationWindowMinutes, now);
 
         return GroupBookingStation.cancelGroupBooking(
           reservationId,
@@ -178,17 +267,120 @@ export const CustomerPanelStation = {
       );
     }
 
+    ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.CANCELED);
+
+    if (reservation.completedAt || (reservation.endTime && new Date(reservation.endTime) <= now)) {
+      throw new AppError(
+        'Cannot cancel a reservation that has already ended.',
+        httpStatus.CONFLICT,
+        { code: 'RESERVATION_ALREADY_ENDED' }
+      );
+    }
+
+    if (reservation.startTime && new Date(reservation.startTime) <= now) {
+      throw new AppError(
+        'Cannot cancel a reservation that has already started.',
+        httpStatus.CONFLICT,
+        { code: 'RESERVATION_ALREADY_STARTED' }
+      );
+    }
+
     const settings =
       reservation.gamingCenter?.settings ||
       (typeof ReservationRepo.findSettings === 'function'
         ? await Promise.resolve(ReservationRepo.findSettings(reservation.gamingCenterId))
         : null);
     const cancellationWindowMinutes = resolveCancellationWindowMinutes(settings);
-    validateCancellationWindowMinutes(new Date(reservation.startTime), cancellationWindowMinutes);
+    validateCancellationWindowMinutes(new Date(reservation.startTime), cancellationWindowMinutes, now);
 
-    ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.CANCELED);
+    const txOutcome = await CustomerPanelRepo.transaction(async (tx) => {
+      if (typeof (tx as { $executeRaw?: unknown })?.$executeRaw === 'function') {
+        await tx.$executeRaw`SELECT id FROM "Reservation" WHERE id = ${reservationId} FOR UPDATE`;
+      }
 
-    const updatedReservation = await CustomerPanelRepo.transaction(async (tx) => {
+      let locked: {
+        id: string;
+        status: ReservationStatus;
+        startTime: Date;
+        endTime: Date;
+        completedAt: Date | null;
+        groupBookingId: string | null;
+        gamingCenterId: string;
+        campaignId: string | null;
+        discountId: string | null;
+      } | null = null;
+
+      if (typeof tx?.reservation?.findFirst === 'function') {
+        locked = await tx.reservation.findFirst({
+          where: { id: reservationId, customerAccountId },
+          select: {
+            id: true,
+            status: true,
+            startTime: true,
+            endTime: true,
+            completedAt: true,
+            groupBookingId: true,
+            gamingCenterId: true,
+            campaignId: true,
+            discountId: true,
+          },
+        });
+
+        if (!locked) {
+          throw new AppError('Reservation not found', httpStatus.NOT_FOUND);
+        }
+
+        if (locked.status === ReservationStatus.CANCELED) {
+          return {
+            alreadyCanceled: true as const,
+            existingReservation: { ...reservation, ...locked },
+          };
+        }
+
+        if (locked.status === ReservationStatus.IN_PROGRESS) {
+          throw new AppError(
+            'Cannot cancel an in-progress reservation. Please contact the gaming center staff.',
+            httpStatus.CONFLICT,
+            { code: 'INVALID_TRANSITION' }
+          );
+        }
+
+        ReservationStateMachine.validateTransition(locked.status, ReservationStatus.CANCELED);
+
+        const txNow = new Date();
+        if (locked.completedAt || (locked.endTime && new Date(locked.endTime) <= txNow)) {
+          throw new AppError(
+            'Cannot cancel a reservation that has already ended.',
+            httpStatus.CONFLICT,
+            { code: 'RESERVATION_ALREADY_ENDED' }
+          );
+        }
+
+        if (locked.startTime && new Date(locked.startTime) <= txNow) {
+          throw new AppError(
+            'Cannot cancel a reservation that has already started.',
+            httpStatus.CONFLICT,
+            { code: 'RESERVATION_ALREADY_STARTED' }
+          );
+        }
+
+        validateCancellationWindowMinutes(new Date(locked.startTime), cancellationWindowMinutes, txNow);
+      }
+
+      if (typeof tx?.gamingSession?.findFirst === 'function') {
+        const existingSession = await tx.gamingSession.findFirst({
+          where: { reservationId },
+          select: { id: true, status: true },
+        });
+        if (existingSession) {
+          throw new AppError(
+            'Cannot cancel a reservation whose gaming session has already started or completed.',
+            httpStatus.CONFLICT,
+            { code: 'RESERVATION_SESSION_STARTED' }
+          );
+        }
+      }
+
       const result = await CustomerPanelRepo.updateReservation(reservationId, customerAccountId, {
         status: ReservationStatus.CANCELED,
         canceledAt: new Date(),
@@ -197,9 +389,22 @@ export const CustomerPanelStation = {
         cancelActor: CancellationActor.CUSTOMER,
       }, tx);
 
+      if (!result) {
+        throw new AppError(
+          'Reservation can no longer be canceled due to a concurrent state change.',
+          httpStatus.CONFLICT,
+          { code: 'INVALID_TRANSITION' }
+        );
+      }
+
+      const effectiveStatus = locked?.status ?? reservation.status;
+      const effectiveGroupBookingId = locked?.groupBookingId ?? reservation.groupBookingId;
+      const effectiveCampaignId = locked ? locked.campaignId : reservation.campaignId;
+      const effectiveDiscountId = locked ? locked.discountId : reservation.discountId;
+
       await ReservationRepo.createHistory({
         reservationId,
-        fromStatus: reservation.status,
+        fromStatus: effectiveStatus,
         toStatus: ReservationStatus.CANCELED,
         action: 'CANCEL',
         actorId: customerAccountId,
@@ -241,7 +446,7 @@ export const CustomerPanelStation = {
       }
 
       // Release any campaign or voucher discount reservation hold
-      if (reservation.campaignId || reservation.discountId) {
+      if (effectiveCampaignId || effectiveDiscountId) {
         await discountsStation
           .releaseDiscountForReservation(
             reservationId,
@@ -253,8 +458,18 @@ export const CustomerPanelStation = {
           });
       }
 
-      return result;
+      if (effectiveGroupBookingId && typeof GroupBookingRepo?.syncParentGroupBookingStatus === 'function') {
+        await GroupBookingRepo.syncParentGroupBookingStatus(effectiveGroupBookingId, tx);
+      }
+
+      return { alreadyCanceled: false as const, updatedReservation: result };
     });
+
+    if (txOutcome.alreadyCanceled) {
+      return txOutcome.existingReservation;
+    }
+
+    const updatedReservation = txOutcome.updatedReservation!;
 
     void invalidatePublicCacheByPrefix(`public:avail:${reservation.gamingCenterId}:`);
 
@@ -361,7 +576,26 @@ export const CustomerPanelStation = {
       });
     }
 
-    if (isBefore(proposal.proposedStartTime, new Date())) {
+    if (reservation.status === ReservationStatus.IN_PROGRESS) {
+      throw new AppError('Cannot accept a time proposal for an in-progress reservation.', httpStatus.CONFLICT, {
+        code: 'INVALID_TRANSITION',
+      });
+    }
+
+    const now = new Date();
+    if (reservation.completedAt || (reservation.endTime && new Date(reservation.endTime) <= now)) {
+      throw new AppError('Cannot accept a time proposal for a reservation that has already ended.', httpStatus.CONFLICT, {
+        code: 'RESERVATION_ALREADY_ENDED',
+      });
+    }
+
+    if (reservation.startTime && new Date(reservation.startTime) <= now) {
+      throw new AppError('Cannot accept a time proposal for a reservation that has already started.', httpStatus.CONFLICT, {
+        code: 'RESERVATION_ALREADY_STARTED',
+      });
+    }
+
+    if (isBefore(proposal.proposedStartTime, now)) {
       await ReservationRepo.updateProposalStatus(proposalId, ReservationProposalStatus.EXPIRED);
       throw new AppError('Proposal has expired', httpStatus.CONFLICT, {
         code: 'PROPOSAL_EXPIRED',
@@ -369,6 +603,61 @@ export const CustomerPanelStation = {
     }
 
     const result = await ReservationRepo.transaction(async (tx) => {
+      if (typeof (tx as { $executeRaw?: unknown })?.$executeRaw === 'function') {
+        await tx.$executeRaw`SELECT id FROM "Reservation" WHERE id = ${reservationId} FOR UPDATE`;
+      }
+
+      if (typeof tx?.reservation?.findFirst === 'function') {
+        const locked = await tx.reservation.findFirst({
+          where: { id: reservationId, customerAccountId },
+          select: {
+            id: true,
+            status: true,
+            startTime: true,
+            endTime: true,
+            completedAt: true,
+          },
+        });
+        if (!locked) {
+          throw new AppError('Reservation not found', httpStatus.NOT_FOUND);
+        }
+        if (ReservationStateMachine.isTerminalState(locked.status)) {
+          throw new AppError('Reservation is in a terminal state', httpStatus.CONFLICT, {
+            code: 'INVALID_TRANSITION',
+          });
+        }
+        if (locked.status === ReservationStatus.IN_PROGRESS) {
+          throw new AppError('Cannot accept a time proposal for an in-progress reservation.', httpStatus.CONFLICT, {
+            code: 'INVALID_TRANSITION',
+          });
+        }
+        const txNow = new Date();
+        if (locked.completedAt || (locked.endTime && new Date(locked.endTime) <= txNow)) {
+          throw new AppError('Cannot accept a time proposal for a reservation that has already ended.', httpStatus.CONFLICT, {
+            code: 'RESERVATION_ALREADY_ENDED',
+          });
+        }
+        if (locked.startTime && new Date(locked.startTime) <= txNow) {
+          throw new AppError('Cannot accept a time proposal for a reservation that has already started.', httpStatus.CONFLICT, {
+            code: 'RESERVATION_ALREADY_STARTED',
+          });
+        }
+      }
+
+      if (typeof tx?.gamingSession?.findFirst === 'function') {
+        const existingSession = await tx.gamingSession.findFirst({
+          where: { reservationId },
+          select: { id: true },
+        });
+        if (existingSession) {
+          throw new AppError(
+            'Cannot accept a time proposal after a gaming session has already started or completed.',
+            httpStatus.CONFLICT,
+            { code: 'RESERVATION_SESSION_STARTED' }
+          );
+        }
+      }
+
       const settings = await ReservationRepo.findSettings(reservation.gamingCenterId, tx);
       const timeZone = settings?.timeZone || 'UTC';
       const zonedStartAt = toZonedTime(proposal.proposedStartTime, timeZone);
