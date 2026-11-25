@@ -23,11 +23,15 @@ export async function uploadMedia(
 
     // Create database record using existing station logic
     // We pass the generated URLs to the station
-    const media = await MediaStation.createMedia(gamingCenterId, {
-      ...req.body,
-      url,
-      thumbUrl,
-    });
+    const media = await MediaStation.createMedia(
+      gamingCenterId,
+      {
+        ...req.body,
+        url,
+        thumbUrl,
+      },
+      { fromTrustedUpload: true }
+    );
 
     void recordGamingCenterChangeEvent({
       gamingCenterId,

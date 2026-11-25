@@ -1,4 +1,5 @@
-import { NotificationType, NotificationCategory, UserRole, Prisma } from '@prisma/client';
+import { NotificationType, NotificationCategory, UserRole, Prisma, SessionActorType } from '@prisma/client';
+import { RequestActor } from '../../types/express';
 import { notificationsRepo, ListNotificationsOptions, ListNotificationLogsOptions } from './notifications.repo';
 import { SmsStation } from './sms.station';
 import AppError from '../../common/errors/AppError';
@@ -540,9 +541,22 @@ export const NotificationStation = {
     return notificationsRepo.listNotificationLogs(options);
   },
 
-  async retryNotificationLog(logId: string) {
+  async retryNotificationLog(logId: string, actor?: RequestActor) {
     const log = await notificationsRepo.findLogById(logId);
     if (!log) throw new AppError('Notification log not found', httpStatus.NOT_FOUND);
+
+    if (actor && actor.actorType !== SessionActorType.PLATFORM_ADMIN) {
+      if (!actor.gamingCenterId || log.gamingCenterId !== actor.gamingCenterId) {
+        throw new AppError('Notification log not found', httpStatus.NOT_FOUND);
+      }
+    }
+
+    if (log.status !== 'FAILED') {
+      throw new AppError(
+        `Cannot retry notification log in status ${log.status}. Only FAILED logs can be retried.`,
+        httpStatus.CONFLICT
+      );
+    }
 
     await notificationsRepo.updateNotificationLogStatus(logId, {
       status: 'PENDING',

@@ -189,41 +189,75 @@ if (!parsed.success) {
   throw new Error('Invalid environment variables');
 }
 
-if (parsed.success) {
-  if (parsed.data.MEDIA_STORAGE_DRIVER === 's3') {
-    if (!parsed.data.MEDIA_S3_BUCKET || !parsed.data.MEDIA_S3_REGION) {
+const PLACEHOLDER_JWT_ACCESS = 'generate_at_least_32_chars_long_random_string';
+const PLACEHOLDER_JWT_REFRESH = 'generate_another_at_least_32_chars_long_random_string';
+const DISABLED_SSR_PLACEHOLDER = '__disabled_ssr_secret_never_match__';
+
+export function validateProductionEnv(data: z.infer<typeof EnvSchema>): void {
+  if (data.MEDIA_STORAGE_DRIVER === 's3') {
+    if (!data.MEDIA_S3_BUCKET || !data.MEDIA_S3_REGION) {
       throw new Error('MEDIA_S3_BUCKET and MEDIA_S3_REGION are required when MEDIA_STORAGE_DRIVER=s3');
     }
-    if (!parsed.data.MEDIA_S3_UPLOAD_URL_TEMPLATE) {
+    if (!data.MEDIA_S3_UPLOAD_URL_TEMPLATE) {
       throw new Error('MEDIA_S3_UPLOAD_URL_TEMPLATE is required when MEDIA_STORAGE_DRIVER=s3');
     }
   }
 
-  if (parsed.data.NODE_ENV === 'production') {
-    if (parsed.data.SKIP_OTP) {
-      throw new Error(
-        'FATAL: SKIP_OTP cannot be enabled in production (NODE_ENV=production). This bypass is for development and testing only.'
-      );
-    }
-    if (parsed.data.JWT_ACCESS_SECRET === 'generate_at_least_32_chars_long_random_string') {
-      throw new Error(
-        'JWT_ACCESS_SECRET must be changed from the default placeholder value in production.'
-      );
-    }
-    if (parsed.data.JWT_REFRESH_SECRET === 'generate_another_at_least_32_chars_long_random_string') {
-      throw new Error(
-        'JWT_REFRESH_SECRET must be changed from the default placeholder value in production.'
-      );
-    }
-    if (
-      parsed.data.PLATFORM_ADMIN_TOTP_ENCRYPTION_KEY &&
-      parsed.data.PLATFORM_ADMIN_TOTP_ENCRYPTION_KEY.includes('<YOUR_TOTP_ENCRYPTION_KEY')
-    ) {
-      throw new Error(
-        'PLATFORM_ADMIN_TOTP_ENCRYPTION_KEY must be changed from the placeholder value in production.'
-      );
-    }
+  if (data.NODE_ENV !== 'production') {
+    return;
   }
+
+  if (data.SKIP_OTP) {
+    throw new Error(
+      'FATAL: SKIP_OTP cannot be enabled in production (NODE_ENV=production). This bypass is for development and testing only.'
+    );
+  }
+  if (!data.JWT_ACCESS_SECRET || data.JWT_ACCESS_SECRET.length < 32 || data.JWT_ACCESS_SECRET === PLACEHOLDER_JWT_ACCESS) {
+    throw new Error(
+      'JWT_ACCESS_SECRET must be at least 32 characters and changed from the default placeholder value in production.'
+    );
+  }
+  if (!data.JWT_REFRESH_SECRET || data.JWT_REFRESH_SECRET.length < 32 || data.JWT_REFRESH_SECRET === PLACEHOLDER_JWT_REFRESH) {
+    throw new Error(
+      'JWT_REFRESH_SECRET must be at least 32 characters and changed from the default placeholder value in production.'
+    );
+  }
+  if (
+    !data.PLATFORM_ADMIN_TOTP_ENCRYPTION_KEY ||
+    data.PLATFORM_ADMIN_TOTP_ENCRYPTION_KEY.includes('<YOUR_TOTP_ENCRYPTION_KEY')
+  ) {
+    throw new Error(
+      'PLATFORM_ADMIN_TOTP_ENCRYPTION_KEY must be configured with a non-placeholder secret (>=32 chars) in production.'
+    );
+  }
+  if (
+    !data.PAYMENT_PROVIDER_WEBHOOK_SECRET ||
+    data.PAYMENT_PROVIDER_WEBHOOK_SECRET.length < 16 ||
+    data.PAYMENT_PROVIDER_WEBHOOK_SECRET.includes('change_me') ||
+    data.PAYMENT_PROVIDER_WEBHOOK_SECRET === 'test-webhook-secret'
+  ) {
+    throw new Error('PAYMENT_PROVIDER_WEBHOOK_SECRET must be set to a strong non-default secret in production.');
+  }
+  if (data.DEFAULT_PAYMENT_PROVIDER === 'ZIBAL' && data.ZIBAL_MERCHANT.trim().toLowerCase() === 'zibal') {
+    throw new Error('ZIBAL_MERCHANT cannot remain the sandbox merchant "zibal" when DEFAULT_PAYMENT_PROVIDER=ZIBAL in production.');
+  }
+  if (data.DEFAULT_PAYMENT_PROVIDER === 'ZARINPAL' && data.ZARINPAL_SANDBOX) {
+    throw new Error('ZARINPAL_SANDBOX cannot be true when DEFAULT_PAYMENT_PROVIDER=ZARINPAL in production.');
+  }
+  if (data.INTERNAL_SSR_SECRET === DISABLED_SSR_PLACEHOLDER) {
+    throw new Error('INTERNAL_SSR_SECRET cannot use the disabled fallback placeholder in production.');
+  }
+  if (
+    data.CORS_CREDENTIALS &&
+    (data.CORS_ORIGIN === '*' ||
+      (Array.isArray(data.CORS_ORIGIN) && data.CORS_ORIGIN.includes('*')))
+  ) {
+    throw new Error('CORS_ORIGIN cannot contain wildcard "*" when CORS_CREDENTIALS=true in production.');
+  }
+}
+
+if (parsed.success) {
+  validateProductionEnv(parsed.data);
 }
 
 export const env = parsed.data;

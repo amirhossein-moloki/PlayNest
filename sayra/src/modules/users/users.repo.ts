@@ -5,14 +5,27 @@ import { getPaginationParams, formatPaginatedResult } from '../../common/utils/p
 import { getPhoneVariants } from '../../common/utils/phone';
 import { buildPersianArabicSearchVariants } from '../../common/utils/searchText';
 
+export const omitPasswordHash = <T>(record: T): T => {
+  if (!record || typeof record !== 'object' || Array.isArray(record)) {
+    return record;
+  }
+  const obj = record as Record<string, unknown>;
+  if (!Object.prototype.hasOwnProperty.call(obj, 'passwordHash')) {
+    return record;
+  }
+  const { passwordHash: _passwordHash, ...safeRecord } = obj;
+  return safeRecord as T;
+};
+
 export const createUser = async (gamingCenterId: string, data: CreateUserInput) => {
   const createInput: Prisma.UserUncheckedCreateInput = {
     gamingCenterId,
     ...(data as any), // eslint-disable-line @typescript-eslint/no-explicit-any
   };
-  return prisma.user.create({
+  const created = await prisma.user.create({
     data: createInput as any, // eslint-disable-line @typescript-eslint/no-explicit-any
   });
+  return omitPasswordHash(created);
 };
 
 export const softDeleteUser = async (gamingCenterId: string, userId: string) => {
@@ -70,16 +83,17 @@ export const listUsersByGamingCenter = async (gamingCenterId: string, query: Lis
     prisma.user.count({ where }),
   ]);
 
-  return formatPaginatedResult(data, total, page, limit);
+  return formatPaginatedResult(data.map(omitPasswordHash), total, page, limit);
 };
 
 export const findUserById = async (gamingCenterId: string, userId: string) => {
-  return prisma.user.findFirst({
+  const user = await prisma.user.findFirst({
     where: {
       id: userId,
       gamingCenterId,
     },
   });
+  return user ? omitPasswordHash(user) : null;
 };
 
 export const updateUser = async (

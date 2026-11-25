@@ -2,16 +2,24 @@ import { z } from 'zod';
 import { MediaPurpose, MediaType } from '@prisma/client';
 import { idSchema, CUID_MESSAGE } from '../../common/validators/common.validators';
 import { parseOptionalBoolean } from '../../common/validators/query.validators';
+import { isLocalUploadPath } from '../../common/utils/image-validation';
 const ALT_TEXT_REQUIRED_PURPOSES = new Set<MediaPurpose>([
   MediaPurpose.LOGO,
   MediaPurpose.COVER,
 ]);
 
+const nonLocalUrlSchema = z
+  .string()
+  .min(1, 'URL is required')
+  .refine((val) => !isLocalUploadPath(val), {
+    message: 'Local /uploads paths must be uploaded via /media/upload.',
+  });
+
 const baseFields = {
   type: z.nativeEnum(MediaType).optional(),
   purpose: z.nativeEnum(MediaPurpose).optional(),
-  url: z.string().min(1, 'URL is required'),
-  thumbUrl: z.string().min(1).optional(),
+  url: nonLocalUrlSchema,
+  thumbUrl: nonLocalUrlSchema.optional(),
   altText: z.string().min(1, 'Alt text is required').optional(),
   category: z.string().min(1).optional(),
   caption: z.string().min(1).optional(),
@@ -66,8 +74,8 @@ export const updateMediaSchema = z.object({
     .object({
       type: baseFields.type,
       purpose: baseFields.purpose,
-      url: baseFields.url.optional(),
-      thumbUrl: baseFields.thumbUrl.optional(),
+      url: z.undefined().optional(),
+      thumbUrl: z.undefined().optional(),
       altText: z.string().min(1, 'Alt text is required').nullable().optional(),
       category: baseFields.category.optional(),
       caption: baseFields.caption.optional(),

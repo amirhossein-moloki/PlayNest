@@ -22,6 +22,7 @@ import { validateLeadTime, validateOperatingHours } from '../reservation/reserva
 import { PaymentsRepo } from '../payments/payments.repo';
 import { PaymentProviderFactory } from '../payments/providers';
 import { LedgerRepo } from '../payments/ledger.repo';
+import { assertCustomerOwnsWallet, getAvailableWalletBalance } from '../wallet/wallet-access.guard';
 import { commissionsStation } from '../commissions/commissions.station';
 import { prisma } from '../../config/prisma';
 import logger from '../../config/logger';
@@ -100,10 +101,7 @@ export const BookingHoldStation = {
             where: { id: input.actor.id },
             select: { id: true, phone: true },
           });
-          if (
-            actorCustomer &&
-            (normalizePhone(actorCustomer.phone) === normalizedPhone || actorCustomer.id === input.actor.id)
-          ) {
+          if (actorCustomer && normalizePhone(actorCustomer.phone) === normalizedPhone) {
             isAuthenticatedCustomer = true;
           }
         }
@@ -580,6 +578,9 @@ export const BookingHoldStation = {
     const hold = await this.createBookingHold(gamingCenterSlug, input);
 
     // Resolve customer account for potential wallet payment
+    const isWalletOnlyProvider = input.provider?.toUpperCase() === 'WALLET';
+    const effectiveUseWallet = Boolean(input.useWallet || isWalletOnlyProvider);
+
     const normalizedPhone = normalizePhone(input.customer.phone);
     let customerAccount = await ReservationRepo.findCustomerAccountByPhone(normalizedPhone);
     if (!customerAccount && input.actor?.actorType === SessionActorType.CUSTOMER) {
@@ -587,6 +588,16 @@ export const BookingHoldStation = {
         where: { id: input.actor.id },
       });
     }
+
+    if (effectiveUseWallet) {
+      try {
+        assertCustomerOwnsWallet(input.actor, customerAccount?.id);
+      } catch (err) {
+        await releaseHoldSafely(hold.id);
+        throw err;
+      }
+    }
+
     if (customerAccount?.id && typeof PaymentsRepo.reapStaleCustomerInitiatedPayments === 'function') {
       await Promise.resolve(PaymentsRepo.reapStaleCustomerInitiatedPayments(customerAccount.id)).catch(() => {});
       if (typeof ReservationRepo.findCustomerAccountById === 'function') {
@@ -596,10 +607,7 @@ export const BookingHoldStation = {
         }
       }
     }
-    const availableBalance = customerAccount?.walletBalance ?? 0;
-
-    const isWalletOnlyProvider = input.provider?.toUpperCase() === 'WALLET';
-    const effectiveUseWallet = Boolean(input.useWallet || isWalletOnlyProvider);
+    const availableBalance = getAvailableWalletBalance(customerAccount);
 
     // Zero-amount hold checkout (e.g. 100% discount)
     if (hold.totalAmount <= 0) {
@@ -684,10 +692,10 @@ export const BookingHoldStation = {
 
           const freshAccount = await tx.customerAccount.findUnique({
             where: { id: customerAccount.id },
-            select: { walletBalance: true },
+            select: { walletBalance: true, reservedBalance: true },
           });
 
-          if (!freshAccount || freshAccount.walletBalance < hold.totalAmount) {
+          if (!freshAccount || getAvailableWalletBalance(freshAccount) < hold.totalAmount) {
             throw new AppError('Insufficient wallet balance.', httpStatus.BAD_REQUEST, {
               code: 'INSUFFICIENT_WALLET_BALANCE',
             });
@@ -839,10 +847,10 @@ export const BookingHoldStation = {
 
           const freshAccount = await tx.customerAccount.findUnique({
             where: { id: customerAccount.id },
-            select: { walletBalance: true },
+            select: { walletBalance: true, reservedBalance: true },
           });
 
-          if (!freshAccount || freshAccount.walletBalance < walletContribution) {
+          if (!freshAccount || getAvailableWalletBalance(freshAccount) < walletContribution) {
             throw new AppError('Insufficient wallet balance.', httpStatus.BAD_REQUEST, {
               code: 'INSUFFICIENT_WALLET_BALANCE',
             });

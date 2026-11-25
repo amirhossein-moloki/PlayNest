@@ -178,6 +178,11 @@ describe('WithdrawalStation Core Unit Tests', () => {
         amount: 200000,
         status: WithdrawalRequestStatus.PENDING,
       } as any);
+      MockedWithdrawalRepo.findCustomerAccountForUpdate.mockResolvedValue({
+        id: 'cust-1',
+        walletBalance: 500000,
+        reservedBalance: 200000,
+      } as any);
 
       MockedWithdrawalRepo.updateWithdrawalRequest.mockResolvedValue({
         id: 'with-1',
@@ -225,6 +230,11 @@ describe('WithdrawalStation Core Unit Tests', () => {
         customerAccountId: 'cust-1',
         amount: 200000,
         status: WithdrawalRequestStatus.PENDING,
+      } as any);
+      MockedWithdrawalRepo.findCustomerAccountForUpdate.mockResolvedValue({
+        id: 'cust-1',
+        walletBalance: 500000,
+        reservedBalance: 200000,
       } as any);
 
       MockedWithdrawalRepo.updateWithdrawalRequest.mockResolvedValue({
@@ -330,6 +340,11 @@ describe('WithdrawalStation Core Unit Tests', () => {
         customerAccountId: 'cust-1',
         amount: 200000,
         status: WithdrawalRequestStatus.PROCESSING,
+      } as any);
+      MockedWithdrawalRepo.findCustomerAccountForUpdate.mockResolvedValue({
+        id: 'cust-1',
+        walletBalance: 500000,
+        reservedBalance: 200000,
       } as any);
 
       MockedWithdrawalRepo.updateWithdrawalRequest.mockResolvedValue({

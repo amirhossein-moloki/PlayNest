@@ -7,14 +7,18 @@ export const requireRole = (allowedRoles: UserRole[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const actor = (req as any).actor; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-    if (!actor || !actor.role) {
-      return next(
-        new AppError('User role could not be determined from the request actor.', httpStatus.INTERNAL_SERVER_ERROR),
-      );
+    if (!actor) {
+      return next(new AppError('Unauthorized', httpStatus.UNAUTHORIZED));
     }
 
     if (actor.actorType === 'PLATFORM_ADMIN' || actor.isSuperuser) {
       return next();
+    }
+
+    if (!actor.role) {
+      return next(
+        new AppError('User role could not be determined from the request actor.', httpStatus.INTERNAL_SERVER_ERROR),
+      );
     }
 
     if (allowedRoles.includes(actor.role)) {

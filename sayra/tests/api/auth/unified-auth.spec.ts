@@ -60,6 +60,8 @@ jest.mock('../../../src/config/prisma', () => ({
       create: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
+      delete: jest.fn(),
+      deleteMany: jest.fn(),
     },
     gamingCenter: {
       findUnique: jest.fn(),
@@ -411,9 +413,9 @@ describe('Unified OTP Authentication & Security Hardening Test Suite', () => {
     expect(res.status).toBe(httpStatus.UNAUTHORIZED);
   });
 
-  // 11. OTP Resend invalidates previous
+  // 11. OTP Resend deletes previous unconsumed OTPs (prevents consumedAt confusion)
   it('11. Resend OTP invalidates previous unconsumed OTPs', async () => {
-    (prisma.phoneOtp.updateMany as any).mockResolvedValue({ count: 1 });
+    (prisma.phoneOtp.deleteMany as any).mockResolvedValue({ count: 1 });
     (prisma.phoneOtp.create as any).mockResolvedValue({ id: 'otp-new-resend' });
 
     const res = await request(app)
@@ -421,7 +423,7 @@ describe('Unified OTP Authentication & Security Hardening Test Suite', () => {
       .send({ phone: userPhone });
 
     expect(res.status).toBe(httpStatus.OK);
-    expect(prisma.phoneOtp.updateMany).toHaveBeenCalledWith(
+    expect(prisma.phoneOtp.deleteMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           phone: '+989121111111',
@@ -431,7 +433,7 @@ describe('Unified OTP Authentication & Security Hardening Test Suite', () => {
     );
   });
 
-  // 12. 5 failed attempts locks/invalidates OTP
+  // 12. 5 failed attempts deletes/invalidates OTP
   it('12. 5 failed attempts locks and invalidates OTP', async () => {
     const mockOtp = {
       id: 'otp-lock-5',
@@ -442,19 +444,14 @@ describe('Unified OTP Authentication & Security Hardening Test Suite', () => {
       consumedAt: null,
     };
     (prisma.phoneOtp.findFirst as any).mockResolvedValue(mockOtp);
-    (prisma.phoneOtp.update as any).mockResolvedValue({ ...mockOtp, consumedAt: new Date() });
+    (prisma.phoneOtp.delete as any).mockResolvedValue(mockOtp);
 
     const { OtpService } = await import('../../../src/modules/auth/otp.service');
     await expect(
       OtpService.verifyAndConsumeOtp('+989121111111', '123456')
     ).rejects.toThrow('Too many failed attempts. OTP has been invalidated.');
 
-    expect(prisma.phoneOtp.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'otp-lock-5' },
-        data: expect.objectContaining({ consumedAt: expect.any(Date) }),
-      })
-    );
+    expect(prisma.phoneOtp.delete).toHaveBeenCalledWith({ where: { id: 'otp-lock-5' } });
   });
 
   // 13. Concurrency: atomic consumption race condition
@@ -625,7 +622,7 @@ describe('Unified OTP Authentication & Security Hardening Test Suite', () => {
       expect(isSkipOtp()).toBe(false);
 
       const { OtpService } = await import('../../../src/modules/auth/otp.service');
-      (prisma.phoneOtp.updateMany as any).mockResolvedValue({ count: 1 });
+      (prisma.phoneOtp.deleteMany as any).mockResolvedValue({ count: 1 });
       (prisma.phoneOtp.create as any).mockImplementation(({ data }: any) => Promise.resolve({ id: 'otp-prod', ...data }));
 
       await OtpService.requestOtp('+989121111111');

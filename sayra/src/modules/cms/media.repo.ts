@@ -37,3 +37,34 @@ export async function deleteMedia(gamingCenterId: string, mediaId: string) {
     where: { id: mediaId, gamingCenterId },
   });
 }
+
+export async function countOtherMediaReferences(
+  mediaId: string,
+  url: string,
+  thumbUrl?: string | null
+): Promise<number> {
+  let refs = 0;
+
+  if (typeof prisma.media?.count === 'function') {
+    const orFilters: Array<Record<string, string>> = [{ url }, { thumbUrl: url }];
+    if (thumbUrl) {
+      orFilters.push({ url: thumbUrl }, { thumbUrl });
+    }
+    refs += await prisma.media.count({
+      where: {
+        id: { not: mediaId },
+        OR: orFilters,
+      },
+    });
+  }
+
+  if (typeof (prisma as any).gamingCenter?.count === 'function') {
+    refs += await (prisma as any).gamingCenter.count({
+      where: {
+        OR: [{ logoUrl: url }, { coverUrl: url }],
+      },
+    });
+  }
+
+  return refs;
+}

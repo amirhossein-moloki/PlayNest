@@ -1,4 +1,9 @@
 import { serializeSectionRegistryForEditor } from './page-section-registry';
+import {
+  CLIENT_HTML_SANITIZE_HELPERS,
+  escapeHtml,
+  serializeForScript,
+} from '../../common/utils/html-sanitize';
 
 export const pagesListTemplate = (gamingCenterId: string, statusOptions: string, typeOptions: string) => `<!doctype html>
 <html lang="en">
@@ -137,7 +142,7 @@ export const pagesListTemplate = (gamingCenterId: string, statusOptions: string,
   <body>
     <header>
       <h1>CMS Pages</h1>
-      <div class="subtitle">GamingCenter ID: ${gamingCenterId}</div>
+      <div class="subtitle">GamingCenter ID: ${escapeHtml(gamingCenterId)}</div>
     </header>
     <main>
       <div class="filters">
@@ -187,6 +192,8 @@ export const pagesListTemplate = (gamingCenterId: string, statusOptions: string,
       </div>
     </main>
     <script>
+      ${CLIENT_HTML_SANITIZE_HELPERS}
+      const safeGamingCenterId = ${serializeForScript(gamingCenterId)};
       const pagesBody = document.getElementById('pagesBody');
       const statusFilter = document.getElementById('statusFilter');
       const typeFilter = document.getElementById('typeFilter');
@@ -224,9 +231,11 @@ export const pagesListTemplate = (gamingCenterId: string, statusOptions: string,
           return;
         }
         stateMessage.hidden = false;
-        stateMessage.innerHTML = isError
-          ? \`<strong>Unable to load pages</strong>\${message}\`
-          : \`<strong>No pages found</strong>\${message}\`;
+        stateMessage.textContent = '';
+        const heading = document.createElement('strong');
+        heading.textContent = isError ? 'Unable to load pages' : 'No pages found';
+        stateMessage.appendChild(heading);
+        stateMessage.appendChild(document.createTextNode(String(message)));
         stateMessage.classList.toggle('error', isError);
       };
 
@@ -243,12 +252,12 @@ export const pagesListTemplate = (gamingCenterId: string, statusOptions: string,
         pages.forEach((page) => {
           const row = document.createElement('tr');
           row.innerHTML = \`
-            <td>\${page.title ?? '-'}</td>
-            <td>\${page.slug ?? '-'}</td>
-            <td>\${page.type ?? '-'}</td>
-            <td><span class="badge">\${page.status ?? '-'}</span></td>
-            <td>\${page.updatedAt ? new Date(page.updatedAt).toLocaleString() : '-'}</td>
-            <td><a class="link-button" href="/api/v1/admin/gamingCenters/${gamingCenterId}/pages/\${page.id}">Edit</a></td>
+            <td>\${escapeHtml(page.title ?? '-')}</td>
+            <td>\${escapeHtml(page.slug ?? '-')}</td>
+            <td>\${escapeHtml(page.type ?? '-')}</td>
+            <td><span class="badge">\${escapeHtml(page.status ?? '-')}</span></td>
+            <td>\${escapeHtml(page.updatedAt ? new Date(page.updatedAt).toLocaleString() : '-')}</td>
+            <td><a class="link-button" href="/api/v1/admin/gamingCenters/\${encodeURIComponent(safeGamingCenterId)}/pages/\${encodeURIComponent(String(page.id ?? ''))}">Edit</a></td>
           \`;
           pagesBody.appendChild(row);
         });
@@ -268,7 +277,7 @@ export const pagesListTemplate = (gamingCenterId: string, statusOptions: string,
         if (token) saveToken();
 
         try {
-          const response = await fetch(\`/api/v1/gamingCenters/${gamingCenterId}/pages?\${params}\`,
+          const response = await fetch(\`/api/v1/gamingCenters/\${encodeURIComponent(safeGamingCenterId)}/pages?\${params}\`,
             {
               headers: token ? { Authorization: \`Bearer \${token}\` } : {},
             }
@@ -662,9 +671,9 @@ export const pageEditorTemplate = (
   <body>
     <header>
       <h1>Page Editor</h1>
-      <div class="subtitle">GamingCenter ID: ${gamingCenterId} • Page ID: ${pageId}</div>
+      <div class="subtitle">GamingCenter ID: ${escapeHtml(gamingCenterId)} • Page ID: ${escapeHtml(pageId)}</div>
       <div class="header-actions">
-        <a class="back-link" href="/api/v1/admin/gamingCenters/${gamingCenterId}/pages">← Back to pages</a>
+        <a class="back-link" href="/api/v1/admin/gamingCenters/${encodeURIComponent(gamingCenterId)}/pages">← Back to pages</a>
         <div>
           <label for="authToken">Auth token</label>
           <input id="authToken" placeholder="Paste bearer token" />
@@ -787,6 +796,9 @@ export const pageEditorTemplate = (
       </div>
     </main>
     <script>
+      ${CLIENT_HTML_SANITIZE_HELPERS}
+      const safeGamingCenterId = ${serializeForScript(gamingCenterId)};
+      const safePageId = ${serializeForScript(pageId)};
       const authTokenInput = document.getElementById('authToken');
       const statusText = document.getElementById('statusText');
       const saveButton = document.getElementById('saveButton');
@@ -821,7 +833,10 @@ export const pageEditorTemplate = (
       let sections = [];
       const htmlTagRegex = /<[^>]+>/;
       const cloneData = (value) => JSON.parse(JSON.stringify(value ?? {}));
-      const sectionConfigs = ${serializeSectionRegistryForEditor()};
+      const sectionConfigs = ${serializeSectionRegistryForEditor()
+        .replace(/</g, '\\u003c')
+        .replace(/>/g, '\\u003e')
+        .replace(/&/g, '\\u0026')};
       const sectionDefaults = Object.fromEntries(
         Object.entries(sectionConfigs).map(([type, config]) => [type, cloneData(config.defaults)]),
       );
@@ -1362,15 +1377,15 @@ export const pageEditorTemplate = (
         if (token) saveToken();
 
         try {
-          const response = await fetch('/api/v1/gamingCenters/${gamingCenterId}/pages/${pageId}', {
+          const response = await fetch(\`/api/v1/gamingCenters/\${encodeURIComponent(safeGamingCenterId)}/pages/\${encodeURIComponent(safePageId)}\`, {
             headers: token ? { Authorization: \`Bearer \${token}\` } : {},
           });
           if (!response.ok) {
             const errorText = await response.text();
             throw new Error(errorText || response.statusText);
           }
-          const payload = await response.json();
-          populateForm(payload.data);
+          const responsePayload = await response.json();
+          populateForm(responsePayload.data);
           setStatus('Loaded');
         } catch (error) {
           setStatus(\`Failed to load page: \${error instanceof Error ? error.message : 'Unexpected error.'}\`);
@@ -1384,7 +1399,7 @@ export const pageEditorTemplate = (
 
       const buildPreviewPayload = () => ({
         title: readValue(fields.title),
-        pageId: '${pageId}',
+        pageId: safePageId,
         sections: sections.map((section, index) => ({
           id: section.id,
           type: section.type,
@@ -1458,7 +1473,7 @@ export const pageEditorTemplate = (
         if (!previewFrame) return;
         setPreviewStatus('Loading preview...');
         try {
-          const response = await fetch('/api/v1/admin/gamingCenters/${gamingCenterId}/pages/preview', {
+          const response = await fetch(\`/api/v1/admin/gamingCenters/\${encodeURIComponent(safeGamingCenterId)}/pages/preview\`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(buildPreviewPayload()),
@@ -1484,7 +1499,7 @@ export const pageEditorTemplate = (
         try {
           const payload = buildPayload();
           setStatus('Saving...');
-          const response = await fetch('/api/v1/gamingCenters/${gamingCenterId}/pages/${pageId}', {
+          const response = await fetch(\`/api/v1/gamingCenters/\${encodeURIComponent(safeGamingCenterId)}/pages/\${encodeURIComponent(safePageId)}\`, {
             method: 'PATCH',
             headers: {
               'Content-Type': 'application/json',
@@ -1496,8 +1511,8 @@ export const pageEditorTemplate = (
             const errorText = await response.text();
             throw new Error(errorText || response.statusText);
           }
-          const payload = await response.json();
-          populateForm(payload.data);
+          const responsePayload = await response.json();
+          populateForm(responsePayload.data);
           setStatus('Saved');
         } catch (error) {
           setStatus(\`Save failed: \${error instanceof Error ? error.message : 'Unexpected error.'}\`);

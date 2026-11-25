@@ -87,33 +87,27 @@ export async function handlePaymentCallback(req: Request, res: Response): Promis
   const orderId = orderIdQuery ? String(orderIdQuery) : undefined;
   const status = statusQuery ? String(statusQuery).toUpperCase() : undefined;
 
-  // 1. Locate payment durable record by providerPaymentId (authority) or orderId
-  let payment = authority
-    ? await prisma.payment.findFirst({
-        where: {
-          providerPaymentId: authority,
-        },
-        include: {
-          reservation: true,
-          bookingHold: true,
-          groupBooking: true,
-        },
-      })
-    : null;
-
-  if (!payment && orderId) {
-    payment = await prisma.payment.findFirst({
-      where: {
-        OR: [{ reservationId: orderId }, { bookingHoldId: orderId }, { groupBookingId: orderId }, { id: orderId }],
-      },
-      include: {
-        reservation: true,
-        bookingHold: true,
-        groupBooking: true,
-      },
-      orderBy: { createdAt: 'desc' },
+  if (!authority) {
+    logger.warn({ orderId }, 'Payment Callback: Missing Authority/trackId in callback');
+    const redirectUrl = getPaymentFailedRedirectUrl({
+      orderId,
+      message: 'شناسه پیگیری پرداخت در درخواست بازگشت درگاه یافت نشد.',
     });
+    res.redirect(302, redirectUrl);
+    return;
   }
+
+  // 1. Locate payment durable record strictly by authoritative providerPaymentId
+  const payment = await prisma.payment.findFirst({
+    where: {
+      providerPaymentId: authority,
+    },
+    include: {
+      reservation: true,
+      bookingHold: true,
+      groupBooking: true,
+    },
+  });
 
   if (!payment) {
     logger.warn({ authority, orderId }, 'Payment Callback: Payment record not found in database');
@@ -121,6 +115,17 @@ export async function handlePaymentCallback(req: Request, res: Response): Promis
       trackId: authority,
       orderId,
       message: 'تراکنش پرداخت متناظر در سیستم یافت نشد.',
+    });
+    res.redirect(302, redirectUrl);
+    return;
+  }
+
+  if (payment.providerPaymentId !== authority) {
+    logger.warn({ authority, orderId, paymentId: payment.id }, 'Payment Callback: Authority mismatch');
+    const redirectUrl = getPaymentFailedRedirectUrl({
+      trackId: authority,
+      orderId,
+      message: 'شناسه پیگیری پرداخت با تراکنش ثبت‌شده مطابقت ندارد.',
     });
     res.redirect(302, redirectUrl);
     return;
@@ -328,8 +333,8 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
     return;
   }
 
-  // 1. Locate payment durable record by trackId (stored in providerPaymentId) or orderId
-  let payment = await prisma.payment.findFirst({
+  // 1. Locate payment durable record strictly by authoritative trackId (stored in providerPaymentId)
+  const payment = await prisma.payment.findFirst({
     where: {
       providerPaymentId: trackId,
     },
@@ -340,28 +345,11 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
     },
   });
 
-  if (!payment && orderId) {
-    payment = await prisma.payment.findFirst({
-      where: {
-        OR: [{ reservationId: orderId }, { bookingHoldId: orderId }, { groupBookingId: orderId }, { id: orderId }],
-      },
-      include: {
-        reservation: true,
-        bookingHold: true,
-        groupBooking: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-
   if (!payment) {
-    // Check if this callback belongs to a WalletCharge
+    // Check if this callback belongs to a WalletCharge matching trackId strictly
     const walletCharge = await prisma.walletCharge.findFirst({
       where: {
-        OR: [
-          ...(trackId ? [{ trackId }] : []),
-          ...(orderId ? [{ id: orderId }] : []),
-        ],
+        trackId,
       },
     });
 
@@ -374,6 +362,17 @@ export async function handleZibalCallback(req: Request, res: Response): Promise<
       trackId,
       orderId,
       message: 'تراکنش پرداخت متناظر در سیستم یافت نشد.',
+    });
+    res.redirect(302, redirectUrl);
+    return;
+  }
+
+  if (payment.providerPaymentId !== trackId) {
+    logger.warn({ trackId, orderId, paymentId: payment.id }, 'Zibal Callback: trackId mismatch');
+    const redirectUrl = getPaymentFailedRedirectUrl({
+      trackId,
+      orderId,
+      message: 'شناسه پیگیری با تراکنش ثبت‌شده مطابقت ندارد.',
     });
     res.redirect(302, redirectUrl);
     return;

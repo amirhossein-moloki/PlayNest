@@ -1,4 +1,3 @@
-import path from 'path';
 import { Response, NextFunction } from 'express';
 import { AppRequest } from '../../types/express';
 import { VerificationStation } from './verification.station';
@@ -10,6 +9,10 @@ import {
 } from './verification.validators';
 import { GamingCenterVerificationStatus } from '@prisma/client';
 import { getStorageAdapter } from '../media/storage';
+import {
+  KYC_RASTER_FORMATS,
+  validateAndReencodeRasterImage,
+} from '../../common/utils/image-validation';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 
@@ -26,14 +29,16 @@ export const VerificationController = {
 
       // Handle uploaded file if present
       if (req.file) {
+        const sanitizedImage = await validateAndReencodeRasterImage(req.file.buffer, {
+          allowedFormats: KYC_RASTER_FORMATS,
+        });
         const adapter = getStorageAdapter();
-        const ext = path.extname(req.file.originalname) || '.jpg';
-        const storageKey = `gamingCenters/${gamingCenterId}/verification/license-${Date.now()}${ext}`;
+        const storageKey = `gamingCenters/${gamingCenterId}/verification/license-${Date.now()}${sanitizedImage.ext}`;
         const uploadResult = await adapter.upload({
           key: storageKey,
-          body: req.file.buffer,
-          contentType: req.file.mimetype,
-          cacheControl: 'public, max-age=31536000, immutable',
+          body: sanitizedImage.buffer,
+          contentType: sanitizedImage.mime,
+          cacheControl: 'private, no-store',
         });
         validated.businessLicenseUrl = uploadResult.url;
       }

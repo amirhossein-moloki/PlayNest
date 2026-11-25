@@ -1,3 +1,5 @@
+import { CLIENT_HTML_SANITIZE_HELPERS } from '../../common/utils/html-sanitize';
+
 export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
 <html lang="en">
   <head>
@@ -758,7 +760,8 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
     </div>
 
     <script>
-      const gamingCenterId = '${gamingCenterId}';
+${CLIENT_HTML_SANITIZE_HELPERS}
+      const gamingCenterId = ${JSON.stringify(String(gamingCenterId || ''))};
       const authTokenInput = document.getElementById('authToken');
       const errorBox = document.getElementById('errorBox');
       const loadingOverlay = document.getElementById('loadingOverlay');
@@ -853,9 +856,9 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
         try {
           const [
             summary, custSummary, custSegments, custSpenders, financials, reconciliation,
-            stations, waitlist, notifications, staff, ingestion, benchmarks, growth
+            stations, waitlist, notifications, staff, ingestion, benchmarks, growth,
+            dq, supportSla, featureAdoption
           ] = await Promise.all([
-          const [summary, custSummary, custSegments, custSpenders, financials, reconciliation, stations, waitlist, notifications, staff, ingestion, dq, supportSla, featureAdoption] = await Promise.all([
             fetchAPI('/summary' + query),
             fetchAPI('/customers/summary' + query),
             fetchAPI('/customers/segmentation' + query),
@@ -868,7 +871,7 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
             fetchAPI('/staff' + query),
             fetchAPI('/ingestion-status'),
             fetchAPI('/benchmarks' + query).catch(() => null),
-            fetchAPI('/growth-insights' + query).catch(() => null)
+            fetchAPI('/growth-insights' + query).catch(() => null),
             fetchAPI('/operations/data-quality').catch(() => null),
             fetchAPI('/operations/support' + query).catch(() => null),
             fetchAPI('/operations/feature-adoption' + query).catch(() => null)
@@ -880,11 +883,11 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
             const tblDq = document.querySelector('#tblDataQualityChecks tbody');
             tblDq.innerHTML = (dq.checks || []).map(c => \`
               <tr>
-                <td><strong>\${c.checkId}</strong></td>
-                <td>\${c.title}</td>
-                <td><span class="status-badge \${c.severity === 'HIGH' ? 'status-FAILED' : 'status-PENDING'}">\${c.severity}</span></td>
-                <td><span class="status-badge \${c.status === 'PASSED' ? 'status-COMPLETED' : 'status-FAILED'}">\${c.status}</span></td>
-                <td>\${c.findingCount} findings</td>
+                <td><strong>\${escapeHtml(c.checkId)}</strong></td>
+                <td>\${escapeHtml(c.title)}</td>
+                <td><span class="status-badge \${c.severity === 'HIGH' ? 'status-FAILED' : 'status-PENDING'}">\${escapeHtml(c.severity)}</span></td>
+                <td><span class="status-badge \${c.status === 'PASSED' ? 'status-COMPLETED' : 'status-FAILED'}">\${escapeHtml(c.status)}</span></td>
+                <td>\${escapeHtml(c.findingCount)} findings</td>
               </tr>
             \`).join('') || '<tr><td colspan="5" style="text-align:center; color:#15803d;">✓ All data quality checks passed</td></tr>';
           }
@@ -896,8 +899,8 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
             const tblTicket = document.querySelector('#tblTicketStatus tbody');
             tblTicket.innerHTML = Object.entries(supportSla.statusDistribution || {}).map(([st, cnt]) => \`
               <tr>
-                <td>\${st.toUpperCase()}</td>
-                <td class="amount-col">\${cnt}</td>
+                <td>\${escapeHtml(st.toUpperCase())}</td>
+                <td class="amount-col">\${escapeHtml(cnt)}</td>
               </tr>
             \`).join('');
           }
@@ -907,11 +910,11 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
             const tblFa = document.querySelector('#tblFeatureAdoption tbody');
             tblFa.innerHTML = (featureAdoption.features || []).map(f => \`
               <tr>
-                <td><strong>\${f.title}</strong></td>
-                <td><span class="status-badge status-PAID">\${f.availability}</span></td>
-                <td><span class="status-badge \${f.adoptionStatus === 'ADOPTED' ? 'status-COMPLETED' : 'status-PENDING'}">\${f.adoptionStatus}</span></td>
-                <td>\${f.usageEventsCount || f.activeCampaignsCount || 0}</td>
-                <td class="amount-col">\${f.conversionRate != null ? f.conversionRate + '%' : f.averageScore ? f.averageScore + ' ★' : '-'}</td>
+                <td><strong>\${escapeHtml(f.title)}</strong></td>
+                <td><span class="status-badge status-PAID">\${escapeHtml(f.availability)}</span></td>
+                <td><span class="status-badge \${f.adoptionStatus === 'ADOPTED' ? 'status-COMPLETED' : 'status-PENDING'}">\${escapeHtml(f.adoptionStatus)}</span></td>
+                <td>\${escapeHtml(f.usageEventsCount || f.activeCampaignsCount || 0)}</td>
+                <td class="amount-col">\${escapeHtml(f.conversionRate != null ? f.conversionRate + '%' : f.averageScore ? f.averageScore + ' ★' : '-')}</td>
               </tr>
             \`).join('');
           }
@@ -952,18 +955,18 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
               tblBench.innerHTML = \`
                 <tr>
                   <td>Completion Rate</td>
-                  <td>\${t.completionRate || 0}%</td>
-                  <td class="amount-col">\${b.completionRate ? b.completionRate.median + '%' : '-'}</td>
+                  <td>\${escapeHtml(t.completionRate || 0)}%</td>
+                  <td class="amount-col">\${escapeHtml(b.completionRate ? b.completionRate.median + '%' : '-')}</td>
                 </tr>
                 <tr>
                   <td>Station Utilization Rate</td>
-                  <td>\${t.stationUtilizationRate || 0}%</td>
-                  <td class="amount-col">\${b.stationUtilizationRate ? b.stationUtilizationRate.median + '%' : '-'}</td>
+                  <td>\${escapeHtml(t.stationUtilizationRate || 0)}%</td>
+                  <td class="amount-col">\${escapeHtml(b.stationUtilizationRate ? b.stationUtilizationRate.median + '%' : '-')}</td>
                 </tr>
                 <tr>
                   <td>Repeat Visit Rate</td>
-                  <td>\${t.repeatVisitRate || 0}%</td>
-                  <td class="amount-col">\${b.repeatVisitRate ? b.repeatVisitRate.median + '%' : '-'}</td>
+                  <td>\${escapeHtml(t.repeatVisitRate || 0)}%</td>
+                  <td class="amount-col">\${escapeHtml(b.repeatVisitRate ? b.repeatVisitRate.median + '%' : '-')}</td>
                 </tr>
               \`;
             }
@@ -978,10 +981,10 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
             insightsContainer.innerHTML = growth.insights.map(i => \`
               <div class="insight-card">
                 <div class="insight-title">
-                  <span>\${i.title}</span>
-                  <span class="status-badge \${i.direction === 'POSITIVE' ? 'status-COMPLETED' : 'status-PENDING'}">\${i.observedChange}</span>
+                  <span>\${escapeHtml(i.title)}</span>
+                  <span class="status-badge \${i.direction === 'POSITIVE' ? 'status-COMPLETED' : 'status-PENDING'}">\${escapeHtml(i.observedChange)}</span>
                 </div>
-                <div class="insight-body">\${i.evidenceBasis}</div>
+                <div class="insight-body">\${escapeHtml(i.evidenceBasis)}</div>
               </div>
             \`).join('');
           } else {
@@ -992,9 +995,9 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
           const tblSegments = document.querySelector('#tblCustomerSegments tbody');
           tblSegments.innerHTML = (custSegments.segments || []).map(s => \`
             <tr>
-              <td><strong>\${s.title}</strong></td>
-              <td style="color: var(--text-secondary);">\${s.description}</td>
-              <td class="amount-col">\${s.count}</td>
+              <td><strong>\${escapeHtml(s.title)}</strong></td>
+              <td style="color: var(--text-secondary);">\${escapeHtml(s.description)}</td>
+              <td class="amount-col">\${escapeHtml(s.count)}</td>
             </tr>
           \`).join('') || '<tr><td colspan="3" style="text-align:center; color:#94a3b8;">No segments available</td></tr>';
 
@@ -1002,10 +1005,10 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
           const tblSpenders = document.querySelector('#tblTopSpenders tbody');
           tblSpenders.innerHTML = (custSpenders.topSpenders || []).map(sp => \`
             <tr>
-              <td>\${sp.fullName || 'Anonymous Customer'}</td>
-              <td>\${sp.phone}</td>
-              <td>\${sp.visits} visits</td>
-              <td class="amount-col">\${formatMoney(sp.totalSpend)}</td>
+              <td>\${escapeHtml(sp.fullName || 'Anonymous Customer')}</td>
+              <td>\${escapeHtml(sp.phone)}</td>
+              <td>\${escapeHtml(sp.visits)} visits</td>
+              <td class="amount-col">\${escapeHtml(formatMoney(sp.totalSpend))}</td>
             </tr>
           \`).join('') || '<tr><td colspan="4" style="text-align:center; color:#94a3b8;">No customer spend records</td></tr>';
 
@@ -1019,9 +1022,9 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
           const tblMethods = document.querySelector('#tblPaymentMethods tbody');
           tblMethods.innerHTML = (financials.payments || []).map(m => \`
             <tr>
-              <td>\${m.status}</td>
-              <td>\${m.count}</td>
-              <td class="amount-col">\${formatMoney(m.totalAmount)}</td>
+              <td>\${escapeHtml(m.status)}</td>
+              <td>\${escapeHtml(m.count)}</td>
+              <td class="amount-col">\${escapeHtml(formatMoney(m.totalAmount))}</td>
             </tr>
           \`).join('') || '<tr><td colspan="3" style="text-align:center; color:#94a3b8;">No payment records</td></tr>';
 
@@ -1029,13 +1032,13 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
           const tblFindings = document.querySelector('#tblReconciliationFindings tbody');
           tblFindings.innerHTML = (reconciliation.findings || []).map(f => \`
             <tr>
-              <td><strong>\${f.ruleId}</strong></td>
-              <td>\${f.ruleName}</td>
-              <td><span class="status-badge \${f.severity === 'HIGH' ? 'status-FAILED' : 'status-PENDING'}">\${f.severity}</span></td>
-              <td><span class="status-badge status-PENDING">\${f.status}</span></td>
-              <td>\${f.sourceEntity} (\${f.sourceId ? f.sourceId.substring(0, 8) + '...' : '-'})</td>
-              <td style="color: var(--text-secondary); max-width: 300px;">\${f.details}</td>
-              <td class="amount-col">\${formatMoney(f.expectedAmount || 0)} / \${formatMoney(f.actualAmount || 0)}</td>
+              <td><strong>\${escapeHtml(f.ruleId)}</strong></td>
+              <td>\${escapeHtml(f.ruleName)}</td>
+              <td><span class="status-badge \${f.severity === 'HIGH' ? 'status-FAILED' : 'status-PENDING'}">\${escapeHtml(f.severity)}</span></td>
+              <td><span class="status-badge status-PENDING">\${escapeHtml(f.status)}</span></td>
+              <td>\${escapeHtml(f.sourceEntity)} (\${escapeHtml(f.sourceId ? f.sourceId.substring(0, 8) + '...' : '-')})</td>
+              <td style="color: var(--text-secondary); max-width: 300px;">\${escapeHtml(f.details)}</td>
+              <td class="amount-col">\${escapeHtml(formatMoney(f.expectedAmount || 0))} / \${escapeHtml(formatMoney(f.actualAmount || 0))}</td>
             </tr>
           \`).join('') || '<tr><td colspan="7" style="text-align:center; color:#15803d; font-weight:600; padding:16px;">✓ No financial discrepancies or reconciliation findings detected</td></tr>';
 
@@ -1043,11 +1046,11 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
           const tblStations = document.querySelector('#tblStationPerformance tbody');
           tblStations.innerHTML = (stations || []).map(s => \`
             <tr>
-              <td>\${s.stationName}</td>
-              <td>\${s.stationType}</td>
-              <td>\${s.totalHoursBooked} hrs</td>
-              <td>\${s.utilizationRate}%</td>
-              <td class="amount-col">\${formatMoney(s.revenue)}</td>
+              <td>\${escapeHtml(s.stationName)}</td>
+              <td>\${escapeHtml(s.stationType)}</td>
+              <td>\${escapeHtml(s.totalHoursBooked)} hrs</td>
+              <td>\${escapeHtml(s.utilizationRate)}%</td>
+              <td class="amount-col">\${escapeHtml(formatMoney(s.revenue))}</td>
             </tr>
           \`).join('') || '<tr><td colspan="5" style="text-align:center; color:#94a3b8;">No stations found</td></tr>';
 
@@ -1058,10 +1061,10 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
           const tblStaff = document.querySelector('#tblStaffPerformance tbody');
           tblStaff.innerHTML = (staff || []).map(st => \`
             <tr>
-              <td>\${st.staffName}</td>
-              <td>\${st.reservationCount}</td>
-              <td>\${st.averageRating || '-'} ★</td>
-              <td class="amount-col">\${formatMoney(st.revenue)}</td>
+              <td>\${escapeHtml(st.staffName)}</td>
+              <td>\${escapeHtml(st.reservationCount)}</td>
+              <td>\${escapeHtml(st.averageRating || '-')} ★</td>
+              <td class="amount-col">\${escapeHtml(formatMoney(st.revenue))}</td>
             </tr>
           \`).join('') || '<tr><td colspan="4" style="text-align:center; color:#94a3b8;">No staff activity recorded</td></tr>';
 
@@ -1070,8 +1073,8 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
           const tblWatermarks = document.querySelector('#tblWatermarks tbody');
           tblWatermarks.innerHTML = (ingestion.watermarks || []).map(w => \`
             <tr>
-              <td>\${w.entity}</td>
-              <td>\${new Date(w.lastIngestedAt).toLocaleString()}</td>
+              <td>\${escapeHtml(w.entity)}</td>
+              <td>\${escapeHtml(new Date(w.lastIngestedAt).toLocaleString())}</td>
             </tr>
           \`).join('');
 
@@ -1151,29 +1154,34 @@ export const dashboardTemplate = (gamingCenterId: string) => `<!doctype html>
 
             let actions = '-';
             if (ad.status === 'PENDING') {
-              actions = \`<button class="btn btn-secondary btn-sm" onclick="cancelAdvertisement('\${ad.id}')">لغو / حذف</button>\`;
+              actions = \`<button class="btn btn-secondary btn-sm" onclick="cancelAdvertisement('\${escapeJsArg(ad.id)}')">لغو / حذف</button>\`;
             }
+
+            const safeBanner = ad.bannerUrl ? sanitizeUrl(ad.bannerUrl, '') : '';
+            const bannerImg = safeBanner
+              ? \`<img src="\${safeBanner}" style="width:50px; height:28px; object-fit:cover; border-radius:4px;" />\`
+              : '';
 
             return \`
               <tr>
                 <td>
                   <div style="display:flex; align-items:center; gap:8px;">
-                    <img src="\${ad.bannerUrl}" style="width:50px; height:28px; object-fit:cover; border-radius:4px;" />
-                    <strong>\${ad.title}</strong>
+                    \${bannerImg}
+                    <strong>\${escapeHtml(ad.title)}</strong>
                   </div>
                 </td>
-                <td>\${ad.proposedDurationDays} روز</td>
-                <td>\${ad.durationDays} روز</td>
-                <td style="font-size:12px;">\${period}</td>
-                <td>\${remaining}</td>
-                <td><span class="badge \${badgeClass}">\${statusFa}</span></td>
-                <td style="color:#ef4444; font-size:12px;">\${reason}</td>
+                <td>\${escapeHtml(ad.proposedDurationDays)} روز</td>
+                <td>\${escapeHtml(ad.durationDays)} روز</td>
+                <td style="font-size:12px;">\${escapeHtml(period)}</td>
+                <td>\${escapeHtml(remaining)}</td>
+                <td><span class="badge \${badgeClass}">\${escapeHtml(statusFa)}</span></td>
+                <td style="color:#ef4444; font-size:12px;">\${escapeHtml(reason)}</td>
                 <td>\${actions}</td>
               </tr>
             \`;
           }).join('');
         } catch (e) {
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#ef4444;">خطا در ارتباط با سرور: ' + e.message + '</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#ef4444;">خطا در ارتباط با سرور: ' + escapeHtml(e.message) + '</td></tr>';
         }
       }
 

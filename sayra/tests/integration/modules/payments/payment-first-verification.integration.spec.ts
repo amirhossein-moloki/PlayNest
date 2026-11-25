@@ -1,11 +1,23 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import crypto from 'crypto';
 import request from 'supertest';
 import app from '../../../../src/app';
 import { PaymentsRepo } from '../../../../src/modules/payments/payments.repo';
 import { BookingHoldStation } from '../../../../src/modules/booking-hold/booking-hold.station';
 import { IdempotencyRepo } from '../../../../src/common/repositories/idempotency.repo';
 import { PaymentStatus, ReservationStatus, ReservationPaymentState } from '@prisma/client';
+import { generateAccessToken } from '../../../../src/modules/auth/auth.tokens';
+import { env } from '../../../../src/config/env';
+
+jest.mock('../../../../src/config/redis', () => ({
+  __esModule: true,
+  default: {
+    get: jest.fn().mockImplementation(() => Promise.resolve(null)),
+    set: jest.fn().mockImplementation(() => Promise.resolve('OK')),
+    del: jest.fn().mockImplementation(() => Promise.resolve(1)),
+  },
+}));
 
 jest.mock('../../../../src/config/prisma', () => ({
   prisma: {
@@ -18,6 +30,12 @@ jest.mock('../../../../src/config/prisma', () => ({
     },
     reservation: {
       findMany: jest.fn(),
+    },
+    customerAccount: {
+      findUnique: jest.fn(),
+    },
+    user: {
+      findUnique: jest.fn(),
     },
     $transaction: jest.fn(),
   },
@@ -32,12 +50,31 @@ const MockedPaymentsRepo = PaymentsRepo as jest.Mocked<typeof PaymentsRepo>;
 const MockedBookingHoldStation = BookingHoldStation as jest.Mocked<typeof BookingHoldStation>;
 const MockedIdempotencyRepo = IdempotencyRepo as jest.Mocked<typeof IdempotencyRepo>;
 
+function signWebhookBody(payload: Record<string, unknown>): string {
+  return crypto
+    .createHmac('sha256', env.PAYMENT_PROVIDER_WEBHOOK_SECRET)
+    .update(Buffer.from(JSON.stringify(payload)))
+    .digest('hex');
+}
+
 describe('Payment Verification and Webhook Conversion Integration', () => {
   const paymentId = 'pay-hold-001';
   const holdId = 'hold-001';
+  const customerId = 'cust-hold-1';
+  let customerToken: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    const { prisma } = await import('../../../../src/config/prisma');
+    (prisma.customerAccount.findUnique as jest.MockedFunction<any>).mockResolvedValue({
+      id: customerId,
+      phone: '+989123456789',
+    });
+    customerToken = generateAccessToken({
+      sessionId: 'sess-cust-1',
+      actorId: customerId,
+      actorType: 'CUSTOMER',
+    });
     MockedPaymentsRepo.transaction.mockImplementation(async (fn: any) => fn({
       payment: {
         findUnique: jest.fn(),
@@ -55,6 +92,7 @@ describe('Payment Verification and Webhook Conversion Integration', () => {
         id: paymentId,
         status: PaymentStatus.PAID,
         bookingHoldId: holdId,
+        bookingHold: { id: holdId, customerAccountId: customerId },
         gamingCenterId: 'gc-1',
         referenceCode: 'REF-ALREADY-PAID',
       };
@@ -69,6 +107,7 @@ describe('Payment Verification and Webhook Conversion Integration', () => {
 
       const mockGroupBooking = {
         id: 'gb-1',
+        gamingCenterId: 'gc-1',
         status: ReservationStatus.CONFIRMED,
         paymentState: ReservationPaymentState.PAID,
       };
@@ -77,6 +116,7 @@ describe('Payment Verification and Webhook Conversion Integration', () => {
 
       const res = await request(app)
         .post(`/api/v1/payments/${paymentId}/verify`)
+        .set('Authorization', `Bearer ${customerToken}`)
         .send({ authority: 'AUTH-123' });
 
       expect(res.status).toBe(200);
@@ -97,6 +137,7 @@ describe('Payment Verification and Webhook Conversion Integration', () => {
 
       const res = await request(app)
         .post('/api/v1/payments/non-existent/verify')
+        .set('Authorization', `Bearer ${customerToken}`)
         .send({});
 
       expect(res.status).toBe(404);
@@ -137,14 +178,17 @@ describe('Payment Verification and Webhook Conversion Integration', () => {
         paymentState: ReservationPaymentState.PAID,
       } as any);
 
+      const webhookBody = {
+        paymentId,
+        eventId: 'evt-webhook-1',
+        status: 'SUCCEEDED',
+        refId: 'REF-WEBHOOK-123',
+      };
+
       const res = await request(app)
         .post('/api/v1/payments/webhook')
-        .send({
-          paymentId,
-          eventId: 'evt-webhook-1',
-          status: 'SUCCEEDED',
-          refId: 'REF-WEBHOOK-123',
-        });
+        .set('X-Signature', signWebhookBody(webhookBody))
+        .send(webhookBody);
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
@@ -158,13 +202,16 @@ describe('Payment Verification and Webhook Conversion Integration', () => {
         status: 'COMPLETED' as any,
       } as any);
 
+      const webhookBody = {
+        paymentId,
+        eventId: 'evt-duplicate-1',
+        status: 'SUCCEEDED',
+      };
+
       const res = await request(app)
         .post('/api/v1/payments/webhook')
-        .send({
-          paymentId,
-          eventId: 'evt-duplicate-1',
-          status: 'SUCCEEDED',
-        });
+        .set('X-Signature', signWebhookBody(webhookBody))
+        .send(webhookBody);
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);

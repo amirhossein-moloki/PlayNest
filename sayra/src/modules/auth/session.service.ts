@@ -4,7 +4,7 @@ import { SessionActorType } from '@prisma/client';
 import { generateAccessToken } from './auth.tokens';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
-import { invalidateActorCache } from '../../common/middleware/auth';
+import { invalidateActorCache, markSessionRevokedInCache } from '../../common/middleware/auth';
 
 const hashToken = (token: string) => {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -71,7 +71,27 @@ export const SessionService = {
       throw new AppError('Refresh token has expired', httpStatus.UNAUTHORIZED);
     }
 
-    // Rotate: Revoke the used session or rotate tokenHash
+    // Resolve roles and active status before rotating token
+    let roles: string[] = [];
+    if (session.actorType === SessionActorType.USER) {
+      const user = await prisma.user.findUnique({
+        where: { id: session.actorId },
+        select: { role: true, isActive: true },
+      });
+      if (!user || user.isActive === false) {
+        await this.revokeSession(session.id);
+        throw new AppError('User account is inactive or no longer exists', httpStatus.UNAUTHORIZED);
+      }
+      if (user.role) {
+        roles = [user.role];
+      }
+    } else if (session.actorType === SessionActorType.CUSTOMER) {
+      roles = ['CUSTOMER'];
+    } else if (session.actorType === SessionActorType.PLATFORM_ADMIN) {
+      roles = ['ADMIN'];
+    }
+
+    // Rotate refresh token atomically
     const newRawRefreshToken = crypto.randomBytes(32).toString('hex');
     const newTokenHash = hashToken(newRawRefreshToken);
 
@@ -81,22 +101,6 @@ export const SessionService = {
         tokenHash: newTokenHash,
       },
     });
-
-    // Resolve roles based on actorType
-    let roles: string[] = [];
-    if (session.actorType === SessionActorType.USER) {
-      const user = await prisma.user.findUnique({
-        where: { id: session.actorId },
-        select: { role: true },
-      });
-      if (user?.role) {
-        roles = [user.role];
-      }
-    } else if (session.actorType === SessionActorType.CUSTOMER) {
-      roles = ['CUSTOMER'];
-    } else if (session.actorType === SessionActorType.PLATFORM_ADMIN) {
-      roles = ['ADMIN'];
-    }
 
     const payload = {
       sub: session.actorId,
@@ -118,6 +122,7 @@ export const SessionService = {
    * Revoke session and invalidate Redis actor cache.
    */
   async revokeSession(sessionId: string) {
+    await markSessionRevokedInCache(sessionId, 7 * 24 * 3600);
     const session = await prisma.session.findUnique({
       where: { id: sessionId },
     });

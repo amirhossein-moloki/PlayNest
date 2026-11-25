@@ -5,6 +5,45 @@ import { getPrismaModelTarget } from '../utils/model-access';
 import { buildSensitivePropertiesConfiguration } from './resource.defaults';
 import { ADMIN_NAVIGATION_GROUPS } from '../config/admin.navigation';
 import { STATION_TYPE_AVAILABLE_VALUES } from '../../common/utils/station-type';
+import { hasValidPlatformAdminAccess } from '../auth/admin.authorization';
+
+const BUILTIN_ADMINJS_ACTIONS = ['list', 'show', 'search', 'new', 'edit', 'delete', 'bulkDelete'];
+
+/**
+ * Attaches defense-in-depth `isAccessible` MFA/superuser guards to all non-disabled AdminJS resource actions.
+ */
+function applyResourceAccessGuards(resources: any[]): any[] {
+  return resources.map((entry) => {
+    const existingActions = entry.options?.actions || {};
+    const guardedActions: Record<string, any> = { ...existingActions };
+    const actionNames = new Set([...BUILTIN_ADMINJS_ACTIONS, ...Object.keys(existingActions)]);
+
+    for (const actionName of actionNames) {
+      const actionConfig = existingActions[actionName] || {};
+      if (actionConfig.isAccessible === false) {
+        guardedActions[actionName] = actionConfig;
+        continue;
+      }
+
+      const originalIsAccessible = actionConfig.isAccessible;
+      guardedActions[actionName] = {
+        ...actionConfig,
+        isAccessible:
+          typeof originalIsAccessible === 'function'
+            ? (context: any) => hasValidPlatformAdminAccess(context) && Boolean(originalIsAccessible(context))
+            : hasValidPlatformAdminAccess,
+      };
+    }
+
+    return {
+      ...entry,
+      options: {
+        ...entry.options,
+        actions: guardedActions,
+      },
+    };
+  });
+}
 
 /**
  * Builds the complete explicit resource registry for Phase 1 according to the 12 IA Groups.
@@ -102,9 +141,9 @@ export function buildResourceRegistry(components?: { coverImageComponentId?: str
     },
   ];
 
-  return [
+  return applyResourceAccessGuards([
     ...coreResources,
     ...getReadOnlyResources(),
     ...getSafeCrudResources(components),
-  ];
+  ]);
 }

@@ -8,6 +8,7 @@ import httpStatus from 'http-status';
 import { commissionsStation } from '../commissions/commissions.station';
 import { LedgerRepo } from './ledger.repo';
 import { walletService } from '../wallet/wallet.station';
+import { getAvailableWalletBalance } from '../wallet/wallet-access.guard';
 import { discountsStation } from '../discounts/discounts.station';
 
 type Tx = Prisma.TransactionClient;
@@ -219,9 +220,9 @@ const createFullWalletPayment = async ({
 
     const account = await tx.customerAccount.findUnique({
       where: { id: customerAccountId },
-      select: { id: true, walletBalance: true },
+      select: { id: true, walletBalance: true, reservedBalance: true },
     });
-    if (!account || account.walletBalance < amount) {
+    if (!account || getAvailableWalletBalance(account) < amount) {
       throw new AppError('Insufficient wallet balance.', httpStatus.BAD_REQUEST, {
         code: 'INSUFFICIENT_WALLET_BALANCE',
       });
@@ -396,9 +397,9 @@ const createPartialPayment = async ({
 
     const account = await tx.customerAccount.findUnique({
       where: { id: customerAccountId },
-      select: { id: true, walletBalance: true },
+      select: { id: true, walletBalance: true, reservedBalance: true },
     });
-    if (!account || account.walletBalance < walletContribution) {
+    if (!account || getAvailableWalletBalance(account) < walletContribution) {
       throw new AppError('Insufficient wallet balance.', httpStatus.BAD_REQUEST, {
         code: 'INSUFFICIENT_WALLET_BALANCE',
       });
@@ -784,6 +785,10 @@ const handleFailedPayment = async (
 
   if (!payment) {
     throw new AppError('Payment not found.', httpStatus.NOT_FOUND);
+  }
+
+  if (payment.status === PaymentStatus.PAID) {
+    return payment;
   }
 
   // 1. Resolve customerAccountId from all possible relationships and transactions

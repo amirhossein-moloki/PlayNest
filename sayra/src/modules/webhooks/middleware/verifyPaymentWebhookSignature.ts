@@ -11,9 +11,10 @@ export const verifyPaymentWebhookSignature = (req: Request, res: Response, next:
     return next(new AppError('Signature missing.', httpStatus.UNAUTHORIZED));
   }
 
-  // Ensure rawBody is available. This requires a specific Express setup for the route.
-  if (!req.rawBody) {
-    return next(new AppError('Raw body not available for signature verification.', httpStatus.INTERNAL_SERVER_ERROR));
+  if (!req.rawBody || !env.PAYMENT_PROVIDER_WEBHOOK_SECRET) {
+    return next(
+      new AppError('Webhook verification is misconfigured or raw body is unavailable.', httpStatus.INTERNAL_SERVER_ERROR)
+    );
   }
 
   try {

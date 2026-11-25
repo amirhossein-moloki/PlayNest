@@ -62,6 +62,18 @@ export const loginPlatformAdmin = async (req: Request, res: Response) => {
   res.ok(result);
 };
 
+function stripRefreshTokenFromPayload<T extends Record<string, any>>(payload: T): Record<string, any> {
+  if (!payload || typeof payload !== 'object') return payload;
+  const { refreshToken: _rt, tokens, ...rest } = payload;
+  void _rt;
+  if (tokens && typeof tokens === 'object') {
+    const { refreshToken: _nestedRt, ...safeTokens } = tokens as Record<string, unknown>;
+    void _nestedRt;
+    return { ...rest, tokens: safeTokens };
+  }
+  return rest;
+}
+
 export const verifyPlatformAdminTwoFactor = async (req: Request, res: Response) => {
   const { challengeToken, code, recoveryCode } = req.body;
   const result = await PlatformAdminAuthService.verifyTwoFactor(
@@ -69,7 +81,7 @@ export const verifyPlatformAdminTwoFactor = async (req: Request, res: Response) 
     extractRequestMeta(req)
   );
   setPlatformAdminRefreshCookie(res, result.refreshToken);
-  res.ok(result);
+  res.ok(stripRefreshTokenFromPayload(result));
 };
 
 export const setupPlatformAdminTwoFactor = async (req: Request, res: Response) => {
@@ -113,6 +125,8 @@ export const confirmPlatformAdminTwoFactor = async (req: Request, res: Response)
 
   if ('refreshToken' in result && typeof result.refreshToken === 'string') {
     setPlatformAdminRefreshCookie(res, result.refreshToken);
+    res.ok(stripRefreshTokenFromPayload(result));
+    return;
   }
   res.ok(result);
 };
@@ -178,7 +192,7 @@ export const refreshPlatformAdminSession = async (req: Request, res: Response) =
   }
   const result = await PlatformAdminAuthService.refreshSession(rawToken, extractRequestMeta(req));
   setPlatformAdminRefreshCookie(res, result.refreshToken);
-  res.ok(result);
+  res.ok(stripRefreshTokenFromPayload(result));
 };
 
 export const logoutPlatformAdmin = async (req: Request, res: Response) => {
@@ -237,25 +251,25 @@ export const loginWithOtp = async (req: Request, res: Response) => {
 
 export const requestUserOtp = async (req: Request, res: Response) => {
   const { phone } = req.body;
-  const result = await authService.requestUserOtp(phone);
+  const result = await authService.requestUserOtp(phone, extractRequestMeta(req));
   res.ok(result);
 };
 
 export const verifyUserOtp = async (req: Request, res: Response) => {
   const { phone, code } = req.body;
-  const result = await authService.verifyUserOtp(phone, code);
+  const result = await authService.verifyUserOtp(phone, code, extractRequestMeta(req));
   res.ok(result);
 };
 
 export const requestCustomerOtp = async (req: Request, res: Response) => {
   const { phone } = req.body;
-  const result = await authService.requestCustomerOtp(phone);
+  const result = await authService.requestCustomerOtp(phone, extractRequestMeta(req));
   res.ok(result);
 };
 
 export const verifyCustomerOtp = async (req: Request, res: Response) => {
   const { phone, code } = req.body;
-  await authService.verifyCustomerOtp(phone, code);
+  await authService.verifyCustomerOtp(phone, code, extractRequestMeta(req));
   const result = await authService.loginCustomer(phone);
   res.ok(result);
 };
@@ -269,8 +283,10 @@ export const loginUserWithOtp = async (req: Request, res: Response) => {
 export const refresh = async (req: Request, res: Response) => {
   const { refreshToken } = req.body;
   const result = await authService.refreshAuthToken(refreshToken, extractRequestMeta(req));
-  if ('refreshToken' in result && typeof result.refreshToken === 'string') {
+  if ('admin' in result && 'refreshToken' in result && typeof result.refreshToken === 'string') {
     setPlatformAdminRefreshCookie(res, result.refreshToken);
+    res.ok(stripRefreshTokenFromPayload(result));
+    return;
   }
   res.ok(result);
 };

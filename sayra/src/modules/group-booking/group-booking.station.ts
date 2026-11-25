@@ -24,6 +24,7 @@ import { walletService } from '../wallet/wallet.station';
 import { auditService } from '../audit/audit.station';
 import { PaymentsRepo } from '../payments/payments.repo';
 import { LedgerRepo } from '../payments/ledger.repo';
+import { assertCustomerOwnsWallet, getAvailableWalletBalance } from '../wallet/wallet-access.guard';
 import { commissionsStation } from '../commissions/commissions.station';
 import { calculateBasePrice } from '../../common/utils/money';
 import AppError from '../../common/errors/AppError';
@@ -254,36 +255,17 @@ export const GroupBookingStation = {
       await ReservationRepo.assertActiveReservationLimitNotExceeded(customerAccount.id, tx);
 
       const isPayable = aggregatePrice > 0;
-      const roundedPayable = Math.round(aggregatePrice);
-      const isWalletPayment = Boolean(wantsWallet && isPayable);
-      let initialPaymentState: ReservationPaymentState = isPayable
+      if (wantsWallet) {
+        throw new AppError(
+          'Staff/Manager walk-in bookings cannot debit customer wallet balance directly.',
+          httpStatus.FORBIDDEN,
+          { code: 'UNAUTHORIZED_WALLET_ACCESS' }
+        );
+      }
+      const isWalletPayment = false;
+      const initialPaymentState: ReservationPaymentState = isPayable
         ? ReservationPaymentState.UNPAID
         : ReservationPaymentState.PAID;
-
-      if (isWalletPayment) {
-        if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
-          await tx.$executeRaw`SELECT id FROM "CustomerAccount" WHERE id = ${customerAccount.id} FOR UPDATE`;
-        }
-
-        const freshAccount = await tx.customerAccount.findUnique({
-          where: { id: customerAccount.id },
-          select: { walletBalance: true },
-        });
-
-        const currentBalance = freshAccount?.walletBalance ?? 0;
-        if (currentBalance < roundedPayable) {
-          throw new AppError('Insufficient wallet balance.', httpStatus.BAD_REQUEST, {
-            code: 'INSUFFICIENT_WALLET_BALANCE',
-          });
-        }
-
-        await tx.customerAccount.update({
-          where: { id: customerAccount.id },
-          data: { walletBalance: { decrement: roundedPayable } },
-        });
-
-        initialPaymentState = ReservationPaymentState.PAID;
-      }
 
       const status: ReservationStatus = ReservationStatus.CONFIRMED;
       const expiresAt = (status as ReservationStatus) === ReservationStatus.PENDING
@@ -312,42 +294,7 @@ export const GroupBookingStation = {
         tx
       );
 
-      let payment: Payment | null = null;
-      if (isWalletPayment && createdGroupBooking) {
-        payment = await tx.payment.create({
-          data: {
-            gamingCenter: { connect: { id: gamingCenterId } },
-            groupBooking: { connect: { id: createdGroupBooking.id } },
-            amount: roundedPayable,
-            walletAmount: roundedPayable,
-            currency: 'IRR',
-            provider: PaymentProvider.MANUAL,
-            method: PaymentMethod.WALLET,
-            status: PaymentStatus.PAID,
-            paidAt: new Date(),
-            referenceCode: `WALLET-GB-${createdGroupBooking.id.slice(-8).toUpperCase()}`,
-          },
-        });
-
-        await tx.walletTransaction.create({
-          data: {
-            customerAccountId: customerAccount.id,
-            amount: -roundedPayable,
-            currency: 'IRR',
-            type: WalletTransactionType.RESERVATION_PAYMENT,
-            paymentId: payment.id,
-            note: `پرداخت کامل هزینه رزرو گروهی ${createdGroupBooking.id} از طریق کیف پول`,
-          },
-        });
-
-        await LedgerRepo.createCollectionEntry(tx, {
-          gamingCenterId,
-          paymentId: payment.id,
-          amount: roundedPayable,
-          currency: 'IRR',
-          description: `Wallet payment collection for group booking ${createdGroupBooking.id}`,
-        });
-      }
+      const payment: Payment | null = null;
 
         return { groupBooking: createdGroupBooking, isWalletPayment, payment };
       }, {
@@ -454,10 +401,7 @@ export const GroupBookingStation = {
             where: { id: input.actor.id },
             select: { id: true, phone: true },
           });
-          if (
-            actorCustomer &&
-            (normalizePhone(actorCustomer.phone) === normalizedPhone || actorCustomer.id === input.actor.id)
-          ) {
+          if (actorCustomer && normalizePhone(actorCustomer.phone) === normalizedPhone) {
             isAuthenticatedCustomer = true;
           }
         }
@@ -600,16 +544,16 @@ export const GroupBookingStation = {
       const isPayable = aggregatePrice > 0;
       const roundedPayable = Math.round(aggregatePrice);
       const isWalletPayment = Boolean(wantsWallet && isPayable);
+
+      if (wantsWallet) {
+        assertCustomerOwnsWallet(input.actor, customerAccount.id);
+      }
+
       let initialPaymentState: ReservationPaymentState = isPayable
         ? ReservationPaymentState.UNPAID
         : ReservationPaymentState.PAID;
 
       if (isWalletPayment) {
-        if (input.actor?.actorType === SessionActorType.CUSTOMER && customerAccount.id !== input.actor.id) {
-          throw new AppError('You can only use your own wallet balance.', httpStatus.FORBIDDEN, {
-            code: 'UNAUTHORIZED_WALLET_ACCESS',
-          });
-        }
 
         if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
           await tx.$executeRaw`SELECT id FROM "CustomerAccount" WHERE id = ${customerAccount.id} FOR UPDATE`;
@@ -617,10 +561,10 @@ export const GroupBookingStation = {
 
         const freshAccount = await tx.customerAccount.findUnique({
           where: { id: customerAccount.id },
-          select: { walletBalance: true },
+          select: { walletBalance: true, reservedBalance: true },
         });
 
-        const currentBalance = freshAccount?.walletBalance ?? 0;
+        const currentBalance = getAvailableWalletBalance(freshAccount);
         if (currentBalance < roundedPayable) {
           throw new AppError('Insufficient wallet balance.', httpStatus.BAD_REQUEST, {
             code: 'INSUFFICIENT_WALLET_BALANCE',

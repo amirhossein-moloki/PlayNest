@@ -1,6 +1,11 @@
 
 import { z } from 'zod';
 import { PageSectionType } from '@prisma/client';
+import { FilterXSS, escapeAttrValue } from 'xss';
+import {
+  escapeHtml as safeEscapeHtml,
+  sanitizeHttpOrRelativeUrl,
+} from '../../common/utils/html-sanitize';
 
 export type FieldType = 'text' | 'textarea' | 'number' | 'checkbox' | 'list' | 'group';
 
@@ -24,25 +29,34 @@ export interface SectionConfig {
 export type SectionRenderer = (data: Record<string, unknown>) => string;
 
 // Helper for escaping HTML
-export const escapeHtml = (value: string) =>
-  value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+export const escapeHtml = (value: string) => safeEscapeHtml(value);
+
+const sanitizeActionUrl = (url: unknown): string | null =>
+  sanitizeHttpOrRelativeUrl(url, {
+    allowMailto: true,
+    allowTel: true,
+    allowHash: true,
+  });
+
+const sanitizeCssBackgroundUrl = (url: unknown): string => {
+  const safe = sanitizeHttpOrRelativeUrl(url);
+  if (!safe || /['"()\\\s]/.test(safe)) {
+    return '';
+  }
+  return escapeHtml(safe);
+};
 
 const renderButton = (label?: string, url?: string) => {
   if (!label || !url) return '';
-  return `<a class="btn" href="${escapeHtml(url)}">${escapeHtml(label)}</a>`;
+  const safeUrl = sanitizeActionUrl(url);
+  if (!safeUrl) return '';
+  return `<a class="btn" href="${escapeHtml(safeUrl)}">${escapeHtml(label)}</a>`;
 };
 
 const renderHero = (data: Record<string, unknown>) => {
   const headline = data?.headline ? escapeHtml(String(data.headline)) : 'Untitled hero';
   const subheadline = data?.subheadline ? escapeHtml(String(data.subheadline)) : '';
-  const backgroundImageUrl = data?.backgroundImageUrl
-    ? escapeHtml(String(data.backgroundImageUrl))
-    : '';
+  const backgroundImageUrl = sanitizeCssBackgroundUrl(data?.backgroundImageUrl);
   const primaryCta = data?.primaryCta as Record<string, string> | undefined;
   const secondaryCta = data?.secondaryCta as Record<string, string> | undefined;
 
@@ -239,7 +253,8 @@ const renderRichText = (data: Record<string, unknown>) => {
         ${blocks
     .map((block: unknown) => {
       const b = block as Record<string, unknown>;
-      const text = b?.text ?? '';
+      const rawText = typeof b?.text === 'string' ? b.text : String(b?.text ?? '');
+      const text = sanitizeRichTextHtml(rawText, Boolean(b?.allowHtml));
       return `<p>${text}</p>`;
     })
     .join('')}
@@ -269,86 +284,59 @@ const renderStaffGrid = (data: Record<string, unknown>) => {
   `;
 };
 
-const allowedRichTextTags = new Set(['a', 'b', 'strong', 'i', 'em', 'u', 's', 'br', 'span', 'code']);
-const safeHrefPattern = /^(https?:|mailto:|tel:|\/|#)/i;
-const attributeRegex = /([a-zA-Z0-9-:_]+)\s*=\s*(".*?"|'.*?'|[^\s>]+)/g;
+const richTextPlainFilter = new FilterXSS({
+  whiteList: {},
+  stripIgnoreTag: true,
+  stripIgnoreTagBody: ['script', 'style'],
+  allowCommentTag: false,
+  css: false,
+});
 
-const escapeHtmlAttribute = (value: string) =>
-  value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-const sanitizeTagAttributes = (attributes: string) => {
-  const sanitized: Record<string, string> = {};
-  attributeRegex.lastIndex = 0;
-  let match;
-  while ((match = attributeRegex.exec(attributes)) !== null) {
-    const name = match[1].toLowerCase();
-    let value = match[2].trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith('\'') && value.endsWith('\''))) {
-      value = value.slice(1, -1);
+const richTextXssFilter = new FilterXSS({
+  whiteList: {
+    a: ['href', 'title', 'target'],
+    b: [],
+    strong: [],
+    i: [],
+    em: [],
+    u: [],
+    s: [],
+    br: [],
+    span: [],
+    code: [],
+  },
+  stripIgnoreTag: true,
+  stripIgnoreTagBody: ['script', 'style'],
+  allowCommentTag: false,
+  css: false,
+  onTagAttr: (tag, name, value) => {
+    if (tag !== 'a') {
+      return '';
     }
-    sanitized[name] = value;
-  }
-  return sanitized;
-};
+    const lowerName = name.toLowerCase();
+    if (lowerName === 'href') {
+      const safeHref = sanitizeActionUrl(value);
+      return safeHref ? `href="${escapeAttrValue(safeHref)}"` : '';
+    }
+    if (lowerName === 'title') {
+      return `title="${escapeAttrValue(value)}"`;
+    }
+    if (lowerName === 'target') {
+      const target = value.trim().toLowerCase();
+      if (['_blank', '_self', '_parent', '_top'].includes(target)) {
+        return target === '_blank'
+          ? 'target="_blank" rel="noopener noreferrer"'
+          : `target="${target}"`;
+      }
+      return '';
+    }
+    return '';
+  },
+});
 
 const sanitizeRichTextHtml = (value: string, allowHtml: boolean) => {
-  if (!value) return value;
-
-  const withoutDangerousBlocks = value.replace(
-    /<\s*(script|style)[^>]*>[\s\S]*?<\s*\/\s*\1>/gi,
-    '',
-  );
-
-  if (!allowHtml) {
-    return withoutDangerousBlocks.replace(/<[^>]*>/g, '');
-  }
-
-  return withoutDangerousBlocks.replace(
-    /<\s*\/?\s*([a-zA-Z0-9]+)([^>]*)>/g,
-    (match, rawTagName: string, rawAttributes: string) => {
-      const tagName = rawTagName.toLowerCase();
-      const isClosing = match.trim().startsWith('</');
-
-      if (!allowedRichTextTags.has(tagName)) {
-        return '';
-      }
-
-      if (isClosing) {
-        return `</${tagName}>`;
-      }
-
-      if (tagName === 'br') {
-        return '<br />';
-      }
-
-      if (tagName !== 'a') {
-        return `<${tagName}>`;
-      }
-
-      const attributes = sanitizeTagAttributes(rawAttributes);
-      const sanitizedAttributes: string[] = [];
-      if (attributes.href && safeHrefPattern.test(attributes.href)) {
-        sanitizedAttributes.push(`href="${escapeHtmlAttribute(attributes.href)}"`);
-      }
-      if (attributes.title) {
-        sanitizedAttributes.push(`title="${escapeHtmlAttribute(attributes.title)}"`);
-      }
-      if (attributes.target) {
-        const target = attributes.target.toLowerCase();
-        if (['_blank', '_self', '_parent', '_top'].includes(target)) {
-          sanitizedAttributes.push(`target="${target}"`);
-          if (target === '_blank') {
-            sanitizedAttributes.push('rel="noopener noreferrer"');
-          }
-        }
-      }
-      if (attributes.rel && !sanitizedAttributes.some((attr) => attr.startsWith('rel='))) {
-        sanitizedAttributes.push(`rel="${escapeHtmlAttribute(attributes.rel)}"`);
-      }
-
-      return `<a${sanitizedAttributes.length ? ` ${sanitizedAttributes.join(' ')}` : ''}>`;
-    },
-  );
+  if (!value) return '';
+  return allowHtml ? richTextXssFilter.process(value) : richTextPlainFilter.process(value);
 };
 
 // --- Configs & Schemas ---
@@ -395,13 +383,28 @@ export const SECTION_DEFINITIONS: Record<
       subheadline: z.string().min(1),
       primaryCta: z.object({
         label: z.string().min(1),
-        url: z.string().min(1),
+        url: z
+          .string()
+          .min(1)
+          .refine((value) => Boolean(sanitizeActionUrl(value)), {
+            message: 'URL must use http, https, mailto, tel, relative /, or #.',
+          }),
       }),
       secondaryCta: z.object({
         label: z.string().min(1),
-        url: z.string().min(1),
+        url: z
+          .string()
+          .min(1)
+          .refine((value) => Boolean(sanitizeActionUrl(value)), {
+            message: 'URL must use http, https, mailto, tel, relative /, or #.',
+          }),
       }),
-      backgroundImageUrl: z.string().min(1),
+      backgroundImageUrl: z
+        .string()
+        .min(1)
+        .refine((value) => Boolean(sanitizeCssBackgroundUrl(value)), {
+          message: 'Background image URL must be a valid http/https/relative image URL.',
+        }),
     }),
     renderer: renderHero,
   },
@@ -558,7 +561,12 @@ export const SECTION_DEFINITIONS: Record<
       title: z.string().min(1),
       text: z.string().min(1),
       buttonLabel: z.string().min(1),
-      buttonUrl: z.string().min(1),
+      buttonUrl: z
+        .string()
+        .min(1)
+        .refine((value) => Boolean(sanitizeActionUrl(value)), {
+          message: 'Button URL must use http, https, mailto, tel, relative /, or #.',
+        }),
     }),
     renderer: renderCta,
   },

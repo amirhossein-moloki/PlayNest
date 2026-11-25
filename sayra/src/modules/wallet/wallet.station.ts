@@ -60,11 +60,12 @@ export const walletService = {
       // 1. Calculate actual paid amount from verified PAID payment records
       const totalGatewayPaid = await WalletRepo.findTotalPaidForReservation(reservationId, t);
 
-      // 2. Also check if reservation was paid via wallet debit
+      // 2. Also check if reservation was paid via direct wallet debit not linked to a Payment row
       const walletDebit = await t.walletTransaction.findFirst({
         where: {
           reservationId,
           type: WalletTransactionType.RESERVATION_PAYMENT,
+          paymentId: null,
         },
       });
       const totalWalletPaid = walletDebit ? Math.abs(walletDebit.amount) : 0;
@@ -77,10 +78,14 @@ export const walletService = {
         return;
       }
 
-      // Cap at customerPayableAmount if customerPayableAmount > 0 to guarantee discounted reservations
+      // Cap at customerPayableAmount if positive, otherwise fall back to totalPrice so discounted or child reservations
       // only refund what was genuinely owed and paid
-      const refundAmount = reservation.customerPayableAmount > 0
-        ? Math.min(totalActualPaid, reservation.customerPayableAmount)
+      const maxRefundable =
+        reservation.customerPayableAmount > 0
+          ? reservation.customerPayableAmount
+          : (reservation.totalPrice ?? 0);
+      const refundAmount = maxRefundable > 0
+        ? Math.min(totalActualPaid, maxRefundable)
         : totalActualPaid;
 
       const currency = ((reservation.stationSnapshot as Record<string, unknown>)?.currency as string | undefined) || 'IRR';

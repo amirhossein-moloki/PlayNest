@@ -67,7 +67,13 @@ app.use(helmet({
     },
   },
 }));
-app.use(express.json());
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      (req as any).rawBody = buf;
+    },
+  })
+);
 app.use(cookieParser(ADMIN_CONSTANTS.COOKIE_SECRET));
 
 // Serve static files from the uploads directory

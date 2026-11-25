@@ -1,16 +1,20 @@
 import { Prisma, PaymentStatus, WalletTransactionType, ReservationPaymentState } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { getAvailableWalletBalance } from './wallet-access.guard';
 
 export const WalletRepo = {
   async updateBalance(customerAccountId: string, amount: number, tx?: Prisma.TransactionClient) {
     const client = tx || prisma;
-    // Check non-negative balance requirement if debiting
+    // Check non-negative spendable balance requirement if debiting (excluding reservedBalance)
     if (amount < 0) {
+      if (tx && typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
+        await tx.$executeRaw`SELECT id FROM "CustomerAccount" WHERE id = ${customerAccountId} FOR UPDATE`;
+      }
       const account = await client.customerAccount.findUnique({
         where: { id: customerAccountId },
-        select: { walletBalance: true },
+        select: { walletBalance: true, reservedBalance: true },
       });
-      if (!account || account.walletBalance + amount < 0) {
+      if (!account || getAvailableWalletBalance(account) + amount < 0) {
         throw new Error('INSUFFICIENT_BALANCE');
       }
     }

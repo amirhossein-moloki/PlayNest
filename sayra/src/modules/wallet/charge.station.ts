@@ -162,13 +162,19 @@ export const WalletChargeStation = {
   async verifyCharge(input: VerifyWalletChargeInput) {
     const { trackId, orderId, statusQuery, successQuery } = input;
 
-    // 1. Locate durable record by trackId or orderId
-    let charge = trackId ? await WalletChargeRepo.findChargeByTrackId(trackId) : null;
-    if (!charge && orderId) {
-      charge = await WalletChargeRepo.findChargeById(orderId);
+    if (!trackId) {
+      logger.warn({ orderId }, 'Wallet Charge Callback: Missing trackId');
+      return {
+        success: false,
+        charge: null,
+        failureReason: 'شناسه پیگیری (trackId) در درخواست بازگشت درگاه یافت نشد.',
+      };
     }
 
-    if (!charge) {
+    // 1. Locate durable record strictly by authoritative trackId
+    const charge = await WalletChargeRepo.findChargeByTrackId(trackId);
+
+    if (!charge || (charge.trackId && charge.trackId !== trackId)) {
       logger.warn({ trackId, orderId }, 'Wallet Charge Callback: Charge record not found');
       return {
         success: false,

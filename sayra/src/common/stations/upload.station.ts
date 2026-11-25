@@ -2,7 +2,13 @@ import path from 'path';
 import fs from 'fs/promises';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
+import httpStatus from 'http-status';
+import AppError from '../errors/AppError';
 import { env } from '../../config/env';
+import {
+  ALL_RASTER_FORMATS,
+  validateAndReencodeRasterImage,
+} from '../utils/image-validation';
 
 const UPLOAD_ROOT = 'uploads';
 const THUMB_DIR_NAME = 'thumbnails';
@@ -17,39 +23,35 @@ export async function ensureUploadDirs() {
 }
 
 /**
- * Process an uploaded image: save the original and generate a thumbnail.
+ * Process an uploaded image: validate and re-encode in memory first, then persist original and thumbnail.
  * Returns the relative URLs for both.
  */
 export async function processAndStoreImage(file: Express.Multer.File) {
+  const validated = await validateAndReencodeRasterImage(file.buffer, {
+    allowedFormats: ALL_RASTER_FORMATS,
+  });
+
+  let thumbBuffer: Buffer;
+  try {
+    thumbBuffer = await sharp(validated.buffer, { failOnError: true })
+      .resize(300, 300, {
+        fit: 'cover',
+        position: 'center',
+      })
+      .toFormat(validated.format as keyof sharp.FormatEnum)
+      .toBuffer();
+  } catch {
+    throw new AppError('خطا در ساخت تصویر بندانگشتی.', httpStatus.BAD_REQUEST);
+  }
+
   await ensureUploadDirs();
 
-  let fileExtension = path.extname(file.originalname).toLowerCase();
-  if (!fileExtension && file.mimetype) {
-    if (file.mimetype.includes('jpeg') || file.mimetype.includes('jpg')) fileExtension = '.jpg';
-    else if (file.mimetype.includes('png')) fileExtension = '.png';
-    else if (file.mimetype.includes('webp')) fileExtension = '.webp';
-    else if (file.mimetype.includes('gif')) fileExtension = '.gif';
-    else if (file.mimetype.includes('avif')) fileExtension = '.avif';
-  }
-  if (!fileExtension) {
-    fileExtension = '.jpg';
-  }
-  const fileName = `${uuidv4()}${fileExtension}`;
-
+  const fileName = `${uuidv4()}${validated.ext}`;
   const filePath = path.join(UPLOAD_ROOT, fileName);
   const thumbPath = path.join(THUMB_ROOT, fileName);
 
-  // Save original file
-  await fs.writeFile(filePath, file.buffer);
-
-  // Generate thumbnail using sharp
-  // We'll use a standard 300x300 cover crop for thumbnails
-  await sharp(file.buffer)
-    .resize(300, 300, {
-      fit: 'cover',
-      position: 'center',
-    })
-    .toFile(thumbPath);
+  await fs.writeFile(filePath, validated.buffer);
+  await fs.writeFile(thumbPath, thumbBuffer);
 
   const baseUrl = env.NODE_ENV !== 'test' && env.MEDIA_PUBLIC_BASE_URL
     ? env.MEDIA_PUBLIC_BASE_URL.replace(/\/$/, '')
@@ -62,19 +64,35 @@ export async function processAndStoreImage(file: Express.Multer.File) {
   };
 }
 
+function resolveContainedPath(rootDir: string, rawUrl: string): string | null {
+  const fileName = path.basename(rawUrl.split('?')[0].split('#')[0]);
+  if (!fileName || fileName === '.' || fileName === '..' || fileName.includes('\0')) {
+    return null;
+  }
+  const resolvedRoot = path.resolve(rootDir);
+  const resolvedTarget = path.resolve(resolvedRoot, fileName);
+  const relative = path.relative(resolvedRoot, resolvedTarget);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    return null;
+  }
+  return resolvedTarget;
+}
+
 /**
  * Deletes a file and its thumbnail from disk.
  */
 export async function deleteStoredImage(url: string, thumbUrl?: string | null) {
   try {
-    const fileName = path.basename(url.split('?')[0]);
-    const filePath = path.join(UPLOAD_ROOT, fileName);
-    await fs.unlink(filePath);
+    const filePath = resolveContainedPath(UPLOAD_ROOT, url);
+    if (filePath) {
+      await fs.unlink(filePath);
+    }
 
     if (thumbUrl) {
-      const thumbFileName = path.basename(thumbUrl.split('?')[0]);
-      const thumbPath = path.join(THUMB_ROOT, thumbFileName);
-      await fs.unlink(thumbPath);
+      const thumbPath = resolveContainedPath(THUMB_ROOT, thumbUrl);
+      if (thumbPath) {
+        await fs.unlink(thumbPath);
+      }
     }
   } catch (error) {
     // Log error but don't fail (best effort)

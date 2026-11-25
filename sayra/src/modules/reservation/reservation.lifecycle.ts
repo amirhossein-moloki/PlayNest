@@ -571,6 +571,29 @@ export const reservationLifecycle = {
         const durationHours = station.defaultDurationHours;
         const newEndTime = addMinutes(newStartTime, durationHours * 60);
 
+        const isPaidOrPartial =
+          reservation.paymentState === ReservationPaymentState.PAID ||
+          reservation.paymentState === ReservationPaymentState.PARTIALLY_PAID;
+        if (actor.actorType === SessionActorType.CUSTOMER && isPaidOrPartial) {
+          if (data.stationId && data.stationId !== reservation.stationId) {
+            throw new AppError(
+              'Cannot change game station on an already paid reservation.',
+              httpStatus.BAD_REQUEST,
+              { code: 'PAID_RESERVATION_UPGRADE_NOT_ALLOWED' }
+            );
+          }
+          if (
+            typeof reservation.totalHours === 'number' &&
+            durationHours > reservation.totalHours
+          ) {
+            throw new AppError(
+              'Cannot increase duration on an already paid reservation.',
+              httpStatus.BAD_REQUEST,
+              { code: 'PAID_RESERVATION_UPGRADE_NOT_ALLOWED' }
+            );
+          }
+        }
+
         const gamingCenter = await ReservationRepo.findGamingCenterWithSettings(gamingCenterId, tx);
         const settings = gamingCenter?.settings;
 
@@ -632,6 +655,22 @@ export const reservationLifecycle = {
           tx,
           reservation.source
         );
+
+        const existingPayable =
+          typeof reservation.customerPayableAmount === 'number'
+            ? reservation.customerPayableAmount
+            : reservation.totalPrice;
+        if (
+          actor.actorType === SessionActorType.CUSTOMER &&
+          isPaidOrPartial &&
+          financials.customerPayableAmount > existingPayable
+        ) {
+          throw new AppError(
+            'Cannot reschedule a paid reservation to a higher-priced slot or station.',
+            httpStatus.BAD_REQUEST,
+            { code: 'PAID_RESERVATION_UPGRADE_NOT_ALLOWED' }
+          );
+        }
 
         const updateData: Prisma.ReservationUncheckedUpdateInput = {
           startTime: newStartTime,

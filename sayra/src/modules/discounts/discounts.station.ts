@@ -39,6 +39,61 @@ import {
   RedeemDiscountInput,
 } from './discounts.dto';
 
+type DiscountUsageWithRelations = DiscountUsage & {
+  campaign?: { gamingCenterId?: string | null } | null;
+  discount?: { gamingCenterId?: string | null } | null;
+  reservation?: { id?: string; gamingCenterId?: string | null; customerAccountId?: string | null } | null;
+  bookingHold?: { id?: string; gamingCenterId?: string | null; customerAccountId?: string | null } | null;
+};
+
+const resolveUsageTenantId = (usage: DiscountUsageWithRelations): string | null =>
+  usage.reservation?.gamingCenterId ??
+  usage.bookingHold?.gamingCenterId ??
+  usage.discount?.gamingCenterId ??
+  usage.campaign?.gamingCenterId ??
+  null;
+
+const assertDiscountLifecycleActor = (
+  actor: RequestActor | undefined,
+  gamingCenterId: string,
+  opts?: { targetCustomerAccountId?: string | null; usage?: DiscountUsageWithRelations | null }
+) => {
+  if (!actor) {
+    throw new AppError('Authentication required for discount lifecycle operations.', httpStatus.UNAUTHORIZED);
+  }
+  if (actor.actorType === SessionActorType.PLATFORM_ADMIN) {
+    return;
+  }
+
+  const usage = opts?.usage;
+  const usageTenantId = usage ? resolveUsageTenantId(usage) : null;
+
+  if (actor.actorType === SessionActorType.CUSTOMER) {
+    if (opts?.targetCustomerAccountId && opts.targetCustomerAccountId !== actor.id) {
+      throw new AppError('Customers may only manage discounts for their own account.', httpStatus.FORBIDDEN);
+    }
+    if (usage && usage.customerAccountId !== actor.id) {
+      throw new AppError('Forbidden: you do not own this discount usage.', httpStatus.FORBIDDEN);
+    }
+    if (usageTenantId && usageTenantId !== gamingCenterId) {
+      throw new AppError('Discount usage does not belong to this gaming center.', httpStatus.FORBIDDEN);
+    }
+    return;
+  }
+
+  if (actor.actorType === SessionActorType.USER) {
+    if (actor.gamingCenterId !== gamingCenterId) {
+      throw new AppError('Forbidden: gamingCenterId does not match authenticated tenant.', httpStatus.FORBIDDEN);
+    }
+    if (usage && usageTenantId !== gamingCenterId) {
+      throw new AppError('Forbidden: cannot modify discount usages outside this gaming center.', httpStatus.FORBIDDEN);
+    }
+    return;
+  }
+
+  throw new AppError('Forbidden.', httpStatus.FORBIDDEN);
+};
+
 const validateTarget = async (
   gamingCenterId: string,
   targetType: DiscountTargetType,
@@ -592,12 +647,42 @@ export const discountsStation = {
     actor?: RequestActor,
     context?: { ip?: string; userAgent?: string }
   ) {
+    const isPlatformAdmin = actor?.actorType === SessionActorType.PLATFORM_ADMIN;
+
+    if (!isPlatformAdmin && !gamingCenterId) {
+      throw new AppError('Tenant context required to create campaign.', httpStatus.FORBIDDEN);
+    }
+
+    if (
+      !isPlatformAdmin &&
+      input.fundingSource &&
+      input.fundingSource !== DiscountFundingSource.MERCHANT_FUNDED
+    ) {
+      throw new AppError('Tenant campaigns must use MERCHANT_FUNDED fundingSource.', httpStatus.FORBIDDEN, {
+        code: 'FORBIDDEN_FUNDING_SOURCE',
+      });
+    }
+
+    if (gamingCenterId && (input.targetType || input.targetId)) {
+      const targetType = input.targetType ?? DiscountTargetType.GAMING_CENTER;
+      const targetId =
+        input.targetId || (targetType === DiscountTargetType.GAMING_CENTER ? gamingCenterId : '');
+      if (!targetId) {
+        throw new AppError('targetId is required when targeting a station.', httpStatus.BAD_REQUEST);
+      }
+      await validateTarget(gamingCenterId, targetType, targetId);
+    }
+
     if (input.code) {
       const existing = await DiscountsRepo.findCampaignByCode(input.code);
       if (existing) {
         throw new AppError('Discount code already exists.', httpStatus.CONFLICT, { code: 'DUPLICATE_CODE' });
       }
     }
+
+    const resolvedFundingSource = isPlatformAdmin
+      ? (input.fundingSource ?? DiscountFundingSource.PLATFORM)
+      : DiscountFundingSource.MERCHANT_FUNDED;
 
     const campaign = await DiscountsRepo.createCampaign({
       gamingCenterId,
@@ -611,7 +696,7 @@ export const discountsStation = {
       value: input.value,
       maxDiscountAmount: input.maxDiscountAmount,
       minReservationAmount: input.minReservationAmount,
-      fundingSource: input.fundingSource ?? DiscountFundingSource.PLATFORM,
+      fundingSource: resolvedFundingSource,
       totalBudget: input.totalBudget,
       maxUsageCount: input.maxUsageCount,
       maxUsagePerUser: input.maxUsagePerUser ?? 1,
@@ -678,9 +763,36 @@ export const discountsStation = {
     actor?: RequestActor,
     context?: { ip?: string; userAgent?: string }
   ) {
+    const isPlatformAdmin = actor?.actorType === SessionActorType.PLATFORM_ADMIN;
+
     const existing = await DiscountsRepo.findCampaignById(id, gamingCenterId);
     if (!existing) {
       throw new AppError('Discount campaign not found.', httpStatus.NOT_FOUND);
+    }
+
+    if (!isPlatformAdmin && existing.gamingCenterId !== gamingCenterId) {
+      throw new AppError('Forbidden: cannot modify global or foreign gaming center campaigns.', httpStatus.FORBIDDEN);
+    }
+
+    if (
+      !isPlatformAdmin &&
+      input.fundingSource &&
+      input.fundingSource !== DiscountFundingSource.MERCHANT_FUNDED
+    ) {
+      throw new AppError('Tenant campaigns cannot use PLATFORM or CAMPAIGN_BUDGET funding.', httpStatus.FORBIDDEN, {
+        code: 'FORBIDDEN_FUNDING_SOURCE',
+      });
+    }
+
+    if (existing.gamingCenterId && (input.targetType !== undefined || input.targetId !== undefined)) {
+      const nextTargetType = input.targetType ?? existing.targetType;
+      const nextTargetId =
+        (input.targetId !== undefined ? input.targetId : existing.targetId) ||
+        (nextTargetType === DiscountTargetType.GAMING_CENTER ? existing.gamingCenterId : '');
+      if (!nextTargetId) {
+        throw new AppError('targetId is required when targeting a station.', httpStatus.BAD_REQUEST);
+      }
+      await validateTarget(existing.gamingCenterId, nextTargetType, nextTargetId);
     }
 
     if (input.code && input.code.toLowerCase() !== existing.code?.toLowerCase()) {
@@ -689,6 +801,10 @@ export const discountsStation = {
         throw new AppError('Discount code already exists.', httpStatus.CONFLICT, { code: 'DUPLICATE_CODE' });
       }
     }
+
+    const resolvedFundingSource = isPlatformAdmin
+      ? input.fundingSource
+      : DiscountFundingSource.MERCHANT_FUNDED;
 
     const updateData: Prisma.DiscountCampaignUncheckedUpdateInput = {
       name: input.name,
@@ -701,7 +817,7 @@ export const discountsStation = {
       value: input.value,
       maxDiscountAmount: input.maxDiscountAmount,
       minReservationAmount: input.minReservationAmount,
-      fundingSource: input.fundingSource,
+      fundingSource: resolvedFundingSource,
       totalBudget: input.totalBudget,
       maxUsageCount: input.maxUsageCount,
       maxUsagePerUser: input.maxUsagePerUser,
@@ -794,7 +910,7 @@ export const discountsStation = {
     fundingSource: DiscountFundingSource,
     tx: Prisma.TransactionClient
   ): Promise<void> {
-    const campaign = await DiscountsRepo.findCampaignById(campaignId, undefined, tx);
+    const campaign = await DiscountsRepo.lockCampaignForUpdate(campaignId, tx);
     if (!campaign) return;
 
     // Check if there is already an existing RESERVED usage for this reservation or hold
@@ -808,8 +924,8 @@ export const discountsStation = {
 
     if (existingUsage) {
       if (existingUsage.status !== DiscountUsageStatus.REDEEMED) {
-        await tx.discountUsage.update({
-          where: { id: existingUsage.id },
+        await tx.discountUsage.updateMany({
+          where: { id: existingUsage.id, status: DiscountUsageStatus.RESERVED },
           data: {
             status: DiscountUsageStatus.REDEEMED,
             redeemedAt: new Date(),
@@ -819,11 +935,36 @@ export const discountsStation = {
       return;
     }
 
+    const totalLimit = campaign.totalUsageLimit ?? campaign.maxUsageCount;
+    if (totalLimit !== null && totalLimit !== undefined && campaign.currentUsageCount >= totalLimit) {
+      throw new AppError('سقف استفاده از این کمپین تکمیل شده است.', httpStatus.CONFLICT, {
+        code: 'CAMPAIGN_LIMIT_EXCEEDED',
+      });
+    }
+
+    if (campaign.totalBudget !== null && campaign.totalBudget !== undefined) {
+      const remainingBudget = campaign.totalBudget - campaign.usedBudget;
+      if (remainingBudget < discountAmount) {
+        throw new AppError('بودجه کمپین تخفیف به پایان رسیده است.', httpStatus.CONFLICT, {
+          code: 'CAMPAIGN_BUDGET_EXCEEDED',
+        });
+      }
+    }
+
+    if (customerAccountId && campaign.maxUsagePerUser) {
+      const userCount = await DiscountsRepo.countUserCampaignUsages(campaignId, customerAccountId, tx);
+      if (userCount >= campaign.maxUsagePerUser) {
+        throw new AppError('سقف استفاده مجاز شما از این کمپین تکمیل شده است.', httpStatus.CONFLICT, {
+          code: 'CAMPAIGN_USER_LIMIT_EXCEEDED',
+        });
+      }
+    }
+
     await DiscountsRepo.updateCampaign(
       campaignId,
       {
-        usedBudget: campaign.usedBudget + discountAmount,
-        currentUsageCount: campaign.currentUsageCount + 1,
+        usedBudget: { increment: discountAmount },
+        currentUsageCount: { increment: 1 },
       },
       tx
     );
@@ -1176,6 +1317,19 @@ export const discountsStation = {
     actor?: RequestActor,
     tx?: Prisma.TransactionClient
   ) {
+    const resolvedCustomerAccountId =
+      actor?.actorType === SessionActorType.CUSTOMER ? actor.id : input.customerAccountId;
+
+    if (actor) {
+      assertDiscountLifecycleActor(actor, gamingCenterId, {
+        targetCustomerAccountId: input.customerAccountId,
+      });
+    }
+
+    if (!resolvedCustomerAccountId) {
+      throw new AppError('customerAccountId is required.', httpStatus.BAD_REQUEST);
+    }
+
     const execute = async (t: Prisma.TransactionClient) => {
       // 1. Idempotency Check
       if (input.idempotencyKey) {
@@ -1185,18 +1339,36 @@ export const discountsStation = {
           existingUsage.status === DiscountUsageStatus.RESERVED &&
           (!existingUsage.expiresAt || existingUsage.expiresAt > new Date())
         ) {
+          if (actor) {
+            assertDiscountLifecycleActor(actor, gamingCenterId, {
+              targetCustomerAccountId: resolvedCustomerAccountId,
+              usage: existingUsage as DiscountUsageWithRelations,
+            });
+          }
           return existingUsage;
         }
       }
 
-      // 2. Validate and calculate selection
+      // 2. Lock campaign upfront when known so all limits & audience checks run under FOR UPDATE lock
+      let preLockedCampaign: DiscountCampaign | null = null;
+      if (input.code) {
+        preLockedCampaign = await DiscountsRepo.findCampaignByCodeForUpdate(
+          input.code.trim(),
+          gamingCenterId,
+          t
+        );
+      } else if (input.selectedType === 'CAMPAIGN' && input.selectedDiscountId) {
+        preLockedCampaign = await DiscountsRepo.lockCampaignForUpdate(input.selectedDiscountId, t);
+      }
+
+      // 3. Validate and calculate selection
       const calculation = await this.calculateDiscountSelection(
         gamingCenterId,
         {
           stationId: input.stationId,
           basePrice: input.basePrice,
           startTime: input.startTime,
-          customerAccountId: input.customerAccountId,
+          customerAccountId: resolvedCustomerAccountId,
           selectedDiscountId: input.selectedDiscountId,
           selectedType: input.selectedType,
           code: input.code,
@@ -1211,14 +1383,34 @@ export const discountsStation = {
         });
       }
 
-      const ttlMinutes = input.ttlMinutes ?? 15;
+      const ttlMinutes = Math.min(30, Math.max(1, input.ttlMinutes ?? 15));
       const expiresAt = addMinutes(new Date(), ttlMinutes);
 
-      // 3. If campaign, lock and atomically reserve budget and usage count
+      // 4. If campaign, lock (if not already locked) and re-validate ALL limits & audience under FOR UPDATE
       if (calculation.campaignId) {
-        const lockedCampaign = await DiscountsRepo.lockCampaignForUpdate(calculation.campaignId, t);
+        const lockedCampaign =
+          preLockedCampaign && preLockedCampaign.id === calculation.campaignId
+            ? preLockedCampaign
+            : await DiscountsRepo.lockCampaignForUpdate(calculation.campaignId, t);
         if (!lockedCampaign) {
           throw new AppError('کمپین تخفیف یافت نشد.', httpStatus.NOT_FOUND);
+        }
+
+        const lockedValidation = await validateCampaignForReservation(
+          lockedCampaign,
+          input.stationId,
+          input.basePrice,
+          resolvedCustomerAccountId,
+          input.startTime ? new Date(input.startTime) : new Date(),
+          t,
+          gamingCenterId
+        );
+        if (!lockedValidation.isValid || lockedValidation.discountAmount <= 0) {
+          throw new AppError(
+            lockedValidation.reason || 'سقف یا شرایط استفاده از این کمپین تکمیل شده است.',
+            httpStatus.CONFLICT,
+            { code: 'CAMPAIGN_LIMIT_EXCEEDED' }
+          );
         }
 
         const totalLimit = lockedCampaign.totalUsageLimit ?? lockedCampaign.maxUsageCount;
@@ -1240,8 +1432,8 @@ export const discountsStation = {
         await DiscountsRepo.updateCampaign(
           lockedCampaign.id,
           {
-            usedBudget: lockedCampaign.usedBudget + calculation.discountAmount,
-            currentUsageCount: lockedCampaign.currentUsageCount + 1,
+            usedBudget: { increment: calculation.discountAmount },
+            currentUsageCount: { increment: 1 },
           },
           t
         );
@@ -1254,11 +1446,11 @@ export const discountsStation = {
           discountId: calculation.discountId,
           reservationId: input.reservationId || null,
           bookingHoldId: input.bookingHoldId || null,
-          customerAccountId: input.customerAccountId,
+          customerAccountId: resolvedCustomerAccountId,
           discountAmount: calculation.discountAmount,
           originalPrice: calculation.originalAmount,
           finalPrice: calculation.customerPayableAmount,
-          fundingSource: calculation.fundingSource || DiscountFundingSource.PLATFORM,
+          fundingSource: calculation.fundingSource || DiscountFundingSource.MERCHANT_FUNDED,
           status: DiscountUsageStatus.RESERVED,
           reservedAt: new Date(),
           expiresAt,
@@ -1277,21 +1469,33 @@ export const discountsStation = {
   async redeemDiscount(
     reservationId: string,
     options?: { usageId?: string; bookingHoldId?: string },
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
+    context?: { actor?: RequestActor; gamingCenterId?: string }
   ) {
     const execute = async (t: Prisma.TransactionClient) => {
-      let usage: DiscountUsage | null = null;
+      let usage: DiscountUsageWithRelations | null = null;
       if (options?.usageId) {
-        usage = await DiscountsRepo.findUsageById(options.usageId, t);
+        usage = (await DiscountsRepo.findUsageById(options.usageId, t)) as DiscountUsageWithRelations | null;
       } else if (reservationId) {
-        usage = await DiscountsRepo.findActiveUsageForReservation(reservationId, t);
+        usage = (await DiscountsRepo.findActiveUsageForReservation(reservationId, t)) as DiscountUsageWithRelations | null;
       } else if (options?.bookingHoldId) {
-        usage = await DiscountsRepo.findActiveUsageForHold(options.bookingHoldId, t);
+        usage = (await DiscountsRepo.findActiveUsageForHold(options.bookingHoldId, t)) as DiscountUsageWithRelations | null;
       }
 
       if (!usage) return null;
 
+      if (context?.actor) {
+        assertDiscountLifecycleActor(context.actor, context.gamingCenterId || '', { usage });
+      }
+
+      if (usage.status === DiscountUsageStatus.RELEASED || usage.status === DiscountUsageStatus.EXPIRED) {
+        throw new AppError('Cannot redeem a released or expired discount usage.', httpStatus.CONFLICT);
+      }
+
       if (usage.status === DiscountUsageStatus.REDEEMED) {
+        if (usage.reservationId && reservationId && usage.reservationId !== reservationId) {
+          throw new AppError('Discount usage has already been redeemed for another reservation.', httpStatus.CONFLICT);
+        }
         return usage;
       }
 
@@ -1313,22 +1517,79 @@ export const discountsStation = {
 
   async releaseDiscount(
     options: { usageId?: string; reservationId?: string; bookingHoldId?: string; reason?: string },
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
+    context?: { actor?: RequestActor; gamingCenterId?: string; allowRedeemed?: boolean }
   ) {
     const execute = async (t: Prisma.TransactionClient) => {
-      let usage: DiscountUsage | null = null;
+      let usage: DiscountUsageWithRelations | null = null;
       if (options.usageId) {
-        usage = await DiscountsRepo.findUsageById(options.usageId, t);
+        usage = (await DiscountsRepo.findUsageById(options.usageId, t)) as DiscountUsageWithRelations | null;
       } else if (options.reservationId) {
-        usage = await DiscountsRepo.findActiveUsageForReservation(options.reservationId, t);
+        usage = (await DiscountsRepo.findActiveUsageForReservation(options.reservationId, t)) as DiscountUsageWithRelations | null;
       } else if (options.bookingHoldId) {
-        usage = await DiscountsRepo.findActiveUsageForHold(options.bookingHoldId, t);
+        usage = (await DiscountsRepo.findActiveUsageForHold(options.bookingHoldId, t)) as DiscountUsageWithRelations | null;
       }
 
       if (!usage) return null;
 
+      if (context?.actor) {
+        assertDiscountLifecycleActor(context.actor, context.gamingCenterId || '', { usage });
+      }
+
       if (usage.status === DiscountUsageStatus.RELEASED || usage.status === DiscountUsageStatus.EXPIRED) {
         return usage;
+      }
+
+      if (!context?.allowRedeemed && usage.status === DiscountUsageStatus.REDEEMED) {
+        throw new AppError('Cannot release an already redeemed discount usage.', httpStatus.CONFLICT, {
+          code: 'DISCOUNT_ALREADY_REDEEMED',
+        });
+      }
+
+      const releaseReason = options.reason || 'Reservation canceled, expired, or payment failed';
+      const releasedAt = new Date();
+      const allowedStatuses: DiscountUsageStatus[] = context?.allowRedeemed
+        ? [DiscountUsageStatus.RESERVED, DiscountUsageStatus.REDEEMED]
+        : [DiscountUsageStatus.RESERVED];
+
+      const usageDelegate = (t as unknown as {
+        discountUsage?: {
+          updateMany?: (args: {
+            where: { id: string; status: { in: DiscountUsageStatus[] } };
+            data: { status: DiscountUsageStatus; releasedAt: Date; releaseReason: string };
+          }) => Promise<{ count: number }>;
+        };
+      })?.discountUsage;
+
+      let updated: DiscountUsage;
+      if (typeof usageDelegate?.updateMany === 'function') {
+        const cas = await usageDelegate.updateMany({
+          where: { id: usage.id, status: { in: allowedStatuses } },
+          data: {
+            status: DiscountUsageStatus.RELEASED,
+            releasedAt,
+            releaseReason,
+          },
+        });
+        if (cas.count === 0) {
+          return (await DiscountsRepo.findUsageById(usage.id, t)) || usage;
+        }
+        updated = {
+          ...usage,
+          status: DiscountUsageStatus.RELEASED,
+          releasedAt,
+          releaseReason,
+        };
+      } else {
+        updated = await DiscountsRepo.updateDiscountUsage(
+          usage.id,
+          {
+            status: DiscountUsageStatus.RELEASED,
+            releasedAt,
+            releaseReason,
+          },
+          t
+        );
       }
 
       if (usage.campaignId) {
@@ -1345,16 +1606,6 @@ export const discountsStation = {
         }
       }
 
-      const updated = await DiscountsRepo.updateDiscountUsage(
-        usage.id,
-        {
-          status: DiscountUsageStatus.RELEASED,
-          releasedAt: new Date(),
-          releaseReason: options.reason || 'Reservation canceled, expired, or payment failed',
-        },
-        t
-      );
-
       return updated;
     };
 
@@ -1368,7 +1619,8 @@ export const discountsStation = {
       for (const u of expiredUsages) {
         const released = await this.releaseDiscount(
           { usageId: u.id, reason: 'HOLD_EXPIRED' },
-          t
+          t,
+          { allowRedeemed: false }
         );
         if (released) {
           reaped.push(released);
@@ -1385,7 +1637,7 @@ export const discountsStation = {
     reason?: string,
     tx?: Prisma.TransactionClient
   ) {
-    return this.releaseDiscount({ reservationId, reason }, tx);
+    return this.releaseDiscount({ reservationId, reason }, tx, { allowRedeemed: true });
   },
 
   async releaseDiscountForBookingHold(
@@ -1393,6 +1645,6 @@ export const discountsStation = {
     reason?: string,
     tx?: Prisma.TransactionClient
   ) {
-    return this.releaseDiscount({ bookingHoldId, reason }, tx);
+    return this.releaseDiscount({ bookingHoldId, reason }, tx, { allowRedeemed: true });
   },
 };

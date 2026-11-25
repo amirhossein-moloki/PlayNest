@@ -415,11 +415,15 @@ describe('Platform Admin Mandatory TOTP 2FA End-to-End Security Suite', () => {
       .send({ setupToken, deviceId, code });
 
     expect(confirmRes.status).toBe(200);
+    const rawSetCookie = confirmRes.headers['set-cookie'] as string | string[] | undefined;
+    const cookieList = Array.isArray(rawSetCookie) ? rawSetCookie : rawSetCookie ? [rawSetCookie] : [];
+    const refreshCookiePair =
+      cookieList.find((c) => c.startsWith('playnest_pa_refresh='))?.split(';')[0] || '';
     return {
       secret,
       deviceId,
       accessToken: confirmRes.body.data.accessToken as string,
-      refreshToken: confirmRes.body.data.refreshToken as string,
+      refreshCookie: refreshCookiePair,
       recoveryCodes: confirmRes.body.data.recoveryCodes as string[],
     };
   }
@@ -513,10 +517,12 @@ describe('Platform Admin Mandatory TOTP 2FA End-to-End Security Suite', () => {
 
     expect(confirmRes.status).toBe(200);
     expect(confirmRes.body.data.accessToken).toBeDefined();
-    expect(confirmRes.body.data.refreshToken).toBeDefined();
+    expect(confirmRes.body.data.refreshToken).toBeUndefined();
+    expect(confirmRes.body.data.tokens?.refreshToken).toBeUndefined();
     expect(confirmRes.body.data.recoveryCodes).toHaveLength(10);
     const rawSetCookie = confirmRes.headers['set-cookie'] as string | string[] | undefined;
     const setCookieHeader = Array.isArray(rawSetCookie) ? rawSetCookie.join(';') : String(rawSetCookie || '');
+    expect(setCookieHeader).toContain('playnest_pa_refresh=');
     expect(setCookieHeader).toContain('HttpOnly');
     expect(setCookieHeader).toContain('SameSite=Strict');
 
@@ -668,7 +674,8 @@ describe('Platform Admin Mandatory TOTP 2FA End-to-End Security Suite', () => {
 
   it('supports single-use Recovery Codes, regeneration invalidating old codes, refresh rotation, and 2FA disable', async () => {
     seedAdmin();
-    const { secret, accessToken, refreshToken, recoveryCodes } = await enrollInitialAdmin();
+    const { secret, accessToken, refreshCookie, recoveryCodes } = await enrollInitialAdmin();
+    expect(refreshCookie).toContain('playnest_pa_refresh=');
 
     // 1. Login using a Recovery Code
     const loginStep1 = await request(app)
@@ -697,18 +704,26 @@ describe('Platform Admin Mandatory TOTP 2FA End-to-End Security Suite', () => {
       });
     expect(reuseRecoveryRes.status).toBe(401);
 
-    // 3. Refresh token rotation: old refresh token works once, rotated token works, replaying old fails
+    // 3. Refresh token rotation: HttpOnly cookie works once, rotated cookie issued, replaying old fails
     const refreshRes = await request(app)
       .post('/api/v1/auth/platform-admin/refresh')
-      .send({ refreshToken });
+      .set('Cookie', refreshCookie)
+      .send();
     expect(refreshRes.status).toBe(200);
     expect(refreshRes.body.data.accessToken).toBeDefined();
-    expect(refreshRes.body.data.refreshToken).toBeDefined();
-    expect(refreshRes.body.data.refreshToken).not.toBe(refreshToken);
+    expect(refreshRes.body.data.refreshToken).toBeUndefined();
+    const refreshCookies = refreshRes.headers['set-cookie'] as string | string[] | undefined;
+    const rotatedCookiePair =
+      (Array.isArray(refreshCookies) ? refreshCookies : [refreshCookies || ''])
+        .find((c) => c.startsWith('playnest_pa_refresh='))
+        ?.split(';')[0] || '';
+    expect(rotatedCookiePair).toContain('playnest_pa_refresh=');
+    expect(rotatedCookiePair).not.toBe(refreshCookie);
 
     const replayRefreshRes = await request(app)
       .post('/api/v1/auth/platform-admin/refresh')
-      .send({ refreshToken });
+      .set('Cookie', refreshCookie)
+      .send();
     expect(replayRefreshRes.status).toBe(401);
 
     // 4. Regenerate recovery codes (advance 30s step so TOTP code is fresh)

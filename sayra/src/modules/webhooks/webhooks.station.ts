@@ -14,10 +14,10 @@ const processPaymentWebhook = async ({
   payload,
 }: {
   provider: string;
-  payload: { eventId: string; paymentId: string; status: 'SUCCEEDED' | 'FAILED' | 'EXPIRED' };
+  payload: { eventId: string; paymentId: string; status: 'SUCCEEDED' | 'FAILED' | 'EXPIRED'; amount?: number };
   signature?: string | null;
 }) => {
-  const { eventId, paymentId, status: eventStatus } = payload;
+  const { eventId, paymentId, status: eventStatus, amount } = payload;
 
   if (!eventId || !paymentId || !eventStatus) {
     throw new AppError('Invalid payload.', httpStatus.BAD_REQUEST);
@@ -80,6 +80,17 @@ const processPaymentWebhook = async ({
         throw new AppError('Payment not found.', httpStatus.NOT_FOUND);
       }
 
+      if (payment.provider && provider && payment.provider.toUpperCase() !== provider.toUpperCase()) {
+        throw new AppError('Payment provider mismatch.', httpStatus.BAD_REQUEST);
+      }
+
+      if (amount !== undefined) {
+        const expectedGatewayAmount = payment.amount - (payment.walletAmount || 0);
+        if (amount !== expectedGatewayAmount && amount !== payment.amount) {
+          throw new AppError('Payment amount mismatch.', httpStatus.BAD_REQUEST);
+        }
+      }
+
       // Apply the state machine logic
       switch (eventStatus) {
       case 'SUCCEEDED': {
@@ -91,11 +102,15 @@ const processPaymentWebhook = async ({
         break;
       }
       case 'FAILED':
-        await PaymentsRepo.handleFailedPayment(tx, paymentId);
+        if (payment.status !== PaymentStatus.PAID) {
+          await PaymentsRepo.handleFailedPayment(tx, paymentId);
+        }
         break;
       case 'EXPIRED':
         // Assuming EXPIRED is a type of failure for the reservation state
-        await PaymentsRepo.handleFailedPayment(tx, paymentId, PaymentStatus.CANCELED);
+        if (payment.status !== PaymentStatus.PAID) {
+          await PaymentsRepo.handleFailedPayment(tx, paymentId, PaymentStatus.CANCELED);
+        }
         break;
       default:
         // Should not happen if payload validation is good

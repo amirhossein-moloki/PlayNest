@@ -4,6 +4,7 @@ import { MediaPurpose, MediaType } from '@prisma/client';
 import * as MediaRepo from './media.repo';
 import { CreateMediaInput, UpdateMediaInput } from './media.types';
 import { deleteStoredImage } from '../../common/stations/upload.station';
+import { isLocalUploadPath } from '../../common/utils/image-validation';
 
 const ALT_TEXT_REQUIRED_PURPOSES = new Set<MediaPurpose>([
   MediaPurpose.LOGO,
@@ -19,7 +20,15 @@ const assertAltTextForPurpose = (
   }
 };
 
-export async function createMedia(gamingCenterId: string, data: CreateMediaInput) {
+export async function createMedia(
+  gamingCenterId: string,
+  data: CreateMediaInput,
+  options?: { fromTrustedUpload?: boolean }
+) {
+  if (!options?.fromTrustedUpload && (isLocalUploadPath(data.url) || isLocalUploadPath(data.thumbUrl))) {
+    throw new AppError('Local /uploads paths must be uploaded via /media/upload.', httpStatus.BAD_REQUEST);
+  }
+
   const purpose = data.purpose ?? MediaPurpose.GALLERY;
   const type = data.type ?? MediaType.IMAGE;
 
@@ -37,6 +46,10 @@ export async function updateMedia(
   mediaId: string,
   data: UpdateMediaInput
 ) {
+  if ((data as any).url !== undefined || (data as any).thumbUrl !== undefined) {
+    throw new AppError('Media URLs cannot be modified directly.', httpStatus.BAD_REQUEST);
+  }
+
   const existing = await MediaRepo.findMediaById(gamingCenterId, mediaId);
   if (!existing) {
     throw new AppError('Media not found', httpStatus.NOT_FOUND);
@@ -58,9 +71,16 @@ export async function deleteMedia(gamingCenterId: string, mediaId: string) {
     throw new AppError('Media not found', httpStatus.NOT_FOUND);
   }
 
-  if (existing.url) {
-    await deleteStoredImage(existing.url, existing.thumbUrl);
-  }
+  const deleted = await MediaRepo.deleteMedia(gamingCenterId, mediaId);
 
-  await MediaRepo.deleteMedia(gamingCenterId, mediaId);
+  if (deleted.count > 0 && existing.url && isLocalUploadPath(existing.url)) {
+    const remainingRefs = await MediaRepo.countOtherMediaReferences(
+      mediaId,
+      existing.url,
+      existing.thumbUrl
+    );
+    if (remainingRefs === 0) {
+      await deleteStoredImage(existing.url, existing.thumbUrl);
+    }
+  }
 }

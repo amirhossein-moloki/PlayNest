@@ -3,11 +3,13 @@ import { UserRole } from '@prisma/client';
 import { baseFilterSchema } from '../../common/validators/query.validators';
 import { idSchema } from '../../common/validators/common.validators';
 
+const TENANT_STAFF_ROLES = [UserRole.MANAGER, UserRole.SUPERVISOR, UserRole.STAFF] as const;
+
 export const createUserSchema = z.object({
   body: z.object({
     fullName: z.string().min(3, 'Full name must be at least 3 characters long'),
     phone: z.string().regex(/^09[0-9]{9}$/, 'Invalid Iranian phone number format'),
-    role: z.nativeEnum(UserRole),
+    role: z.enum(TENANT_STAFF_ROLES),
     isPublic: z.boolean().optional(),
     publicName: z.string().optional(),
     bio: z.string().optional(),
@@ -18,7 +20,7 @@ export const createUserSchema = z.object({
 export const updateUserSchema = z.object({
   body: z.object({
     fullName: z.string().min(3, 'Full name must be at least 3 characters long').optional(),
-    role: z.nativeEnum(UserRole).optional(),
+    role: z.enum(TENANT_STAFF_ROLES).optional(),
     isActive: z.boolean().optional(),
     isPublic: z.boolean().optional(),
     publicName: z.string().optional(),

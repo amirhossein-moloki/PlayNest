@@ -251,7 +251,12 @@ describe('PLATFORM_ADMIN Authentication API (Mandatory TOTP 2FA)', () => {
 
     expect(verifyRes.status).toBe(200);
     expect(verifyRes.body.data.accessToken).toBeDefined();
-    expect(verifyRes.body.data.refreshToken).toBeDefined();
+    expect(verifyRes.body.data.refreshToken).toBeUndefined();
+    expect(verifyRes.body.data.tokens.refreshToken).toBeUndefined();
+    const rawSetCookie = verifyRes.headers['set-cookie'] as string | string[] | undefined;
+    const setCookieHeader = Array.isArray(rawSetCookie) ? rawSetCookie.join(';') : String(rawSetCookie || '');
+    expect(setCookieHeader).toContain('playnest_pa_refresh=');
+    expect(setCookieHeader).toContain('HttpOnly');
     expect(verifyRes.body.data.tokens.accessToken).toBe(verifyRes.body.data.accessToken);
     expect(verifyRes.body.data.admin.passwordHash).toBeUndefined();
   });

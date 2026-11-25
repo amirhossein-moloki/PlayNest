@@ -377,6 +377,8 @@ export const BookingHoldRepo = {
           endTime: hold.endTime,
           totalHours,
           totalPrice: item.price,
+          originalAmount: item.price + (item.discountAmount ?? 0),
+          customerPayableAmount: item.price,
           extraControllersTotalCost: item.extraControllersTotalCost ?? 0,
           discountAmount: item.discountAmount,
           discountId: item.discountId,

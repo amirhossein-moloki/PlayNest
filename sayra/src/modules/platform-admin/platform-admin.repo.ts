@@ -2,6 +2,7 @@
 import { GamingCenterVerificationStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { buildPersianArabicSearchVariants } from '../../common/utils/searchText';
+import { markSessionsRevokedInCache } from '../../common/middleware/auth';
 
 export const PlatformAdminRepo = {
   async listAllGamingCenters(params?: {
@@ -193,7 +194,20 @@ export const PlatformAdminRepo = {
   },
 
   async revokeUserSessions(userId: string) {
-    return (prisma as any).session.updateMany({
+    const sessionDelegate = (prisma as any).session;
+    const activeSessions: Array<{ id: string }> =
+      typeof sessionDelegate?.findMany === 'function'
+        ? await sessionDelegate.findMany({
+            where: {
+              actorId: userId,
+              actorType: 'USER',
+              revokedAt: null,
+            },
+            select: { id: true },
+          })
+        : [];
+
+    const result = await sessionDelegate.updateMany({
       where: {
         actorId: userId,
         actorType: 'USER',
@@ -203,6 +217,12 @@ export const PlatformAdminRepo = {
         revokedAt: new Date(),
       },
     });
+
+    if (activeSessions.length > 0) {
+      await markSessionsRevokedInCache(activeSessions.map((s) => s.id));
+    }
+
+    return result;
   },
 
   async listCustomers(params: {

@@ -26,6 +26,12 @@ export interface UpdateWithdrawalPaymentInput {
 const COOLDOWN_HOURS = 24;
 const SLA_PAYMENT_HOURS = 72;
 
+async function lockWithdrawalRequestForUpdate(withdrawalId: string, tx: Prisma.TransactionClient) {
+  if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
+    await tx.$executeRaw`SELECT id FROM "WithdrawalRequest" WHERE id = ${withdrawalId} FOR UPDATE`;
+  }
+}
+
 export const WithdrawalStation = {
   /**
    * Get wallet balance overview for a customer
@@ -198,6 +204,7 @@ export const WithdrawalStation = {
    */
   async approveWithdrawal(withdrawalId: string, adminId: string, note?: string) {
     return prisma.$transaction(async (tx) => {
+      await lockWithdrawalRequestForUpdate(withdrawalId, tx);
       const withdrawal = await WithdrawalRepo.findWithdrawalById(withdrawalId, tx);
       if (!withdrawal) {
         throw new AppError('Withdrawal request not found', httpStatus.NOT_FOUND);
@@ -267,6 +274,7 @@ export const WithdrawalStation = {
     }
 
     return prisma.$transaction(async (tx) => {
+      await lockWithdrawalRequestForUpdate(withdrawalId, tx);
       const withdrawal = await WithdrawalRepo.findWithdrawalById(withdrawalId, tx);
       if (!withdrawal) {
         throw new AppError('Withdrawal request not found', httpStatus.NOT_FOUND);
@@ -280,6 +288,11 @@ export const WithdrawalStation = {
           `Cannot reject withdrawal request in status ${withdrawal.status}. Only PENDING or APPROVED requests can be rejected.`,
           httpStatus.CONFLICT
         );
+      }
+
+      const account = await WithdrawalRepo.findCustomerAccountForUpdate(withdrawal.customerAccountId, tx);
+      if (!account || (account.reservedBalance ?? 0) < withdrawal.amount) {
+        throw new AppError('Insufficient reserved balance to reject withdrawal request', httpStatus.CONFLICT);
       }
 
       const now = new Date();
@@ -369,6 +382,7 @@ export const WithdrawalStation = {
     const { status, paymentReference, note } = input;
 
     return prisma.$transaction(async (tx) => {
+      await lockWithdrawalRequestForUpdate(withdrawalId, tx);
       const withdrawal = await WithdrawalRepo.findWithdrawalById(withdrawalId, tx);
       if (!withdrawal) {
         throw new AppError('Withdrawal request not found', httpStatus.NOT_FOUND);
@@ -436,8 +450,15 @@ export const WithdrawalStation = {
           );
         }
 
-        // Lock customer account
-        await WithdrawalRepo.findCustomerAccountForUpdate(withdrawal.customerAccountId, tx);
+        // Lock customer account and verify sufficient balances before debiting
+        const account = await WithdrawalRepo.findCustomerAccountForUpdate(withdrawal.customerAccountId, tx);
+        if (
+          !account ||
+          (account.reservedBalance ?? 0) < withdrawal.amount ||
+          (account.walletBalance ?? 0) < withdrawal.amount
+        ) {
+          throw new AppError('Insufficient wallet or reserved balance for withdrawal payout', httpStatus.CONFLICT);
+        }
 
         // Deduct from reservedBalance AND deduct from walletBalance
         await WithdrawalRepo.updateCustomerAccount(
@@ -522,6 +543,12 @@ export const WithdrawalStation = {
             `Cannot mark payment as FAILED for withdrawal in status ${withdrawal.status}. Expected APPROVED or PROCESSING.`,
             httpStatus.CONFLICT
           );
+        }
+
+        // Lock customer account and verify sufficient reserved balance before releasing hold
+        const account = await WithdrawalRepo.findCustomerAccountForUpdate(withdrawal.customerAccountId, tx);
+        if (!account || (account.reservedBalance ?? 0) < withdrawal.amount) {
+          throw new AppError('Insufficient reserved balance for failed withdrawal release', httpStatus.CONFLICT);
         }
 
         // Release reserved balance back to available balance

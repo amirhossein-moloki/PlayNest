@@ -179,6 +179,8 @@ export const GroupBookingRepo = {
           endTime: data.endTime,
           totalHours: data.totalHours,
           totalPrice: item.price,
+          originalAmount: item.price + (item.discountAmount ?? 0),
+          customerPayableAmount: item.price,
           discountAmount: item.discountAmount,
           discountId: item.discountId,
           status: data.status,

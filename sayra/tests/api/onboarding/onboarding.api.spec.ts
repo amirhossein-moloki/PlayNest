@@ -3,6 +3,7 @@ import request from 'supertest';
 import app from '../../../src/app';
 import { prisma } from '../../../src/config/prisma';
 import argon2 from 'argon2';
+import { signOnboardingToken } from '../../../src/modules/onboarding/onboarding.station';
 
 jest.mock('../../../src/config/prisma', () => {
   const mPrisma: any = {
@@ -16,6 +17,9 @@ jest.mock('../../../src/config/prisma', () => {
       create: jest.fn(),
       findFirst: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      delete: jest.fn(),
+      deleteMany: jest.fn(),
     },
     gamingCenter: {
       create: jest.fn(),
@@ -70,6 +74,8 @@ describe('GameCenter Onboarding Flow API', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (prisma as any).$transaction = jest.fn((cb: any) => cb(prisma));
+    (prisma as any).phoneOtp.updateMany.mockResolvedValue({ count: 1 });
+    (prisma as any).phoneOtp.deleteMany.mockResolvedValue({ count: 0 });
   });
 
   describe('Step 1: POST /api/v1/onboarding/start', () => {
@@ -118,9 +124,10 @@ describe('GameCenter Onboarding Flow API', () => {
         id: 'otp_01',
         phone: mockDraft.managerPhone,
         codeHash,
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 60000),
       });
       (prisma as any).phoneOtp.update.mockResolvedValue({ id: 'otp_01', consumedAt: new Date() });
-      (prisma as any).user.findMany.mockResolvedValue([]);
       (prisma as any).gameCenterOnboarding.update.mockResolvedValue({
         ...mockDraft,
         step: 'LOCATION_PENDING',
@@ -137,6 +144,8 @@ describe('GameCenter Onboarding Flow API', () => {
       expect(res.body.success).toBe(true);
       expect(res.body.data.verified).toBe(true);
       expect(res.body.data.step).toBe('LOCATION_PENDING');
+      expect(typeof res.body.data.onboardingToken).toBe('string');
+      expect(res.body.data.tokens).toBeNull();
     });
 
     it('should verify with 000000 when SKIP_OTP=true', async () => {
@@ -150,9 +159,10 @@ describe('GameCenter Onboarding Flow API', () => {
           id: 'otp_skip',
           phone: mockDraft.managerPhone,
           codeHash: 'hash_000000',
+          attempts: 0,
+          expiresAt: new Date(Date.now() + 60000),
         });
         (prisma as any).phoneOtp.update.mockResolvedValue({ id: 'otp_skip', consumedAt: new Date() });
-        (prisma as any).user.findMany.mockResolvedValue([]);
         (prisma as any).gameCenterOnboarding.update.mockResolvedValue({
           ...mockDraft,
           step: 'LOCATION_PENDING',
@@ -168,6 +178,7 @@ describe('GameCenter Onboarding Flow API', () => {
         expect(res.status).toBe(200);
         expect(res.body.success).toBe(true);
         expect(res.body.data.verified).toBe(true);
+        expect(typeof res.body.data.onboardingToken).toBe('string');
       } finally {
         (env as any).SKIP_OTP = originalSkip;
       }
@@ -180,6 +191,13 @@ describe('GameCenter Onboarding Flow API', () => {
 
       try {
         (prisma as any).gameCenterOnboarding.findUnique.mockResolvedValue(mockDraft);
+        (prisma as any).phoneOtp.findFirst.mockResolvedValue({
+          id: 'otp_skip',
+          phone: mockDraft.managerPhone,
+          codeHash: 'hash_000000',
+          attempts: 0,
+          expiresAt: new Date(Date.now() + 60000),
+        });
 
         const res = await request(app)
           .post('/api/v1/onboarding/otp/verify')
@@ -203,6 +221,8 @@ describe('GameCenter Onboarding Flow API', () => {
         id: 'otp_normal',
         phone: mockDraft.managerPhone,
         codeHash,
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 60000),
       });
 
       const res = await request(app)
@@ -219,7 +239,11 @@ describe('GameCenter Onboarding Flow API', () => {
 
   describe('Step 2: PUT /api/v1/onboarding/:id/location', () => {
     it('should update location details and progress to WORKING_HOURS_PENDING', async () => {
-      (prisma as any).gameCenterOnboarding.findUnique.mockResolvedValue(mockDraft);
+      const onboardingToken = signOnboardingToken(mockDraft.id, mockDraft.managerPhone);
+      (prisma as any).gameCenterOnboarding.findUnique.mockResolvedValue({
+        ...mockDraft,
+        step: 'LOCATION_PENDING',
+      });
       (prisma as any).gameCenterOnboarding.update.mockResolvedValue({
         ...mockDraft,
         provinceId: 'province_tehran',
@@ -232,6 +256,7 @@ describe('GameCenter Onboarding Flow API', () => {
 
       const res = await request(app)
         .put(`/api/v1/onboarding/${mockDraft.id}/location`)
+        .set('x-onboarding-token', onboardingToken)
         .send({
           provinceId: 'province_tehran',
           cityId: 'city_tehran',
@@ -250,7 +275,11 @@ describe('GameCenter Onboarding Flow API', () => {
 
   describe('Step 3: PUT /api/v1/onboarding/:id/working-hours', () => {
     it('should update working hours supporting midnight cross and closed days', async () => {
-      (prisma as any).gameCenterOnboarding.findUnique.mockResolvedValue(mockDraft);
+      const onboardingToken = signOnboardingToken(mockDraft.id, mockDraft.managerPhone);
+      (prisma as any).gameCenterOnboarding.findUnique.mockResolvedValue({
+        ...mockDraft,
+        step: 'WORKING_HOURS_PENDING',
+      });
       (prisma as any).gameCenterOnboarding.update.mockResolvedValue({
         ...mockDraft,
         openingTime: '10:00',
@@ -262,6 +291,7 @@ describe('GameCenter Onboarding Flow API', () => {
 
       const res = await request(app)
         .put(`/api/v1/onboarding/${mockDraft.id}/working-hours`)
+        .set('x-onboarding-token', onboardingToken)
         .send({
           openingTime: '10:00',
           closingTime: '02:00',
@@ -280,7 +310,11 @@ describe('GameCenter Onboarding Flow API', () => {
 
   describe('Step 4: PUT /api/v1/onboarding/:id/media', () => {
     it('should update optional media and progress to PREVIEW', async () => {
-      (prisma as any).gameCenterOnboarding.findUnique.mockResolvedValue(mockDraft);
+      const onboardingToken = signOnboardingToken(mockDraft.id, mockDraft.managerPhone);
+      (prisma as any).gameCenterOnboarding.findUnique.mockResolvedValue({
+        ...mockDraft,
+        step: 'MEDIA_PENDING',
+      });
       (prisma as any).gameCenterOnboarding.update.mockResolvedValue({
         ...mockDraft,
         logoMediaId: 'media_logo_1',
@@ -290,6 +324,7 @@ describe('GameCenter Onboarding Flow API', () => {
 
       const res = await request(app)
         .put(`/api/v1/onboarding/${mockDraft.id}/media`)
+        .set('x-onboarding-token', onboardingToken)
         .send({
           logoMediaId: 'media_logo_1',
           galleryMediaIds: ['media_gal_1', 'media_gal_2'],
@@ -305,6 +340,7 @@ describe('GameCenter Onboarding Flow API', () => {
 
   describe('Step 5: GET /api/v1/onboarding/:id/preview', () => {
     it('should return complete preview data of the entered information', async () => {
+      const onboardingToken = signOnboardingToken(mockDraft.id, mockDraft.managerPhone);
       (prisma as any).gameCenterOnboarding.findUnique.mockResolvedValue({
         ...mockDraft,
         provinceId: 'province_tehran',
@@ -316,7 +352,9 @@ describe('GameCenter Onboarding Flow API', () => {
         step: 'PREVIEW',
       });
 
-      const res = await request(app).get(`/api/v1/onboarding/${mockDraft.id}/preview`);
+      const res = await request(app)
+        .get(`/api/v1/onboarding/${mockDraft.id}/preview`)
+        .set('x-onboarding-token', onboardingToken);
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
@@ -329,6 +367,7 @@ describe('GameCenter Onboarding Flow API', () => {
 
   describe('Step 6: POST /api/v1/onboarding/:id/complete', () => {
     it('should execute transaction, create GameCenter and Manager, and return redirect', async () => {
+      const onboardingToken = signOnboardingToken(mockDraft.id, mockDraft.managerPhone);
       const fullDraft = {
         ...mockDraft,
         provinceId: 'province_tehran',
@@ -368,6 +407,7 @@ describe('GameCenter Onboarding Flow API', () => {
 
       const res = await request(app)
         .post(`/api/v1/onboarding/${mockDraft.id}/complete`)
+        .set('x-onboarding-token', onboardingToken)
         .send({ confirmation: true });
 
       expect(res.status).toBe(200);
