@@ -1907,8 +1907,12 @@ components:
           type: string
         title:
           type: string
+        codeType:
+          type: string
+          enum: [PROMO_CODE, AUTOMATIC]
         code:
           type: string
+          nullable: true
         description:
           type: string
         discountType:
@@ -1931,6 +1935,16 @@ components:
           type: array
           items:
             type: string
+        applicableStationIds:
+          type: array
+          items:
+            type: string
+        targetType:
+          type: string
+          enum: [GAMING_CENTER, STATION]
+        targetId:
+          type: string
+          nullable: true
         targetAudience:
           type: string
           enum: [ALL_USERS, NEW_USERS, LOYAL_USERS, SPECIFIC_USERS]
@@ -1938,6 +1952,24 @@ components:
           type: array
           items:
             type: string
+        minCompletedReservations:
+          type: integer
+          minimum: 1
+          default: 1
+        applicableDaysOfWeek:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
+        dailyStartTime:
+          type: string
+          nullable: true
+          example: '10:00'
+        dailyEndTime:
+          type: string
+          nullable: true
+          example: '14:00'
         totalUsageLimit:
           type: integer
         perUserUsageLimit:
@@ -1966,7 +1998,6 @@ components:
       type: object
       required:
       - title
-      - code
       - discountType
       - discountValue
       - startDate
@@ -1974,8 +2005,13 @@ components:
       properties:
         title:
           type: string
+        codeType:
+          type: string
+          enum: [PROMO_CODE, AUTOMATIC]
+          default: PROMO_CODE
         code:
           type: string
+          nullable: true
         description:
           type: string
         discountType:
@@ -1998,6 +2034,16 @@ components:
           type: array
           items:
             type: string
+        applicableStationIds:
+          type: array
+          items:
+            type: string
+        targetType:
+          type: string
+          enum: [GAMING_CENTER, STATION]
+        targetId:
+          type: string
+          nullable: true
         targetAudience:
           type: string
           enum: [ALL_USERS, NEW_USERS, LOYAL_USERS, SPECIFIC_USERS]
@@ -2005,6 +2051,24 @@ components:
           type: array
           items:
             type: string
+        minCompletedReservations:
+          type: integer
+          minimum: 1
+          default: 1
+        applicableDaysOfWeek:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
+        dailyStartTime:
+          type: string
+          nullable: true
+          example: '10:00'
+        dailyEndTime:
+          type: string
+          nullable: true
+          example: '14:00'
         totalUsageLimit:
           type: integer
         perUserUsageLimit:
@@ -2023,8 +2087,12 @@ components:
       properties:
         title:
           type: string
+        codeType:
+          type: string
+          enum: [PROMO_CODE, AUTOMATIC]
         code:
           type: string
+          nullable: true
         description:
           type: string
         discountType:
@@ -2047,6 +2115,16 @@ components:
           type: array
           items:
             type: string
+        applicableStationIds:
+          type: array
+          items:
+            type: string
+        targetType:
+          type: string
+          enum: [GAMING_CENTER, STATION]
+        targetId:
+          type: string
+          nullable: true
         targetAudience:
           type: string
           enum: [ALL_USERS, NEW_USERS, LOYAL_USERS, SPECIFIC_USERS]
@@ -2054,6 +2132,24 @@ components:
           type: array
           items:
             type: string
+        minCompletedReservations:
+          type: integer
+          minimum: 1
+          default: 1
+        applicableDaysOfWeek:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
+        dailyStartTime:
+          type: string
+          nullable: true
+          example: '10:00'
+        dailyEndTime:
+          type: string
+          nullable: true
+          example: '14:00'
         totalUsageLimit:
           type: integer
         perUserUsageLimit:

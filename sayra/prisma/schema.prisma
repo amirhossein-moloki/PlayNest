@@ -2812,9 +2812,15 @@ model DiscountCampaign {
   scopeType               CampaignScopeType? @default(GLOBAL)
   applicableGamecenterIds String[]           @default([])
   applicableDeviceTypes   GameStationType[]  @default([])
+  applicableStationIds    String[]           @default([])
 
-  targetAudience  CampaignTargetAudience? @default(ALL_USERS)
-  specificUserIds String[]                @default([])
+  targetAudience           CampaignTargetAudience? @default(ALL_USERS)
+  specificUserIds          String[]                @default([])
+  minCompletedReservations Int                     @default(1)
+
+  applicableDaysOfWeek Int[]   @default([])
+  dailyStartTime       String?
+  dailyEndTime         String?
 
   totalUsageLimit   Int?
   perUserUsageLimit Int?

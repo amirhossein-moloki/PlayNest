@@ -1,11 +1,17 @@
 import { z } from 'zod';
 import {
   DiscountValueType,
+  DiscountCodeType,
+  DiscountTargetType,
   CampaignScopeType,
   CampaignTargetAudience,
   CampaignStatus,
 } from '@prisma/client';
 import { zodGameStationType } from '../../common/utils/station-type';
+
+const timeStringSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Time must be in HH:mm format (e.g., 10:00)');
 
 export const listPlatformCampaignsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional().default(1),
@@ -24,7 +30,8 @@ export const createPlatformCampaignSchema = z.object({
   body: z
     .object({
       title: z.string().min(1, 'Title is required'),
-      code: z.string().trim().min(2, 'Code must be at least 2 characters'),
+      codeType: z.nativeEnum(DiscountCodeType).optional().default(DiscountCodeType.PROMO_CODE),
+      code: z.string().trim().min(2, 'Code must be at least 2 characters').optional().nullable(),
       description: z.string().optional().nullable(),
       discountType: z.nativeEnum(DiscountValueType),
       discountValue: z.number().positive('Discount value must be greater than 0'),
@@ -32,11 +39,19 @@ export const createPlatformCampaignSchema = z.object({
       minOrderAmount: z.number().nonnegative().optional().nullable().default(0),
 
       scopeType: z.nativeEnum(CampaignScopeType).optional().default(CampaignScopeType.GLOBAL),
+      targetType: z.nativeEnum(DiscountTargetType).optional().default(DiscountTargetType.GAMING_CENTER),
+      targetId: z.string().optional().nullable(),
       applicableGamecenterIds: z.array(z.string()).optional().default([]),
       applicableDeviceTypes: z.array(zodGameStationType()).optional().default([]),
+      applicableStationIds: z.array(z.string()).optional().default([]),
 
       targetAudience: z.nativeEnum(CampaignTargetAudience).optional().default(CampaignTargetAudience.ALL_USERS),
       specificUserIds: z.array(z.string()).optional().default([]),
+      minCompletedReservations: z.number().int().min(1).optional().default(1),
+
+      applicableDaysOfWeek: z.array(z.number().int().min(0).max(6)).max(7).optional().default([]),
+      dailyStartTime: timeStringSchema.optional().nullable(),
+      dailyEndTime: timeStringSchema.optional().nullable(),
 
       totalUsageLimit: z.number().int().positive().optional().nullable(),
       perUserUsageLimit: z.number().int().positive().optional().nullable().default(1),
@@ -44,6 +59,23 @@ export const createPlatformCampaignSchema = z.object({
       startDate: z.string().datetime({ message: 'startDate must be a valid ISO datetime' }),
       endDate: z.string().datetime({ message: 'endDate must be a valid ISO datetime' }),
       status: z.nativeEnum(CampaignStatus).optional().default(CampaignStatus.ACTIVE),
+    })
+    .refine((data) => {
+      if (data.codeType === DiscountCodeType.PROMO_CODE) {
+        return typeof data.code === 'string' && data.code.trim().length >= 2;
+      }
+      return true;
+    }, {
+      message: 'Code is required for PROMO_CODE campaigns',
+      path: ['code'],
+    })
+    .refine((data) => {
+      const hasStart = typeof data.dailyStartTime === 'string' && data.dailyStartTime.length > 0;
+      const hasEnd = typeof data.dailyEndTime === 'string' && data.dailyEndTime.length > 0;
+      return hasStart === hasEnd;
+    }, {
+      message: 'Both dailyStartTime and dailyEndTime must be provided together',
+      path: ['dailyEndTime'],
     })
     .refine((data) => {
       if (data.discountType === DiscountValueType.PERCENTAGE) {
@@ -71,7 +103,8 @@ export const updatePlatformCampaignSchema = z.object({
   body: z
     .object({
       title: z.string().min(1).optional(),
-      code: z.string().trim().min(2).optional(),
+      codeType: z.nativeEnum(DiscountCodeType).optional(),
+      code: z.string().trim().min(2).optional().nullable(),
       description: z.string().optional().nullable(),
       discountType: z.nativeEnum(DiscountValueType).optional(),
       discountValue: z.number().positive().optional(),
@@ -79,11 +112,19 @@ export const updatePlatformCampaignSchema = z.object({
       minOrderAmount: z.number().nonnegative().optional().nullable(),
 
       scopeType: z.nativeEnum(CampaignScopeType).optional(),
+      targetType: z.nativeEnum(DiscountTargetType).optional(),
+      targetId: z.string().optional().nullable(),
       applicableGamecenterIds: z.array(z.string()).optional(),
       applicableDeviceTypes: z.array(zodGameStationType()).optional(),
+      applicableStationIds: z.array(z.string()).optional(),
 
       targetAudience: z.nativeEnum(CampaignTargetAudience).optional(),
       specificUserIds: z.array(z.string()).optional(),
+      minCompletedReservations: z.number().int().min(1).optional(),
+
+      applicableDaysOfWeek: z.array(z.number().int().min(0).max(6)).max(7).optional(),
+      dailyStartTime: timeStringSchema.optional().nullable(),
+      dailyEndTime: timeStringSchema.optional().nullable(),
 
       totalUsageLimit: z.number().int().positive().optional().nullable(),
       perUserUsageLimit: z.number().int().positive().optional().nullable(),

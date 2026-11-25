@@ -11,6 +11,41 @@ import {
 import { auditService } from '../audit/audit.station';
 import { RequestActor } from '../../types/express';
 
+function mapCampaignDto(c: any) {
+  return {
+    id: c.id,
+    title: c.title || c.name,
+    codeType: c.codeType || 'PROMO_CODE',
+    code: c.code ?? null,
+    description: c.description,
+    discountType: c.discountType || c.valueType,
+    discountValue: c.discountValue ?? c.value,
+    maxDiscountAmount: c.maxDiscountAmount,
+    minOrderAmount: c.minOrderAmount ?? c.minReservationAmount,
+    scopeType: c.scopeType || 'GLOBAL',
+    targetType: c.targetType || 'GAMING_CENTER',
+    targetId: c.targetId ?? null,
+    applicableGamecenterIds: c.applicableGamecenterIds || [],
+    applicableDeviceTypes: c.applicableDeviceTypes || [],
+    applicableStationIds: c.applicableStationIds || [],
+    targetAudience: c.targetAudience || 'ALL_USERS',
+    specificUserIds: c.specificUserIds || [],
+    minCompletedReservations: c.minCompletedReservations ?? 1,
+    applicableDaysOfWeek: c.applicableDaysOfWeek || [],
+    dailyStartTime: c.dailyStartTime ?? null,
+    dailyEndTime: c.dailyEndTime ?? null,
+    totalUsageLimit: c.totalUsageLimit ?? c.maxUsageCount,
+    perUserUsageLimit: c.perUserUsageLimit ?? c.maxUsagePerUser,
+    usedCount: c.currentUsageCount,
+    startDate: c.startAt,
+    endDate: c.endAt,
+    status: c.status || (c.isActive ? 'ACTIVE' : 'INACTIVE'),
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+    createdBy: c.createdByUserId ?? null,
+  };
+}
+
 export const PlatformCampaignsRepo = {
   async listCampaigns(query: ListPlatformCampaignsQuery) {
     const {
@@ -74,30 +109,7 @@ export const PlatformCampaignsRepo = {
       (prisma as any).discountCampaign.count({ where }),
     ]);
 
-    const mappedItems = items.map((c: any) => ({
-      id: c.id,
-      title: c.title || c.name,
-      code: c.code,
-      description: c.description,
-      discountType: c.discountType || c.valueType,
-      discountValue: c.discountValue ?? c.value,
-      maxDiscountAmount: c.maxDiscountAmount,
-      minOrderAmount: c.minOrderAmount ?? c.minReservationAmount,
-      scopeType: c.scopeType || 'GLOBAL',
-      applicableGamecenterIds: c.applicableGamecenterIds || [],
-      applicableDeviceTypes: c.applicableDeviceTypes || [],
-      targetAudience: c.targetAudience || 'ALL_USERS',
-      specificUserIds: c.specificUserIds || [],
-      totalUsageLimit: c.totalUsageLimit ?? c.maxUsageCount,
-      perUserUsageLimit: c.perUserUsageLimit ?? c.maxUsagePerUser,
-      usedCount: c.currentUsageCount,
-      startDate: c.startAt,
-      endDate: c.endAt,
-      status: c.status || (c.isActive ? 'ACTIVE' : 'INACTIVE'),
-      createdAt: c.createdAt,
-      updatedAt: c.updatedAt,
-      createdBy: c.createdByUserId ?? null,
-    }));
+    const mappedItems = items.map(mapCampaignDto);
 
     return {
       items: mappedItems,
@@ -155,19 +167,31 @@ export const PlatformCampaignsStation = {
     actor?: RequestActor,
     context?: { ip?: string; userAgent?: string }
   ) {
-    // 1. Unique code check
-    const existing = await PlatformCampaignsRepo.findByCode(input.code);
-    if (existing) {
-      throw new AppError('Discount code must be unique.', httpStatus.CONFLICT);
+    // 1. Unique code check (when code is provided)
+    if (input.code) {
+      const existing = await PlatformCampaignsRepo.findByCode(input.code);
+      if (existing) {
+        throw new AppError('Discount code must be unique.', httpStatus.CONFLICT);
+      }
     }
 
-    // 2. Validate SPECIFIC_GAMECENTERS exist
-    if (input.scopeType === 'SPECIFIC_GAMECENTERS' && input.applicableGamecenterIds?.length) {
+    // 2. Validate applicableGamecenterIds exist
+    if (input.applicableGamecenterIds?.length) {
       const count = await (prisma as any).gamingCenter.count({
         where: { id: { in: input.applicableGamecenterIds } },
       });
       if (count !== input.applicableGamecenterIds.length) {
         throw new AppError('One or more selected gaming centers do not exist.', httpStatus.BAD_REQUEST);
+      }
+    }
+
+    // 2b. Validate applicableStationIds exist
+    if (input.applicableStationIds?.length) {
+      const count = await (prisma as any).gameStation.count({
+        where: { id: { in: input.applicableStationIds } },
+      });
+      if (count !== input.applicableStationIds.length) {
+        throw new AppError('One or more selected stations do not exist.', httpStatus.BAD_REQUEST);
       }
     }
 
@@ -189,7 +213,8 @@ export const PlatformCampaignsStation = {
     const campaign = await PlatformCampaignsRepo.createCampaign({
       title: input.title,
       name: input.title,
-      code: input.code,
+      codeType: input.codeType ?? 'PROMO_CODE',
+      code: input.codeType === 'AUTOMATIC' ? (input.code ?? null) : input.code,
       description: input.description,
       discountType: input.discountType,
       valueType: input.discountType,
@@ -199,10 +224,17 @@ export const PlatformCampaignsStation = {
       minOrderAmount: input.minOrderAmount ?? 0,
       minReservationAmount: input.minOrderAmount ?? 0,
       scopeType: input.scopeType,
+      targetType: input.targetType ?? 'GAMING_CENTER',
+      targetId: input.targetId ?? null,
       applicableGamecenterIds: input.applicableGamecenterIds,
       applicableDeviceTypes: input.applicableDeviceTypes,
+      applicableStationIds: input.applicableStationIds ?? [],
       targetAudience: input.targetAudience,
       specificUserIds: input.specificUserIds,
+      minCompletedReservations: input.minCompletedReservations ?? 1,
+      applicableDaysOfWeek: input.applicableDaysOfWeek ?? [],
+      dailyStartTime: input.dailyStartTime ?? null,
+      dailyEndTime: input.dailyEndTime ?? null,
       totalUsageLimit: input.totalUsageLimit,
       maxUsageCount: input.totalUsageLimit,
       perUserUsageLimit: input.perUserUsageLimit,
@@ -229,30 +261,7 @@ export const PlatformCampaignsStation = {
       });
     }
 
-    return {
-      id: campaign.id,
-      title: campaign.title || campaign.name,
-      code: campaign.code,
-      description: campaign.description,
-      discountType: campaign.discountType || campaign.valueType,
-      discountValue: campaign.discountValue ?? campaign.value,
-      maxDiscountAmount: campaign.maxDiscountAmount,
-      minOrderAmount: campaign.minOrderAmount ?? campaign.minReservationAmount,
-      scopeType: campaign.scopeType || 'GLOBAL',
-      applicableGamecenterIds: campaign.applicableGamecenterIds || [],
-      applicableDeviceTypes: campaign.applicableDeviceTypes || [],
-      targetAudience: campaign.targetAudience || 'ALL_USERS',
-      specificUserIds: campaign.specificUserIds || [],
-      totalUsageLimit: campaign.totalUsageLimit ?? campaign.maxUsageCount,
-      perUserUsageLimit: campaign.perUserUsageLimit ?? campaign.maxUsagePerUser,
-      usedCount: campaign.currentUsageCount,
-      startDate: campaign.startAt,
-      endDate: campaign.endAt,
-      status: campaign.status || (campaign.isActive ? 'ACTIVE' : 'INACTIVE'),
-      createdAt: campaign.createdAt,
-      updatedAt: campaign.updatedAt,
-      createdBy: campaign.createdByUserId ?? null,
-    };
+    return mapCampaignDto(campaign);
   },
 
   async updateCampaign(
@@ -282,12 +291,21 @@ export const PlatformCampaignsStation = {
     }
 
     // Validate scope if updated
-    if (input.scopeType === 'SPECIFIC_GAMECENTERS' && input.applicableGamecenterIds?.length) {
+    if (input.applicableGamecenterIds?.length) {
       const count = await (prisma as any).gamingCenter.count({
         where: { id: { in: input.applicableGamecenterIds } },
       });
       if (count !== input.applicableGamecenterIds.length) {
         throw new AppError('One or more selected gaming centers do not exist.', httpStatus.BAD_REQUEST);
+      }
+    }
+
+    if (input.applicableStationIds?.length) {
+      const count = await (prisma as any).gameStation.count({
+        where: { id: { in: input.applicableStationIds } },
+      });
+      if (count !== input.applicableStationIds.length) {
+        throw new AppError('One or more selected stations do not exist.', httpStatus.BAD_REQUEST);
       }
     }
 
@@ -306,6 +324,7 @@ export const PlatformCampaignsStation = {
       updateData.title = input.title;
       updateData.name = input.title;
     }
+    if (input.codeType !== undefined) updateData.codeType = input.codeType;
     if (input.code !== undefined) updateData.code = input.code;
     if (input.description !== undefined) updateData.description = input.description;
     if (input.discountType !== undefined) {
@@ -322,10 +341,17 @@ export const PlatformCampaignsStation = {
       updateData.minReservationAmount = input.minOrderAmount;
     }
     if (input.scopeType !== undefined) updateData.scopeType = input.scopeType;
+    if (input.targetType !== undefined) updateData.targetType = input.targetType;
+    if (input.targetId !== undefined) updateData.targetId = input.targetId;
     if (input.applicableGamecenterIds !== undefined) updateData.applicableGamecenterIds = input.applicableGamecenterIds;
     if (input.applicableDeviceTypes !== undefined) updateData.applicableDeviceTypes = input.applicableDeviceTypes;
+    if (input.applicableStationIds !== undefined) updateData.applicableStationIds = input.applicableStationIds;
     if (input.targetAudience !== undefined) updateData.targetAudience = input.targetAudience;
     if (input.specificUserIds !== undefined) updateData.specificUserIds = input.specificUserIds;
+    if (input.minCompletedReservations !== undefined) updateData.minCompletedReservations = input.minCompletedReservations;
+    if (input.applicableDaysOfWeek !== undefined) updateData.applicableDaysOfWeek = input.applicableDaysOfWeek;
+    if (input.dailyStartTime !== undefined) updateData.dailyStartTime = input.dailyStartTime;
+    if (input.dailyEndTime !== undefined) updateData.dailyEndTime = input.dailyEndTime;
     if (input.totalUsageLimit !== undefined) {
       updateData.totalUsageLimit = input.totalUsageLimit;
       updateData.maxUsageCount = input.totalUsageLimit;
@@ -356,30 +382,7 @@ export const PlatformCampaignsStation = {
       });
     }
 
-    return {
-      id: updated.id,
-      title: updated.title || updated.name,
-      code: updated.code,
-      description: updated.description,
-      discountType: updated.discountType || updated.valueType,
-      discountValue: updated.discountValue ?? updated.value,
-      maxDiscountAmount: updated.maxDiscountAmount,
-      minOrderAmount: updated.minOrderAmount ?? updated.minReservationAmount,
-      scopeType: updated.scopeType || 'GLOBAL',
-      applicableGamecenterIds: updated.applicableGamecenterIds || [],
-      applicableDeviceTypes: updated.applicableDeviceTypes || [],
-      targetAudience: updated.targetAudience || 'ALL_USERS',
-      specificUserIds: updated.specificUserIds || [],
-      totalUsageLimit: updated.totalUsageLimit ?? updated.maxUsageCount,
-      perUserUsageLimit: updated.perUserUsageLimit ?? updated.maxUsagePerUser,
-      usedCount: updated.currentUsageCount,
-      startDate: updated.startAt,
-      endDate: updated.endAt,
-      status: updated.status || (updated.isActive ? 'ACTIVE' : 'INACTIVE'),
-      createdAt: updated.createdAt,
-      updatedAt: updated.updatedAt,
-      createdBy: updated.createdByUserId ?? null,
-    };
+    return mapCampaignDto(updated);
   },
 
   async deleteCampaign(

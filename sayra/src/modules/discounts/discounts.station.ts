@@ -99,6 +99,61 @@ export const calculateCampaignDiscountAmount = (
   return Math.min(basePrice, Math.max(0, Math.round(calculated * 100) / 100));
 };
 
+const WEEKDAY_MAP: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
+function isWithinCampaignSchedule(
+  campaign: any,
+  atTime: Date,
+  timeZone = 'Asia/Tehran'
+): { ok: boolean; reason?: string } {
+  const days: number[] = Array.isArray(campaign.applicableDaysOfWeek) ? campaign.applicableDaysOfWeek : [];
+  const startTime: string | null = campaign.dailyStartTime ?? null;
+  const endTime: string | null = campaign.dailyEndTime ?? null;
+
+  if (days.length === 0 && (!startTime || !endTime)) {
+    return { ok: true };
+  }
+
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(atTime);
+
+  const weekdayStr = parts.find((p) => p.type === 'weekday')?.value ?? '';
+  const hourStr = parts.find((p) => p.type === 'hour')?.value ?? '00';
+  const minuteStr = parts.find((p) => p.type === 'minute')?.value ?? '00';
+  const normalizedHour = hourStr === '24' ? '00' : hourStr;
+  const currentHHmm = `${normalizedHour}:${minuteStr}`;
+  const dayOfWeek = WEEKDAY_MAP[weekdayStr];
+
+  if (days.length > 0 && dayOfWeek !== undefined && !days.includes(dayOfWeek)) {
+    return { ok: false, reason: 'Campaign is not valid on this day of week.' };
+  }
+
+  if (startTime && endTime) {
+    const inRange =
+      startTime <= endTime
+        ? currentHHmm >= startTime && currentHHmm <= endTime
+        : currentHHmm >= startTime || currentHHmm <= endTime;
+    if (!inRange) {
+      return { ok: false, reason: 'Campaign is not valid at this time of day.' };
+    }
+  }
+
+  return { ok: true };
+}
+
 export const validateCampaignForReservation = async (
   campaign: DiscountCampaign,
   stationId: string,
@@ -120,17 +175,28 @@ export const validateCampaignForReservation = async (
     return { discountAmount: 0, isValid: false, reason: 'Campaign is expired or not yet started.' };
   }
 
-  // Check Scope
-  if (campaign.scopeType === 'SPECIFIC_GAMECENTERS') {
-    if (gamingCenterId && campaign.applicableGamecenterIds.length > 0 && !campaign.applicableGamecenterIds.includes(gamingCenterId)) {
+  const scheduleCheck = isWithinCampaignSchedule(campaign, atTime);
+  if (!scheduleCheck.ok) {
+    return { discountAmount: 0, isValid: false, reason: scheduleCheck.reason };
+  }
+
+  // Check Scope (supports combining gaming centers, device types, and specific stations)
+  if (Array.isArray(campaign.applicableGamecenterIds) && campaign.applicableGamecenterIds.length > 0) {
+    if (gamingCenterId && !campaign.applicableGamecenterIds.includes(gamingCenterId)) {
       return { discountAmount: 0, isValid: false, reason: 'Campaign is not applicable to this gaming center.' };
     }
   }
 
-  if (campaign.scopeType === 'SPECIFIC_DEVICE_TYPES' && campaign.applicableDeviceTypes.length > 0) {
+  if (Array.isArray(campaign.applicableDeviceTypes) && campaign.applicableDeviceTypes.length > 0) {
     const station = await ReservationRepo.findStation(stationId, gamingCenterId, undefined, tx);
     if (!station || !campaign.applicableDeviceTypes.includes(station.stationType)) {
       return { discountAmount: 0, isValid: false, reason: 'Campaign is not applicable to this device type.' };
+    }
+  }
+
+  if (Array.isArray(campaign.applicableStationIds) && campaign.applicableStationIds.length > 0) {
+    if (!campaign.applicableStationIds.includes(stationId)) {
+      return { discountAmount: 0, isValid: false, reason: 'Campaign is not valid for this station.' };
     }
   }
 
@@ -149,26 +215,24 @@ export const validateCampaignForReservation = async (
 
   // Check Target Audience
   if (customerAccountId) {
+    const db = tx ?? prisma;
     if (campaign.targetAudience === 'SPECIFIC_USERS') {
       if (campaign.specificUserIds.length > 0 && !campaign.specificUserIds.includes(customerAccountId)) {
         return { discountAmount: 0, isValid: false, reason: 'Campaign is not available for this user.' };
       }
     } else if (campaign.targetAudience === 'NEW_USERS') {
-      const priorReservations = tx
-        ? await tx.reservation.count({
-          where: { customerAccountId, status: { not: 'CANCELED' } },
-        })
-        : 0;
+      const priorReservations = await db.reservation.count({
+        where: { customerAccountId, status: { not: 'CANCELED' } },
+      });
       if (priorReservations > 0) {
         return { discountAmount: 0, isValid: false, reason: 'Campaign is only available for new users.' };
       }
     } else if (campaign.targetAudience === 'LOYAL_USERS') {
-      const priorReservations = tx
-        ? await tx.reservation.count({
-          where: { customerAccountId, status: 'COMPLETED' },
-        })
-        : 0;
-      if (priorReservations < 5) {
+      const minCompleted = campaign.minCompletedReservations ?? 1;
+      const priorReservations = await db.reservation.count({
+        where: { customerAccountId, status: 'COMPLETED' },
+      });
+      if (priorReservations < minCompleted) {
         return { discountAmount: 0, isValid: false, reason: 'Campaign is only available for loyal users.' };
       }
     }
