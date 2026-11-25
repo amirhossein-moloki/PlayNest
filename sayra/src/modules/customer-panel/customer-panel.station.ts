@@ -33,6 +33,9 @@ import { prisma } from '../../config/prisma';
 import { GroupBookingStation } from '../group-booking/group-booking.station';
 import { AppEvents, eventEmitter } from '../../common/events/event-emitter';
 import { commissionsStation } from '../commissions/commissions.station';
+import { discountsStation } from '../discounts/discounts.station';
+import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
+import logger from '../../config/logger';
 
 export const CustomerPanelStation = {
   async getProfile(customerAccountId: string) {
@@ -167,6 +170,14 @@ export const CustomerPanelStation = {
       return reservation;
     }
 
+    if (reservation.status === ReservationStatus.IN_PROGRESS) {
+      throw new AppError(
+        'Cannot cancel an in-progress reservation. Please contact the gaming center staff.',
+        httpStatus.CONFLICT,
+        { code: 'INVALID_TRANSITION' }
+      );
+    }
+
     const settings =
       reservation.gamingCenter?.settings ||
       (typeof ReservationRepo.findSettings === 'function'
@@ -196,6 +207,11 @@ export const CustomerPanelStation = {
         reason: reason || 'Canceled by customer',
       }, tx);
 
+      // Cancel any pending time proposals for this reservation
+      if (typeof ReservationRepo.cancelPendingProposals === 'function') {
+        await ReservationRepo.cancelPendingProposals(reservationId, tx);
+      }
+
       // Cancel any initiated payments restoring deducted wallet funds
       if (typeof tx.payment?.findMany === 'function') {
         const activePayments = await tx.payment.findMany({
@@ -224,8 +240,23 @@ export const CustomerPanelStation = {
         );
       }
 
+      // Release any campaign or voucher discount reservation hold
+      if (reservation.campaignId || reservation.discountId) {
+        await discountsStation
+          .releaseDiscountForReservation(
+            reservationId,
+            reason || 'Canceled by customer',
+            tx
+          )
+          .catch((err) => {
+            logger.warn({ err, reservationId }, 'Failed to release discount on customer cancellation');
+          });
+      }
+
       return result;
     });
+
+    void invalidatePublicCacheByPrefix(`public:avail:${reservation.gamingCenterId}:`);
 
     await auditService.log(
       reservation.gamingCenterId,
