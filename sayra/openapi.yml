@@ -2445,6 +2445,11 @@ components:
               - OVERLAP_CONFLICT
               - RESERVATION_START_TIME_IN_PAST
               - INVALID_TRANSITION
+              - CANCELLATION_DEADLINE_EXCEEDED
+              - RESERVATION_ALREADY_ENDED
+              - RESERVATION_ALREADY_STARTED
+              - RESERVATION_SESSION_STARTED
+              - PAID_RESERVATION_UPGRADE_NOT_ALLOWED
               - ONLINE_RESERVATION_DISABLED
               - IDEMPOTENCY_KEY_REQUIRED
               - IDEMPOTENCY_KEY_INVALID_LENGTH
@@ -2557,8 +2562,6 @@ components:
           $ref: '#/components/schemas/PlatformAdmin'
         accessToken:
           type: string
-        refreshToken:
-          type: string
         sessionId:
           type: string
         usedRecoveryCode:
@@ -2570,8 +2573,7 @@ components:
           properties:
             accessToken:
               type: string
-            refreshToken:
-              type: string
+      description: Refresh token is delivered exclusively in the HttpOnly playnest_pa_refresh cookie and omitted from the JSON response.
     PlatformAdminAuthTokensResponse:
       $ref: '#/components/schemas/PlatformAdminLoginResponse'
     PlatformAdmin2faSetupRequest:
@@ -2697,16 +2699,12 @@ components:
           $ref: '#/components/schemas/PlatformAdmin'
         accessToken:
           type: string
-        refreshToken:
-          type: string
         sessionId:
           type: string
         tokens:
           type: object
           properties:
             accessToken:
-              type: string
-            refreshToken:
               type: string
         recoveryCodes:
           type: array
@@ -4099,7 +4097,6 @@ components:
       required:
       - stationId
       - basePrice
-      - customerAccountId
       properties:
         stationId:
           type: string
@@ -4110,6 +4107,7 @@ components:
           format: date-time
         customerAccountId:
           type: string
+          description: Derived automatically for CUSTOMER callers; must match actor ID if supplied
         selectedDiscountId:
           type: string
           nullable: true
@@ -4133,6 +4131,8 @@ components:
           nullable: true
         ttlMinutes:
           type: integer
+          minimum: 1
+          maximum: 30
           default: 15
     ReserveDiscountResponse:
       type: object
@@ -5800,7 +5800,7 @@ paths:
   /gamingCenters/{gamingCenterId}/verification:
     post:
       summary: ثبت درخواست احراز هویت گیم‌نت (KYC)
-      description: ثبت اطلاعات هویتی و آپلود فایل پروانه کسب گیم‌نت (حداکثر ۵ مگابایت). تا زمان تایید درخواست توسط ادمین، گیم‌نت به صورت عمومی نمایش داده نمی‌شود.
+      description: ثبت اطلاعات هویتی و آپلود تصویر پروانه کسب گیم‌نت (فقط فرمت‌های JPEG، PNG یا WebP، حداکثر ۵ مگابایت، اعتبارسنجی و بازکدگذاری تصویری و ذخیره با هدر private, no-store). تا زمان تایید درخواست توسط ادمین، گیم‌نت به صورت عمومی نمایش داده نمی‌شود.
       tags:
       - GamingCenterVerification
       operationId: post_gamingCenters_gamingCenterId_verification
@@ -6462,10 +6462,11 @@ paths:
     post:
       operationId: verifyDirectPayment
       summary: Verify payment status and trigger hold conversion
-      description: Verifies payment with the provider on the backend and converts active BookingHold to confirmed/paid reservations.
+      description: Verifies payment with the stored authoritative provider on the backend (requires owner CUSTOMER, tenant staff/manager, or MFA-verified PLATFORM_ADMIN) and converts active BookingHold to confirmed/paid reservations.
       tags:
       - Payments
-      security: []
+      security:
+      - bearerAuth: []
       parameters:
       - name: paymentId
         in: path
@@ -6482,13 +6483,16 @@ paths:
               properties:
                 authority:
                   type: string
-                status:
-                  type: string
-                provider:
-                  type: string
+                  description: Optional provider authority token (must match stored providerPaymentId when already recorded)
       responses:
         '200':
-          description: Verification result and converted group reservation if applicable
+          description: Verification result and converted group reservation summary if applicable
+        '400':
+          description: Bad request or authority mismatch
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
 
@@ -6496,10 +6500,17 @@ paths:
     post:
       operationId: handleUniversalPaymentWebhook
       summary: Process universal payment gateway webhooks
-      description: Asynchronously receives payment events from gateways and safely triggers atomic conversion.
+      description: Asynchronously receives HMAC-SHA256 signed payment events from gateways (`X-Signature`) and safely triggers atomic conversion.
       tags:
       - Payments
       security: []
+      parameters:
+      - name: X-Signature
+        in: header
+        required: true
+        description: Lowercase hex HMAC-SHA256 digest of the raw request body keyed by PAYMENT_PROVIDER_WEBHOOK_SECRET
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -6514,6 +6525,10 @@ paths:
                   type: string
                 paymentId:
                   type: string
+                authority:
+                  type: string
+                provider:
+                  type: string
                 status:
                   type: string
                 refId:
@@ -6523,6 +6538,10 @@ paths:
       responses:
         '200':
           description: Webhook acknowledged
+        '400':
+          description: Invalid payload, provider mismatch, or amount mismatch
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
 
   /iran-calendar/days:
     get:
@@ -8612,6 +8631,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Proposal or reservation cannot be accepted (INVALID_PROPOSAL_STATE, PROPOSAL_EXPIRED, INVALID_TRANSITION, RESERVATION_ALREADY_ENDED, RESERVATION_ALREADY_STARTED, RESERVATION_SESSION_STARTED, SLOT_NOT_AVAILABLE, OVERLAP_CONFLICT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       operationId: post_customer_reservation_reservationId_proposals_proposalId_accept
       description: Accept a proposed reservation time
   /customer/reservation/{reservationId}/proposals/{proposalId}/reject:
@@ -11141,8 +11168,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
       operationId: post_gamingCenters_gamingCenterId_media_upload
-      description: Upload an image
+      description: Upload and re-encode a raster image (JPEG, PNG, WebP, GIF, or AVIF). SVG and invalid image payloads are rejected with 400.
   /gamingCenters/{gamingCenterId}/customers:
     get:
       summary: List customers for a gamingCenter
@@ -12003,7 +12032,7 @@ paths:
   /customer/reservation/{reservationId}/cancel:
     post:
       summary: Cancel my reservation
-      description: Cancel customer single reservation or group booking if current time is at least cancellationWindowMinutes before reservation start time (default 15 minutes). Returns 400 CANCELLATION_DEADLINE_EXCEEDED if fewer than cancellationWindowMinutes remain.
+      description: Cancel customer single reservation or group booking if current time is at least cancellationWindowMinutes before reservation start time (default 15 minutes). COMPLETED, NO_SHOW, EXPIRED, IN_PROGRESS, already-started/ended reservations, or reservations with a started/completed gaming session (including any constituent reservation of a group booking) cannot be canceled. Returns 400 CANCELLATION_DEADLINE_EXCEEDED if fewer than cancellationWindowMinutes remain.
       tags:
       - Customer Panel
       security:
@@ -12034,6 +12063,14 @@ paths:
                 $ref: '#/components/schemas/Success'
         '400':
           description: Cancellation deadline exceeded (CANCELLATION_DEADLINE_EXCEEDED when fewer than cancellationWindowMinutes remain before start time, default 15 minutes) or invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Reservation state or lifecycle conflict (INVALID_TRANSITION, RESERVATION_ALREADY_ENDED, RESERVATION_ALREADY_STARTED, RESERVATION_SESSION_STARTED)
           content:
             application/json:
               schema:
@@ -12135,7 +12172,9 @@ paths:
                   type: string
                   enum:
                   - MANAGER
-                  - ADMIN
+                  - SUPERVISOR
+                  - STAFF
+                  description: Tenant staff roles only; ADMIN cannot be assigned via tenant endpoints
                 isPublic:
                   type: boolean
                 publicName:
@@ -12151,6 +12190,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
       operationId: post_gamingCenters_gamingCenterId_staff
       description: Add new staff member
   /gamingCenters/{gamingCenterId}/device-categories:
@@ -12898,8 +12939,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
       operationId: post_gamingCenters
-      description: Create a new gamingCenter
+      description: Create a new gamingCenter (requires MFA-verified PLATFORM_ADMIN)
   /gamingCenters/map:
     get:
       summary: List gaming center map markers for a selected city
@@ -13394,7 +13439,7 @@ paths:
       description: Upload attachment (Customer)
   /support/tickets:
     get:
-      summary: List assigned tickets (Support)
+      summary: List assigned tickets (Platform Admin with 2FA)
       tags:
       - Support
       security:
@@ -13406,8 +13451,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Pagination'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
       operationId: get_support_tickets
-      description: List assigned tickets (Support)
+      description: List all platform support tickets (requires PLATFORM_ADMIN with verified TOTP MFA)
   /support/tickets/{ticketId}:
     get:
       summary: Get ticket details (Support)
@@ -13580,7 +13627,7 @@ paths:
       description: Add message to ticket (Support)
   /admin/tickets:
     get:
-      summary: List all tickets (Admin)
+      summary: List all tickets (Platform Admin with 2FA)
       tags:
       - Admin
       security:
@@ -13592,8 +13639,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Pagination'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
       operationId: get_admin_tickets
-      description: List all tickets (Admin)
+      description: List all support tickets (requires PLATFORM_ADMIN with verified TOTP MFA)
   /admin/tickets/statistics:
     get:
       summary: Get ticket statistics (Admin)
@@ -13760,6 +13809,8 @@ paths:
                     type: object
                     properties:
                       accessToken:
+                        type: string
+                      refreshToken:
                         type: string
         '401':
           $ref: '#/components/responses/UnauthorizedError'
@@ -14449,7 +14500,7 @@ paths:
   /auth/platform-admin/refresh:
     post:
       summary: Rotate and Refresh Platform Admin Session
-      description: Rotates the PlatformAdmin refresh token (body or HttpOnly cookie) and issues a new short-lived access token.
+      description: Rotates the PlatformAdmin refresh token (HttpOnly playnest_pa_refresh cookie or request body fallback), sets the new HttpOnly refresh cookie, and issues a new short-lived access token in JSON (omitting refreshToken from JSON body).
       tags:
       - Auth
       - PlatformAdmin
@@ -16164,7 +16215,9 @@ paths:
                   type: string
                   enum:
                   - MANAGER
-                  - ADMIN
+                  - SUPERVISOR
+                  - STAFF
+                  description: Tenant staff roles only; ADMIN cannot be assigned via tenant endpoints
                 phone:
                   type: string
                 isActive:
@@ -16342,6 +16395,12 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Reservation cannot be canceled in its current state or after ending (INVALID_TRANSITION, RESERVATION_ALREADY_ENDED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /gamingCenters/{gamingCenterId}/reservation/{reservationId}/reschedule:
     post:
       summary: Reschedule reservation time slot
@@ -16560,6 +16619,13 @@ paths:
                 isActive:
                   type: boolean
                   default: true
+                fundingSource:
+                  type: string
+                  enum:
+                  - MERCHANT_FUNDED
+                  - PLATFORM
+                  - CAMPAIGN_BUDGET
+                  description: Tenant managers may only create MERCHANT_FUNDED campaigns
       responses:
         '201':
           description: Campaign created
@@ -16569,6 +16635,8 @@ paths:
                 $ref: '#/components/schemas/Success'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
     get:
       summary: List discount campaigns
       description: List discount campaigns
@@ -16659,6 +16727,13 @@ paths:
                   type: string
                 isActive:
                   type: boolean
+                fundingSource:
+                  type: string
+                  enum:
+                  - MERCHANT_FUNDED
+                  - PLATFORM
+                  - CAMPAIGN_BUDGET
+                  description: Tenant managers cannot change campaign fundingSource away from MERCHANT_FUNDED or edit global campaigns
       responses:
         '200':
           description: Campaign updated
@@ -16666,6 +16741,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
   /gamingCenters/{gamingCenterId}/discounts/available:
     get:
       summary: Get all applicable and available discounts for a draft reservation
@@ -16772,10 +16851,12 @@ paths:
   /gamingCenters/{gamingCenterId}/discounts/reserve:
     post:
       summary: Temporarily hold/reserve a discount or voucher for checkout
-      description: Creates or attaches an idempotent RESERVED discount usage record with expiration
+      description: Creates or attaches an idempotent RESERVED discount usage record with expiration (1-30 minutes). Requires customer or tenant authentication.
       tags:
       - Discounts
       operationId: post_gamingCenters_gamingCenterId_discounts_reserve
+      security:
+      - bearerAuth: []
       parameters:
       - name: gamingCenterId
         in: path
@@ -16789,19 +16870,25 @@ paths:
             schema:
               $ref: '#/components/schemas/ReserveDiscountInput'
       responses:
-        '201':
+        '200':
           description: Discount successfully reserved
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReserveDiscountResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
   /gamingCenters/{gamingCenterId}/discounts/release:
     post:
       summary: Release a reserved discount hold
-      description: Releases a RESERVED discount usage so the voucher can be reused
+      description: Releases a RESERVED discount usage owned by the caller so the voucher can be reused. Already REDEEMED usages cannot be released via this endpoint.
       tags:
       - Discounts
       operationId: post_gamingCenters_gamingCenterId_discounts_release
+      security:
+      - bearerAuth: []
       parameters:
       - name: gamingCenterId
         in: path
@@ -16826,13 +16913,21 @@ paths:
                     type: boolean
                   releasedCount:
                     type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          description: Discount usage is already redeemed
   /gamingCenters/{gamingCenterId}/discounts/redeem:
     post:
       summary: Finalize and redeem a reserved discount upon completed booking
-      description: Marks a RESERVED discount usage as REDEEMED
+      description: Marks a RESERVED discount usage owned by the caller/tenant as REDEEMED
       tags:
       - Discounts
       operationId: post_gamingCenters_gamingCenterId_discounts_redeem
+      security:
+      - bearerAuth: []
       parameters:
       - name: gamingCenterId
         in: path
@@ -16852,6 +16947,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReserveDiscountResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          description: Discount usage cannot be redeemed in its current state
   /gamingCenters/{gamingCenterId}/discounts/validate:
     post:
       summary: Validate a voucher or promo code against a reservation draft
@@ -17017,7 +17118,7 @@ paths:
   /notifications/logs:
     get:
       summary: List operational notification logs and outbox deliveries
-      description: List operational notification logs and outbox deliveries
+      description: List operational notification logs scoped strictly to the caller tenant unless authenticated as PLATFORM_ADMIN
       tags:
       - Notifications
       operationId: get_notifications_logs
@@ -17069,10 +17170,12 @@ paths:
                       type: array
                       items:
                         $ref: '#/components/schemas/NotificationLog'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
   /notifications/logs/{id}/retry:
     post:
       summary: Retry a failed notification dispatch
-      description: Retry a failed notification dispatch
+      description: Retry a FAILED operational notification dispatch owned by the caller tenant (or any FAILED log for PLATFORM_ADMIN)
       tags:
       - Notifications
       operationId: post_notifications_logs_id_retry
@@ -17091,10 +17194,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Notification log is not in FAILED status
   /customer/reservation/{reservationId}/reschedule:
     post:
       summary: Customer requested reservation reschedule
-      description: Customer requested reservation reschedule
+      description: Reschedule a customer reservation prior to its cancellation deadline and before the session starts or ends.
       tags:
       - Customer Panel
       operationId: post_customer_reservation_reservationId_reschedule
@@ -17113,15 +17222,18 @@ paths:
             schema:
               type: object
               required:
-              - newStartTime
-              - newEndTime
+              - startTime
               properties:
-                newStartTime:
+                startTime:
                   type: string
                   format: date-time
-                newEndTime:
+                stationId:
                   type: string
-                  format: date-time
+                staffId:
+                  type: string
+                reason:
+                  type: string
+                  maxLength: 500
       responses:
         '200':
           description: Reschedule request submitted
@@ -17129,6 +17241,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '400':
+          description: Validation error, cancellation deadline exceeded, lead time too short, or paid upgrade rejected (CANCELLATION_DEADLINE_EXCEEDED, LEAD_TIME_TOO_SHORT, PAID_RESERVATION_UPGRADE_NOT_ALLOWED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Reservation cannot be rescheduled or slot unavailable (INVALID_TRANSITION, RESERVATION_ALREADY_ENDED, RESERVATION_ALREADY_STARTED, RESERVATION_SESSION_STARTED, SLOT_NOT_AVAILABLE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /gamingCenters/{gamingCenterId}/expenses:
     post:
       summary: Create a new expense for gaming center
@@ -17932,7 +18058,7 @@ paths:
   /gamingCenters/{gamingCenterId}/media:
     post:
       summary: Register media item record
-      description: Register media item record
+      description: Register media item record using external URLs (local /uploads paths must be uploaded via /media/upload)
       tags:
       - CMS
       operationId: post_gamingCenters_gamingCenterId_media
@@ -17957,10 +18083,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
   /gamingCenters/{gamingCenterId}/media/{mediaId}:
     patch:
       summary: Update media metadata
-      description: Update media metadata
+      description: Update media metadata (url and thumbUrl are immutable and rejected with 400 if provided)
       tags:
       - CMS
       operationId: patch_gamingCenters_gamingCenterId_media_mediaId
@@ -17983,6 +18111,22 @@ paths:
           application/json:
             schema:
               type: object
+              properties:
+                type:
+                  type: string
+                purpose:
+                  type: string
+                altText:
+                  type: string
+                  nullable: true
+                category:
+                  type: string
+                caption:
+                  type: string
+                sortOrder:
+                  type: integer
+                isActive:
+                  type: boolean
       responses:
         '200':
           description: Media updated
@@ -17990,6 +18134,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '400':
+          $ref: '#/components/responses/ValidationError'
     delete:
       summary: Delete media item
       description: Delete media item and its associated stored file
@@ -20224,7 +20370,7 @@ paths:
   /onboarding/otp/verify:
     post:
       summary: Verify manager OTP during onboarding
-      description: Verifies the 6-digit OTP code for an active onboarding session.
+      description: Verifies the 6-digit SIGNUP OTP code via OtpService for an active onboarding session and returns an HMAC-signed onboardingToken required for subsequent onboarding steps.
       tags:
       - GamingCenters
       operationId: post_onboarding_otp_verify
@@ -20247,24 +20393,32 @@ paths:
                   maxLength: 6
       responses:
         '200':
-          description: OTP verified successfully
+          description: OTP verified successfully; response includes onboardingToken
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
   /onboarding/{id}/location:
     put:
       summary: Update location step in onboarding
-      description: Saves province, city, street address, and optional coordinates for the onboarding draft.
+      description: Saves province, city, street address, and optional coordinates after OTP verification. Requires valid x-onboarding-token.
       tags:
       - GamingCenters
       operationId: put_onboarding_id_location
-      security: []
+      security:
+      - bearerAuth: []
       parameters:
       - name: id
         in: path
+        required: true
+        schema:
+          type: string
+      - name: x-onboarding-token
+        in: header
         required: true
         schema:
           type: string
@@ -20301,19 +20455,29 @@ paths:
                 $ref: '#/components/schemas/Success'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
   /onboarding/{id}/working-hours:
     put:
       summary: Update working hours step in onboarding
-      description: Saves opening time, closing time, closed days, and timezone for the onboarding draft.
+      description: Saves opening time, closing time, closed days, and timezone for the verified onboarding draft.
       tags:
       - GamingCenters
       operationId: put_onboarding_id_working_hours
-      security: []
+      security:
+      - bearerAuth: []
       parameters:
       - name: id
         in: path
+        required: true
+        schema:
+          type: string
+      - name: x-onboarding-token
+        in: header
         required: true
         schema:
           type: string
@@ -20351,19 +20515,29 @@ paths:
                 $ref: '#/components/schemas/Success'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
   /onboarding/{id}/media:
     put:
       summary: Update media step in onboarding
-      description: Saves logo media ID and gallery media IDs for the onboarding draft.
+      description: Saves logo media ID and gallery media IDs for the verified onboarding draft.
       tags:
       - GamingCenters
       operationId: put_onboarding_id_media
-      security: []
+      security:
+      - bearerAuth: []
       parameters:
       - name: id
         in: path
+        required: true
+        schema:
+          type: string
+      - name: x-onboarding-token
+        in: header
         required: true
         schema:
           type: string
@@ -20390,19 +20564,29 @@ paths:
                 $ref: '#/components/schemas/Success'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
   /onboarding/{id}/preview:
     get:
       summary: Preview onboarding draft before completion
-      description: Returns the complete summary of the onboarding session draft.
+      description: Returns the complete summary of the verified onboarding session draft. Requires x-onboarding-token.
       tags:
       - GamingCenters
       operationId: get_onboarding_id_preview
-      security: []
+      security:
+      - bearerAuth: []
       parameters:
       - name: id
         in: path
+        required: true
+        schema:
+          type: string
+      - name: x-onboarding-token
+        in: header
         required: true
         schema:
           type: string
@@ -20413,19 +20597,29 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
   /onboarding/{id}/complete:
     post:
       summary: Complete onboarding and create gaming center
-      description: Finalizes the onboarding draft and creates the gaming center, address, settings, and manager account.
+      description: Finalizes the verified onboarding draft and creates the gaming center, address, settings, and a new manager account (rejecting with 409 if the phone already belongs to an existing user).
       tags:
       - GamingCenters
       operationId: post_onboarding_id_complete
-      security: []
+      security:
+      - bearerAuth: []
       parameters:
       - name: id
         in: path
+        required: true
+        schema:
+          type: string
+      - name: x-onboarding-token
+        in: header
         required: true
         schema:
           type: string
@@ -20450,8 +20644,14 @@ paths:
                 $ref: '#/components/schemas/Success'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: A user account with this phone number already exists
   /gamingCenters/{gamingCenterId}/schedules:
     get:
       summary: Get weekly operating schedules of a gaming center
@@ -21133,6 +21333,12 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Group booking or constituent reservation cannot be canceled (INVALID_TRANSITION, RESERVATION_ALREADY_ENDED, RESERVATION_ALREADY_STARTED, RESERVATION_SESSION_STARTED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /public/gamingCenters/{gamingCenterSlug}/group-reservations:
     post:
       summary: Create a public group reservation across multiple stations

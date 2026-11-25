@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { gamingCenterController } from './gamingCenter.controller';
 import { authMiddleware } from '../../common/middleware/auth';
+import { requirePlatformAdmin } from '../../common/middleware/requirePlatformAdmin';
 import { requireRole } from '../../common/middleware/requireRole';
 import { tenantGuard } from '../../common/middleware/tenantGuard';
 import { UserRole } from '@prisma/client';
@@ -18,6 +19,7 @@ router.get('/:id', publicApiRateLimiter, asyncHandler(gamingCenterController.get
 router.post(
   '/',
   authMiddleware,
+  requirePlatformAdmin,
   asyncHandler(gamingCenterController.createGamingCenter),
 );
 router.patch(

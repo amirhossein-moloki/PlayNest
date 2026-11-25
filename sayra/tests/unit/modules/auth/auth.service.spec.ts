@@ -7,9 +7,25 @@ import { UserFactory, SessionFactory } from '../../../../tests/factories/user.fa
 import { queueSms } from '../../../../src/jobs/producers/sms.producer';
 import { User, Session, PhoneOtp, CustomerAccount, GamingCenter } from '@prisma/client';
 
+import { prisma } from '../../../../src/config/prisma';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 jest.mock('../../../../src/modules/auth/auth.repository');
 jest.mock('../../../../src/jobs/producers/sms.producer', () => ({
   queueSms: jest.fn(),
+}));
+
+jest.mock('../../../../src/config/redis', () => ({
+  __esModule: true,
+  default: {
+    get: jest.fn().mockImplementation(() => Promise.resolve(null)),
+    set: jest.fn().mockImplementation(() => Promise.resolve('OK')),
+    del: jest.fn().mockImplementation(() => Promise.resolve(1)),
+    incr: jest.fn().mockImplementation(() => Promise.resolve(1)),
+    expire: jest.fn().mockImplementation(() => Promise.resolve(1)),
+    ttl: jest.fn().mockImplementation(() => Promise.resolve(120)),
+  },
 }));
 
 jest.mock('../../../../src/config/prisma', () => ({
@@ -20,6 +36,14 @@ jest.mock('../../../../src/config/prisma', () => ({
     },
     customerAccount: { findUnique: jest.fn(), findFirst: jest.fn() },
     session: { create: jest.fn() },
+    phoneOtp: {
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      delete: jest.fn(),
+      deleteMany: jest.fn(),
+    },
   },
 }));
 
@@ -44,7 +68,7 @@ describe('authService', () => {
   });
 
   describe('loginUser', () => {
-    it('should login successfully with valid credentials', async () => {
+    it('should login successfully with valid credentials and omit passwordHash', async () => {
       const user = UserFactory.create({ passwordHash: `h_${T_V}` }) as User;
       const session = SessionFactory.create({ actorId: user.id }) as Session;
 
@@ -53,7 +77,9 @@ describe('authService', () => {
 
       const result = await authService.loginUser(T_P, T_V, 'gc-1');
 
-      expect(result.user).toEqual(user);
+      const { passwordHash: _ph, ...safeUser } = user as any;
+      expect(result.user).toEqual(safeUser);
+      expect((result.user as any).passwordHash).toBeUndefined();
       expect(result.tokens).toHaveProperty('accessToken');
       expect(result.tokens).toHaveProperty('refreshToken');
     });
@@ -76,15 +102,18 @@ describe('authService', () => {
 
   describe('requestUserOtp', () => {
     it('should request OTP successfully for existing or new user in normal mode', async () => {
-      MockedAuthRepository.createOtp.mockResolvedValue({} as PhoneOtp);
+      ((prisma as any).phoneOtp.deleteMany as jest.MockedFunction<any>).mockResolvedValue({ count: 0 });
+      ((prisma as any).phoneOtp.create as jest.MockedFunction<any>).mockResolvedValue({ id: 'o-u-1' });
 
       const result = await authService.requestUserOtp(T_P);
 
       expect(result.message).toContain(`OTP sent to ${NORMALIZED_T_P}`);
-      expect(MockedAuthRepository.createOtp).toHaveBeenCalledWith(
+      expect((prisma as any).phoneOtp.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          phone: NORMALIZED_T_P,
-          targetActorType: 'USER',
+          data: expect.objectContaining({
+            phone: NORMALIZED_T_P,
+            targetActorType: 'USER',
+          }),
         })
       );
       expect(MockedQueueSms).toHaveBeenCalled();
@@ -97,16 +126,19 @@ describe('authService', () => {
       (env as any).SKIP_OTP = true; /* eslint-disable-line @typescript-eslint/no-explicit-any */
 
       try {
-        MockedAuthRepository.createOtp.mockResolvedValue({} as PhoneOtp);
+        ((prisma as any).phoneOtp.deleteMany as jest.MockedFunction<any>).mockResolvedValue({ count: 0 });
+        ((prisma as any).phoneOtp.create as jest.MockedFunction<any>).mockResolvedValue({ id: 'o-u-2' });
 
         const result = await authService.requestUserOtp(T_P);
 
         expect(result.message).toContain(`OTP sent to ${NORMALIZED_T_P}`);
-        expect(MockedAuthRepository.createOtp).toHaveBeenCalledWith(
+        expect((prisma as any).phoneOtp.create).toHaveBeenCalledWith(
           expect.objectContaining({
-            phone: NORMALIZED_T_P,
-            codeHash: expect.stringMatching(/^hmac256:[0-9a-f]{32}:[0-9a-f]{64}$/),
-            targetActorType: 'USER',
+            data: expect.objectContaining({
+              phone: NORMALIZED_T_P,
+              codeHash: expect.stringMatching(/^hmac256:[0-9a-f]{32}:[0-9a-f]{64}$/),
+              targetActorType: 'USER',
+            }),
           })
         );
         expect(MockedQueueSms).not.toHaveBeenCalled();
@@ -120,27 +152,41 @@ describe('authService', () => {
     it('should verify OTP and return gaming centers for existing user', async () => {
       const code = '123456';
       const codeHash = 'h_123456';
-      const otp = { id: 'o-1', codeHash } as PhoneOtp;
+      const otp = {
+        id: 'o-1',
+        codeHash,
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 60000),
+        consumedAt: null,
+      } as PhoneOtp;
       const users = [{ id: 'u-1', gamingCenter: { id: 'gc-1', name: 'g' } }] as unknown as UserWithGamingCenter[];
 
-      MockedAuthRepository.findRecentOtp.mockResolvedValue(otp);
-      MockedAuthRepository.consumeOtp.mockResolvedValue({} as PhoneOtp);
+      ((prisma as any).phoneOtp.findFirst as jest.MockedFunction<any>).mockResolvedValue(otp);
+      ((prisma as any).phoneOtp.updateMany as jest.MockedFunction<any>).mockResolvedValue({ count: 1 });
       MockedAuthRepository.markUserPhoneVerified.mockResolvedValue({ count: 1 });
       MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue(users);
 
       const result = await authService.verifyUserOtp(T_P, code);
 
       expect(result.gamingCenters).toEqual([{ id: 'gc-1', name: 'g' }]);
-      expect(MockedAuthRepository.consumeOtp).toHaveBeenCalledWith(otp.id);
+      expect((prisma as any).phoneOtp.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: otp.id, consumedAt: null } })
+      );
     });
 
     it('should return empty gaming centers if no user exists (no gaming center auto-creation)', async () => {
       const code = '123456';
       const codeHash = 'h_123456';
-      const otp = { id: 'o-1', codeHash } as PhoneOtp;
+      const otp = {
+        id: 'o-1',
+        codeHash,
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 60000),
+        consumedAt: null,
+      } as PhoneOtp;
 
-      MockedAuthRepository.findRecentOtp.mockResolvedValue(otp);
-      MockedAuthRepository.consumeOtp.mockResolvedValue({} as PhoneOtp);
+      ((prisma as any).phoneOtp.findFirst as jest.MockedFunction<any>).mockResolvedValue(otp);
+      ((prisma as any).phoneOtp.updateMany as jest.MockedFunction<any>).mockResolvedValue({ count: 1 });
       MockedAuthRepository.markUserPhoneVerified.mockResolvedValue({ count: 0 });
       MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue([]);
 
@@ -150,15 +196,22 @@ describe('authService', () => {
     });
 
     it('should throw UNAUTHORIZED if OTP not found', async () => {
-      MockedAuthRepository.findRecentOtp.mockResolvedValue(null);
+      ((prisma as any).phoneOtp.findFirst as jest.MockedFunction<any>).mockResolvedValue(null);
 
       await expect(authService.verifyUserOtp(T_P, '123456'))
         .rejects.toThrow(new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED));
     });
 
     it('should throw UNAUTHORIZED if OTP code is invalid', async () => {
-      const otp = { id: 'o-1', codeHash: 'h_v' } as PhoneOtp;
-      MockedAuthRepository.findRecentOtp.mockResolvedValue(otp);
+      const otp = {
+        id: 'o-1',
+        codeHash: 'h_v',
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 60000),
+        consumedAt: null,
+      } as PhoneOtp;
+      ((prisma as any).phoneOtp.findFirst as jest.MockedFunction<any>).mockResolvedValue(otp);
+      ((prisma as any).phoneOtp.update as jest.MockedFunction<any>).mockResolvedValue({ ...otp, attempts: 1 });
 
       await expect(authService.verifyUserOtp(T_P, 'w'))
         .rejects.toThrow(new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED));
@@ -167,15 +220,18 @@ describe('authService', () => {
 
   describe('requestCustomerOtp', () => {
     it('should request OTP successfully for customer in normal mode', async () => {
-      MockedAuthRepository.createOtp.mockResolvedValue({} as PhoneOtp);
+      ((prisma as any).phoneOtp.deleteMany as jest.MockedFunction<any>).mockResolvedValue({ count: 0 });
+      ((prisma as any).phoneOtp.create as jest.MockedFunction<any>).mockResolvedValue({ id: 'o-c-1' });
 
       const result = await authService.requestCustomerOtp(T_P);
 
       expect(result.message).toContain(`OTP sent to ${NORMALIZED_T_P}`);
-      expect(MockedAuthRepository.createOtp).toHaveBeenCalledWith(
+      expect((prisma as any).phoneOtp.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          phone: NORMALIZED_T_P,
-          targetActorType: 'CUSTOMER',
+          data: expect.objectContaining({
+            phone: NORMALIZED_T_P,
+            targetActorType: 'CUSTOMER',
+          }),
         })
       );
       expect(MockedQueueSms).toHaveBeenCalled();
@@ -188,16 +244,19 @@ describe('authService', () => {
       (env as any).SKIP_OTP = true; /* eslint-disable-line @typescript-eslint/no-explicit-any */
 
       try {
-        MockedAuthRepository.createOtp.mockResolvedValue({} as PhoneOtp);
+        ((prisma as any).phoneOtp.deleteMany as jest.MockedFunction<any>).mockResolvedValue({ count: 0 });
+        ((prisma as any).phoneOtp.create as jest.MockedFunction<any>).mockResolvedValue({ id: 'o-c-2' });
 
         const result = await authService.requestCustomerOtp(T_P);
 
         expect(result.message).toContain(`OTP sent to ${NORMALIZED_T_P}`);
-        expect(MockedAuthRepository.createOtp).toHaveBeenCalledWith(
+        expect((prisma as any).phoneOtp.create).toHaveBeenCalledWith(
           expect.objectContaining({
-            phone: NORMALIZED_T_P,
-            codeHash: expect.stringMatching(/^hmac256:[0-9a-f]{32}:[0-9a-f]{64}$/),
-            targetActorType: 'CUSTOMER',
+            data: expect.objectContaining({
+              phone: NORMALIZED_T_P,
+              codeHash: expect.stringMatching(/^hmac256:[0-9a-f]{32}:[0-9a-f]{64}$/),
+              targetActorType: 'CUSTOMER',
+            }),
           })
         );
         expect(MockedQueueSms).not.toHaveBeenCalled();
@@ -211,11 +270,17 @@ describe('authService', () => {
     it('should verify OTP for customer successfully in normal mode', async () => {
       const code = '123456';
       const codeHash = 'h_123456';
-      const otp = { id: 'o-1', codeHash } as PhoneOtp;
+      const otp = {
+        id: 'o-1',
+        codeHash,
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 60000),
+        consumedAt: null,
+      } as PhoneOtp;
       const customer = { id: 'c-1', phoneVerifiedAt: null } as CustomerAccount;
 
-      MockedAuthRepository.findRecentOtp.mockResolvedValue(otp);
-      MockedAuthRepository.consumeOtp.mockResolvedValue({} as PhoneOtp);
+      ((prisma as any).phoneOtp.findFirst as jest.MockedFunction<any>).mockResolvedValue(otp);
+      ((prisma as any).phoneOtp.updateMany as jest.MockedFunction<any>).mockResolvedValue({ count: 1 });
       MockedAuthRepository.findCustomerByPhone.mockResolvedValue(customer);
       MockedAuthRepository.markCustomerPhoneVerified.mockResolvedValue({} as CustomerAccount);
 
@@ -226,8 +291,15 @@ describe('authService', () => {
     });
 
     it('should throw UNAUTHORIZED if code is incorrect in normal mode', async () => {
-      const otp = { id: 'o-1', codeHash: 'h_123456' } as PhoneOtp;
-      MockedAuthRepository.findRecentOtp.mockResolvedValue(otp);
+      const otp = {
+        id: 'o-1',
+        codeHash: 'h_123456',
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 60000),
+        consumedAt: null,
+      } as PhoneOtp;
+      ((prisma as any).phoneOtp.findFirst as jest.MockedFunction<any>).mockResolvedValue(otp);
+      ((prisma as any).phoneOtp.update as jest.MockedFunction<any>).mockResolvedValue({ ...otp, attempts: 1 });
 
       await expect(authService.verifyCustomerOtp(T_P, '654321'))
         .rejects.toThrow(new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED));
@@ -239,18 +311,26 @@ describe('authService', () => {
       (env as any).SKIP_OTP = true; /* eslint-disable-line @typescript-eslint/no-explicit-any */
 
       try {
-        const otp = { id: 'o-1', codeHash: 'h_000000' } as PhoneOtp;
+        const otp = {
+          id: 'o-1',
+          codeHash: 'h_000000',
+          attempts: 0,
+          expiresAt: new Date(Date.now() + 60000),
+          consumedAt: null,
+        } as PhoneOtp;
         const customer = { id: 'c-1', phoneVerifiedAt: null } as CustomerAccount;
 
-        MockedAuthRepository.findRecentOtp.mockResolvedValue(otp);
-        MockedAuthRepository.consumeOtp.mockResolvedValue({} as PhoneOtp);
+        ((prisma as any).phoneOtp.findFirst as jest.MockedFunction<any>).mockResolvedValue(otp);
+        ((prisma as any).phoneOtp.updateMany as jest.MockedFunction<any>).mockResolvedValue({ count: 1 });
         MockedAuthRepository.findCustomerByPhone.mockResolvedValue(customer);
         MockedAuthRepository.markCustomerPhoneVerified.mockResolvedValue({} as CustomerAccount);
 
         const result = await authService.verifyCustomerOtp(T_P, '000000');
 
         expect(result.message).toBe('OTP verified successfully.');
-        expect(MockedAuthRepository.consumeOtp).toHaveBeenCalledWith('o-1');
+        expect((prisma as any).phoneOtp.updateMany).toHaveBeenCalledWith(
+          expect.objectContaining({ where: { id: 'o-1', consumedAt: null } })
+        );
       } finally {
         (env as any).SKIP_OTP = originalSkipOtp; /* eslint-disable-line @typescript-eslint/no-explicit-any */
       }
@@ -262,6 +342,14 @@ describe('authService', () => {
       (env as any).SKIP_OTP = true; /* eslint-disable-line @typescript-eslint/no-explicit-any */
 
       try {
+        ((prisma as any).phoneOtp.findFirst as jest.MockedFunction<any>).mockResolvedValue({
+          id: 'o-1',
+          codeHash: 'h_000000',
+          attempts: 0,
+          expiresAt: new Date(Date.now() + 60000),
+          consumedAt: null,
+        });
+        ((prisma as any).phoneOtp.update as jest.MockedFunction<any>).mockResolvedValue({ id: 'o-1', attempts: 1 });
         await expect(authService.verifyCustomerOtp(T_P, '123456'))
           .rejects.toThrow(new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED));
       } finally {
@@ -271,17 +359,20 @@ describe('authService', () => {
   });
 
   describe('loginUserWithOtp', () => {
-    it('should login user with recently verified OTP', async () => {
-      const user = UserFactory.create({ id: 'u-1', phone: T_P }) as User;
+    it('should login user with recently verified OTP and omit passwordHash', async () => {
+      const user = UserFactory.create({ id: 'u-1', phone: T_P, isActive: true }) as User;
       const session = SessionFactory.create({ actorId: user.id }) as Session;
 
-      MockedAuthRepository.findRecentConsumedOtp.mockResolvedValue({} as PhoneOtp);
+      MockedAuthRepository.findRecentConsumedOtp.mockResolvedValue({ id: 'otp-cons-1', attempts: 0 } as PhoneOtp);
       MockedAuthRepository.findUserByPhone.mockResolvedValue(user);
+      MockedAuthRepository.deleteConsumedOtp.mockResolvedValue({ count: 1 } as any);
       MockedAuthRepository.createSession.mockResolvedValue(session);
 
       const result = await authService.loginUserWithOtp(T_P, 'gc-1');
 
-      expect(result.user).toEqual(user);
+      const { passwordHash: _ph, ...safeUser } = user as any;
+      expect(result.user).toEqual(safeUser);
+      expect((result.user as any).passwordHash).toBeUndefined();
       expect(result.tokens).toHaveProperty('accessToken');
     });
 
@@ -293,7 +384,7 @@ describe('authService', () => {
     });
 
     it('should throw UNAUTHORIZED if user not found after OTP verification', async () => {
-      MockedAuthRepository.findRecentConsumedOtp.mockResolvedValue({} as PhoneOtp);
+      MockedAuthRepository.findRecentConsumedOtp.mockResolvedValue({ id: 'otp-cons-2', attempts: 0 } as PhoneOtp);
       MockedAuthRepository.findUserByPhone.mockResolvedValue(null);
 
       await expect(authService.loginUserWithOtp(T_P, 'gc-1'))

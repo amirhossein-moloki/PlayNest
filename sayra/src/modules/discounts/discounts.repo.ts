@@ -179,6 +179,8 @@ export const DiscountsRepo = {
       include: {
         campaign: true,
         discount: true,
+        reservation: { select: { id: true, gamingCenterId: true, customerAccountId: true } },
+        bookingHold: { select: { id: true, gamingCenterId: true, customerAccountId: true } },
       },
     });
   },
@@ -193,6 +195,8 @@ export const DiscountsRepo = {
       include: {
         campaign: true,
         discount: true,
+        reservation: { select: { id: true, gamingCenterId: true, customerAccountId: true } },
+        bookingHold: { select: { id: true, gamingCenterId: true, customerAccountId: true } },
       },
     });
   },
@@ -210,6 +214,8 @@ export const DiscountsRepo = {
       include: {
         campaign: true,
         discount: true,
+        reservation: { select: { id: true, gamingCenterId: true, customerAccountId: true } },
+        bookingHold: { select: { id: true, gamingCenterId: true, customerAccountId: true } },
       },
     });
   },
@@ -227,6 +233,8 @@ export const DiscountsRepo = {
       include: {
         campaign: true,
         discount: true,
+        reservation: { select: { id: true, gamingCenterId: true, customerAccountId: true } },
+        bookingHold: { select: { id: true, gamingCenterId: true, customerAccountId: true } },
       },
     });
   },

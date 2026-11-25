@@ -3,7 +3,7 @@ import { NotificationStation } from './notifications.station';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { AppRequest } from '../../types/express';
-import { NotificationType, NotificationCategory, UserRole, Prisma } from '@prisma/client';
+import { NotificationType, NotificationCategory, UserRole, Prisma, SessionActorType } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
 export const notificationsController = {
@@ -100,15 +100,26 @@ export const notificationsController = {
   },
 
   async listNotificationLogs(req: AppRequest, res: Response) {
+    const isPlatformAdmin = req.actor?.actorType === SessionActorType.PLATFORM_ADMIN;
     const role = req.actor?.role;
-    if (!role || (role !== UserRole.MANAGER && role !== UserRole.ADMIN)) {
+    if (!isPlatformAdmin && (!role || (role !== UserRole.MANAGER && role !== UserRole.ADMIN))) {
       throw new AppError('Forbidden: Access denied to notification logs', httpStatus.FORBIDDEN);
     }
 
     const { page, pageSize, status, category, type, channel, entityType, entityId, gamingCenterId } = req.query as Record<string, string | undefined>;
 
-    const effectiveGamingCenterId =
-      role === UserRole.ADMIN ? gamingCenterId : req.actor.gamingCenterId;
+    if (!isPlatformAdmin) {
+      if (!req.actor?.gamingCenterId) {
+        throw new AppError('Forbidden: Tenant gamingCenterId required for notification logs', httpStatus.FORBIDDEN);
+      }
+      if (gamingCenterId && gamingCenterId !== req.actor.gamingCenterId) {
+        throw new AppError('Forbidden: Cannot access notification logs for another gaming center', httpStatus.FORBIDDEN);
+      }
+    }
+
+    const effectiveGamingCenterId = isPlatformAdmin
+      ? gamingCenterId
+      : req.actor.gamingCenterId;
 
     const result = await NotificationStation.listNotificationLogs({
       page: page ? parseInt(page, 10) : undefined,
@@ -126,13 +137,14 @@ export const notificationsController = {
   },
 
   async retryNotificationLog(req: AppRequest, res: Response) {
+    const isPlatformAdmin = req.actor?.actorType === SessionActorType.PLATFORM_ADMIN;
     const role = req.actor?.role;
-    if (!role || (role !== UserRole.MANAGER && role !== UserRole.ADMIN)) {
+    if (!isPlatformAdmin && (!role || (role !== UserRole.MANAGER && role !== UserRole.ADMIN))) {
       throw new AppError('Forbidden: Access denied to retry notification log', httpStatus.FORBIDDEN);
     }
 
     const logId = req.params.id;
-    const result = await NotificationStation.retryNotificationLog(logId);
+    const result = await NotificationStation.retryNotificationLog(logId, req.actor);
     return res.ok(result);
   },
 };

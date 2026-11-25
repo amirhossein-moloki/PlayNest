@@ -5,7 +5,7 @@ import { ReservationRepo } from '../../../../src/modules/reservation/reservation
 import { DiscountsRepo } from '../../../../src/modules/discounts/discounts.repo';
 import { PaymentsRepo } from '../../../../src/modules/payments/payments.repo';
 import { PaymentProviderFactory } from '../../../../src/modules/payments/providers';
-import { BookingHoldStatus, PaymentStatus } from '@prisma/client';
+import { BookingHoldStatus, PaymentStatus, SessionActorType } from '@prisma/client';
 import AppError from '../../../../src/common/errors/AppError';
 import { eventEmitter, AppEvents } from '../../../../src/common/events/event-emitter';
 
@@ -287,6 +287,7 @@ describe('BookingHoldStation - Checkout & Idempotency Retries', () => {
         items,
         customer,
         useWallet: true,
+        actor: { id: 'ca-race', actorType: SessionActorType.CUSTOMER },
         idempotencyKey: 'idemp-race-drain-1',
       })
     ).rejects.toMatchObject({
@@ -352,6 +353,7 @@ describe('BookingHoldStation - Checkout & Idempotency Retries', () => {
         items,
         customer,
         provider: 'WALLET',
+        actor: { id: 'ca-low', actorType: SessionActorType.CUSTOMER },
         idempotencyKey: 'idemp-wallet-only-low-1',
       })
     ).rejects.toMatchObject({
@@ -511,6 +513,7 @@ describe('BookingHoldStation - Checkout & Idempotency Retries', () => {
       items,
       customer,
       useWallet: true,
+      actor: { id: 'ca-full-wallet', actorType: SessionActorType.CUSTOMER },
       idempotencyKey: 'idemp-wallet-succ-1',
     });
 

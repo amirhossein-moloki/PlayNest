@@ -2,6 +2,7 @@
 import { ADMIN_CONSTANTS } from './admin.constants';
 import { buildResourceRegistry } from '../resources/resource.registry';
 import { DashboardService } from '../dashboard/dashboard.service';
+import { hasValidPlatformAdminAccess } from '../auth/admin.authorization';
 
 export interface AdminConfigOptions {
   componentLoader: any;
@@ -33,7 +34,10 @@ export function buildAdminOptions(options: AdminConfigOptions): any {
     },
     dashboard: {
       component: options.dashboardComponentId,
-      handler: async () => {
+      handler: async (_request: any, _response: any, context: any) => {
+        if (!hasValidPlatformAdminAccess(context)) {
+          throw new Error('Unauthorized: MFA-verified PlatformAdmin session required');
+        }
         const metrics = await DashboardService.getPlatformMetrics();
         return metrics;
       },

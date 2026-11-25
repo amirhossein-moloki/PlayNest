@@ -48,9 +48,19 @@ describe('GroupBookingRepo.cancelGroupBookingAndReservations', () => {
       }
     );
 
+    const cancelableStatuses = [
+      ReservationStatus.PENDING,
+      ReservationStatus.CONFIRMED,
+      ReservationStatus.IN_PROGRESS,
+    ];
+
     expect(result?.status).toBe(ReservationStatus.CANCELED);
     expect(txMock.groupBooking.updateMany).toHaveBeenCalledWith({
-      where: { id: groupBookingId, gamingCenterId },
+      where: {
+        id: groupBookingId,
+        gamingCenterId,
+        status: { in: cancelableStatuses },
+      },
       data: {
         status: ReservationStatus.CANCELED,
         canceledAt: expect.any(Date),
@@ -59,7 +69,11 @@ describe('GroupBookingRepo.cancelGroupBookingAndReservations', () => {
       },
     });
     expect(txMock.reservation.updateMany).toHaveBeenCalledWith({
-      where: { groupBookingId, gamingCenterId },
+      where: {
+        groupBookingId,
+        gamingCenterId,
+        status: { in: cancelableStatuses },
+      },
       data: {
         status: ReservationStatus.CANCELED,
         canceledAt: expect.any(Date),
@@ -80,8 +94,18 @@ describe('GroupBookingRepo.cancelGroupBookingAndReservations', () => {
       txMock as any
     );
 
+    const cancelableStatuses = [
+      ReservationStatus.PENDING,
+      ReservationStatus.CONFIRMED,
+      ReservationStatus.IN_PROGRESS,
+    ];
+
     expect(txMock.groupBooking.updateMany).toHaveBeenCalledWith({
-      where: { id: groupBookingId, gamingCenterId },
+      where: {
+        id: groupBookingId,
+        gamingCenterId,
+        status: { in: cancelableStatuses },
+      },
       data: {
         status: ReservationStatus.CANCELED,
         canceledAt: expect.any(Date),
@@ -90,7 +114,11 @@ describe('GroupBookingRepo.cancelGroupBookingAndReservations', () => {
       },
     });
     expect(txMock.reservation.updateMany).toHaveBeenCalledWith({
-      where: { groupBookingId, gamingCenterId },
+      where: {
+        groupBookingId,
+        gamingCenterId,
+        status: { in: cancelableStatuses },
+      },
       data: {
         status: ReservationStatus.CANCELED,
         canceledAt: expect.any(Date),
@@ -98,5 +126,66 @@ describe('GroupBookingRepo.cancelGroupBookingAndReservations', () => {
         canceledByUserId: 'u-staff-1',
       },
     });
+  });
+
+  it('should return null without updating child reservations when groupBooking updateMany matches 0 rows', async () => {
+    txMock.groupBooking.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    const result = await GroupBookingRepo.cancelGroupBookingAndReservations(
+      groupBookingId,
+      gamingCenterId,
+      'u-staff-1',
+      'Late cancel',
+      txMock as any
+    );
+
+    expect(result).toBeNull();
+    expect(txMock.reservation.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('GroupBookingRepo.syncParentGroupBookingStatus', () => {
+  it('syncs parent GroupBooking status to IN_PROGRESS, COMPLETED, NO_SHOW, and CANCELED based on children', async () => {
+    const cases: Array<{ childStatuses: ReservationStatus[]; expected: ReservationStatus }> = [
+      {
+        childStatuses: [ReservationStatus.IN_PROGRESS, ReservationStatus.CONFIRMED],
+        expected: ReservationStatus.IN_PROGRESS,
+      },
+      {
+        childStatuses: [ReservationStatus.COMPLETED, ReservationStatus.CANCELED],
+        expected: ReservationStatus.COMPLETED,
+      },
+      {
+        childStatuses: [ReservationStatus.NO_SHOW, ReservationStatus.CANCELED],
+        expected: ReservationStatus.NO_SHOW,
+      },
+      {
+        childStatuses: [ReservationStatus.CANCELED, ReservationStatus.CANCELED],
+        expected: ReservationStatus.CANCELED,
+      },
+    ];
+
+    for (const c of cases) {
+      const txMock = {
+        reservation: {
+          findMany: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue(
+            c.childStatuses.map((status) => ({ status }))
+          ),
+        },
+        groupBooking: {
+          updateMany: jest.fn<(...args: any[]) => Promise<any>>().mockResolvedValue({ count: 1 }),
+        },
+      };
+
+      await GroupBookingRepo.syncParentGroupBookingStatus('gb-sync-1', txMock as any);
+
+      expect(txMock.groupBooking.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'gb-sync-1',
+          status: { not: c.expected },
+        },
+        data: { status: c.expected },
+      });
+    }
   });
 });

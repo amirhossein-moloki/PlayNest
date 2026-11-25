@@ -56,6 +56,18 @@ export const WalletChargeRepo = {
 
   async updateCharge(id: string, data: Prisma.WalletChargeUpdateInput, tx?: Prisma.TransactionClient) {
     const client = tx || prisma;
+    const isFailureTransition =
+      data.status === WalletChargeStatus.FAILED || data.status === WalletChargeStatus.CANCELLED;
+    if (isFailureTransition && typeof client.walletCharge?.updateMany === 'function') {
+      await client.walletCharge.updateMany({
+        where: { id, status: WalletChargeStatus.PENDING },
+        data: data as Prisma.WalletChargeUpdateManyMutationInput,
+      });
+      return client.walletCharge.findUnique({
+        where: { id },
+        include: { customerAccount: true },
+      });
+    }
     return client.walletCharge.update({
       where: { id },
       data,
@@ -72,7 +84,11 @@ export const WalletChargeRepo = {
     externalTx?: Prisma.TransactionClient
   ) {
     const execute = async (tx: Prisma.TransactionClient) => {
-      // 1. Fetch charge with pessimistic locking if postgres, or verify status inside transaction
+      // 1. Acquire row-level lock on WalletCharge before reading status to prevent TOCTOU double-credit
+      if (typeof (tx as { $executeRaw?: unknown }).$executeRaw === 'function') {
+        await tx.$executeRaw`SELECT id FROM "WalletCharge" WHERE id = ${chargeId} FOR UPDATE`;
+      }
+
       const charge = await tx.walletCharge.findUnique({
         where: { id: chargeId },
       });
@@ -83,6 +99,11 @@ export const WalletChargeRepo = {
 
       // Idempotency: If already marked PAID, return existing charge immediately without re-crediting
       if (charge.status === WalletChargeStatus.PAID) {
+        return charge;
+      }
+
+      // Guard against crediting a cancelled/terminal charge
+      if (charge.status !== WalletChargeStatus.PENDING) {
         return charge;
       }
 

@@ -283,12 +283,68 @@ describe('PlayNest Platform Admin Panel - Mandatory TOTP & Security Test Suite',
       testApp.get('/platform-admin-panel/login', (_req, res) => {
         res.status(200).send('Login Page');
       });
+      testApp.post('/platform-admin-panel/login', (_req, res) => {
+        res.status(200).send('Should Not Reach');
+      });
+      testApp.get('/platform-admin-panel/frontend/assets/components.bundle.js', (_req, res) => {
+        res.status(200).send('/* asset */');
+      });
+      testApp.get('/platform-admin-panel/admin.css', (_req, res) => {
+        res.status(200).send('/* css */');
+      });
+      testApp.post('/platform-admin-panel/admin.css', (_req, res) => {
+        res.status(200).send('Should Not Reach');
+      });
+      testApp.get('/platform-admin-panel/api/resources/User/actions/list', (_req, res) => {
+        res.status(200).json({ users: [] });
+      });
+      testApp.post('/platform-admin-panel/api/resources/User/actions/new', (_req, res) => {
+        res.status(201).json({ created: true });
+      });
     });
 
-    it('should allow public access to the login page', async () => {
-      const res = await request(testApp).get('/platform-admin-panel/login');
-      expect(res.status).toBe(200);
-      expect(res.text).toBe('Login Page');
+    it('should allow public access to the login page and GET static assets', async () => {
+      const loginRes = await request(testApp).get('/platform-admin-panel/login');
+      expect(loginRes.status).toBe(200);
+      expect(loginRes.text).toBe('Login Page');
+
+      const bundleRes = await request(testApp).get('/platform-admin-panel/frontend/assets/components.bundle.js');
+      expect(bundleRes.status).toBe(200);
+
+      const cssRes = await request(testApp).get('/platform-admin-panel/admin.css');
+      expect(cssRes.status).toBe(200);
+    });
+
+    it('should block query-string, method, and traversal bypass attempts on AdminJS routes', async () => {
+      const qCssGet = await request(testApp)
+        .get('/platform-admin-panel/api/resources/User/actions/list?/admin.css')
+        .set('Accept', 'application/json');
+      expect(qCssGet.status).toBe(401);
+
+      const qAssetPost = await request(testApp)
+        .post('/platform-admin-panel/api/resources/User/actions/new?/frontend/assets/x')
+        .set('Accept', 'application/json');
+      expect(qAssetPost.status).toBe(401);
+
+      const postAsset = await request(testApp)
+        .post('/platform-admin-panel/admin.css')
+        .set('Accept', 'application/json');
+      expect(postAsset.status).toBe(401);
+
+      const postLogin = await request(testApp)
+        .post('/platform-admin-panel/login')
+        .set('Accept', 'application/json');
+      expect(postLogin.status).toBe(401);
+
+      const traversalGet = await request(testApp)
+        .get('/platform-admin-panel/frontend/assets/../api/resources/User/actions/list')
+        .set('Accept', 'application/json');
+      expect(traversalGet.status).toBe(401);
+
+      const encodedTraversalGet = await request(testApp)
+        .get('/platform-admin-panel/frontend/assets/%2e%2e/api/resources/User/actions/list')
+        .set('Accept', 'application/json');
+      expect(encodedTraversalGet.status).toBe(401);
     });
 
     it('should redirect unauthenticated browser requests to login', async () => {
@@ -418,6 +474,15 @@ describe('PlayNest Platform Admin Panel - Mandatory TOTP & Security Test Suite',
       expect(paResource.options.properties.totpPendingSecretEncrypted.isVisible.show).toBe(false);
       expect(paResource.options.properties.totpSecretEncrypted.isVisible.edit).toBe(false);
       expect(paResource.options.properties.totpEnabled.isVisible.edit).toBe(false);
+
+      for (const entry of allResources) {
+        const listGuard = entry.options?.actions?.list?.isAccessible;
+        expect(typeof listGuard).toBe('function');
+        expect(listGuard({})).toBe(false);
+        expect(listGuard({ currentAdmin: { id: 'pa_1', isSuperuser: true, mfaVerified: false } })).toBe(false);
+        expect(listGuard({ currentAdmin: { id: 'pa_1', isSuperuser: false, mfaVerified: true } })).toBe(false);
+        expect(listGuard({ currentAdmin: { id: 'pa_1', isSuperuser: true, mfaVerified: true } })).toBe(true);
+      }
     });
   });
 

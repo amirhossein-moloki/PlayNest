@@ -228,17 +228,31 @@ export const reserveDiscount = async (req: AppRequest, res: Response) => {
 };
 
 export const releaseDiscount = async (req: AppRequest, res: Response) => {
+  const { gamingCenterId } = req.params;
   const body = req.body as ReleaseDiscountInput;
 
-  const result = await discountsStation.releaseDiscount(body);
+  const result = await discountsStation.releaseDiscount(body, undefined, {
+    actor: req.actor,
+    gamingCenterId,
+    allowRedeemed: false,
+  });
 
   res.ok({ success: true, usage: result });
 };
 
 export const redeemDiscount = async (req: AppRequest, res: Response) => {
+  const { gamingCenterId } = req.params;
   const body = req.body as RedeemDiscountInput;
 
-  const result = await discountsStation.redeemDiscount(body.reservationId, body);
+  const result = await discountsStation.redeemDiscount(
+    body.reservationId,
+    body,
+    undefined,
+    {
+      actor: req.actor,
+      gamingCenterId,
+    }
+  );
 
   res.ok({ success: true, usage: result });
 };

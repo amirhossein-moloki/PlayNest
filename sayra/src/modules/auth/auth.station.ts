@@ -6,26 +6,26 @@ import { OtpPurpose, SessionActorType } from '@prisma/client';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import { env } from '../../config/env';
-import { queueSms } from '../../jobs/producers/sms.producer';
 import { normalizePhone } from '../../common/utils/phone';
-import { isSkipOtp, getEffectiveOtpCode, hashOtpCode, verifyOtpCode, STATIC_OTP_CODE } from './otp-security';
+import redis from '../../config/redis';
+
+const LOGIN_MAX_FAILURES = 5;
+const LOGIN_LOCKOUT_SECONDS = 900; // 15 minutes
+
+const getLoginLockKey = (gamingCenterId: string, phone: string) =>
+  `auth:login_fail:${gamingCenterId}:${normalizePhone(phone)}`;
+
+const sanitizeUser = <T extends Record<string, unknown>>(user: T): Omit<T, 'passwordHash'> => {
+  const { passwordHash: _passwordHash, ...safeUser } = user;
+  return safeUser;
+};
 
 const hashToken = (token: string) => {
   return crypto.createHash('sha256').update(token).digest('hex');
 };
 
 // OTP settings
-const OTP_EXPIRATION_MINUTES = 2;
-const OTP_LENGTH = 6;
 const OTP_POST_VERIFICATION_WINDOW_MINUTES = 5; // How long a user has to login after verifying OTP
-
-const getOtpTemplateId = (): number => {
-  const templateId = env.MELIPAYAMAK_OTP_BODY_ID || env.SMSIR_OTP_TEMPLATE_ID;
-  if (!templateId) {
-    throw new Error('MELIPAYAMAK_OTP_BODY_ID or SMSIR_OTP_TEMPLATE_ID must be set in the environment variables.');
-  }
-  return templateId;
-};
 
 const createAndSaveSession = async (actorId: string, actorType: SessionActorType) => {
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
@@ -49,20 +49,56 @@ const createAndSaveSession = async (actorId: string, actorType: SessionActorType
 
 export const authService = {
   async loginUser(phone: string, password: string, gamingCenterId: string) {
+    const lockKey = getLoginLockKey(gamingCenterId, phone);
+    let currentFailures = 0;
+    try {
+      const rawFails = await redis.get(lockKey);
+      currentFailures = Number(rawFails) || 0;
+    } catch {
+      currentFailures = 0;
+    }
+    if (currentFailures >= LOGIN_MAX_FAILURES) {
+      throw new AppError(
+        'Too many failed login attempts. Please try again later.',
+        httpStatus.TOO_MANY_REQUESTS,
+        { code: 'ACCOUNT_LOCKED' }
+      );
+    }
+
     const user = await AuthRepository.findUserByPhone(phone, gamingCenterId);
     if (!user || !user.passwordHash) {
+      try {
+        await redis.set(lockKey, String(currentFailures + 1), 'EX', LOGIN_LOCKOUT_SECONDS);
+      } catch {
+        // ignore cache failure
+      }
       throw new AppError('Invalid credentials', httpStatus.UNAUTHORIZED);
+    }
+
+    if (user.isActive === false) {
+      throw new AppError('User account is deactivated', httpStatus.UNAUTHORIZED);
     }
 
     const isPasswordValid = await argon2.verify(user.passwordHash, password);
     if (!isPasswordValid) {
+      try {
+        await redis.set(lockKey, String(currentFailures + 1), 'EX', LOGIN_LOCKOUT_SECONDS);
+      } catch {
+        // ignore cache failure
+      }
       throw new AppError('Invalid credentials', httpStatus.UNAUTHORIZED);
+    }
+
+    try {
+      await redis.del(lockKey);
+    } catch {
+      // ignore cache failure
     }
 
     const { accessToken, refreshToken } = await createAndSaveSession(user.id, 'USER');
 
     return {
-      user,
+      user: sanitizeUser(user as unknown as Record<string, unknown>),
       tokens: { accessToken, refreshToken },
     };
   },
@@ -76,50 +112,23 @@ export const authService = {
     return PlatformAdminAuthService.login(identifier, password, context);
   },
 
-  async requestUserOtp(phone: string) {
+  /**
+   * Requests a staff/manager OTP via OtpService with actor-type scoping and rate limiting.
+   */
+  async requestUserOtp(phone: string, metadata?: { ip?: string; userAgent?: string }) {
+    const { OtpService } = await import('./otp.service');
     const normalizedPhone = normalizePhone(phone);
-
-    // If SKIP_OTP is enabled, use static code '000000' and skip sending real SMS
-    const code = getEffectiveOtpCode(OTP_LENGTH);
-    const codeHash = hashOtpCode(code, { phone: normalizedPhone, purpose: OtpPurpose.LOGIN });
-    const expiresAt = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
-
-    await AuthRepository.createOtp({
-      phone: normalizedPhone,
-      purpose: OtpPurpose.LOGIN,
-      codeHash,
-      expiresAt,
-      targetActorType: SessionActorType.USER,
-    });
-
-    if (!isSkipOtp()) {
-      await queueSms({ mobile: normalizedPhone, templateId: getOtpTemplateId(), parameters: [{ name: 'CODE', value: code }] });
-    }
-
-    return { message: `OTP sent to ${normalizedPhone}. It will expire in ${OTP_EXPIRATION_MINUTES} minutes.` };
+    return OtpService.requestOtp(normalizedPhone, OtpPurpose.LOGIN, metadata, SessionActorType.USER);
   },
 
-  async verifyUserOtp(phone: string, code: string) {
+  /**
+   * Verifies a staff/manager OTP via OtpService enforcing max attempts, backoff, and atomic consumption.
+   */
+  async verifyUserOtp(phone: string, code: string, metadata?: { ip?: string }) {
+    const { OtpService } = await import('./otp.service');
     const normalizedPhone = normalizePhone(phone);
 
-    // If SKIP_OTP is enabled, strictly require '000000'
-    if (isSkipOtp() && code !== STATIC_OTP_CODE) {
-      throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
-    }
-
-    const otp = await AuthRepository.findRecentOtp(normalizedPhone, OtpPurpose.LOGIN, SessionActorType.USER);
-
-    if (!otp) {
-      throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
-    }
-
-    const isCodeValid = await verifyOtpCode(code, otp.codeHash, { phone: normalizedPhone, purpose: OtpPurpose.LOGIN });
-
-    if (!isCodeValid) {
-      throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
-    }
-
-    await AuthRepository.consumeOtp(otp.id);
+    await OtpService.verifyAndConsumeOtp(normalizedPhone, code, OtpPurpose.LOGIN, metadata, SessionActorType.USER);
     await AuthRepository.markUserPhoneVerified(normalizedPhone);
 
     const users = await AuthRepository.findUsersWithGamingCenters(normalizedPhone);
@@ -132,50 +141,23 @@ export const authService = {
     return { gamingCenters };
   },
 
-  async requestCustomerOtp(phone: string) {
+  /**
+   * Requests a customer OTP via OtpService with actor-type scoping and rate limiting.
+   */
+  async requestCustomerOtp(phone: string, metadata?: { ip?: string; userAgent?: string }) {
+    const { OtpService } = await import('./otp.service');
     const normalizedPhone = normalizePhone(phone);
-
-    // If SKIP_OTP is enabled, use static code '000000' and skip sending real SMS
-    const code = getEffectiveOtpCode(OTP_LENGTH);
-    const codeHash = hashOtpCode(code, { phone: normalizedPhone, purpose: OtpPurpose.LOGIN });
-    const expiresAt = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
-
-    await AuthRepository.createOtp({
-      phone: normalizedPhone,
-      purpose: OtpPurpose.LOGIN,
-      codeHash,
-      expiresAt,
-      targetActorType: SessionActorType.CUSTOMER,
-    });
-
-    if (!isSkipOtp()) {
-      await queueSms({ mobile: normalizedPhone, templateId: getOtpTemplateId(), parameters: [{ name: 'CODE', value: code }] });
-    }
-
-    return { message: `OTP sent to ${normalizedPhone}. It will expire in ${OTP_EXPIRATION_MINUTES} minutes.` };
+    return OtpService.requestOtp(normalizedPhone, OtpPurpose.LOGIN, metadata, SessionActorType.CUSTOMER);
   },
 
-  async verifyCustomerOtp(phone: string, code: string) {
+  /**
+   * Verifies a customer OTP via OtpService enforcing max attempts, backoff, and atomic consumption.
+   */
+  async verifyCustomerOtp(phone: string, code: string, metadata?: { ip?: string }) {
+    const { OtpService } = await import('./otp.service');
     const normalizedPhone = normalizePhone(phone);
 
-    // If SKIP_OTP is enabled, strictly require '000000'
-    if (isSkipOtp() && code !== STATIC_OTP_CODE) {
-      throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
-    }
-
-    const otp = await AuthRepository.findRecentOtp(normalizedPhone, OtpPurpose.LOGIN, SessionActorType.CUSTOMER);
-
-    if (!otp) {
-      throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
-    }
-
-    const isCodeValid = await verifyOtpCode(code, otp.codeHash, { phone: normalizedPhone, purpose: OtpPurpose.LOGIN });
-
-    if (!isCodeValid) {
-      throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
-    }
-
-    await AuthRepository.consumeOtp(otp.id);
+    await OtpService.verifyAndConsumeOtp(normalizedPhone, code, OtpPurpose.LOGIN, metadata, SessionActorType.CUSTOMER);
 
     const customer = await AuthRepository.findCustomerByPhone(normalizedPhone);
     if (customer && !customer.phoneVerifiedAt) {
@@ -185,9 +167,13 @@ export const authService = {
     return { message: 'OTP verified successfully.' };
   },
 
+  /**
+   * Completes deprecated USER OTP login with strict single-use consumption and active account checks.
+   */
   async loginUserWithOtp(phone: string, gamingCenterId: string) {
     const normalizedPhone = normalizePhone(phone);
     const verificationWindow = new Date(Date.now() - OTP_POST_VERIFICATION_WINDOW_MINUTES * 60 * 1000);
+    const maxAttempts = Number(env.OTP_MAX_ATTEMPTS) || 5;
 
     const recentVerifiedOtp = await AuthRepository.findRecentConsumedOtp(
       normalizedPhone,
@@ -196,19 +182,30 @@ export const authService = {
       SessionActorType.USER
     );
 
-    if (!recentVerifiedOtp) {
+    if (
+      !recentVerifiedOtp ||
+      (recentVerifiedOtp.attempts ?? 0) >= maxAttempts ||
+      (recentVerifiedOtp.expiresAt &&
+        recentVerifiedOtp.consumedAt &&
+        recentVerifiedOtp.consumedAt > recentVerifiedOtp.expiresAt)
+    ) {
       throw new AppError('No recent OTP verification found. Please verify again.', httpStatus.UNAUTHORIZED);
     }
 
     const user = await AuthRepository.findUserByPhone(normalizedPhone, gamingCenterId);
-    if (!user) {
+    if (!user || user.isActive === false) {
       throw new AppError('Invalid credentials for the selected gamingCenter.', httpStatus.UNAUTHORIZED);
+    }
+
+    const deletedOtp = await AuthRepository.deleteConsumedOtp(recentVerifiedOtp.id);
+    if (!deletedOtp || deletedOtp.count === 0) {
+      throw new AppError('OTP verification has already been used.', httpStatus.UNAUTHORIZED);
     }
 
     const { accessToken, refreshToken } = await createAndSaveSession(user.id, 'USER');
 
     return {
-      user,
+      user: sanitizeUser(user as unknown as Record<string, unknown>),
       tokens: { accessToken, refreshToken },
     };
   },
@@ -299,25 +296,47 @@ export const authService = {
 
     // 3. Check for expiration.
     if (new Date() > session.expiresAt) {
+      const { markSessionRevokedInCache } = await import('../../common/middleware/auth');
+      await markSessionRevokedInCache(session.id, 7 * 24 * 3600);
       await AuthRepository.revokeSession(session.id);
       throw new AppError('Refresh token has expired', httpStatus.UNAUTHORIZED);
     }
 
-    // 4. Create and return a new access token.
+    // 4. Verify active user state for USER sessions (null means deleted user; undefined in automocks is ignored).
+    if (session.actorType === SessionActorType.USER) {
+      const user = await AuthRepository.findUserById(session.actorId);
+      if (user === null || (user && user.isActive === false)) {
+        const { invalidateActorCache, markSessionRevokedInCache } = await import('../../common/middleware/auth');
+        await markSessionRevokedInCache(session.id, 7 * 24 * 3600);
+        await invalidateActorCache(session.actorId, session.actorType);
+        await AuthRepository.revokeSession(session.id);
+        throw new AppError('User account is inactive or no longer exists', httpStatus.UNAUTHORIZED);
+      }
+    }
+
+    // 5. Rotate refresh token & issue new access token.
+    const newRefreshToken = crypto.randomBytes(32).toString('hex');
+    const newTokenHash = hashToken(newRefreshToken);
+    if (typeof AuthRepository.rotateSessionToken === 'function') {
+      await AuthRepository.rotateSessionToken(session.id, newTokenHash);
+    }
+
     const newPayload = { sessionId: session.id, actorId: session.actorId, actorType: session.actorType };
     const accessToken = generateAccessToken(newPayload);
 
-    return { accessToken };
+    return { accessToken, refreshToken: newRefreshToken };
   },
 
   async logout(sessionId: string, context?: { ip?: string; userAgent?: string }) {
+    const { invalidateActorCache, markSessionRevokedInCache } = await import('../../common/middleware/auth');
+    await markSessionRevokedInCache(sessionId, 7 * 24 * 3600);
+
     const session = await AuthRepository.findSessionById(sessionId);
     if (session) {
       if (session.actorType === SessionActorType.PLATFORM_ADMIN) {
         const { PlatformAdminAuthService } = await import('./platform-admin-auth.service');
         return PlatformAdminAuthService.logoutSession(sessionId, session.actorId, context);
       }
-      const { invalidateActorCache } = await import('../../common/middleware/auth');
       await invalidateActorCache(session.actorId, session.actorType);
     }
     await AuthRepository.revokeSession(sessionId);

@@ -1,7 +1,7 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { reservationStation } from '../../../../src/modules/reservation/reservation.station';
 import { ReservationRepo } from '../../../../src/modules/reservation/reservation.repo';
-import { ReservationStatus, ReservationSource, ReservationPaymentState } from '@prisma/client';
+import { ReservationStatus, ReservationSource, ReservationPaymentState, SessionActorType } from '@prisma/client';
 import { eventEmitter, AppEvents } from '../../../../src/common/events/event-emitter';
 import { discountsStation } from '../../../../src/modules/discounts/discounts.station';
 
@@ -145,6 +145,7 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
         startTime: '2027-06-06T10:00:00Z',
         customer: { fullName: 'Jane Doe', phone: '09998887766' },
         useWallet: true,
+        actor: { id: 'cust-2', actorType: SessionActorType.CUSTOMER },
       };
 
       const gamingCenter = {
@@ -251,7 +252,12 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
       MockedReservationRepo.findCustomerAccountByPhone.mockResolvedValue(customerAccount /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       MockedReservationRepo.findCustomerProfile.mockResolvedValue(customerProfile /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
-      await expect(reservationStation.createPublicReservation(gamingCenterSlug, input))
+      await expect(
+        reservationStation.createPublicReservation(gamingCenterSlug, {
+          ...input,
+          actor: { id: 'cust-2', actorType: SessionActorType.CUSTOMER },
+        })
+      )
         .rejects.toMatchObject({
           statusCode: 400,
           code: 'INSUFFICIENT_WALLET_BALANCE',
@@ -295,7 +301,12 @@ describe('Reservation Creation Integration (Mocked Repo)', () => {
       MockedReservationRepo.findStaffShift.mockResolvedValue(staffShift /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       MockedReservationRepo.findOverlappingReservation.mockResolvedValue({ id: 'existing-res' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
-      await expect(reservationStation.createPublicReservation(gamingCenterSlug, input))
+      await expect(
+        reservationStation.createPublicReservation(gamingCenterSlug, {
+          ...input,
+          actor: { id: 'cust-2', actorType: SessionActorType.CUSTOMER },
+        })
+      )
         .rejects.toThrow('Selected time is not available.');
     });
   });

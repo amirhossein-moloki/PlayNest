@@ -264,8 +264,8 @@ export const getTicketDetails = async (ticketId: string, actor: { id: string; ro
     if (ticket.customerAccountId !== actor.id) {
       throw new AppError('Access denied', httpStatus.FORBIDDEN);
     }
-  } else if (actor.actorType === 'USER' && actor.role !== UserRole.ADMIN) {
-    // Gaming Center manager or staff can only view tickets they created or their center's tickets
+  } else if (actor.actorType !== 'PLATFORM_ADMIN') {
+    // Tenant users (including any legacy UserRole.ADMIN) can only view tickets they created
     const isOwner = ticket.userId === actor.id;
     if (!isOwner) {
       throw new AppError('Access denied', httpStatus.FORBIDDEN);

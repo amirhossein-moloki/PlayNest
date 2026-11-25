@@ -9,6 +9,19 @@ import {
   completeOnboardingSchema,
 } from './onboarding.validators';
 
+const extractOnboardingToken = (req: Request): string | undefined => {
+  const headerToken = req.header('x-onboarding-token');
+  if (headerToken && headerToken.trim()) {
+    return headerToken.trim();
+  }
+  const authHeader = req.header('authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const bearer = authHeader.slice(7).trim();
+    if (bearer) return bearer;
+  }
+  return undefined;
+};
+
 export const OnboardingController = {
   async startOnboarding(req: Request, res: Response, next: NextFunction) {
     try {
@@ -17,7 +30,10 @@ export const OnboardingController = {
         managerFullName: string;
         managerPhone: string;
       };
-      const result = await OnboardingStation.startOnboarding(validated);
+      const result = await OnboardingStation.startOnboarding(validated, {
+        ip: req.ip,
+        userAgent: req.get('user-agent'),
+      });
       return res.created(result);
     } catch (err) {
       next(err);
@@ -27,7 +43,9 @@ export const OnboardingController = {
   async verifyOtp(req: Request, res: Response, next: NextFunction) {
     try {
       const validated = verifyOnboardingOtpSchema.parse(req.body);
-      const result = await OnboardingStation.verifyOtp(validated.onboardingId, validated.code);
+      const result = await OnboardingStation.verifyOtp(validated.onboardingId, validated.code, {
+        ip: req.ip,
+      });
       return res.ok(result);
     } catch (err) {
       next(err);
@@ -44,7 +62,7 @@ export const OnboardingController = {
         latitude?: number | null;
         longitude?: number | null;
       };
-      const result = await OnboardingStation.updateLocation(id, validated);
+      const result = await OnboardingStation.updateLocation(id, validated, extractOnboardingToken(req));
       return res.ok(result);
     } catch (err) {
       next(err);
@@ -60,7 +78,7 @@ export const OnboardingController = {
         closedDays?: number[];
         timezone?: string;
       };
-      const result = await OnboardingStation.updateWorkingHours(id, validated);
+      const result = await OnboardingStation.updateWorkingHours(id, validated, extractOnboardingToken(req));
       return res.ok(result);
     } catch (err) {
       next(err);
@@ -71,7 +89,7 @@ export const OnboardingController = {
     try {
       const { id } = req.params;
       const validated = updateMediaSchema.parse(req.body);
-      const result = await OnboardingStation.updateMedia(id, validated);
+      const result = await OnboardingStation.updateMedia(id, validated, extractOnboardingToken(req));
       return res.ok(result);
     } catch (err) {
       next(err);
@@ -81,7 +99,7 @@ export const OnboardingController = {
   async getPreview(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const result = await OnboardingStation.getPreview(id);
+      const result = await OnboardingStation.getPreview(id, extractOnboardingToken(req));
       return res.ok(result);
     } catch (err) {
       next(err);
@@ -92,7 +110,7 @@ export const OnboardingController = {
     try {
       const { id } = req.params;
       completeOnboardingSchema.parse(req.body);
-      const result = await OnboardingStation.completeOnboarding(id);
+      const result = await OnboardingStation.completeOnboarding(id, extractOnboardingToken(req));
       return res.ok(result);
     } catch (err) {
       next(err);

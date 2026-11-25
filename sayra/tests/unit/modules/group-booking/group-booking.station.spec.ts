@@ -445,6 +445,8 @@ describe('GroupBookingStation', () => {
       MockedReservationRepo.findCustomerAccountByPhone.mockResolvedValue({ id: 'ca-1', phone: '+989123456789' } as any);
       MockedReservationRepo.findCustomerProfile.mockResolvedValue({ id: 'cp-1' } as any);
 
+      const ownerActor = { id: 'ca-1', actorType: SessionActorType.CUSTOMER };
+
       await expect(
         GroupBookingStation.createPublicGroupBooking('center-1', {
           startTime,
@@ -452,6 +454,7 @@ describe('GroupBookingStation', () => {
           items,
           customer,
           useWallet: true,
+          actor: ownerActor,
         })
       ).rejects.toMatchObject({ statusCode: 400, code: 'INSUFFICIENT_WALLET_BALANCE' });
 
@@ -462,6 +465,7 @@ describe('GroupBookingStation', () => {
           items,
           customer,
           provider: 'WALLET',
+          actor: ownerActor,
         })
       ).rejects.toMatchObject({ statusCode: 400, code: 'INSUFFICIENT_WALLET_BALANCE' });
 
@@ -519,6 +523,7 @@ describe('GroupBookingStation', () => {
         items,
         customer,
         useWallet: true,
+        actor: { id: 'ca-1', actorType: SessionActorType.CUSTOMER },
       });
 
       expect(result?.status).toBe(ReservationStatus.CONFIRMED);

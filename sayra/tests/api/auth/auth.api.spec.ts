@@ -21,7 +21,14 @@ jest.mock('../../../src/config/prisma', () => ({
     user: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockImplementation(() => Promise.resolve([])), updateMany: jest.fn() },
     customerAccount: { findUnique: jest.fn(), findFirst: jest.fn(), upsert: jest.fn() },
     session: { findUnique: jest.fn(), update: jest.fn(), create: jest.fn() },
-    phoneOtp: { findFirst: jest.fn(), update: jest.fn(), updateMany: jest.fn(), create: jest.fn() },
+    phoneOtp: {
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      create: jest.fn(),
+      delete: jest.fn(),
+      deleteMany: jest.fn(),
+    },
     gamingCenter: { findUnique: jest.fn() },
   }
 }));
@@ -40,7 +47,8 @@ describe('Authentication API', () => {
 
   describe('User OTP Flow (Login / Auto-Register & Skip OTP)', () => {
     it('Scenario 1: Request OTP for new or existing user should succeed', async () => {
-      MockedAuthRepository.createOtp.mockResolvedValue({ id: 'o1' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      (prisma.phoneOtp.deleteMany as any).mockResolvedValue({ count: 0 });
+      (prisma.phoneOtp.create as any).mockResolvedValue({ id: 'o1' });
       const res = await request(app).post('/api/v1/auth/user/otp/request').send({ phone });
       expect(res.status).toBe(httpStatus.OK);
       expect(res.body.success).toBe(true);
@@ -48,14 +56,21 @@ describe('Authentication API', () => {
     });
 
     it('Scenario 2: Return 401 when verifying with invalid/expired OTP', async () => {
-      MockedAuthRepository.findRecentOtp.mockResolvedValue(null);
+      (prisma.phoneOtp.findFirst as any).mockResolvedValue(null);
       const res = await request(app).post('/api/v1/auth/user/otp/verify').send({ phone, code: '123456' });
       expect(res.status).toBe(httpStatus.UNAUTHORIZED);
       expect(res.body.error.message).toBe('Invalid or expired OTP.');
     });
 
     it('Scenario 3: Return 200 when verifying valid OTP for existing user', async () => {
-      MockedAuthRepository.findRecentOtp.mockResolvedValue({ id: 'o1', codeHash: 'hashed' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      (prisma.phoneOtp.findFirst as any).mockResolvedValue({
+        id: 'o1',
+        codeHash: 'hashed',
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 60000),
+        consumedAt: null,
+      });
+      (prisma.phoneOtp.updateMany as any).mockResolvedValue({ count: 1 });
       MockedArgon2.verify.mockResolvedValue(true /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue([{ gamingCenter: { id: gamingCenterId, name: 'Center' } }] /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
@@ -65,7 +80,14 @@ describe('Authentication API', () => {
     });
 
     it('Scenario 4: Returns empty gaming centers list if no staff user exists (no gaming center auto-creation)', async () => {
-      MockedAuthRepository.findRecentOtp.mockResolvedValue({ id: 'o1', codeHash: 'hashed' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      (prisma.phoneOtp.findFirst as any).mockResolvedValue({
+        id: 'o1',
+        codeHash: 'hashed',
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 60000),
+        consumedAt: null,
+      });
+      (prisma.phoneOtp.updateMany as any).mockResolvedValue({ count: 1 });
       MockedArgon2.verify.mockResolvedValue(true /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue([]);
 
@@ -80,8 +102,16 @@ describe('Authentication API', () => {
       (env as any).SKIP_OTP = true; /* eslint-disable-line @typescript-eslint/no-explicit-any */
 
       try {
-        MockedAuthRepository.createOtp.mockResolvedValue({ id: 'o-user-skip' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-        MockedAuthRepository.findRecentOtp.mockResolvedValue({ id: 'o-user-skip', codeHash: 'hashed_000000' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+        (prisma.phoneOtp.deleteMany as any).mockResolvedValue({ count: 0 });
+        (prisma.phoneOtp.create as any).mockResolvedValue({ id: 'o-user-skip' });
+        (prisma.phoneOtp.findFirst as any).mockResolvedValue({
+          id: 'o-user-skip',
+          codeHash: 'hashed_000000',
+          attempts: 0,
+          expiresAt: new Date(Date.now() + 60000),
+          consumedAt: null,
+        });
+        (prisma.phoneOtp.updateMany as any).mockResolvedValue({ count: 1 });
         MockedArgon2.verify.mockResolvedValue(true /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
         MockedAuthRepository.findUsersWithGamingCenters.mockResolvedValue([{ gamingCenter: { id: gamingCenterId, name: 'Center' } }] /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
@@ -102,6 +132,15 @@ describe('Authentication API', () => {
       (env as any).SKIP_OTP = true; /* eslint-disable-line @typescript-eslint/no-explicit-any */
 
       try {
+        (prisma.phoneOtp.findFirst as any).mockResolvedValue({
+          id: 'o-user-skip',
+          codeHash: 'hashed_000000',
+          attempts: 0,
+          expiresAt: new Date(Date.now() + 60000),
+          consumedAt: null,
+        });
+        (prisma.phoneOtp.update as any).mockResolvedValue({ id: 'o-user-skip', attempts: 1 });
+
         const verifyRes = await request(app).post('/api/v1/auth/user/otp/verify').send({ phone, code: '123456' });
         expect(verifyRes.status).toBe(httpStatus.UNAUTHORIZED);
         expect(verifyRes.body.error.message).toBe('Invalid or expired OTP.');
@@ -111,7 +150,14 @@ describe('Authentication API', () => {
     });
 
     it('Scenario 7: User + SKIP_OTP=false rejects 000000 when code is invalid', async () => {
-      MockedAuthRepository.findRecentOtp.mockResolvedValue({ id: 'o-normal', codeHash: 'hashed_real_code' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      (prisma.phoneOtp.findFirst as any).mockResolvedValue({
+        id: 'o-normal',
+        codeHash: 'hashed_real_code',
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 60000),
+        consumedAt: null,
+      });
+      (prisma.phoneOtp.update as any).mockResolvedValue({ id: 'o-normal', attempts: 1 });
       MockedArgon2.verify.mockResolvedValue(false /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
       const verifyRes = await request(app).post('/api/v1/auth/user/otp/verify').send({ phone, code: '000000' });
@@ -120,13 +166,15 @@ describe('Authentication API', () => {
     });
 
     it('Scenario 8: User login with OTP succeeds with valid consumed OTP', async () => {
-      MockedAuthRepository.findRecentConsumedOtp.mockResolvedValue({ id: 'o-consumed' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedAuthRepository.findUserByPhone.mockResolvedValue({ id: userId, phone: '+989123456789' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedAuthRepository.findRecentConsumedOtp.mockResolvedValue({ id: 'o-consumed', attempts: 0 } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedAuthRepository.findUserByPhone.mockResolvedValue({ id: userId, phone: '+989123456789', isActive: true, passwordHash: 'secret' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      MockedAuthRepository.deleteConsumedOtp.mockResolvedValue({ count: 1 } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       MockedAuthRepository.createSession.mockResolvedValue({ id: 's-user-otp' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
       const res = await request(app).post('/api/v1/auth/user/login/otp').send({ phone, gamingCenterId });
       expect(res.status).toBe(httpStatus.OK);
       expect(res.body.data.tokens).toBeDefined();
+      expect(res.body.data.user.passwordHash).toBeUndefined();
     });
 
     it('Scenario 9: User login with OTP fails if no consumed OTP in window', async () => {
@@ -148,10 +196,17 @@ describe('Authentication API', () => {
 
     it('Scenario 1: Existing customer + SKIP_OTP=false', async () => {
       const existingCustomer = { id: 'cust-1', phone: customerPhone, phoneVerifiedAt: new Date() };
-      MockedAuthRepository.createOtp.mockResolvedValue({ id: 'o1' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedAuthRepository.findRecentOtp.mockResolvedValue({ id: 'o1', codeHash: 'hashed_otp' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      (prisma.phoneOtp.deleteMany as any).mockResolvedValue({ count: 0 });
+      (prisma.phoneOtp.create as any).mockResolvedValue({ id: 'o1' });
+      (prisma.phoneOtp.findFirst as any).mockResolvedValue({
+        id: 'o1',
+        codeHash: 'hashed_otp',
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 60000),
+        consumedAt: null,
+      });
       MockedArgon2.verify.mockResolvedValue(true /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedAuthRepository.consumeOtp.mockResolvedValue({ id: 'o1' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      (prisma.phoneOtp.updateMany as any).mockResolvedValue({ count: 1 });
       MockedAuthRepository.findCustomerByPhone.mockResolvedValue(existingCustomer /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       MockedAuthRepository.createSession.mockResolvedValue({ id: 's-cust-1' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
@@ -168,10 +223,15 @@ describe('Authentication API', () => {
 
     it('Scenario 2: New customer + SKIP_OTP=false', async () => {
       const newCustomer = { id: 'cust-new', phone: customerPhone, phoneVerifiedAt: new Date() };
-      MockedAuthRepository.createOtp.mockResolvedValue({ id: 'o2' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedAuthRepository.findRecentOtp.mockResolvedValue({ id: 'o2', codeHash: 'hashed_otp' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      (prisma.phoneOtp.findFirst as any).mockResolvedValue({
+        id: 'o2',
+        codeHash: 'hashed_otp',
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 60000),
+        consumedAt: null,
+      });
       MockedArgon2.verify.mockResolvedValue(true /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedAuthRepository.consumeOtp.mockResolvedValue({ id: 'o2' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      (prisma.phoneOtp.updateMany as any).mockResolvedValue({ count: 1 });
       MockedAuthRepository.findCustomerByPhone.mockResolvedValue(null);
       MockedAuthRepository.upsertCustomerAccount.mockResolvedValue(newCustomer /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
       MockedAuthRepository.createSession.mockResolvedValue({ id: 's-cust-new' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
@@ -190,10 +250,17 @@ describe('Authentication API', () => {
 
       try {
         const existingCustomer = { id: 'cust-skip', phone: customerPhone, phoneVerifiedAt: new Date() };
-        MockedAuthRepository.createOtp.mockResolvedValue({ id: 'o3' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-        MockedAuthRepository.findRecentOtp.mockResolvedValue({ id: 'o3', codeHash: 'hashed_000000' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+        (prisma.phoneOtp.deleteMany as any).mockResolvedValue({ count: 0 });
+        (prisma.phoneOtp.create as any).mockResolvedValue({ id: 'o3' });
+        (prisma.phoneOtp.findFirst as any).mockResolvedValue({
+          id: 'o3',
+          codeHash: 'hashed_000000',
+          attempts: 0,
+          expiresAt: new Date(Date.now() + 60000),
+          consumedAt: null,
+        });
         MockedArgon2.verify.mockResolvedValue(true /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-        MockedAuthRepository.consumeOtp.mockResolvedValue({ id: 'o3' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+        (prisma.phoneOtp.updateMany as any).mockResolvedValue({ count: 1 });
         MockedAuthRepository.findCustomerByPhone.mockResolvedValue(existingCustomer /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
         MockedAuthRepository.createSession.mockResolvedValue({ id: 's-cust-skip' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
@@ -216,10 +283,15 @@ describe('Authentication API', () => {
 
       try {
         const newCustomer = { id: 'cust-new-skip', phone: customerPhone, phoneVerifiedAt: new Date() };
-        MockedAuthRepository.createOtp.mockResolvedValue({ id: 'o4' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-        MockedAuthRepository.findRecentOtp.mockResolvedValue({ id: 'o4', codeHash: 'hashed_000000' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+        (prisma.phoneOtp.findFirst as any).mockResolvedValue({
+          id: 'o4',
+          codeHash: 'hashed_000000',
+          attempts: 0,
+          expiresAt: new Date(Date.now() + 60000),
+          consumedAt: null,
+        });
         MockedArgon2.verify.mockResolvedValue(true /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-        MockedAuthRepository.consumeOtp.mockResolvedValue({ id: 'o4' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+        (prisma.phoneOtp.updateMany as any).mockResolvedValue({ count: 1 });
         MockedAuthRepository.findCustomerByPhone.mockResolvedValue(null);
         MockedAuthRepository.upsertCustomerAccount.mockResolvedValue(newCustomer /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
         MockedAuthRepository.createSession.mockResolvedValue({ id: 's-cust-new-skip' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
@@ -234,7 +306,14 @@ describe('Authentication API', () => {
     });
 
     it('Scenario 5: Incorrect code in normal mode (SKIP_OTP=false)', async () => {
-      MockedAuthRepository.findRecentOtp.mockResolvedValue({ id: 'o5', codeHash: 'hashed_otp' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      (prisma.phoneOtp.findFirst as any).mockResolvedValue({
+        id: 'o5',
+        codeHash: 'hashed_otp',
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 60000),
+        consumedAt: null,
+      });
+      (prisma.phoneOtp.update as any).mockResolvedValue({ id: 'o5', attempts: 1 });
       MockedArgon2.verify.mockResolvedValue(false /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
 
       const res = await request(app).post('/api/v1/auth/customer/otp/verify').send({ phone: customerPhone, code: '111111' });
@@ -248,6 +327,15 @@ describe('Authentication API', () => {
       (env as any).SKIP_OTP = true; /* eslint-disable-line @typescript-eslint/no-explicit-any */
 
       try {
+        (prisma.phoneOtp.findFirst as any).mockResolvedValue({
+          id: 'o6',
+          codeHash: 'hashed_000000',
+          attempts: 0,
+          expiresAt: new Date(Date.now() + 60000),
+          consumedAt: null,
+        });
+        (prisma.phoneOtp.update as any).mockResolvedValue({ id: 'o6', attempts: 1 });
+
         const res = await request(app).post('/api/v1/auth/customer/otp/verify').send({ phone: customerPhone, code: '123456' });
         expect(res.status).toBe(httpStatus.UNAUTHORIZED);
         expect(res.body.error.message).toBe('Invalid or expired OTP.');
@@ -265,9 +353,15 @@ describe('Authentication API', () => {
         gamingCenter: { id: gamingCenterId, name: 'Main Center' },
       };
 
-      MockedAuthRepository.findRecentOtp.mockResolvedValue({ id: 'o-mgr', codeHash: 'hashed_otp' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      (prisma.phoneOtp.findFirst as any).mockResolvedValue({
+        id: 'o-mgr',
+        codeHash: 'hashed_otp',
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 60000),
+        consumedAt: null,
+      });
       MockedArgon2.verify.mockResolvedValue(true /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
-      MockedAuthRepository.consumeOtp.mockResolvedValue({ id: 'o-mgr' } /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any);
+      (prisma.phoneOtp.updateMany as any).mockResolvedValue({ count: 1 });
 
       (prisma.user.findMany /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).mockResolvedValue([managerUser]);
       (prisma.customerAccount.findUnique /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any).mockResolvedValue(null);

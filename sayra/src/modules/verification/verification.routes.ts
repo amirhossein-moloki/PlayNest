@@ -8,6 +8,7 @@ import { UserRole } from '@prisma/client';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
+import { ALLOWED_KYC_IMAGE_MIMES } from '../../common/utils/image-validation';
 
 const licenseUpload = multer({
   storage: multer.memoryStorage(),
@@ -15,10 +16,10 @@ const licenseUpload = multer({
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
   fileFilter: (_req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
+    if (ALLOWED_KYC_IMAGE_MIMES.has(file.mimetype.toLowerCase())) {
       cb(null, true);
     } else {
-      cb(new AppError('فایل پروانه کسب باید تصویر باشد (حداکثر ۵ مگابایت)', httpStatus.BAD_REQUEST));
+      cb(new AppError('فایل پروانه کسب باید تصویر معتبر باشد (JPEG، PNG یا WebP، حداکثر ۵ مگابایت)', httpStatus.BAD_REQUEST));
     }
   },
 });

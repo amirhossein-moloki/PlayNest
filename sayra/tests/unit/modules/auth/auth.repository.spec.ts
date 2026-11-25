@@ -169,7 +169,7 @@ describe('AuthRepository', () => {
   });
 
   describe('findRecentConsumedOtp', () => {
-    it('should find a recently consumed OTP', async () => {
+    it('should find a recently consumed OTP with fewer than maxAttempts', async () => {
       const purpose = 'LOGIN' /* eslint-disable-line @typescript-eslint/no-explicit-any */ as any;
       const window = new Date();
       const mockOtp = { id: 'o-1', phone, purpose };
@@ -182,6 +182,7 @@ describe('AuthRepository', () => {
           phone,
           purpose,
           consumedAt: { gte: window },
+          attempts: { lt: expect.any(Number) },
         }),
       }));
     });

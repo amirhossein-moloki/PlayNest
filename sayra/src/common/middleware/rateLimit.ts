@@ -237,3 +237,17 @@ export const platformAdminRefreshRateLimiter = createPlatformAdminRateLimiter({
   prefix: 'rl:pa:refresh:',
   message: 'Too many session refresh attempts. Please try again shortly.',
 });
+
+export const onboardingStartRateLimiter = createPlatformAdminRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  prefix: 'rl:onb:start:',
+  message: 'Too many onboarding attempts. Please try again later.',
+});
+
+export const onboardingOtpVerifyRateLimiter = createPlatformAdminRateLimiter({
+  windowMs: 5 * 60 * 1000,
+  max: 10,
+  prefix: 'rl:onb:otp:',
+  message: 'Too many onboarding OTP verification attempts. Please wait before retrying.',
+});

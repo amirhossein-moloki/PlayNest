@@ -15,6 +15,7 @@ import { ReservationStateMachine } from '../reservation/reservation.state-machin
 import { env } from '../../config/env';
 import { PaymentProviderFactory } from './providers';
 import { calculatePaymentSplit } from './payment-calculation';
+import { assertCustomerOwnsWallet, getAvailableWalletBalance } from '../wallet/wallet-access.guard';
 import { prisma } from '../../config/prisma';
 import logger from '../../config/logger';
 import { RequestActor } from '../../types/express';
@@ -111,6 +112,10 @@ const initiatePayment = async ({
 
   const isWalletOnlyProvider = providerName?.toUpperCase() === 'WALLET';
   const effectiveUseWallet = Boolean(useWallet || isWalletOnlyProvider);
+
+  if (effectiveUseWallet) {
+    assertCustomerOwnsWallet(actor, reservation.customerAccountId);
+  }
 
   // Reclaim any stale initiated payments with stranded wallet deductions (> 15m)
   if (reservation.customerAccountId && typeof PaymentsRepo.reapStaleCustomerInitiatedPayments === 'function') {
@@ -259,14 +264,14 @@ const initiatePayment = async ({
   const snapshotCurrency = (reservation.stationSnapshot as Record<string, unknown>)?.currency as string | undefined;
   const currency = snapshotCurrency || 'IRR';
 
-  // 4. Resolve customer wallet balance
+  // 4. Resolve customer spendable wallet balance (excluding reserved withdrawal holds)
   let availableWalletBalance = 0;
-  if (reservation.customerAccountId) {
+  if (effectiveUseWallet && reservation.customerAccountId) {
     const customerAccount = await prisma.customerAccount.findUnique({
       where: { id: reservation.customerAccountId },
-      select: { walletBalance: true },
+      select: { walletBalance: true, reservedBalance: true },
     });
-    availableWalletBalance = customerAccount?.walletBalance ?? 0;
+    availableWalletBalance = getAvailableWalletBalance(customerAccount);
   }
 
   // 5. Calculate payment split
@@ -531,7 +536,11 @@ const verifyPayment = async ({
     };
   }
 
-  // 3. User cancellation or gateway error return check
+  // 3. Authority matching and cancellation check
+  if (authority && payment.providerPaymentId && authority !== payment.providerPaymentId) {
+    throw new AppError('Payment authority mismatch.', httpStatus.BAD_REQUEST);
+  }
+
   const isExplicitFailure = status && (status.toUpperCase() === 'NOK' || status.toUpperCase() === 'FAILED' || status.toUpperCase() === 'CANCELLED');
   if (isExplicitFailure) {
     const updated = await PaymentsRepo.transaction(async (tx) => {
@@ -554,8 +563,8 @@ const verifyPayment = async ({
     };
   }
 
-  // 4. Server-to-server verification with provider
-  const provider = PaymentProviderFactory.getProvider(providerName || payment.provider);
+  // 4. Server-to-server verification with authoritative stored provider
+  const provider = PaymentProviderFactory.getProvider(payment.provider || providerName);
   const providerAuthority = authority || payment.providerPaymentId;
 
   if (!providerAuthority) {
@@ -650,6 +659,10 @@ const calculatePayment = async ({
     throw new AppError('Unauthorized access to reservation payment.', httpStatus.FORBIDDEN);
   }
 
+  if (useWallet) {
+    assertCustomerOwnsWallet(actor, reservation.customerAccountId);
+  }
+
   const payableCandidate = typeof reservation.customerPayableAmount === 'number' && reservation.customerPayableAmount > 0
     ? reservation.customerPayableAmount
     : reservation.totalPrice;
@@ -663,13 +676,17 @@ const calculatePayment = async ({
   const currency = snapshotCurrency || 'IRR';
 
   let walletBalance = 0;
-  if (reservation.customerAccountId) {
+  const isOwnerCustomer =
+    actor?.actorType === SessionActorType.CUSTOMER &&
+    Boolean(reservation.customerAccountId) &&
+    actor.id === reservation.customerAccountId;
+  if (reservation.customerAccountId && isOwnerCustomer) {
     await PaymentsRepo.reapStaleCustomerInitiatedPayments(reservation.customerAccountId).catch(() => {});
     const customerAccount = await prisma.customerAccount.findUnique({
       where: { id: reservation.customerAccountId },
-      select: { walletBalance: true },
+      select: { walletBalance: true, reservedBalance: true },
     });
-    walletBalance = customerAccount?.walletBalance ?? 0;
+    walletBalance = getAvailableWalletBalance(customerAccount);
   }
 
   const calculation = calculatePaymentSplit({

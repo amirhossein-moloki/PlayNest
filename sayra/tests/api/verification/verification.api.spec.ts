@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import request from 'supertest';
+import sharp from 'sharp';
 import app from '../../../src/app';
 import { prisma } from '../../../src/config/prisma';
 import { generateAccessToken } from '../../../src/modules/auth/auth.tokens';
@@ -128,7 +129,16 @@ describe('KYC Verification Flow API', () => {
         verificationStatus: 'PENDING',
       });
 
-      const fakeImageBuffer = Buffer.from('fake-image-bytes');
+      const validImageBuffer = await sharp({
+        create: {
+          width: 2,
+          height: 2,
+          channels: 3,
+          background: { r: 20, g: 40, b: 60 },
+        },
+      })
+        .jpeg()
+        .toBuffer();
 
       const res = await request(app)
         .post('/api/v1/gamingCenters/center_kyc_1/verification')
@@ -136,7 +146,7 @@ describe('KYC Verification Flow API', () => {
         .field('ownerFullName', 'علی رضایی')
         .field('phoneNumber', '09123456789')
         .field('gamingCenterName', 'گیم نت شتاب')
-        .attach('businessLicense', fakeImageBuffer, { filename: 'license.jpg', contentType: 'image/jpeg' });
+        .attach('businessLicense', validImageBuffer, { filename: 'license.jpg', contentType: 'image/jpeg' });
 
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);

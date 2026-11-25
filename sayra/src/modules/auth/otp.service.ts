@@ -1,4 +1,4 @@
-import { OtpPurpose, PhoneOtp } from '@prisma/client';
+import { OtpPurpose, PhoneOtp, SessionActorType } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { env } from '../../config/env';
 import { queueSms } from '../../jobs/producers/sms.producer';
@@ -30,39 +30,42 @@ export const OtpService = {
   async requestOtp(
     normalizedPhone: string,
     purpose: OtpPurpose = OtpPurpose.LOGIN,
-    metadata?: { ip?: string; userAgent?: string }
+    metadata?: { ip?: string; userAgent?: string },
+    targetActorType?: SessionActorType
   ) {
     const ip = metadata?.ip || 'unknown';
+
+    const phoneRateLimit = Number(env.OTP_REQUEST_RATE_LIMIT_PHONE) || 3;
+    const ipRateLimit = Number(env.OTP_REQUEST_RATE_LIMIT_IP) || 10;
+    const otpTtlMinutes = Number(env.OTP_EXPIRATION_MINUTES) || 2;
 
     // Rate limiting per phone and per IP
     await enforceRateLimit(
       `rl:otp:req:phone:${normalizedPhone}`,
-      env.OTP_REQUEST_RATE_LIMIT_PHONE,
+      phoneRateLimit,
       120,
       'Too many OTP requests for this phone number. Please wait.'
     );
     await enforceRateLimit(
       `rl:otp:req:ip:${ip}`,
-      env.OTP_REQUEST_RATE_LIMIT_IP,
+      ipRateLimit,
       120,
       'Too many OTP requests from this IP address. Please wait.'
     );
 
-    // Invalidate previous unconsumed active OTPs for this phone and purpose
-    await prisma.phoneOtp.updateMany({
+    // Delete superseded unconsumed OTPs instead of marking consumedAt (prevents consumedAt confusion)
+    await prisma.phoneOtp.deleteMany({
       where: {
         phone: normalizedPhone,
         purpose,
         consumedAt: null,
-      },
-      data: {
-        consumedAt: new Date(),
+        ...(targetActorType !== undefined ? { targetActorType } : {}),
       },
     });
 
     const code = getEffectiveOtpCode(6);
     const codeHash = hashOtpCode(code, { phone: normalizedPhone, purpose });
-    const expiresAt = new Date(Date.now() + env.OTP_EXPIRATION_MINUTES * 60 * 1000);
+    const expiresAt = new Date(Date.now() + otpTtlMinutes * 60 * 1000);
 
     const otp = await prisma.phoneOtp.create({
       data: {
@@ -73,6 +76,7 @@ export const OtpService = {
         ip: metadata?.ip,
         userAgent: metadata?.userAgent,
         attempts: 0,
+        ...(targetActorType !== undefined ? { targetActorType } : {}),
       },
     });
 
@@ -86,7 +90,7 @@ export const OtpService = {
 
     logger.info({ phone: normalizedPhone, otpId: otp.id }, 'OTP requested successfully');
     return {
-      message: `OTP sent to ${normalizedPhone}. It will expire in ${env.OTP_EXPIRATION_MINUTES} minutes.`,
+      message: `OTP sent to ${normalizedPhone}. It will expire in ${otpTtlMinutes} minutes.`,
     };
   },
 
@@ -99,7 +103,8 @@ export const OtpService = {
     normalizedPhone: string,
     code: string,
     purpose: OtpPurpose = OtpPurpose.LOGIN,
-    metadata?: { ip?: string }
+    metadata?: { ip?: string },
+    targetActorType?: SessionActorType
   ): Promise<PhoneOtp> {
     const ip = metadata?.ip || 'unknown';
 
@@ -124,6 +129,7 @@ export const OtpService = {
         purpose,
         consumedAt: null,
         expiresAt: { gt: new Date() },
+        ...(targetActorType !== undefined ? { targetActorType } : {}),
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -135,14 +141,13 @@ export const OtpService = {
     const maxAttempts = Number(env.OTP_MAX_ATTEMPTS) || 5;
 
     if (otp.attempts >= maxAttempts) {
-      // Invalidate the OTP to prevent further brute force
+      // Delete exhausted OTPs instead of setting consumedAt
       try {
-        await prisma.phoneOtp.update({
+        await prisma.phoneOtp.delete({
           where: { id: otp.id },
-          data: { consumedAt: new Date() },
         });
       } catch (e) {
-        // ignore update errors
+        // ignore delete errors
       }
       throw new AppError('Too many failed attempts. OTP has been invalidated.', httpStatus.UNAUTHORIZED);
     }
@@ -152,15 +157,20 @@ export const OtpService = {
 
     if (!isValid) {
       const newAttempts = otp.attempts + 1;
-      const isLocked = newAttempts >= env.OTP_MAX_ATTEMPTS;
+      const isLocked = newAttempts >= maxAttempts;
 
-      await prisma.phoneOtp.update({
-        where: { id: otp.id },
-        data: {
-          attempts: { increment: 1 },
-          ...(isLocked ? { consumedAt: new Date() } : {}),
-        },
-      });
+      if (isLocked) {
+        await prisma.phoneOtp.delete({
+          where: { id: otp.id },
+        });
+      } else {
+        await prisma.phoneOtp.update({
+          where: { id: otp.id },
+          data: {
+            attempts: { increment: 1 },
+          },
+        });
+      }
 
       await progressiveDelay(newAttempts);
 

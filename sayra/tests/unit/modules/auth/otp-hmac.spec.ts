@@ -14,6 +14,7 @@ jest.mock('../../../../src/config/prisma', () => ({
   prisma: {
     phoneOtp: {
       updateMany: jest.fn(),
+      deleteMany: jest.fn(),
       create: jest.fn(),
     },
   },
@@ -51,7 +52,7 @@ describe('OTP Keyed HMAC-SHA256 Hashing (AMI-39)', () => {
 
   it('should never invoke argon2.hash during OtpService.requestOtp', async () => {
     const argonHashSpy = jest.spyOn(argon2, 'hash');
-    ((prisma as any).phoneOtp.updateMany as jest.MockedFunction<any>).mockResolvedValue({ count: 0 });
+    ((prisma as any).phoneOtp.deleteMany as jest.MockedFunction<any>).mockResolvedValue({ count: 0 });
     ((prisma as any).phoneOtp.create as jest.MockedFunction<any>).mockImplementation(({ data }: any) =>
       Promise.resolve({ id: 'otp-1', ...data })
     );

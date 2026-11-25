@@ -1,5 +1,6 @@
 import { Prisma, SessionActorType } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { env } from '../../config/env';
 
 export const AuthRepository = {
   async findUserById(id: string) {
@@ -103,11 +104,13 @@ export const AuthRepository = {
   },
 
   async findRecentConsumedOtp(phone: string, purpose: any, window: Date, targetActorType?: SessionActorType) { // eslint-disable-line @typescript-eslint/no-explicit-any
+    const maxAttempts = Number(env.OTP_MAX_ATTEMPTS) || 5;
     return prisma.phoneOtp.findFirst({
       where: {
         phone,
         purpose,
         consumedAt: { gte: window },
+        attempts: { lt: maxAttempts },
         ...(targetActorType !== undefined ? { targetActorType } : {}),
       },
       orderBy: { consumedAt: 'desc' },
@@ -118,6 +121,15 @@ export const AuthRepository = {
     return prisma.phoneOtp.update({
       where: { id },
       data: { consumedAt: new Date() },
+    });
+  },
+
+  async deleteConsumedOtp(id: string) {
+    return prisma.phoneOtp.deleteMany({
+      where: {
+        id,
+        consumedAt: { not: null },
+      },
     });
   },
 
@@ -152,6 +164,13 @@ export const AuthRepository = {
     return prisma.session.update({
       where: { id: sessionId },
       data: { revokedAt: new Date() },
+    });
+  },
+
+  async rotateSessionToken(sessionId: string, tokenHash: string) {
+    return prisma.session.update({
+      where: { id: sessionId },
+      data: { tokenHash },
     });
   },
 };

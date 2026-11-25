@@ -13,6 +13,7 @@ import httpStatus from 'http-status';
 import { GamingSessionStateMachine } from './gamingSessions.state-machine';
 import { AppEvents, eventEmitter } from '../../common/events/event-emitter';
 import { commissionsStation } from '../commissions/commissions.station';
+import { GroupBookingRepo } from '../group-booking/group-booking.repo';
 
 export const gamingSessionsStation = {
   async startSession(
@@ -98,6 +99,10 @@ export const gamingSessionsStation = {
             actorType: actor?.actorType,
           },
         });
+
+        if (reservation.groupBookingId && typeof GroupBookingRepo?.syncParentGroupBookingStatus === 'function') {
+          await GroupBookingRepo.syncParentGroupBookingStatus(reservation.groupBookingId, client);
+        }
       }
 
       // 7. Create the active gaming session
@@ -274,6 +279,10 @@ export const gamingSessionsStation = {
             actorType: actor?.actorType,
           },
         });
+
+        if (reservation.groupBookingId && typeof GroupBookingRepo?.syncParentGroupBookingStatus === 'function') {
+          await GroupBookingRepo.syncParentGroupBookingStatus(reservation.groupBookingId, client);
+        }
       }
 
       return { completedSession, completedReservation };

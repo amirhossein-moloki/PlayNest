@@ -502,11 +502,10 @@ export const platformAdminAuthPageTemplate = (
         }
         var data = payload.data || {};
         state.accessToken = data.accessToken || (data.tokens && data.tokens.accessToken);
-        state.refreshToken = data.refreshToken || (data.tokens && data.tokens.refreshToken);
         state.recoveryCodes = data.recoveryCodes || [];
 
         localStorage.setItem('platform_token', state.accessToken);
-        if (state.refreshToken) localStorage.setItem('platform_refresh_token', state.refreshToken);
+        localStorage.removeItem('platform_refresh_token');
 
         var grid = document.getElementById('recoveryCodesGrid');
         grid.innerHTML = state.recoveryCodes.map(function(c) {
@@ -545,9 +544,8 @@ export const platformAdminAuthPageTemplate = (
         }
         var data = payload.data || {};
         state.accessToken = data.accessToken || (data.tokens && data.tokens.accessToken);
-        state.refreshToken = data.refreshToken || (data.tokens && data.tokens.refreshToken);
         localStorage.setItem('platform_token', state.accessToken);
-        if (state.refreshToken) localStorage.setItem('platform_refresh_token', state.refreshToken);
+        localStorage.removeItem('platform_refresh_token');
 
         await finalizeAuthNavigation();
       } catch (err) {

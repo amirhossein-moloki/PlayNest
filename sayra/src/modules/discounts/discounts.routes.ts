@@ -77,21 +77,21 @@ router.post(
 
 router.post(
   '/reserve',
-  optionalAuth,
+  authMiddleware,
   validate(reserveDiscountSchema),
   asyncHandler(discountsController.reserveDiscount)
 );
 
 router.post(
   '/release',
-  optionalAuth,
+  authMiddleware,
   validate(releaseDiscountSchema),
   asyncHandler(discountsController.releaseDiscount)
 );
 
 router.post(
   '/redeem',
-  optionalAuth,
+  authMiddleware,
   validate(redeemDiscountSchema),
   asyncHandler(discountsController.redeemDiscount)
 );

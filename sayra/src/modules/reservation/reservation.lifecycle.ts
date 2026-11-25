@@ -31,11 +31,14 @@ import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
 import { ReservationStateMachine } from './reservation.state-machine';
 import { calculateBasePrice } from '../../common/utils/money';
 import {
+  resolveCancellationWindowMinutes,
+  validateCancellationWindowMinutes,
   validateLeadTime,
   validateOperatingHours,
   validateStationAvailability,
   validateStaffShiftHours,
 } from './reservation.validation';
+import { GroupBookingRepo } from '../group-booking/group-booking.repo';
 import { CancelReservationInput, RescheduleReservationInput } from './reservation.dto';
 
 const findAndValidateReservation = async (
@@ -230,6 +233,7 @@ export const reservationLifecycle = {
     data: CancelReservationInput,
     context?: { ip?: string; userAgent?: string }
   ) {
+    const now = new Date();
     const reservation = await findAndValidateReservation(reservationId, gamingCenterId);
 
     if (reservation.status === ReservationStatus.CANCELED) {
@@ -238,7 +242,89 @@ export const reservationLifecycle = {
 
     ReservationStateMachine.validateTransition(reservation.status, ReservationStatus.CANCELED);
 
-    const updatedReservation = await ReservationRepo.transaction(async (tx) => {
+    if (
+      reservation.completedAt ||
+      (reservation.status !== ReservationStatus.PENDING && reservation.endTime && new Date(reservation.endTime) <= now)
+    ) {
+      throw new AppError(
+        'Cannot cancel a reservation that has already ended.',
+        httpStatus.CONFLICT,
+        { code: 'RESERVATION_ALREADY_ENDED' }
+      );
+    }
+
+    const txOutcome = await ReservationRepo.transaction(async (tx) => {
+      if (typeof ReservationRepo.lockReservationForUpdate === 'function') {
+        await ReservationRepo.lockReservationForUpdate(reservationId, tx);
+      }
+
+      let locked: {
+        id: string;
+        status: ReservationStatus;
+        endTime: Date;
+        completedAt: Date | null;
+        groupBookingId: string | null;
+        campaignId: string | null;
+        discountId: string | null;
+      } | null = null;
+
+      if (typeof tx?.reservation?.findFirst === 'function') {
+        locked = await tx.reservation.findFirst({
+          where: { id: reservationId, gamingCenterId },
+          select: {
+            id: true,
+            status: true,
+            endTime: true,
+            completedAt: true,
+            groupBookingId: true,
+            campaignId: true,
+            discountId: true,
+          },
+        });
+
+        if (!locked) {
+          throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
+        }
+
+        if (locked.status === ReservationStatus.CANCELED) {
+          return {
+            alreadyCanceled: true as const,
+            existingReservation: { ...reservation, ...locked },
+          };
+        }
+
+        ReservationStateMachine.validateTransition(locked.status, ReservationStatus.CANCELED);
+
+        const txNow = new Date();
+        if (
+          locked.completedAt ||
+          (locked.status !== ReservationStatus.PENDING && locked.endTime && new Date(locked.endTime) <= txNow)
+        ) {
+          throw new AppError(
+            'Cannot cancel a reservation that has already ended.',
+            httpStatus.CONFLICT,
+            { code: 'RESERVATION_ALREADY_ENDED' }
+          );
+        }
+      }
+
+      if (typeof tx?.gamingSession?.findFirst === 'function') {
+        const completedSession = await tx.gamingSession.findFirst({
+          where: {
+            reservationId,
+            status: GamingSessionStatus.COMPLETED,
+          },
+          select: { id: true },
+        });
+        if (completedSession) {
+          throw new AppError(
+            'Cannot cancel a reservation with a completed gaming session.',
+            httpStatus.CONFLICT,
+            { code: 'INVALID_TRANSITION' }
+          );
+        }
+      }
+
       const result = await ReservationRepo.updateReservationWithInclude(
         reservationId,
         gamingCenterId,
@@ -258,12 +344,21 @@ export const reservationLifecycle = {
       );
 
       if (!result) {
-        throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
+        throw new AppError(
+          'Reservation can no longer be canceled due to a concurrent state change.',
+          httpStatus.CONFLICT,
+          { code: 'INVALID_TRANSITION' }
+        );
       }
+
+      const effectiveStatus = locked?.status ?? reservation.status;
+      const effectiveGroupBookingId = locked?.groupBookingId ?? reservation.groupBookingId;
+      const effectiveCampaignId = locked ? locked.campaignId : reservation.campaignId;
+      const effectiveDiscountId = locked ? locked.discountId : reservation.discountId;
 
       await ReservationRepo.createHistory({
         reservationId,
-        fromStatus: reservation.status,
+        fromStatus: effectiveStatus,
         toStatus: ReservationStatus.CANCELED,
         action: 'CANCEL',
         actorId: actor.id,
@@ -277,7 +372,7 @@ export const reservationLifecycle = {
       }
 
       // Close any active or paused gaming session if canceling an in-progress reservation
-      if (reservation.status === ReservationStatus.IN_PROGRESS) {
+      if (effectiveStatus === ReservationStatus.IN_PROGRESS) {
         const activeSession = await GamingSessionsRepo.findActiveOrPausedSessionByReservationId?.(reservationId, tx);
         if (activeSession) {
           await GamingSessionsRepo.updateSession(
@@ -322,7 +417,7 @@ export const reservationLifecycle = {
       }
 
       // Release any campaign or voucher discount reservation hold
-      if (reservation.campaignId || reservation.discountId) {
+      if (effectiveCampaignId || effectiveDiscountId) {
         await discountsStation.releaseDiscountForReservation(
           reservationId,
           data.reason || 'Reservation canceled',
@@ -332,8 +427,18 @@ export const reservationLifecycle = {
         });
       }
 
-      return result;
+      if (effectiveGroupBookingId && typeof GroupBookingRepo?.syncParentGroupBookingStatus === 'function') {
+        await GroupBookingRepo.syncParentGroupBookingStatus(effectiveGroupBookingId, tx);
+      }
+
+      return { alreadyCanceled: false as const, updatedReservation: result };
     });
+
+    if (txOutcome.alreadyCanceled) {
+      return txOutcome.existingReservation;
+    }
+
+    const updatedReservation = txOutcome.updatedReservation!;
 
     eventEmitter.emit(AppEvents.RESERVATION_CANCELED, {
       reservation: updatedReservation,
@@ -393,6 +498,10 @@ export const reservationLifecycle = {
 
       await gamingSessionsStation.startSession(reservationId, reservation.stationId, tx);
 
+      if (updatedReservation.groupBookingId && typeof GroupBookingRepo?.syncParentGroupBookingStatus === 'function') {
+        await GroupBookingRepo.syncParentGroupBookingStatus(updatedReservation.groupBookingId, tx);
+      }
+
       await auditService.log(
         gamingCenterId,
         actor,
@@ -444,6 +553,10 @@ export const reservationLifecycle = {
         if (activeSession) {
           await gamingSessionsStation.endSession(reservationId, tx);
         }
+      }
+
+      if (updated.groupBookingId && typeof GroupBookingRepo?.syncParentGroupBookingStatus === 'function') {
+        await GroupBookingRepo.syncParentGroupBookingStatus(updated.groupBookingId, tx);
       }
 
       return updated;
@@ -510,6 +623,10 @@ export const reservationLifecycle = {
         actorType: actor.actorType,
       }, tx);
 
+      if (updated.groupBookingId && typeof GroupBookingRepo?.syncParentGroupBookingStatus === 'function') {
+        await GroupBookingRepo.syncParentGroupBookingStatus(updated.groupBookingId, tx);
+      }
+
       return updated;
     });
 
@@ -538,6 +655,10 @@ export const reservationLifecycle = {
   ) {
     try {
       const rescheduled = await ReservationRepo.transaction(async (tx) => {
+        if (typeof ReservationRepo.lockReservationForUpdate === 'function') {
+          await ReservationRepo.lockReservationForUpdate(reservationId, tx);
+        }
+
         const reservation = await ReservationRepo.findReservationById(reservationId, gamingCenterId, tx);
         if (!reservation) {
           throw new AppError('Reservation not found.', httpStatus.NOT_FOUND);
@@ -546,6 +667,39 @@ export const reservationLifecycle = {
         if (ReservationStateMachine.isTerminalState(reservation.status)) {
           throw new AppError('Cannot reschedule a reservation in terminal state', httpStatus.CONFLICT, {
             code: 'INVALID_TRANSITION',
+          });
+        }
+
+        if (reservation.status === ReservationStatus.IN_PROGRESS) {
+          throw new AppError('Cannot reschedule an in-progress reservation.', httpStatus.CONFLICT, {
+            code: 'INVALID_TRANSITION',
+          });
+        }
+
+        const now = new Date();
+        if (reservation.completedAt || (reservation.endTime && new Date(reservation.endTime) <= now)) {
+          throw new AppError('Cannot reschedule a reservation that has already ended.', httpStatus.CONFLICT, {
+            code: 'RESERVATION_ALREADY_ENDED',
+          });
+        }
+
+        if (typeof tx?.gamingSession?.findFirst === 'function') {
+          const existingSession = await tx.gamingSession.findFirst({
+            where: { reservationId },
+            select: { id: true },
+          });
+          if (existingSession) {
+            throw new AppError(
+              'Cannot reschedule a reservation whose gaming session has already started or completed.',
+              httpStatus.CONFLICT,
+              { code: 'RESERVATION_SESSION_STARTED' }
+            );
+          }
+        }
+
+        if (actor.actorType === SessionActorType.CUSTOMER && reservation.startTime && new Date(reservation.startTime) <= now) {
+          throw new AppError('Cannot reschedule a reservation that has already started.', httpStatus.CONFLICT, {
+            code: 'RESERVATION_ALREADY_STARTED',
           });
         }
 
@@ -571,8 +725,36 @@ export const reservationLifecycle = {
         const durationHours = station.defaultDurationHours;
         const newEndTime = addMinutes(newStartTime, durationHours * 60);
 
+        const isPaidOrPartial =
+          reservation.paymentState === ReservationPaymentState.PAID ||
+          reservation.paymentState === ReservationPaymentState.PARTIALLY_PAID;
+        if (actor.actorType === SessionActorType.CUSTOMER && isPaidOrPartial) {
+          if (data.stationId && data.stationId !== reservation.stationId) {
+            throw new AppError(
+              'Cannot change game station on an already paid reservation.',
+              httpStatus.BAD_REQUEST,
+              { code: 'PAID_RESERVATION_UPGRADE_NOT_ALLOWED' }
+            );
+          }
+          if (
+            typeof reservation.totalHours === 'number' &&
+            durationHours > reservation.totalHours
+          ) {
+            throw new AppError(
+              'Cannot increase duration on an already paid reservation.',
+              httpStatus.BAD_REQUEST,
+              { code: 'PAID_RESERVATION_UPGRADE_NOT_ALLOWED' }
+            );
+          }
+        }
+
         const gamingCenter = await ReservationRepo.findGamingCenterWithSettings(gamingCenterId, tx);
         const settings = gamingCenter?.settings;
+
+        if (actor.actorType === SessionActorType.CUSTOMER && reservation.startTime) {
+          const cancellationWindowMinutes = resolveCancellationWindowMinutes(settings);
+          validateCancellationWindowMinutes(new Date(reservation.startTime), cancellationWindowMinutes, now);
+        }
 
         // 1. Lead time check (BR-001)
         validateLeadTime(newStartTime, settings?.minAdvanceBookingMinutes ?? 30);
@@ -632,6 +814,22 @@ export const reservationLifecycle = {
           tx,
           reservation.source
         );
+
+        const existingPayable =
+          typeof reservation.customerPayableAmount === 'number'
+            ? reservation.customerPayableAmount
+            : reservation.totalPrice;
+        if (
+          actor.actorType === SessionActorType.CUSTOMER &&
+          isPaidOrPartial &&
+          financials.customerPayableAmount > existingPayable
+        ) {
+          throw new AppError(
+            'Cannot reschedule a paid reservation to a higher-priced slot or station.',
+            httpStatus.BAD_REQUEST,
+            { code: 'PAID_RESERVATION_UPGRADE_NOT_ALLOWED' }
+          );
+        }
 
         const updateData: Prisma.ReservationUncheckedUpdateInput = {
           startTime: newStartTime,
@@ -888,7 +1086,7 @@ export const reservationLifecycle = {
         status: ReservationStatus.IN_PROGRESS,
         endTime: { lte: now },
       },
-      select: { id: true, gamingCenterId: true },
+      select: { id: true, gamingCenterId: true, groupBookingId: true },
       take: batchSize,
       orderBy: { endTime: 'asc' },
     });
@@ -926,6 +1124,10 @@ export const reservationLifecycle = {
             await gamingSessionsStation.endSession(candidate.id, tx);
           }
 
+          if (candidate.groupBookingId && typeof GroupBookingRepo?.syncParentGroupBookingStatus === 'function') {
+            await GroupBookingRepo.syncParentGroupBookingStatus(candidate.groupBookingId, tx);
+          }
+
           return tx.reservation.findUnique({ where: { id: candidate.id } });
         });
 
@@ -946,7 +1148,7 @@ export const reservationLifecycle = {
         status: ReservationStatus.CONFIRMED,
         endTime: { lte: now },
       },
-      select: { id: true, gamingCenterId: true },
+      select: { id: true, gamingCenterId: true, groupBookingId: true },
       take: batchSize,
       orderBy: { endTime: 'asc' },
     });
@@ -978,6 +1180,10 @@ export const reservationLifecycle = {
             },
             tx
           );
+
+          if (candidate.groupBookingId && typeof GroupBookingRepo?.syncParentGroupBookingStatus === 'function') {
+            await GroupBookingRepo.syncParentGroupBookingStatus(candidate.groupBookingId, tx);
+          }
 
           return tx.reservation.findUnique({ where: { id: candidate.id } });
         });

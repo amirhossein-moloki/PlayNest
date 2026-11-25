@@ -137,7 +137,7 @@ export const gamingCenterStation = {
               fullName: admin.fullName,
               phone: admin.phone,
               email: admin.email || null,
-              passwordHash: admin.passwordHash,
+              passwordHash: null,
               role: UserRole.MANAGER,
               isActive: true,
               isStaff: true,

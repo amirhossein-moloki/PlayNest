@@ -1,3 +1,5 @@
+import { CLIENT_HTML_SANITIZE_HELPERS } from '../../common/utils/html-sanitize';
+
 export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
@@ -967,8 +969,10 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
   <div id="toast"></div>
 
   <script>
+${CLIENT_HTML_SANITIZE_HELPERS}
     var token = localStorage.getItem('platform_token');
-    var refreshToken = localStorage.getItem('platform_refresh_token');
+    var refreshToken = null;
+    localStorage.removeItem('platform_refresh_token');
     var authFlow = { challengeToken: null, setupToken: null, deviceId: null, usingRecovery: false };
     var securityActionState = { action: null, deviceId: null, pendingDeviceId: null, mode: null };
 
@@ -1100,9 +1104,8 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
         }
         var data = resData.data || {};
         token = data.accessToken || (data.tokens && data.tokens.accessToken);
-        refreshToken = data.refreshToken || (data.tokens && data.tokens.refreshToken);
         localStorage.setItem('platform_token', token);
-        if (refreshToken) localStorage.setItem('platform_refresh_token', refreshToken);
+        localStorage.removeItem('platform_refresh_token');
         hideLoginModal();
         loadData();
       } catch (err) {
@@ -1132,9 +1135,8 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
         }
         var data = resData.data || {};
         token = data.accessToken || (data.tokens && data.tokens.accessToken);
-        refreshToken = data.refreshToken || (data.tokens && data.tokens.refreshToken);
         localStorage.setItem('platform_token', token);
-        if (refreshToken) localStorage.setItem('platform_refresh_token', refreshToken);
+        localStorage.removeItem('platform_refresh_token');
 
         document.getElementById('dashRecoveryCodesPre').textContent = (data.recoveryCodes || []).join('\\n');
         document.getElementById('dashSavedRecoveryCb').checked = false;
@@ -1226,16 +1228,18 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
         var isAct = c.isActive !== false;
         var btnCls = isAct ? 'btn-success' : 'btn-danger';
         var btnTxt = isAct ? 'ACTIVE' : 'INACTIVE';
+        var safeId = encodeURIComponent(c.id || '');
+        var safeSlug = encodeURIComponent(c.slug || '');
         return '<tr>' +
-          '<td><strong>' + c.name + '</strong></td>' +
-          '<td><code>' + c.slug + '</code></td>' +
-          '<td>' + (c.city || '-') + '</td>' +
-          '<td>' + (c._count && c._count.stations ? c._count.stations : 0) + '</td>' +
-          '<td>' + (c._count && c._count.users ? c._count.users : 0) + '</td>' +
-          '<td><button class="btn btn-sm ' + btnCls + '" onclick="toggleCenterStatus(\'' + c.id + '\', ' + isAct + ')">' + btnTxt + '</button></td>' +
+          '<td><strong>' + escapeHtml(c.name) + '</strong></td>' +
+          '<td><code>' + escapeHtml(c.slug) + '</code></td>' +
+          '<td>' + escapeHtml(c.city || '-') + '</td>' +
+          '<td>' + escapeHtml(c._count && c._count.stations ? c._count.stations : 0) + '</td>' +
+          '<td>' + escapeHtml(c._count && c._count.users ? c._count.users : 0) + '</td>' +
+          '<td><button class="btn btn-sm ' + btnCls + '" onclick="toggleCenterStatus(\\'' + escapeJsArg(c.id) + '\\', ' + isAct + ')">' + btnTxt + '</button></td>' +
           '<td><div style="display:flex; gap:6px;">' +
-            '<a href="/api/v1/admin/gamingCenters/' + c.id + '/dashboard" target="_blank" class="btn btn-secondary btn-sm"><i class="fa-solid fa-arrow-up-right-from-square"></i> Center View</a>' +
-            '<a href="/public/gamingCenters/' + c.slug + '" target="_blank" class="btn btn-secondary btn-sm"><i class="fa-solid fa-globe"></i> Website</a>' +
+            '<a href="/api/v1/admin/gamingCenters/' + safeId + '/dashboard" target="_blank" class="btn btn-secondary btn-sm"><i class="fa-solid fa-arrow-up-right-from-square"></i> Center View</a>' +
+            '<a href="/public/gamingCenters/' + safeSlug + '" target="_blank" class="btn btn-secondary btn-sm"><i class="fa-solid fa-globe"></i> Website</a>' +
           '</div></td>' +
         '</tr>';
       }).join('');
@@ -1283,29 +1287,32 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
           var applicantName = v.ownerFullName || (v.gamingCenter && v.gamingCenter.users && v.gamingCenter.users[0] && v.gamingCenter.users[0].fullName) || '-';
           var applicantPhone = v.phoneNumber || (v.gamingCenter && v.gamingCenter.users && v.gamingCenter.users[0] && v.gamingCenter.users[0].phone) || '-';
 
-          var statusHtml = '<span class="badge ' + badgeCls + '">' + v.status + '</span>';
+          var statusHtml = '<span class="badge ' + badgeCls + '">' + escapeHtml(v.status) + '</span>';
           if (v.status === 'REJECTED' && v.rejectionReason) {
-            statusHtml += '<div style="font-size:11px; color:#ef4444; margin-top:4px;"><strong>دلیل رد:</strong> ' + v.rejectionReason + '</div>';
+            statusHtml += '<div style="font-size:11px; color:#ef4444; margin-top:4px;"><strong>دلیل رد:</strong> ' + escapeHtml(v.rejectionReason) + '</div>';
           }
 
           var docsHtml = '';
-          if (v.businessLicenseUrl) docsHtml += '<a href="' + v.businessLicenseUrl + '" target="_blank" class="btn btn-sm btn-secondary"><i class="fa-solid fa-file-contract"></i> پروانه کسب</a> ';
-          if (v.nationalCardUrl) docsHtml += '<a href="' + v.nationalCardUrl + '" target="_blank" class="btn btn-sm btn-secondary"><i class="fa-solid fa-file"></i> کارت ملی</a>';
+          var safeLicenseUrl = v.businessLicenseUrl ? sanitizeUrl(v.businessLicenseUrl, '') : '';
+          var safeCardUrl = v.nationalCardUrl ? sanitizeUrl(v.nationalCardUrl, '') : '';
+          if (safeLicenseUrl) docsHtml += '<a href="' + safeLicenseUrl + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-secondary"><i class="fa-solid fa-file-contract"></i> پروانه کسب</a> ';
+          if (safeCardUrl) docsHtml += '<a href="' + safeCardUrl + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-secondary"><i class="fa-solid fa-file"></i> کارت ملی</a>';
 
+          var safePhoneTel = String(applicantPhone).replace(/[^0-9+()-]/g, '');
           var actionsHtml = v.status === 'PENDING'
             ? '<div style="display:flex; gap:6px;">' +
-                '<button class="btn btn-sm btn-success" onclick="approveVerification(\'' + v.id + '\')"><i class="fa-solid fa-check"></i> تایید</button>' +
-                '<button class="btn btn-sm btn-danger" onclick="rejectVerification(\'' + v.id + '\')"><i class="fa-solid fa-xmark"></i> رد</button>' +
+                '<button class="btn btn-sm btn-success" onclick="approveVerification(\\'' + escapeJsArg(v.id) + '\\')"><i class="fa-solid fa-check"></i> تایید</button>' +
+                '<button class="btn btn-sm btn-danger" onclick="rejectVerification(\\'' + escapeJsArg(v.id) + '\\')"><i class="fa-solid fa-xmark"></i> رد</button>' +
               '</div>'
-            : '<span style="color:var(--text-muted); font-size:12px;">' + (v.reviewedAt ? new Date(v.reviewedAt).toLocaleDateString() : 'بررسی شده') + '</span>';
+            : '<span style="color:var(--text-muted); font-size:12px;">' + escapeHtml(v.reviewedAt ? new Date(v.reviewedAt).toLocaleDateString() : 'بررسی شده') + '</span>';
 
           return '<tr>' +
-            '<td><code>' + v.id + '</code></td>' +
-            '<td><code>' + centerId + '</code></td>' +
-            '<td><strong>' + centerName + '</strong></td>' +
-            '<td>' + applicantName + '</td>' +
-            '<td>' + (applicantPhone !== '-' ? '<a href="tel:' + applicantPhone + '">' + applicantPhone + '</a>' : '-') + '</td>' +
-            '<td>' + new Date(v.createdAt).toLocaleDateString() + '</td>' +
+            '<td><code>' + escapeHtml(v.id) + '</code></td>' +
+            '<td><code>' + escapeHtml(centerId) + '</code></td>' +
+            '<td><strong>' + escapeHtml(centerName) + '</strong></td>' +
+            '<td>' + escapeHtml(applicantName) + '</td>' +
+            '<td>' + (applicantPhone !== '-' ? '<a href="tel:' + escapeHtml(safePhoneTel) + '">' + escapeHtml(applicantPhone) + '</a>' : '-') + '</td>' +
+            '<td>' + escapeHtml(new Date(v.createdAt).toLocaleDateString()) + '</td>' +
             '<td>' + statusHtml + '</td>' +
             '<td>' + docsHtml + '</td>' +
             '<td>' + actionsHtml + '</td>' +
@@ -1363,34 +1370,35 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
           else if (a.status === 'EXPIRED') badgeCls = 'badge-secondary';
           else if (a.status === 'DELETED') badgeCls = 'badge-danger';
 
-          var adTypeBadge = '<span class="badge badge-info">' + (a.adType || 'GAMING_CENTER') + '</span>';
+          var adTypeBadge = '<span class="badge badge-info">' + escapeHtml(a.adType || 'GAMING_CENTER') + '</span>';
           var centerDisplay = (a.gamingCenter && a.gamingCenter.name)
-            ? '<strong>' + a.gamingCenter.name + '</strong>'
+            ? '<strong>' + escapeHtml(a.gamingCenter.name) + '</strong>'
             : '<span class="badge badge-secondary" style="font-size:11px;"><i class="fa-solid fa-globe"></i> مستقل (بدون گیم‌نت)</span>';
 
           var actionsHtml = '<div style="display:flex; gap:6px;">';
           if (a.status === 'PENDING') {
-            actionsHtml += '<button class="btn btn-sm btn-success" onclick="openApproveAdModal(\'' + a.id + '\', ' + (a.durationDays || 30) + ')">Approve</button>' +
-              '<button class="btn btn-sm btn-danger" onclick="openRejectAdModal(\'' + a.id + '\')">Reject</button>';
+            actionsHtml += '<button class="btn btn-sm btn-success" onclick="openApproveAdModal(\\'' + escapeJsArg(a.id) + '\\', ' + (Number(a.durationDays) || 30) + ')">Approve</button>' +
+              '<button class="btn btn-sm btn-danger" onclick="openRejectAdModal(\\'' + escapeJsArg(a.id) + '\\')">Reject</button>';
           }
           if (a.status !== 'DELETED') {
-            actionsHtml += '<button class="btn btn-sm btn-outline-danger" onclick="deleteAdRequestPrompt(\'' + a.id + '\')"><i class="fa-solid fa-trash"></i></button>';
+            actionsHtml += '<button class="btn btn-sm btn-outline-danger" onclick="deleteAdRequestPrompt(\\'' + escapeJsArg(a.id) + '\\')"><i class="fa-solid fa-trash"></i></button>';
           }
           actionsHtml += '</div>';
 
-          var start = a.startDate ? a.startDate.slice(0, 10) : '-';
-          var end = a.endDate ? a.endDate.slice(0, 10) : '-';
+          var start = a.startDate ? String(a.startDate).slice(0, 10) : '-';
+          var end = a.endDate ? String(a.endDate).slice(0, 10) : '-';
 
-          var bannerImg = a.bannerUrl ? '<img src="' + a.bannerUrl + '" style="width:60px; height:34px; object-fit:cover; border-radius:4px; margin-right:8px; vertical-align:middle;" />' : '';
+          var safeBannerUrl = a.bannerUrl ? sanitizeUrl(a.bannerUrl, '') : '';
+          var bannerImg = safeBannerUrl ? '<img src="' + safeBannerUrl + '" style="width:60px; height:34px; object-fit:cover; border-radius:4px; margin-right:8px; vertical-align:middle;" />' : '';
 
           return '<tr>' +
-            '<td>' + bannerImg + '<strong>' + a.title + '</strong></td>' +
+            '<td>' + bannerImg + '<strong>' + escapeHtml(a.title) + '</strong></td>' +
             '<td>' + adTypeBadge + '</td>' +
             '<td>' + centerDisplay + '</td>' +
-            '<td><span class="badge badge-info">' + (a.priority || 0) + '</span></td>' +
-            '<td style="direction:ltr; font-size:12px;">' + start + ' ~ ' + end + '</td>' +
-            '<td>' + (a.durationDays || 30) + ' days</td>' +
-            '<td><span class="badge ' + badgeCls + '">' + a.status + '</span></td>' +
+            '<td><span class="badge badge-info">' + escapeHtml(Number(a.priority) || 0) + '</span></td>' +
+            '<td style="direction:ltr; font-size:12px;">' + escapeHtml(start) + ' ~ ' + escapeHtml(end) + '</td>' +
+            '<td>' + escapeHtml(Number(a.durationDays) || 30) + ' days</td>' +
+            '<td><span class="badge ' + badgeCls + '">' + escapeHtml(a.status) + '</span></td>' +
             '<td>' + actionsHtml + '</td>' +
           '</tr>';
         }).join('');
@@ -1595,18 +1603,18 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
           return;
         }
         tbody.innerHTML = items.map(function(c) {
-          var valText = c.discountType === 'PERCENTAGE' ? (c.percentage + '%') : (Number(c.amount || 0).toLocaleString() + ' IRR');
+          var valText = c.discountType === 'PERCENTAGE' ? (Number(c.percentage || 0) + '%') : (Number(c.amount || 0).toLocaleString() + ' IRR');
           var badgeCls = c.isActive ? 'badge-success' : 'badge-danger';
           var statusTxt = c.isActive ? 'ACTIVE' : 'INACTIVE';
 
           return '<tr>' +
-            '<td><strong>' + c.title + '</strong></td>' +
-            '<td><code>' + c.code + '</code></td>' +
-            '<td><span class="badge badge-primary">' + c.discountType + '</span></td>' +
-            '<td>' + valText + '</td>' +
-            '<td>' + (c.platformShareBps / 100) + '% Platform</td>' +
+            '<td><strong>' + escapeHtml(c.title) + '</strong></td>' +
+            '<td><code>' + escapeHtml(c.code) + '</code></td>' +
+            '<td><span class="badge badge-primary">' + escapeHtml(c.discountType) + '</span></td>' +
+            '<td>' + escapeHtml(valText) + '</td>' +
+            '<td>' + escapeHtml((Number(c.platformShareBps || 0) / 100) + '% Platform') + '</td>' +
             '<td><span class="badge ' + badgeCls + '">' + statusTxt + '</span></td>' +
-            '<td><button class="btn btn-sm btn-danger" onclick="deleteCampaign(\'' + c.id + '\')"><i class="fa-solid fa-trash"></i> Delete</button></td>' +
+            '<td><button class="btn btn-sm btn-danger" onclick="deleteCampaign(\\'' + escapeJsArg(c.id) + '\\')"><i class="fa-solid fa-trash"></i> Delete</button></td>' +
           '</tr>';
         }).join('');
       } catch (e) { console.error(e); }
@@ -1693,13 +1701,13 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
           var badgeCls = r.status === 'COMPLETED' ? 'badge-success' : (r.status === 'CONFIRMED' ? 'badge-info' : 'badge-danger');
 
           return '<tr>' +
-            '<td><code>' + r.id.slice(0, 10) + '...</code></td>' +
-            '<td>' + centerName + '</td>' +
-            '<td>' + stationName + '</td>' +
-            '<td>' + custName + '</td>' +
-            '<td style="direction:ltr; font-size:12px;">' + new Date(r.startTime).toLocaleString() + '</td>' +
-            '<td>' + Number(r.totalPrice || 0).toLocaleString() + ' IRR</td>' +
-            '<td><span class="badge ' + badgeCls + '">' + r.status + '</span></td>' +
+            '<td><code>' + escapeHtml(String(r.id || '').slice(0, 10)) + '...</code></td>' +
+            '<td>' + escapeHtml(centerName) + '</td>' +
+            '<td>' + escapeHtml(stationName) + '</td>' +
+            '<td>' + escapeHtml(custName) + '</td>' +
+            '<td style="direction:ltr; font-size:12px;">' + escapeHtml(new Date(r.startTime).toLocaleString()) + '</td>' +
+            '<td>' + escapeHtml(Number(r.totalPrice || 0).toLocaleString()) + ' IRR</td>' +
+            '<td><span class="badge ' + badgeCls + '">' + escapeHtml(r.status) + '</span></td>' +
           '</tr>';
         }).join('');
       } catch (e) { console.error(e); }
@@ -1722,12 +1730,12 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
           var statusTxt = u.isActive ? 'ACTIVE' : 'DEACTIVATED';
 
           return '<tr>' +
-            '<td><strong>' + u.fullName + '</strong></td>' +
-            '<td style="direction:ltr;">' + u.phone + '</td>' +
-            '<td>' + centerName + '</td>' +
-            '<td><span class="badge badge-primary">' + u.role + '</span></td>' +
+            '<td><strong>' + escapeHtml(u.fullName) + '</strong></td>' +
+            '<td style="direction:ltr;">' + escapeHtml(u.phone) + '</td>' +
+            '<td>' + escapeHtml(centerName) + '</td>' +
+            '<td><span class="badge badge-primary">' + escapeHtml(u.role) + '</span></td>' +
             '<td><span class="badge ' + badgeCls + '">' + statusTxt + '</span></td>' +
-            '<td><button class="btn btn-sm btn-danger" onclick="revokeSessions(\'' + u.id + '\')"><i class="fa-solid fa-ban"></i> Revoke Sessions</button></td>' +
+            '<td><button class="btn btn-sm btn-danger" onclick="revokeSessions(\\'' + escapeJsArg(u.id) + '\\')"><i class="fa-solid fa-ban"></i> Revoke Sessions</button></td>' +
           '</tr>';
         }).join('');
       } catch (e) { console.error(e); }
@@ -1749,12 +1757,12 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
           var resCount = c._count && c._count.reservations != null ? c._count.reservations : 0;
 
           return '<tr>' +
-            '<td><strong>' + custName + '</strong></td>' +
-            '<td style="direction:ltr;">' + (c.phone || '-') + '</td>' +
-            '<td>' + (c.email || '-') + '</td>' +
-            '<td>' + resCount + '</td>' +
-            '<td>' + walletBal + ' IRR</td>' +
-            '<td>' + new Date(c.createdAt).toLocaleDateString() + '</td>' +
+            '<td><strong>' + escapeHtml(custName) + '</strong></td>' +
+            '<td style="direction:ltr;">' + escapeHtml(c.phone || '-') + '</td>' +
+            '<td>' + escapeHtml(c.email || '-') + '</td>' +
+            '<td>' + escapeHtml(resCount) + '</td>' +
+            '<td>' + escapeHtml(walletBal) + ' IRR</td>' +
+            '<td>' + escapeHtml(new Date(c.createdAt).toLocaleDateString()) + '</td>' +
           '</tr>';
         }).join('');
       } catch (e) { console.error(e); }
@@ -1814,9 +1822,9 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
             '<td><strong>' + escapeHtml(dt.name) + '</strong></td>' +
             '<td><code>' + escapeHtml(dt.slug) + '</code></td>' +
             '<td>' + escapeHtml(dt.category) + '</td>' +
-            '<td><button class="btn btn-sm ' + (dt.extraControllerEnabled ? 'btn-primary' : 'btn-secondary') + '" onclick="toggleDeviceTypeField(\'' + dt.id + '\', \'extraControllerEnabled\', ' + (!dt.extraControllerEnabled) + ')">' + (dt.extraControllerEnabled ? 'Enabled' : 'Disabled') + '</button></td>' +
-            '<td><button class="btn btn-sm ' + (dt.isActive ? 'btn-primary' : 'btn-secondary') + '" onclick="toggleDeviceTypeField(\'' + dt.id + '\', \'isActive\', ' + (!dt.isActive) + ')">' + (dt.isActive ? 'Active' : 'Inactive') + '</button></td>' +
-            '<td><button class="btn btn-danger btn-sm" onclick="deleteDeviceType(\'' + dt.id + '\')"><i class="fa-solid fa-trash"></i></button></td>' +
+            '<td><button class="btn btn-sm ' + (dt.extraControllerEnabled ? 'btn-primary' : 'btn-secondary') + '" onclick="toggleDeviceTypeField(\\'' + escapeJsArg(dt.id) + '\\', \\'extraControllerEnabled\\', ' + (!dt.extraControllerEnabled) + ')">' + (dt.extraControllerEnabled ? 'Enabled' : 'Disabled') + '</button></td>' +
+            '<td><button class="btn btn-sm ' + (dt.isActive ? 'btn-primary' : 'btn-secondary') + '" onclick="toggleDeviceTypeField(\\'' + escapeJsArg(dt.id) + '\\', \\'isActive\\', ' + (!dt.isActive) + ')">' + (dt.isActive ? 'Active' : 'Inactive') + '</button></td>' +
+            '<td><button class="btn btn-danger btn-sm" onclick="deleteDeviceType(\\'' + escapeJsArg(dt.id) + '\\')"><i class="fa-solid fa-trash"></i></button></td>' +
           '</tr>';
         }).join('');
       } catch (e) {
@@ -1893,8 +1901,8 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
             '<td style="max-width:220px; font-size:12px;">' + escapeHtml(aliasList) + '</td>' +
             '<td>' + centerCount + '</td>' +
             '<td>' + (g.supportsOnline ? '<span class="badge badge-success">ONLINE</span>' : '<span class="badge badge-secondary">OFFLINE</span>') + '</td>' +
-            '<td><button class="btn btn-secondary btn-sm" onclick="editCatalogGame(\'' + g.id + '\')"><i class="fa-solid fa-pen"></i></button> ' +
-            '<button class="btn btn-danger btn-sm" onclick="deleteCatalogGame(\'' + g.id + '\')"><i class="fa-solid fa-trash"></i></button></td>' +
+            '<td><button class="btn btn-secondary btn-sm" onclick="editCatalogGame(\\'' + escapeJsArg(g.id) + '\\')"><i class="fa-solid fa-pen"></i></button> ' +
+            '<button class="btn btn-danger btn-sm" onclick="deleteCatalogGame(\\'' + escapeJsArg(g.id) + '\\')"><i class="fa-solid fa-trash"></i></button></td>' +
           '</tr>';
         }).join('');
       } catch (e) {
@@ -1977,8 +1985,8 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
         var target = grp.games[0];
         var sourceIds = grp.games.slice(1).map(function(x) { return x.id; });
         return '<div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;">' +
-          '<span>' + grp.games.map(function(x) { return escapeHtml(x.title) + ' (' + x.id + ')'; }).join(' | ') + '</span>' +
-          '<button class="btn btn-warning btn-sm" onclick="mergeDuplicateGroup(\'' + target.id + '\', \'' + sourceIds.join(',') + '\')">Merge into ' + escapeHtml(target.title) + '</button>' +
+          '<span>' + grp.games.map(function(x) { return escapeHtml(x.title) + ' (' + escapeHtml(x.id) + ')'; }).join(' | ') + '</span>' +
+          '<button class="btn btn-warning btn-sm" onclick="mergeDuplicateGroup(\\'' + escapeJsArg(target.id) + '\\', \\'' + escapeJsArg(sourceIds.join(',')) + '\\')">Merge into ' + escapeHtml(target.title) + '</button>' +
         '</div>';
       }).join('');
     }
@@ -2021,12 +2029,12 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
           var centerName = l.gamingCenter && l.gamingCenter.name ? l.gamingCenter.name : '-';
 
           return '<tr>' +
-            '<td style="direction:ltr; font-size:12px;">' + new Date(l.createdAt).toLocaleString() + '</td>' +
-            '<td><strong>' + actor + '</strong></td>' +
-            '<td><code style="direction:ltr;">' + l.action + '</code></td>' +
-            '<td>' + l.entity + '</td>' +
-            '<td><code style="direction:ltr;">' + l.entityId + '</code></td>' +
-            '<td>' + centerName + '</td>' +
+            '<td style="direction:ltr; font-size:12px;">' + escapeHtml(new Date(l.createdAt).toLocaleString()) + '</td>' +
+            '<td><strong>' + escapeHtml(actor) + '</strong></td>' +
+            '<td><code style="direction:ltr;">' + escapeHtml(l.action) + '</code></td>' +
+            '<td>' + escapeHtml(l.entity) + '</td>' +
+            '<td><code style="direction:ltr;">' + escapeHtml(l.entityId) + '</code></td>' +
+            '<td>' + escapeHtml(centerName) + '</td>' +
           '</tr>';
         }).join('');
       } catch (e) { console.error(e); }
@@ -2071,12 +2079,12 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
         } else {
           devBody.innerHTML = devices.map(function(d) {
             return '<tr>' +
-              '<td><strong>' + d.label + '</strong></td>' +
-              '<td>' + d.issuer + '</td>' +
+              '<td><strong>' + escapeHtml(d.label) + '</strong></td>' +
+              '<td>' + escapeHtml(d.issuer) + '</td>' +
               '<td>' + (d.isPrimary ? '<span class="badge badge-primary">Primary</span>' : '<span class="badge badge-info">Secondary</span>') + '</td>' +
-              '<td style="direction:ltr; font-size:12px;">' + (d.verifiedAt ? new Date(d.verifiedAt).toLocaleString() : '-') + '</td>' +
-              '<td style="direction:ltr; font-size:12px;">' + (d.lastUsedAt ? new Date(d.lastUsedAt).toLocaleString() : '-') + '</td>' +
-              '<td>' + (devices.length > 1 ? '<button class="btn btn-danger btn-sm" onclick="openSecurityActionModal(\'REMOVE_DEVICE\', \'' + d.id + '\')">حذف</button>' : '<span style="color:var(--text-muted); font-size:12px;">Primary Locked</span>') + '</td>' +
+              '<td style="direction:ltr; font-size:12px;">' + escapeHtml(d.verifiedAt ? new Date(d.verifiedAt).toLocaleString() : '-') + '</td>' +
+              '<td style="direction:ltr; font-size:12px;">' + escapeHtml(d.lastUsedAt ? new Date(d.lastUsedAt).toLocaleString() : '-') + '</td>' +
+              '<td>' + (devices.length > 1 ? '<button class="btn btn-danger btn-sm" onclick="openSecurityActionModal(\\'REMOVE_DEVICE\\', \\'' + escapeJsArg(d.id) + '\\')">حذف</button>' : '<span style="color:var(--text-muted); font-size:12px;">Primary Locked</span>') + '</td>' +
             '</tr>';
           }).join('');
         }
@@ -2088,12 +2096,12 @@ export const platformAdminDashboardTemplate = () => `<!DOCTYPE html>
         } else {
           sessBody.innerHTML = sessions.map(function(s) {
             return '<tr>' +
-              '<td><code>' + s.id + '</code>' + (s.isCurrent ? ' <span class="badge badge-success">Current</span>' : '') + '</td>' +
-              '<td style="direction:ltr;">' + (s.ipAddress || '-') + '</td>' +
-              '<td style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (s.userAgent || '-') + '</td>' +
+              '<td><code>' + escapeHtml(s.id) + '</code>' + (s.isCurrent ? ' <span class="badge badge-success">Current</span>' : '') + '</td>' +
+              '<td style="direction:ltr;">' + escapeHtml(s.ipAddress || '-') + '</td>' +
+              '<td style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHtml(s.userAgent || '-') + '</td>' +
               '<td><span class="badge badge-success">' + (s.mfaVerifiedAt ? 'TOTP Verified' : 'No') + '</span></td>' +
-              '<td style="direction:ltr; font-size:12px;">' + (s.lastUsedAt ? new Date(s.lastUsedAt).toLocaleString() : '-') + '</td>' +
-              '<td style="direction:ltr; font-size:12px;">' + new Date(s.expiresAt).toLocaleString() + '</td>' +
+              '<td style="direction:ltr; font-size:12px;">' + escapeHtml(s.lastUsedAt ? new Date(s.lastUsedAt).toLocaleString() : '-') + '</td>' +
+              '<td style="direction:ltr; font-size:12px;">' + escapeHtml(new Date(s.expiresAt).toLocaleString()) + '</td>' +
             '</tr>';
           }).join('');
         }

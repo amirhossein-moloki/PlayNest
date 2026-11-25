@@ -86,7 +86,7 @@ describe('reservationstationStation', () => {
       expect(MockedEventEmitter.emit).toHaveBeenCalledWith('reservation.created', expect.anything());
     });
 
-    it('should reject panel reservation with useWallet when balance is insufficient without creating reservation', async () => {
+    it('should forbid panel walk-in reservation from debiting customer wallet balance directly', async () => {
       const station = { id: stationId, name: 'PS5', defaultDurationHours: 1, hourlyPrice: 50000, stationType: 'CONSOLE' };
       const staff = { id: staffId };
       const customerAccount = { id: customerId, phone: '09123456789' };
@@ -111,33 +111,26 @@ describe('reservationstationStation', () => {
       await expect(
         reservationStation.createReservation({ ...input, useWallet: true })
       ).rejects.toMatchObject({
-        statusCode: 400,
-        code: 'INSUFFICIENT_WALLET_BALANCE',
+        statusCode: 403,
+        code: 'UNAUTHORIZED_WALLET_ACCESS',
       });
 
       expect(MockedReservationRepo.createReservation).not.toHaveBeenCalled();
       expect(txMock.customerAccount.update).not.toHaveBeenCalled();
     });
 
-    it('should deduct wallet and set paymentState PAID on panel reservation with useWallet when balance is sufficient', async () => {
+    it('should forbid panel walk-in reservation with provider=WALLET without debiting wallet balance', async () => {
       const station = { id: stationId, name: 'PS5', defaultDurationHours: 1, hourlyPrice: 50000, stationType: 'CONSOLE' };
       const staff = { id: staffId };
       const customerAccount = { id: customerId, phone: '09123456789' };
       const customerProfile = { id: profileId };
       const gamingCenter = { id: gamingCenterId, settings: {} };
-      const reservation = { id: 'res-panel-paid', ...input, status: ReservationStatus.CONFIRMED, paymentState: ReservationPaymentState.PAID };
 
       const txMock = {
         $executeRaw: jest.fn().mockImplementation(() => Promise.resolve(1)),
         customerAccount: {
           findUnique: jest.fn().mockImplementation(() => Promise.resolve({ walletBalance: 80000 })),
-          update: jest.fn().mockImplementation(() => Promise.resolve({ walletBalance: 30000 })),
-        },
-        payment: {
-          create: jest.fn().mockImplementation(() => Promise.resolve({ id: 'pay-panel-1' })),
-        },
-        walletTransaction: {
-          create: jest.fn().mockImplementation(() => Promise.resolve({ id: 'wtx-panel-1' })),
+          update: jest.fn(),
         },
       };
 
@@ -147,19 +140,16 @@ describe('reservationstationStation', () => {
       MockedReservationRepo.findCustomerAccountByPhone.mockResolvedValue(customerAccount as any);
       MockedReservationRepo.findCustomerProfile.mockResolvedValue(customerProfile as any);
       MockedReservationRepo.findGamingCenterWithSettings.mockResolvedValue(gamingCenter as any);
-      MockedReservationRepo.createReservation.mockResolvedValue(reservation as any);
 
-      const result = await reservationStation.createReservation({ ...input, useWallet: true });
-
-      expect(result.paymentState).toBe(ReservationPaymentState.PAID);
-      expect(txMock.customerAccount.update).toHaveBeenCalledWith({
-        where: { id: customerId },
-        data: { walletBalance: { decrement: 50000 } },
+      await expect(
+        reservationStation.createReservation({ ...input, provider: 'WALLET' })
+      ).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'UNAUTHORIZED_WALLET_ACCESS',
       });
-      expect(MockedReservationRepo.createReservation).toHaveBeenCalledWith(
-        expect.objectContaining({ paymentState: ReservationPaymentState.PAID }),
-        expect.anything()
-      );
+
+      expect(MockedReservationRepo.createReservation).not.toHaveBeenCalled();
+      expect(txMock.customerAccount.update).not.toHaveBeenCalled();
     });
   });
 
@@ -260,12 +250,14 @@ describe('reservationstationStation', () => {
       MockedReservationRepo.findCustomerAccountByPhone.mockResolvedValue(customerAccount as any);
       MockedReservationRepo.findCustomerProfile.mockResolvedValue(customerProfile as any);
 
+      const ownerActor = { id: customerId, actorType: SessionActorType.CUSTOMER } as any;
+
       await expect(
-        reservationStation.createPublicReservation(gamingCenterSlug, { ...input, useWallet: true })
+        reservationStation.createPublicReservation(gamingCenterSlug, { ...input, useWallet: true, actor: ownerActor })
       ).rejects.toMatchObject({ statusCode: 400, code: 'INSUFFICIENT_WALLET_BALANCE' });
 
       await expect(
-        reservationStation.createPublicReservation(gamingCenterSlug, { ...input, provider: 'WALLET' })
+        reservationStation.createPublicReservation(gamingCenterSlug, { ...input, provider: 'WALLET', actor: ownerActor })
       ).rejects.toMatchObject({ statusCode: 400, code: 'INSUFFICIENT_WALLET_BALANCE' });
 
       expect(MockedReservationRepo.createReservation).not.toHaveBeenCalled();
@@ -305,7 +297,11 @@ describe('reservationstationStation', () => {
       MockedReservationRepo.findCustomerProfile.mockResolvedValue(customerProfile as any);
       MockedReservationRepo.createReservation.mockResolvedValue(createdRes as any);
 
-      const result = await reservationStation.createPublicReservation(gamingCenterSlug, { ...input, useWallet: true });
+      const result = await reservationStation.createPublicReservation(gamingCenterSlug, {
+        ...input,
+        useWallet: true,
+        actor: { id: customerId, actorType: SessionActorType.CUSTOMER } as any,
+      });
 
       expect(result.paymentState).toBe(ReservationPaymentState.PAID);
       expect(result.status).toBe(ReservationStatus.CONFIRMED);

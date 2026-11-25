@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, ReservationStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
 export const CustomerPanelRepo = {
@@ -143,8 +143,15 @@ export const CustomerPanelRepo = {
 
   async updateReservation(id: string, customerAccountId: string, data: Prisma.ReservationUpdateInput, tx?: Prisma.TransactionClient) {
     const client = tx || prisma;
+    const where: Prisma.ReservationWhereInput = {
+      id,
+      customerAccountId,
+      ...(data.status === ReservationStatus.CANCELED
+        ? { status: { in: [ReservationStatus.PENDING, ReservationStatus.CONFIRMED] } }
+        : {}),
+    };
     const result = await client.reservation.updateMany({
-      where: { id, customerAccountId },
+      where,
       data,
     });
     if (result.count === 0) return null;

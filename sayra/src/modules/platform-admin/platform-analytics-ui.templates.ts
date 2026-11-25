@@ -1,3 +1,5 @@
+import { CLIENT_HTML_SANITIZE_HELPERS } from '../../common/utils/html-sanitize';
+
 export const platformAnalyticsDashboardTemplate = () => `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -762,6 +764,7 @@ export const platformAnalyticsDashboardTemplate = () => `<!DOCTYPE html>
   <div id="toast"></div>
 
   <script>
+${CLIENT_HTML_SANITIZE_HELPERS}
     var token = localStorage.getItem('platform_token');
     var activeSection = 'overview';
     var cachedGamingCenters = [];
@@ -885,7 +888,7 @@ export const platformAnalyticsDashboardTemplate = () => `<!DOCTYPE html>
         if (!res.ok) throw new Error((json.error && json.error.message) || json.message || 'Verification failed');
         token = json.data.accessToken || (json.data.tokens && json.data.tokens.accessToken);
         localStorage.setItem('platform_token', token);
-        if (json.data.refreshToken) localStorage.setItem('platform_refresh_token', json.data.refreshToken);
+        localStorage.removeItem('platform_refresh_token');
         hideLoginModal();
         initDashboard();
       } catch (err) {
@@ -909,7 +912,7 @@ export const platformAnalyticsDashboardTemplate = () => `<!DOCTYPE html>
         if (!res.ok) throw new Error((json.error && json.error.message) || json.message || 'Invalid code');
         token = json.data.accessToken || (json.data.tokens && json.data.tokens.accessToken);
         localStorage.setItem('platform_token', token);
-        if (json.data.refreshToken) localStorage.setItem('platform_refresh_token', json.data.refreshToken);
+        localStorage.removeItem('platform_refresh_token');
         document.getElementById('analyticsRecoveryPre').textContent = (json.data.recoveryCodes || []).join('\\n');
         showAnalyticsStep('recovery');
       } catch (err) {
@@ -1039,25 +1042,26 @@ export const platformAnalyticsDashboardTemplate = () => `<!DOCTYPE html>
       var pathD = 'M ' + points.map(function(p) { return p.x + ' ' + p.y; }).join(' L ');
       var areaD = pathD + ' L ' + points[points.length - 1].x + ' ' + (height - padBottom) + ' L ' + points[0].x + ' ' + (height - padBottom) + ' Z';
 
+      var safeColor = escapeHtml(color || '#6366f1');
       var circles = points.map(function(p) {
-        return '<circle cx="' + p.x + '" cy="' + p.y + '" r="4" fill="' + color + '"><title>' + p.raw.date + ': ' + Number(p.raw[keyName]).toLocaleString() + '</title></circle>';
+        return '<circle cx="' + p.x + '" cy="' + p.y + '" r="4" fill="' + safeColor + '"><title>' + escapeHtml(p.raw.date) + ': ' + escapeHtml(Number(p.raw[keyName]).toLocaleString()) + '</title></circle>';
       }).join('');
 
       var xLabels = '';
       var skip = Math.max(1, Math.floor(points.length / 5));
       for (var i = 0; i < points.length; i += skip) {
-        xLabels += '<text x="' + points[i].x + '" y="' + (height - 10) + '" fill="#94a3b8" font-size="10" text-anchor="middle">' + points[i].raw.date.substring(5) + '</text>';
+        xLabels += '<text x="' + points[i].x + '" y="' + (height - 10) + '" fill="#94a3b8" font-size="10" text-anchor="middle">' + escapeHtml(String(points[i].raw.date || '').substring(5)) + '</text>';
       }
 
       container.innerHTML = '<svg class="chart-svg" viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="none">' +
         '<line x1="' + padLeft + '" y1="' + padTop + '" x2="' + padLeft + '" y2="' + (height - padBottom) + '" stroke="#334155" stroke-width="1"/>' +
         '<line x1="' + padLeft + '" y1="' + (height - padBottom) + '" x2="' + (width - padRight) + '" y2="' + (height - padBottom) + '" stroke="#334155" stroke-width="1"/>' +
-        '<path d="' + areaD + '" fill="' + color + '" fill-opacity="0.15" />' +
-        '<path d="' + pathD + '" fill="none" stroke="' + color + '" stroke-width="2.5" />' +
+        '<path d="' + areaD + '" fill="' + safeColor + '" fill-opacity="0.15" />' +
+        '<path d="' + pathD + '" fill="none" stroke="' + safeColor + '" stroke-width="2.5" />' +
         circles +
         xLabels +
         '<text x="' + (padLeft - 10) + '" y="' + (height - padBottom) + '" fill="#94a3b8" font-size="10" text-anchor="end">0</text>' +
-        '<text x="' + (padLeft - 10) + '" y="' + (padTop + 10) + '" fill="#94a3b8" font-size="10" text-anchor="end">' + Number(maxVal).toLocaleString() + '</text>' +
+        '<text x="' + (padLeft - 10) + '" y="' + (padTop + 10) + '" fill="#94a3b8" font-size="10" text-anchor="end">' + escapeHtml(Number(maxVal).toLocaleString()) + '</text>' +
       '</svg>';
     }
 
@@ -1080,9 +1084,9 @@ export const platformAnalyticsDashboardTemplate = () => `<!DOCTYPE html>
         var x = padLeft + 20 + idx * (barWidth + 24);
         var barHeight = ((item.val || 0) / maxVal) * (height - padBottom - 30);
         var y = height - padBottom - barHeight;
-        return '<rect x="' + x + '" y="' + y + '" width="' + barWidth + '" height="' + barHeight + '" fill="' + (item.color || '#6366f1') + '" rx="4"><title>' + item.label + ': ' + Number(item.val).toLocaleString() + '</title></rect>' +
-          '<text x="' + (x + barWidth / 2) + '" y="' + (height - 10) + '" fill="#94a3b8" font-size="11" text-anchor="middle">' + item.label + '</text>' +
-          '<text x="' + (x + barWidth / 2) + '" y="' + (y - 6) + '" fill="#ffffff" font-size="10" font-weight="bold" text-anchor="middle">' + Number(item.val).toLocaleString() + '</text>';
+        return '<rect x="' + x + '" y="' + y + '" width="' + barWidth + '" height="' + barHeight + '" fill="' + escapeHtml(item.color || '#6366f1') + '" rx="4"><title>' + escapeHtml(item.label) + ': ' + escapeHtml(Number(item.val).toLocaleString()) + '</title></rect>' +
+          '<text x="' + (x + barWidth / 2) + '" y="' + (height - 10) + '" fill="#94a3b8" font-size="11" text-anchor="middle">' + escapeHtml(item.label) + '</text>' +
+          '<text x="' + (x + barWidth / 2) + '" y="' + (y - 6) + '" fill="#ffffff" font-size="10" font-weight="bold" text-anchor="middle">' + escapeHtml(Number(item.val).toLocaleString()) + '</text>';
       }).join('');
 
       container.innerHTML = '<svg class="chart-svg" viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="none">' +
@@ -1166,21 +1170,21 @@ export const platformAnalyticsDashboardTemplate = () => `<!DOCTYPE html>
             ? '<span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Active</span>'
             : '<span class="badge badge-danger"><i class="fa-solid fa-circle-xmark"></i> Inactive</span>';
           return '<tr>' +
-            '<td><strong>' + (c.name || 'Unknown') + '</strong></td>' +
+            '<td><strong>' + escapeHtml(c.name || 'Unknown') + '</strong></td>' +
             '<td>' + statusBadge + '</td>' +
-            '<td>' + formatNumber(c.reservationCount) + '</td>' +
-            '<td>' + formatCurrency(c.revenue) + '</td>' +
+            '<td>' + escapeHtml(formatNumber(c.reservationCount)) + '</td>' +
+            '<td>' + escapeHtml(formatCurrency(c.revenue)) + '</td>' +
           '</tr>';
         }).join('');
       }
 
       // B. Financial Analytics
-      document.getElementById('fin-paid').innerHTML = formatCurrency(fin.totalPaidAmount);
-      document.getElementById('fin-refunds').innerHTML = formatCurrency(fin.totalRefundAmount);
-      document.getElementById('fin-net').innerHTML = formatCurrency(fin.totalRevenue);
-      document.getElementById('fin-commission').innerHTML = formatCurrency(fin.platformCommission);
-      document.getElementById('fin-center-rev').innerHTML = formatCurrency(fin.gamingCentersRevenue);
-      document.getElementById('fin-aov').innerHTML = formatCurrency(fin.averageReservationValue);
+      document.getElementById('fin-paid').textContent = formatCurrency(fin.totalPaidAmount);
+      document.getElementById('fin-refunds').textContent = formatCurrency(fin.totalRefundAmount);
+      document.getElementById('fin-net').textContent = formatCurrency(fin.totalRevenue);
+      document.getElementById('fin-commission').textContent = formatCurrency(fin.platformCommission);
+      document.getElementById('fin-center-rev').textContent = formatCurrency(fin.gamingCentersRevenue);
+      document.getElementById('fin-aov').textContent = formatCurrency(fin.averageReservationValue);
 
       renderSvgBarChart('chart-fin-breakdown-container', [
         { label: 'Paid Volume', val: fin.totalPaidAmount || 0, color: '#10b981' },
@@ -1202,11 +1206,11 @@ export const platformAnalyticsDashboardTemplate = () => `<!DOCTYPE html>
           var resCount = c.reservationCount != null ? formatNumber(c.reservationCount) : '-';
           var revVal = c.revenue != null ? formatCurrency(c.revenue) : '-';
           return '<tr>' +
-            '<td><strong>' + (c.name || 'Center') + '</strong></td>' +
-            '<td><code>' + (c.slug || '-') + '</code></td>' +
+            '<td><strong>' + escapeHtml(c.name || 'Center') + '</strong></td>' +
+            '<td><code>' + escapeHtml(c.slug || '-') + '</code></td>' +
             '<td>' + statusBadge + '</td>' +
-            '<td>' + resCount + '</td>' +
-            '<td>' + revVal + '</td>' +
+            '<td>' + escapeHtml(resCount) + '</td>' +
+            '<td>' + escapeHtml(revVal) + '</td>' +
             '<td><a href="/api/v1/platform-admin/dashboard" class="btn btn-secondary btn-sm"><i class="fa-solid fa-arrow-up-right-from-square"></i> Inspect Center</a></td>' +
           '</tr>';
         }).join('');

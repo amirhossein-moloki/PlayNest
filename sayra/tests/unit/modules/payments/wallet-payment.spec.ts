@@ -460,6 +460,7 @@ describe('Wallet Payment and Partial Payment Module', () => {
         reservationId,
         idempotencyKey: 'idemp-full-1',
         useWallet: true,
+        actor: { id: customerAccountId, actorType: SessionActorType.CUSTOMER } as any,
       });
 
       expect(result.paymentStatus).toBe(PaymentStatus.PAID);
@@ -520,6 +521,7 @@ describe('Wallet Payment and Partial Payment Module', () => {
         idempotencyKey: 'idemp-part-1',
         useWallet: true,
         providerName: 'ZARINPAL',
+        actor: { id: customerAccountId, actorType: SessionActorType.CUSTOMER } as any,
       });
 
       expect(initResult.paymentStatus).toBe(PaymentStatus.INITIATED);
@@ -637,6 +639,7 @@ describe('Wallet Payment and Partial Payment Module', () => {
         reservationId,
         idempotencyKey: 'idemp-d-1',
         useWallet: true,
+        actor: { id: customerAccountId, actorType: SessionActorType.CUSTOMER } as any,
       });
 
       expect(result.totalAmount).toBe(100000);
@@ -675,6 +678,7 @@ describe('Wallet Payment and Partial Payment Module', () => {
           reservationId,
           idempotencyKey: 'idemp-fail-init',
           useWallet: true,
+          actor: { id: customerAccountId, actorType: SessionActorType.CUSTOMER } as any,
         })
       ).rejects.toThrow('Internal error during payment initiation.');
 
@@ -698,6 +702,7 @@ describe('Wallet Payment and Partial Payment Module', () => {
         reservationId,
         idempotencyKey: 'idemp-nok-1',
         useWallet: true,
+        actor: { id: customerAccountId, actorType: SessionActorType.CUSTOMER } as any,
       });
 
       expect(state.customerAccounts.get(customerAccountId).walletBalance).toBe(0);
@@ -832,6 +837,7 @@ describe('Wallet Payment and Partial Payment Module', () => {
         gamingCenterId,
         reservationId,
         useWallet: true,
+        actor: { id: customerAccountId, actorType: SessionActorType.CUSTOMER } as any,
       });
 
       expect(calculation.totalAmount).toBe(100000);
@@ -881,18 +887,21 @@ describe('Wallet Payment and Partial Payment Module', () => {
       });
 
       // Submit both full-wallet payment requests concurrently
+      const ownerActor = { id: customerAccountId, actorType: SessionActorType.CUSTOMER } as any;
       const results = await Promise.allSettled([
         PaymentsStation.initiatePayment({
           gamingCenterId,
           reservationId: res1,
           idempotencyKey: 'race-idemp-1',
           useWallet: true,
+          actor: ownerActor,
         }),
         PaymentsStation.initiatePayment({
           gamingCenterId,
           reservationId: res2,
           idempotencyKey: 'race-idemp-2',
           useWallet: true,
+          actor: ownerActor,
         }),
       ]);
 
@@ -929,12 +938,15 @@ describe('Wallet Payment and Partial Payment Module', () => {
         paymentState: ReservationPaymentState.UNPAID,
       });
 
+      const ownerActor = { id: customerAccountId, actorType: SessionActorType.CUSTOMER } as any;
+
       // First call
       const firstResult = await PaymentsStation.initiatePayment({
         gamingCenterId,
         reservationId,
         idempotencyKey: 'dup-key-12345',
         useWallet: true,
+        actor: ownerActor,
       });
 
       expect(firstResult.paymentStatus).toBe(PaymentStatus.PAID);
@@ -946,6 +958,7 @@ describe('Wallet Payment and Partial Payment Module', () => {
         reservationId,
         idempotencyKey: 'dup-key-12345',
         useWallet: true,
+        actor: ownerActor,
       });
 
       expect(secondResult.paymentId).toBe(firstResult.paymentId);
@@ -973,12 +986,15 @@ describe('Wallet Payment and Partial Payment Module', () => {
         paymentState: ReservationPaymentState.UNPAID,
       });
 
+      const ownerActor = { id: customerAccountId, actorType: SessionActorType.CUSTOMER } as any;
+
       // 1. Initial attempt with partial wallet
       const firstResult = await PaymentsStation.initiatePayment({
         gamingCenterId,
         reservationId,
         idempotencyKey: 'first-attempt-key',
         useWallet: true,
+        actor: ownerActor,
       });
 
       expect(firstResult.paymentStatus).toBe(PaymentStatus.INITIATED);
@@ -990,6 +1006,7 @@ describe('Wallet Payment and Partial Payment Module', () => {
         reservationId,
         idempotencyKey: 'second-attempt-key',
         useWallet: true,
+        actor: ownerActor,
       });
 
       // Old payment is cancelled and refunded, new payment deducted freshly
@@ -1059,6 +1076,7 @@ describe('Wallet Payment and Partial Payment Module', () => {
           reservationId,
           idempotencyKey: 'idemp-wallet-only-insuff',
           providerName: 'WALLET',
+          actor: { id: customerAccountId, actorType: SessionActorType.CUSTOMER } as any,
         })
       ).rejects.toMatchObject({
         statusCode: httpStatus.BAD_REQUEST,
@@ -1106,6 +1124,7 @@ describe('Wallet Payment and Partial Payment Module', () => {
           reservationId,
           idempotencyKey: 'idemp-partial-fail',
           useWallet: true,
+          actor: { id: customerAccountId, actorType: SessionActorType.CUSTOMER } as any,
         })
       ).rejects.toThrow('Insufficient wallet balance.');
 
@@ -1189,6 +1208,7 @@ describe('Wallet Payment and Partial Payment Module', () => {
           reservationId,
           idempotencyKey: 'idemp-race-paid',
           useWallet: true,
+          actor: { id: customerAccountId, actorType: SessionActorType.CUSTOMER } as any,
         })
       ).rejects.toThrow('Reservation is already paid.');
 

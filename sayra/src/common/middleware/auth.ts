@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 import AppError from '../errors/AppError';
 import httpStatus from 'http-status';
@@ -20,6 +21,54 @@ export const getRevokedSessionKey = (sessionId: string): string => {
   return `auth:revoked_session:${sessionId}`;
 };
 
+function extractCookieFromHeader(cookieHeader: string | undefined, name: string): string | null {
+  if (!cookieHeader || typeof cookieHeader !== 'string') return null;
+  for (const part of cookieHeader.split(';')) {
+    const eqIndex = part.indexOf('=');
+    if (eqIndex <= 0) continue;
+    if (part.slice(0, eqIndex).trim() === name) {
+      return part.slice(eqIndex + 1).trim();
+    }
+  }
+  return null;
+}
+
+export function verifySignedSessionCookie(rawCookie: string, secret: string): string | null {
+  if (!rawCookie || typeof rawCookie !== 'string' || !secret) return null;
+
+  let decoded = rawCookie;
+  try {
+    decoded = decodeURIComponent(rawCookie);
+  } catch {
+    decoded = rawCookie;
+  }
+
+  if (!decoded.startsWith('s:')) {
+    return null;
+  }
+
+  const signedPayload = decoded.slice(2);
+  const lastDotIndex = signedPayload.lastIndexOf('.');
+  if (lastDotIndex <= 0) {
+    return null;
+  }
+
+  const sessionId = signedPayload.slice(0, lastDotIndex);
+  const expectedSig = crypto
+    .createHmac('sha256', secret)
+    .update(sessionId)
+    .digest('base64')
+    .replace(/=+$/, '');
+  const expectedFull = `${sessionId}.${expectedSig}`;
+  const expectedBuf = Buffer.from(expectedFull, 'utf8');
+  const actualBuf = Buffer.from(signedPayload, 'utf8');
+  if (expectedBuf.length !== actualBuf.length) {
+    return null;
+  }
+
+  return crypto.timingSafeEqual(expectedBuf, actualBuf) ? sessionId : null;
+}
+
 export const markSessionRevokedInCache = async (
   sessionId: string,
   ttlSeconds = 3600
@@ -30,6 +79,17 @@ export const markSessionRevokedInCache = async (
   } catch (error) {
     logger.error({ error, sessionId }, 'Failed to mark session as revoked in Redis');
   }
+};
+
+export const markSessionsRevokedInCache = async (
+  sessionIds: string[],
+  ttlSeconds = 7 * 24 * 3600
+): Promise<void> => {
+  await Promise.all(
+    sessionIds
+      .filter((id) => typeof id === 'string' && id.length > 0)
+      .map((id) => markSessionRevokedInCache(id, ttlSeconds))
+  );
 };
 
 export const invalidateActorCache = async (actorId: string, actorType: string): Promise<void> => {
@@ -85,7 +145,7 @@ function extractActorProfile(actorType: SessionActorType, user: Record<string, u
   return undefined;
 }
 
-async function isSessionRevokedInCache(sessionId?: string): Promise<boolean> {
+export async function isSessionRevokedInCache(sessionId?: string): Promise<boolean> {
   if (!sessionId) return false;
   try {
     const val = await redis.get(getRevokedSessionKey(sessionId));
@@ -99,7 +159,7 @@ async function verifyPlatformAdminSessionRecord(
   sessionId: string | undefined,
   actorId: string
 ): Promise<boolean> {
-  if (!sessionId) return true;
+  if (!sessionId) return false;
   const sessionDelegate = (prisma as unknown as {
     session?: {
       findUnique?: (args: {
@@ -170,19 +230,26 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     sessionId = payload.sessionId;
     usedBearerAuth = true;
   } else {
-    // Check if an AdminJS session cookie is present for fallback authentication
-    const rawCookie =
-      req.signedCookies?.[ADMIN_CONSTANTS.SESSION_COOKIE_NAME] ||
-      req.cookies?.[ADMIN_CONSTANTS.SESSION_COOKIE_NAME];
+    // Check if an AdminJS session cookie is present for fallback authentication (must be HMAC-signed)
+    const signedCookieValue = req.signedCookies?.[ADMIN_CONSTANTS.SESSION_COOKIE_NAME];
+    const rawCookieValue =
+      (typeof req.cookies?.[ADMIN_CONSTANTS.SESSION_COOKIE_NAME] === 'string'
+        ? req.cookies[ADMIN_CONSTANTS.SESSION_COOKIE_NAME]
+        : null) || extractCookieFromHeader(req.headers?.cookie, ADMIN_CONSTANTS.SESSION_COOKIE_NAME);
+    let adminSessionId: string | null = null;
+    if (typeof signedCookieValue === 'string' && signedCookieValue.length > 0) {
+      adminSessionId = signedCookieValue.startsWith('s:')
+        ? signedCookieValue.slice(2).split('.')[0]
+        : signedCookieValue;
+    } else if (rawCookieValue) {
+      adminSessionId = verifySignedSessionCookie(
+        rawCookieValue,
+        ADMIN_CONSTANTS.SESSION_SECRET
+      );
+    }
 
-    if (rawCookie) {
+    if (adminSessionId) {
       try {
-        let adminSessionId = typeof rawCookie === 'string' ? rawCookie : String(rawCookie);
-        // If cookie value is an unsigned cookie string with connect.sid format: s:sessId.signature
-        if (adminSessionId.startsWith('s:')) {
-          adminSessionId = adminSessionId.slice(2).split('.')[0];
-        }
-
         const redisSessionKey = `${ADMIN_CONSTANTS.SESSION_PREFIX}${adminSessionId}`;
         const sessionDataRaw = await redis.get(redisSessionKey);
         if (sessionDataRaw) {
@@ -209,14 +276,15 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     }
   }
 
+  if (sessionId && (await isSessionRevokedInCache(sessionId))) {
+    return next(
+      new AppError('Session has been revoked', httpStatus.UNAUTHORIZED, {
+        code: 'SESSION_REVOKED',
+      })
+    );
+  }
+
   if (actorType === SessionActorType.PLATFORM_ADMIN) {
-    if (await isSessionRevokedInCache(sessionId)) {
-      return next(
-        new AppError('Session has been revoked', httpStatus.UNAUTHORIZED, {
-          code: 'SESSION_REVOKED',
-        })
-      );
-    }
     if (usedBearerAuth) {
       const sessionValid = await verifyPlatformAdminSessionRecord(sessionId, actorId);
       if (!sessionValid) {

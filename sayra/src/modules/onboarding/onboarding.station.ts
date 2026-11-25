@@ -1,152 +1,167 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import crypto from 'crypto';
 import httpStatus from 'http-status';
-import { OnboardingStep, OtpPurpose, UserRole, NotificationType } from '@prisma/client';
+import { OnboardingStep, OtpPurpose, SessionActorType, UserRole, NotificationType } from '@prisma/client';
 import { OnboardingRepo } from './onboarding.repo';
-import { AuthRepository } from '../auth/auth.repository';
+import { OtpService } from '../auth/otp.service';
 import { generateAccessToken } from '../auth/auth.tokens';
-import { queueSms } from '../../jobs/producers/sms.producer';
 import { NotificationStation } from '../notifications/notifications.station';
 import { env } from '../../config/env';
 import AppError from '../../common/errors/AppError';
 import { normalizePhone } from '../../common/utils/phone';
-import { isSkipOtp, getEffectiveOtpCode, hashOtpCode, verifyOtpCode, STATIC_OTP_CODE } from '../auth/otp-security';
 import { CommissionsRepo } from '../commissions/commissions.repo';
 
-const OTP_LENGTH = 6;
-const OTP_EXPIRATION_MINUTES = 2;
+const ONBOARDING_TOKEN_TTL_MS = 2 * 60 * 60 * 1000;
 
 const hashToken = (token: string) => {
   return crypto.createHash('sha256').update(token).digest('hex');
 };
 
-const getOtpTemplateId = (): number => {
-  return env.MELIPAYAMAK_OTP_BODY_ID || env.SMSIR_OTP_TEMPLATE_ID || 123456;
+export const signOnboardingToken = (onboardingId: string, managerPhone: string): string => {
+  const payload = Buffer.from(
+    JSON.stringify({
+      oid: onboardingId,
+      phone: managerPhone,
+      exp: Date.now() + ONBOARDING_TOKEN_TTL_MS,
+    }),
+    'utf8'
+  ).toString('base64url');
+  const sig = crypto
+    .createHmac('sha256', env.JWT_ACCESS_SECRET)
+    .update(`onboarding:${payload}`)
+    .digest('base64url');
+  return `${payload}.${sig}`;
+};
+
+export const verifyOnboardingToken = (
+  token: string | undefined,
+  onboardingId: string,
+  managerPhone: string
+): void => {
+  if (!token || !token.includes('.')) {
+    throw new AppError('Valid onboarding session token is required.', httpStatus.UNAUTHORIZED);
+  }
+
+  const parts = token.split('.');
+  if (parts.length !== 2) {
+    throw new AppError('Invalid onboarding session token.', httpStatus.UNAUTHORIZED);
+  }
+  const [payloadB64, sigB64] = parts;
+  const expectedSig = crypto
+    .createHmac('sha256', env.JWT_ACCESS_SECRET)
+    .update(`onboarding:${payloadB64}`)
+    .digest('base64url');
+
+  const sigBuf = Buffer.from(sigB64, 'utf8');
+  const expectedBuf = Buffer.from(expectedSig, 'utf8');
+  if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
+    throw new AppError('Invalid onboarding session token.', httpStatus.UNAUTHORIZED);
+  }
+
+  let parsed: { oid?: string; phone?: string; exp?: number };
+  try {
+    parsed = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+  } catch {
+    throw new AppError('Malformed onboarding session token.', httpStatus.UNAUTHORIZED);
+  }
+
+  if (
+    parsed.oid !== onboardingId ||
+    parsed.phone !== managerPhone ||
+    typeof parsed.exp !== 'number' ||
+    parsed.exp <= Date.now()
+  ) {
+    throw new AppError('Onboarding session token has expired or does not match draft.', httpStatus.UNAUTHORIZED);
+  }
+};
+
+const requireVerifiedDraft = async (onboardingId: string, onboardingToken?: string) => {
+  const draft = await OnboardingRepo.findById(onboardingId);
+  if (!draft) {
+    throw new AppError('Onboarding session not found', httpStatus.NOT_FOUND);
+  }
+  if (draft.step === OnboardingStep.OTP_PENDING) {
+    throw new AppError('Phone OTP verification must be completed before proceeding.', httpStatus.FORBIDDEN);
+  }
+  verifyOnboardingToken(onboardingToken, draft.id, draft.managerPhone);
+  return draft;
 };
 
 export const OnboardingStation = {
   /**
    * Step 1: Start onboarding flow.
-   * Collects GameCenter name, Manager full name, Manager phone.
-   * Generates and dispatches an OTP to the manager's phone.
+   * Always creates a fresh draft so unfinished draft IDs for other callers are never leaked.
+   * Generates and dispatches a SIGNUP OTP via OtpService.
    */
-  async startOnboarding(data: {
-    gameCenterName: string;
-    managerFullName: string;
-    managerPhone: string;
-  }) {
+  async startOnboarding(
+    data: {
+      gameCenterName: string;
+      managerFullName: string;
+      managerPhone: string;
+    },
+    metadata?: { ip?: string; userAgent?: string }
+  ) {
     const normalizedPhone = normalizePhone(data.managerPhone);
 
-    // Create or update onboarding draft
-    let draft = await OnboardingRepo.findByManagerPhone(normalizedPhone);
-
-    if (draft) {
-      draft = await OnboardingRepo.updateDraft(draft.id, {
-        gameCenterName: data.gameCenterName,
-        managerFullName: data.managerFullName,
-        step: OnboardingStep.OTP_PENDING,
-      });
-    } else {
-      draft = await OnboardingRepo.createDraft({
-        gameCenterName: data.gameCenterName,
-        managerFullName: data.managerFullName,
-        managerPhone: normalizedPhone,
-        step: OnboardingStep.OTP_PENDING,
-      });
-    }
-
-    // Generate & save OTP
-    const code = getEffectiveOtpCode(OTP_LENGTH);
-    const codeHash = hashOtpCode(code, { phone: normalizedPhone, purpose: OtpPurpose.SIGNUP });
-    const expiresAt = new Date(Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000);
-
-    await AuthRepository.createOtp({
-      phone: normalizedPhone,
-      purpose: OtpPurpose.SIGNUP,
-      codeHash,
-      expiresAt,
+    const draft = await OnboardingRepo.createDraft({
+      gameCenterName: data.gameCenterName,
+      managerFullName: data.managerFullName,
+      managerPhone: normalizedPhone,
+      step: OnboardingStep.OTP_PENDING,
     });
 
-    if (!isSkipOtp()) {
-      try {
-        await queueSms({
-          mobile: normalizedPhone,
-          templateId: getOtpTemplateId(),
-          parameters: [{ name: 'CODE', value: code }],
-        });
-      } catch {
-        // In tests or offline environments, allow graceful continuation
-      }
-    }
+    const otpResult = await OtpService.requestOtp(
+      normalizedPhone,
+      OtpPurpose.SIGNUP,
+      metadata,
+      SessionActorType.USER
+    );
 
     return {
       onboardingId: draft.id,
       step: draft.step,
-      message: `OTP sent to ${normalizedPhone}. It will expire in ${OTP_EXPIRATION_MINUTES} minutes.`,
+      message: otpResult.message,
     };
   },
 
   /**
    * Step 1 (b): Verify OTP.
-   * Verifies the code, marks phone as verified, creates/links manager account,
-   * creates user session, generates access/refresh tokens, and progresses to LOCATION_PENDING.
+   * Verifies the SIGNUP OTP via OtpService and returns an HMAC-signed onboardingToken
+   * scoped strictly to this draft ID and managerPhone. Does not issue User login JWTs.
    */
-  async verifyOtp(onboardingId: string, code: string) {
+  async verifyOtp(onboardingId: string, code: string, metadata?: { ip?: string }) {
     const draft = await OnboardingRepo.findById(onboardingId);
     if (!draft) {
       throw new AppError('Onboarding session not found', httpStatus.NOT_FOUND);
     }
 
-    if (isSkipOtp() && code !== STATIC_OTP_CODE) {
-      throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
-    }
+    await OtpService.verifyAndConsumeOtp(
+      draft.managerPhone,
+      code,
+      OtpPurpose.SIGNUP,
+      metadata,
+      SessionActorType.USER
+    );
 
-    const otp = await AuthRepository.findRecentOtp(draft.managerPhone, OtpPurpose.SIGNUP);
-    if (!otp) {
-      throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
-    }
-
-    const isCodeValid = await verifyOtpCode(code, otp.codeHash, {
-      phone: draft.managerPhone,
-      purpose: OtpPurpose.SIGNUP,
-    });
-    if (!isCodeValid) {
-      throw new AppError('Invalid or expired OTP.', httpStatus.UNAUTHORIZED);
-    }
-
-    await AuthRepository.consumeOtp(otp.id);
-
-    // Check or find existing user for this phone
-    const user = await (AuthRepository as any).findUsersWithGamingCenters(draft.managerPhone).then((res: any[]) => res[0]);
-
-    // Update draft to AUTHENTICATED / LOCATION_PENDING
     const updatedDraft = await OnboardingRepo.updateDraft(onboardingId, {
       step: OnboardingStep.LOCATION_PENDING,
-      managerId: user?.id || null,
+      managerId: null,
     });
 
-    // Generate auth session if user exists
-    let tokens = null;
-    if (user) {
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      const refreshToken = crypto.randomBytes(32).toString('hex');
-      const tokenHash = hashToken(refreshToken);
-      const session = await AuthRepository.createSession(user.id, 'USER', tokenHash, expiresAt);
-      const accessToken = generateAccessToken({ sessionId: session.id, actorId: user.id, actorType: 'USER' });
-      tokens = { accessToken, refreshToken };
-    }
+    const onboardingToken = signOnboardingToken(updatedDraft.id, updatedDraft.managerPhone);
 
     return {
       onboardingId: updatedDraft.id,
       step: updatedDraft.step,
       verified: true,
+      onboardingToken,
       manager: {
         id: updatedDraft.managerId,
         full_name: updatedDraft.managerFullName,
         phone_number: updatedDraft.managerPhone,
         phone_verified: true,
       },
-      tokens,
+      tokens: null,
     };
   },
 
@@ -161,12 +176,10 @@ export const OnboardingStation = {
       address: string;
       latitude?: number | null;
       longitude?: number | null;
-    }
+    },
+    onboardingToken?: string
   ) {
-    const draft = await OnboardingRepo.findById(onboardingId);
-    if (!draft) {
-      throw new AppError('Onboarding session not found', httpStatus.NOT_FOUND);
-    }
+    await requireVerifiedDraft(onboardingId, onboardingToken);
 
     const updated = await OnboardingRepo.updateDraft(onboardingId, {
       provinceId: data.provinceId,
@@ -201,12 +214,10 @@ export const OnboardingStation = {
       closingTime: string;
       closedDays?: number[];
       timezone?: string;
-    }
+    },
+    onboardingToken?: string
   ) {
-    const draft = await OnboardingRepo.findById(onboardingId);
-    if (!draft) {
-      throw new AppError('Onboarding session not found', httpStatus.NOT_FOUND);
-    }
+    await requireVerifiedDraft(onboardingId, onboardingToken);
 
     const updated = await OnboardingRepo.updateDraft(onboardingId, {
       openingTime: data.openingTime,
@@ -237,12 +248,10 @@ export const OnboardingStation = {
     data: {
       logoMediaId?: string | null;
       galleryMediaIds?: string[];
-    }
+    },
+    onboardingToken?: string
   ) {
-    const draft = await OnboardingRepo.findById(onboardingId);
-    if (!draft) {
-      throw new AppError('Onboarding session not found', httpStatus.NOT_FOUND);
-    }
+    await requireVerifiedDraft(onboardingId, onboardingToken);
 
     const updated = await OnboardingRepo.updateDraft(onboardingId, {
       logoMediaId: data.logoMediaId || null,
@@ -264,11 +273,8 @@ export const OnboardingStation = {
    * Step 5: Get Preview.
    * Summarizes all entered data and current step.
    */
-  async getPreview(onboardingId: string) {
-    const draft = await OnboardingRepo.findById(onboardingId);
-    if (!draft) {
-      throw new AppError('Onboarding session not found', httpStatus.NOT_FOUND);
-    }
+  async getPreview(onboardingId: string, onboardingToken?: string) {
+    const draft = await requireVerifiedDraft(onboardingId, onboardingToken);
 
     return {
       onboarding_id: draft.id,
@@ -303,14 +309,11 @@ export const OnboardingStation = {
 
   /**
    * Step 6: Complete onboarding transactionally.
-   * Creates or updates GamingCenter, Address, Settings, User (Manager),
-   * marks draft as COMPLETED, and issues tokens and manager dashboard redirect.
+   * Creates GamingCenter, Address, Settings, and a fresh User (Manager).
+   * Refuses completion if any existing User already owns draft.managerPhone.
    */
-  async completeOnboarding(onboardingId: string) {
-    const draft = await OnboardingRepo.findById(onboardingId);
-    if (!draft) {
-      throw new AppError('Onboarding session not found', httpStatus.NOT_FOUND);
-    }
+  async completeOnboarding(onboardingId: string, onboardingToken?: string) {
+    const draft = await requireVerifiedDraft(onboardingId, onboardingToken);
 
     if (draft.step === OnboardingStep.COMPLETED && draft.gamingCenterId) {
       return {
@@ -336,7 +339,20 @@ export const OnboardingStation = {
     const slug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
 
     const result = await OnboardingRepo.transaction(async (tx) => {
-      // 1. Create GamingCenter
+      // 1. Refuse onboarding if phone already belongs to any existing User (prevents account hijacking/reactivation)
+      const existingUser = await tx.user.findFirst({
+        where: { phone: draft.managerPhone },
+        select: { id: true },
+      });
+
+      if (existingUser) {
+        throw new AppError(
+          'A user account with this phone number already exists.',
+          httpStatus.CONFLICT
+        );
+      }
+
+      // 2. Create GamingCenter
       const createdCenter = await tx.gamingCenter.create({
         data: {
           name: draft.gameCenterName,
@@ -349,7 +365,7 @@ export const OnboardingStation = {
         },
       });
 
-      // 2. Create primary Address
+      // 3. Create primary Address
       await tx.address.create({
         data: {
           gamingCenterId: createdCenter.id,
@@ -363,7 +379,7 @@ export const OnboardingStation = {
         },
       });
 
-      // 3. Create Settings
+      // 4. Create Settings
       await tx.settings.create({
         data: {
           gamingCenterId: createdCenter.id,
@@ -373,46 +389,22 @@ export const OnboardingStation = {
         },
       });
 
-      // 3b. Provision default CommissionPolicy based on PlatformSetting.platformCommissionPercent
+      // 4b. Provision default CommissionPolicy based on PlatformSetting.platformCommissionPercent
       if (typeof CommissionsRepo?.ensureDefaultPolicyForGamingCenter === 'function') {
         await CommissionsRepo.ensureDefaultPolicyForGamingCenter(createdCenter.id, tx);
       }
 
-      // 4. Check 1-to-1 manager constraint & create or reassign Manager User
-      let managerUser = await tx.user.findFirst({
-        where: { phone: draft.managerPhone },
-        include: { managedGamingCenter: true },
+      // 5. Create fresh Manager User
+      const managerUser = await tx.user.create({
+        data: {
+          gamingCenterId: createdCenter.id,
+          fullName: draft.managerFullName || 'مدیر مجموعه',
+          phone: draft.managerPhone,
+          role: UserRole.MANAGER,
+          isActive: true,
+          phoneVerifiedAt: new Date(),
+        },
       });
-
-      if (managerUser && managerUser.managedGamingCenter && managerUser.managedGamingCenter.id !== createdCenter.id) {
-        throw new AppError(
-          'This phone number is already assigned as a manager to another GamingCenter. A manager can only manage one gaming center.',
-          httpStatus.CONFLICT
-        );
-      }
-
-      if (!managerUser) {
-        managerUser = await tx.user.create({
-          data: {
-            gamingCenterId: createdCenter.id,
-            fullName: draft.managerFullName || 'مدیر مجموعه',
-            phone: draft.managerPhone,
-            role: UserRole.MANAGER,
-            isActive: true,
-            phoneVerifiedAt: new Date(),
-          },
-        });
-      } else {
-        managerUser = await tx.user.update({
-          where: { id: managerUser.id },
-          data: {
-            gamingCenterId: createdCenter.id,
-            role: managerUser.role === UserRole.ADMIN ? UserRole.ADMIN : UserRole.MANAGER,
-            isActive: true,
-            phoneVerifiedAt: new Date(),
-          },
-        });
-      }
 
       // Link GamingCenter to Manager (1-to-1 relation)
       await tx.gamingCenter.update({

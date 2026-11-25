@@ -179,6 +179,8 @@ export const GroupBookingRepo = {
           endTime: data.endTime,
           totalHours: data.totalHours,
           totalPrice: item.price,
+          originalAmount: item.price + (item.discountAmount ?? 0),
+          customerPayableAmount: item.price,
           discountAmount: item.discountAmount,
           discountId: item.discountId,
           status: data.status,
@@ -274,10 +276,19 @@ export const GroupBookingRepo = {
   ) {
     const client = tx || prisma;
     const now = new Date();
+    const cancelableStatuses = [
+      ReservationStatus.PENDING,
+      ReservationStatus.CONFIRMED,
+      ReservationStatus.IN_PROGRESS,
+    ];
 
-    // Update GroupBooking
-    await client.groupBooking.updateMany({
-      where: { id, gamingCenterId },
+    // Update GroupBooking only if still in a cancelable state
+    const groupResult = await client.groupBooking.updateMany({
+      where: {
+        id,
+        gamingCenterId,
+        status: { in: cancelableStatuses },
+      },
       data: {
         status: ReservationStatus.CANCELED,
         canceledAt: now,
@@ -286,9 +297,17 @@ export const GroupBookingRepo = {
       },
     });
 
-    // Update associated Reservations
+    if (groupResult && typeof groupResult.count === 'number' && groupResult.count === 0) {
+      return null;
+    }
+
+    // Update associated Reservations only if still in a cancelable state
     await client.reservation.updateMany({
-      where: { groupBookingId: id, gamingCenterId },
+      where: {
+        groupBookingId: id,
+        gamingCenterId,
+        status: { in: cancelableStatuses },
+      },
       data: {
         status: ReservationStatus.CANCELED,
         canceledAt: now,
@@ -317,6 +336,58 @@ export const GroupBookingRepo = {
         customerAccount: true,
         customerProfile: true,
       },
+    });
+  },
+
+  async syncParentGroupBookingStatus(
+    groupBookingId: string | null | undefined,
+    tx?: Prisma.TransactionClient
+  ): Promise<void> {
+    if (!groupBookingId) return;
+    const client = tx || prisma;
+    if (
+      typeof client?.reservation?.findMany !== 'function' ||
+      typeof client?.groupBooking?.updateMany !== 'function'
+    ) {
+      return;
+    }
+
+    const siblings = await client.reservation.findMany({
+      where: { groupBookingId },
+      select: { status: true },
+    });
+    if (!siblings || siblings.length === 0) return;
+
+    const terminalStatuses: ReservationStatus[] = [
+      ReservationStatus.COMPLETED,
+      ReservationStatus.NO_SHOW,
+      ReservationStatus.CANCELED,
+      ReservationStatus.EXPIRED,
+    ];
+
+    let targetStatus: ReservationStatus | null = null;
+    if (siblings.some((s) => s.status === ReservationStatus.IN_PROGRESS)) {
+      targetStatus = ReservationStatus.IN_PROGRESS;
+    } else if (siblings.every((s) => terminalStatuses.includes(s.status))) {
+      if (siblings.some((s) => s.status === ReservationStatus.COMPLETED)) {
+        targetStatus = ReservationStatus.COMPLETED;
+      } else if (siblings.some((s) => s.status === ReservationStatus.NO_SHOW)) {
+        targetStatus = ReservationStatus.NO_SHOW;
+      } else if (siblings.every((s) => s.status === ReservationStatus.EXPIRED)) {
+        targetStatus = ReservationStatus.EXPIRED;
+      } else {
+        targetStatus = ReservationStatus.CANCELED;
+      }
+    }
+
+    if (!targetStatus) return;
+
+    await client.groupBooking.updateMany({
+      where: {
+        id: groupBookingId,
+        status: { not: targetStatus },
+      },
+      data: { status: targetStatus },
     });
   },
 

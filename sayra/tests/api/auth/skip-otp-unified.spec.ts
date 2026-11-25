@@ -61,6 +61,8 @@ jest.mock('../../../src/config/prisma', () => ({
       create: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
+      delete: jest.fn(),
+      deleteMany: jest.fn(),
     },
     gamingCenter: {
       findUnique: jest.fn(),
@@ -163,6 +165,7 @@ describe('Comprehensive Unified SKIP_OTP Test Suite', () => {
         const { queueSms } = await import('../../../src/jobs/producers/sms.producer');
         (queueSms as any).mockClear();
 
+        (prisma.phoneOtp.deleteMany as any).mockResolvedValue({ count: 1 });
         (prisma.phoneOtp.updateMany as any).mockResolvedValue({ count: 1 });
         (prisma.phoneOtp.create as any).mockImplementation(({ data }: any) =>
           Promise.resolve({ id: 'otp-u-skip', ...data })
@@ -277,6 +280,7 @@ describe('Comprehensive Unified SKIP_OTP Test Suite', () => {
       (env as any).SKIP_OTP = true;
 
       try {
+        (prisma.phoneOtp.deleteMany as any).mockResolvedValue({ count: 0 });
         (prisma.phoneOtp.create as any).mockResolvedValue({ id: 'otp-user-1' });
         (prisma.phoneOtp.findFirst as any).mockResolvedValue({
           id: 'otp-user-1',
@@ -284,10 +288,11 @@ describe('Comprehensive Unified SKIP_OTP Test Suite', () => {
           purpose: OtpPurpose.LOGIN,
           codeHash: await argon2.hash('000000'),
           targetActorType: SessionActorType.USER,
+          attempts: 0,
           expiresAt: new Date(Date.now() + 60000),
           consumedAt: null,
         });
-        (prisma.phoneOtp.update as any).mockResolvedValue({ id: 'otp-user-1', consumedAt: new Date() });
+        (prisma.phoneOtp.updateMany as any).mockResolvedValue({ count: 1 });
         (prisma.user.updateMany as any).mockResolvedValue({ count: 1 });
         (prisma.user.findMany as any).mockResolvedValue([
           { gamingCenter: { id: 'center-1', name: 'Nexus Arena' } },
@@ -334,6 +339,7 @@ describe('Comprehensive Unified SKIP_OTP Test Suite', () => {
           phone: normalizedPhone,
           phoneVerifiedAt: new Date(),
         };
+        (prisma.phoneOtp.deleteMany as any).mockResolvedValue({ count: 0 });
         (prisma.phoneOtp.create as any).mockResolvedValue({ id: 'otp-cust-1' });
         (prisma.phoneOtp.findFirst as any).mockResolvedValue({
           id: 'otp-cust-1',
@@ -341,10 +347,11 @@ describe('Comprehensive Unified SKIP_OTP Test Suite', () => {
           purpose: OtpPurpose.LOGIN,
           codeHash: await argon2.hash('000000'),
           targetActorType: SessionActorType.CUSTOMER,
+          attempts: 0,
           expiresAt: new Date(Date.now() + 60000),
           consumedAt: null,
         });
-        (prisma.phoneOtp.update as any).mockResolvedValue({ id: 'otp-cust-1', consumedAt: new Date() });
+        (prisma.phoneOtp.updateMany as any).mockResolvedValue({ count: 1 });
         (prisma.user.findMany as any).mockResolvedValue([]);
         (prisma.customerAccount.findUnique as any).mockResolvedValue(mockCustomer);
         (prisma.customerAccount.findFirst as any).mockResolvedValue(mockCustomer);

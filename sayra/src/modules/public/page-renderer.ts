@@ -412,23 +412,73 @@ export const renderPageDocument = ({
           var slidesCount = 0;
           var autoPlayInterval = null;
 
+          function safeAdUrl(raw) {
+            if (typeof raw !== 'string') return '';
+            var cleaned = '';
+            for (var i = 0; i < raw.length; i++) {
+              var code = raw.charCodeAt(i);
+              if (code > 31 && code !== 127) cleaned += raw.charAt(i);
+            }
+            cleaned = cleaned.trim();
+            if (!cleaned) return '';
+            var lower = cleaned.toLowerCase();
+            if ((cleaned.charAt(0) === '/' && cleaned.charAt(1) !== '/') ||
+                lower.indexOf('https://') === 0 ||
+                lower.indexOf('http://') === 0) {
+              return cleaned;
+            }
+            return '';
+          }
+
           function renderSlider(ads) {
             if (!ads || !ads.length) return;
             slidesCount = ads.length;
-            wrapper.innerHTML = ads.map(function(ad, idx) {
-              var linkAttr = ad.destinationUrl ? 'onclick="window.open(\'' + ad.destinationUrl.replace(/"/g, '&quot;') + '\', \'_blank\')" style="cursor:pointer;"' : '';
-              return '<div class="ad-slide" ' + linkAttr + '>' +
-                '<img src="' + ad.bannerUrl + '" alt="' + (ad.title || '') + '" onerror="this.src=\'https://picsum.photos/seed/adfallback/1200/450\'" />' +
-                '<div class="ad-slide-caption">' +
-                  '<div class="ad-slide-title">' + (ad.title || '') + '</div>' +
-                  (ad.description ? '<p class="ad-slide-desc">' + ad.description + '</p>' : '') +
-                '</div>' +
-              '</div>';
-            }).join('');
+            wrapper.textContent = '';
+            dotsElem.textContent = '';
 
-            dotsElem.innerHTML = ads.map(function(_, idx) {
-              return '<div class="ad-slider-dot' + (idx === 0 ? ' active' : '') + '" onclick="goToAdSlide(' + idx + ')"></div>';
-            }).join('');
+            ads.forEach(function(ad, idx) {
+              var slide = document.createElement('div');
+              slide.className = 'ad-slide';
+              var destUrl = safeAdUrl(ad.destinationUrl);
+              if (destUrl) {
+                slide.style.cursor = 'pointer';
+                slide.addEventListener('click', function() {
+                  window.open(destUrl, '_blank', 'noopener,noreferrer');
+                });
+              }
+
+              var img = document.createElement('img');
+              img.src = safeAdUrl(ad.bannerUrl) || 'https://picsum.photos/seed/adfallback/1200/450';
+              img.alt = ad.title || '';
+              img.addEventListener('error', function() {
+                if (img.dataset.fallbackApplied) return;
+                img.dataset.fallbackApplied = '1';
+                img.src = 'https://picsum.photos/seed/adfallback/1200/450';
+              });
+              slide.appendChild(img);
+
+              var caption = document.createElement('div');
+              caption.className = 'ad-slide-caption';
+              var titleEl = document.createElement('div');
+              titleEl.className = 'ad-slide-title';
+              titleEl.textContent = ad.title || '';
+              caption.appendChild(titleEl);
+              if (ad.description) {
+                var descEl = document.createElement('p');
+                descEl.className = 'ad-slide-desc';
+                descEl.textContent = ad.description;
+                caption.appendChild(descEl);
+              }
+              slide.appendChild(caption);
+              wrapper.appendChild(slide);
+
+              var dot = document.createElement('div');
+              dot.className = 'ad-slider-dot' + (idx === 0 ? ' active' : '');
+              dot.addEventListener('click', function() {
+                goToAdSlide(idx);
+              });
+              dotsElem.appendChild(dot);
+            });
 
             sliderElem.style.display = 'block';
             startAutoPlay();
