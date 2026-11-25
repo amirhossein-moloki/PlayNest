@@ -190,7 +190,8 @@ export const VerificationStation = {
     id: string,
     adminId: string,
     actor?: { id: string; actorType: SessionActorType },
-    context?: { ip?: string; userAgent?: string }
+    context?: { ip?: string; userAgent?: string },
+    sayraBaseline?: { sayraRating?: number; sayraReviewComment?: string }
   ) {
     const verification = await VerificationRepo.findById(id);
     if (!verification) {
@@ -216,6 +217,14 @@ export const VerificationStation = {
           verificationStatus: GamingCenterVerificationStatus.APPROVED,
           verifiedAt: now,
           rejectionReason: null,
+          ...(sayraBaseline?.sayraRating !== undefined
+            ? {
+                sayraRating: sayraBaseline.sayraRating,
+                sayraReviewComment: sayraBaseline.sayraReviewComment ?? null,
+                sayraRatedAt: now,
+                sayraRatedByAdminId: adminId,
+              }
+            : {}),
         },
       });
 

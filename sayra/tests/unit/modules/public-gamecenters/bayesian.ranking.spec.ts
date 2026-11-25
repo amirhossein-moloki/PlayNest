@@ -4,6 +4,7 @@ import { describe, it, expect } from '@jest/globals';
 import {
   CenterRatingAggregate,
   computeBayesianScore,
+  computeEffectiveCenterRating,
   computeGlobalAverageC,
   rankPublicGameCenters,
   RankableCenterCandidate,
@@ -360,5 +361,46 @@ describe('Bayesian Average Gaming Center Ranking', () => {
         approvedOutput.ranked[i].bayesianScore!
       );
     }
+  });
+
+  it('applies Sayra baseline rating with 100% at v=0, 40% for 1..49 user reviews, and 0% at >= 50 user reviews', () => {
+    // 0 user reviews -> shows Sayra rating
+    const zeroReviews = computeEffectiveCenterRating({
+      sumRatings: 0,
+      validReviewsCount: 0,
+      sayraRating: 4.5,
+    });
+    expect(zeroReviews.effectiveAverage).toBe(4.5);
+    expect(zeroReviews.isSayraActive).toBe(true);
+    expect(zeroReviews.sayraWeight).toBe(1);
+
+    // 1 user review of 1.0, Sayra rating 4.5 -> 0.6 * 1.0 + 0.4 * 4.5 = 0.6 + 1.8 = 2.4
+    const oneReview = computeEffectiveCenterRating({
+      sumRatings: 1,
+      validReviewsCount: 1,
+      sayraRating: 4.5,
+    });
+    expect(oneReview.effectiveAverage).toBeCloseTo(2.4, 4);
+    expect(oneReview.isSayraActive).toBe(true);
+    expect(oneReview.sayraWeight).toBe(0.4);
+
+    // 49 user reviews avg 5.0, Sayra rating 3.0 -> 0.6 * 5.0 + 0.4 * 3.0 = 4.2
+    const fortyNineReviews = computeEffectiveCenterRating({
+      sumRatings: 49 * 5,
+      validReviewsCount: 49,
+      sayraRating: 3.0,
+    });
+    expect(fortyNineReviews.effectiveAverage).toBeCloseTo(4.2, 4);
+    expect(fortyNineReviews.isSayraActive).toBe(true);
+
+    // 50 user reviews avg 5.0, Sayra rating 3.0 -> Sayra weight drops to 0 => 5.0
+    const fiftyReviews = computeEffectiveCenterRating({
+      sumRatings: 50 * 5,
+      validReviewsCount: 50,
+      sayraRating: 3.0,
+    });
+    expect(fiftyReviews.effectiveAverage).toBe(5.0);
+    expect(fiftyReviews.isSayraActive).toBe(false);
+    expect(fiftyReviews.sayraWeight).toBe(0);
   });
 });

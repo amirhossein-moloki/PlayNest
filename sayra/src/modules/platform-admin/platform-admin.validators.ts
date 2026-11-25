@@ -79,6 +79,8 @@ export const updatePlatformGamingCenterSchema = z.object({
     subscriptionStatus: z.string().optional(),
     games: z.array(z.string()).max(100, 'Games list cannot exceed 100 items').optional(),
     ownerId: z.string().optional(),
+    sayraRating: z.number().min(1).max(5).nullable().optional(),
+    sayraReviewComment: z.string().max(2000).nullable().optional(),
   }),
 });
 

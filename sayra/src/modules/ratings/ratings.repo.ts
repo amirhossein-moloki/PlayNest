@@ -171,3 +171,17 @@ export async function findReservationForReview(reservationId: string, gamingCent
     },
   });
 }
+
+export async function findSayraBaselineReviewBySlug(gamingCenterSlug: string) {
+  return prisma.gamingCenter.findUnique({
+    where: { slug: gamingCenterSlug },
+    select: {
+      id: true,
+      sayraRating: true,
+      sayraReviewComment: true,
+      sayraRatedAt: true,
+      verifiedAt: true,
+      createdAt: true,
+    },
+  });
+}

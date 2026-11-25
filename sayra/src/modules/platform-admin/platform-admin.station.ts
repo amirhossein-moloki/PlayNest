@@ -104,6 +104,8 @@ export const PlatformAdminStation = {
       subscriptionStatus?: string;
       games?: string[];
       ownerId?: string;
+      sayraRating?: number | null;
+      sayraReviewComment?: string | null;
     },
     adminActor: { id: string },
     context?: { ip?: string; userAgent?: string }
@@ -120,7 +122,22 @@ export const PlatformAdminStation = {
       }
     }
 
-    const updated = await PlatformAdminRepo.updateGamingCenter(gamingCenterId, data);
+    const adminId = adminActor.id || (adminActor as any).actorId || null;
+    const updatePayload: Record<string, any> = { ...data };
+    if (data.sayraRating !== undefined) {
+      if (data.sayraRating === null) {
+        updatePayload.sayraRating = null;
+        updatePayload.sayraReviewComment = null;
+        updatePayload.sayraRatedAt = null;
+        updatePayload.sayraRatedByAdminId = null;
+      } else {
+        updatePayload.sayraRating = data.sayraRating;
+        updatePayload.sayraRatedAt = new Date();
+        updatePayload.sayraRatedByAdminId = adminId;
+      }
+    }
+
+    const updated = await PlatformAdminRepo.updateGamingCenter(gamingCenterId, updatePayload);
 
     void invalidateTenantCache(gamingCenterId, center.slug, updated?.slug);
     void invalidateAllPublicDiscoveryCaches();

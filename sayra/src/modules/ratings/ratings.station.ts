@@ -7,6 +7,10 @@ import { queueAnalyticsSync } from '../../jobs/producers/analytics.producer';
 import { NotificationStation } from '../notifications/notifications.station';
 import logger from '../../config/logger';
 import { recordGamingCenterChangeEvent } from '../integrations/outbox.service';
+import {
+  SAYRA_RATING_CUTOFF_REVIEWS,
+  SAYRA_RATING_WEIGHT,
+} from '../public-gamecenters/bayesian.ranking';
 
 export async function submitReview(gamingCenterSlug: string, input: SubmitReviewInput) {
   // 1. Verify reservation exists and belongs to the gamingCenter (by slug)
@@ -57,7 +61,46 @@ export async function submitReview(gamingCenterSlug: string, input: SubmitReview
 }
 
 export async function getPublishedReviews(gamingCenterSlug: string) {
-  return reviewsRepo.findPublishedReviewsByGamingCenterSlug(gamingCenterSlug);
+  const [reviews, center] = await Promise.all([
+    reviewsRepo.findPublishedReviewsByGamingCenterSlug(gamingCenterSlug),
+    typeof reviewsRepo.findSayraBaselineReviewBySlug === 'function'
+      ? reviewsRepo.findSayraBaselineReviewBySlug(gamingCenterSlug)
+      : Promise.resolve(null),
+  ]);
+
+  if (
+    center &&
+    typeof center.sayraRating === 'number' &&
+    Number.isFinite(center.sayraRating) &&
+    center.sayraRating >= 1 &&
+    center.sayraRating <= 5
+  ) {
+    const isActiveInScore = reviews.length < SAYRA_RATING_CUTOFF_REVIEWS;
+    const sayraWeight = reviews.length === 0 ? 1 : isActiveInScore ? SAYRA_RATING_WEIGHT : 0;
+
+    const sayraReview = {
+      id: `sayra-${center.id}`,
+      gamingCenterId: center.id,
+      rating: center.sayraRating,
+      comment: center.sayraReviewComment ?? null,
+      status: RatingStatus.PUBLISHED,
+      isSayraOfficial: true,
+      isActiveInScore,
+      sayraWeight,
+      createdAt: center.sayraRatedAt ?? center.verifiedAt ?? center.createdAt,
+      customerAccount: {
+        fullName: 'کارشناس سایرا',
+      },
+      station: null,
+      replyComment: null,
+      replyAt: null,
+      repliedBy: null,
+    };
+
+    return [sayraReview, ...reviews];
+  }
+
+  return reviews;
 }
 
 export async function getManagerReviews(gamingCenterId: string, status?: RatingStatus) {

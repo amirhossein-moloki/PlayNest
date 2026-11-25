@@ -1,9 +1,66 @@
 import { PublicGameCenterRankingSort } from './public-gamecenters.types';
 
+export const SAYRA_RATING_WEIGHT = 0.4;
+export const SAYRA_RATING_CUTOFF_REVIEWS = 50;
+
 export interface CenterRatingAggregate {
   sumRatings: number;
   validReviewsCount: number;
   latestReviewAt: Date | null;
+  sayraRating?: number | null;
+}
+
+export interface EffectiveCenterRatingResult {
+  effectiveAverage: number;
+  userAverage: number;
+  isSayraActive: boolean;
+  sayraWeight: number;
+}
+
+/**
+ * Computes the effective rating of a gaming center incorporating Sayra's official baseline rating:
+ * - When valid user reviews >= 50 (or no valid Sayra rating exists): 100% user average (0 if v == 0).
+ * - When v == 0 and a valid Sayra rating (1..5) exists: 100% Sayra rating.
+ * - When 0 < v < 50 and a valid Sayra rating exists: 60% user average + 40% Sayra rating.
+ */
+export function computeEffectiveCenterRating(params: {
+  sumRatings: number;
+  validReviewsCount: number;
+  sayraRating?: number | null;
+}): EffectiveCenterRatingResult {
+  const v = Math.max(0, params.validReviewsCount);
+  const userAverage = v > 0 ? params.sumRatings / v : 0;
+  const hasSayraRating =
+    typeof params.sayraRating === 'number' &&
+    Number.isFinite(params.sayraRating) &&
+    params.sayraRating >= 1 &&
+    params.sayraRating <= 5;
+
+  if (!hasSayraRating || v >= SAYRA_RATING_CUTOFF_REVIEWS) {
+    return {
+      effectiveAverage: userAverage,
+      userAverage,
+      isSayraActive: false,
+      sayraWeight: 0,
+    };
+  }
+
+  const sayra = params.sayraRating as number;
+  if (v === 0) {
+    return {
+      effectiveAverage: sayra,
+      userAverage: 0,
+      isSayraActive: true,
+      sayraWeight: 1,
+    };
+  }
+
+  return {
+    effectiveAverage: (1 - SAYRA_RATING_WEIGHT) * userAverage + SAYRA_RATING_WEIGHT * sayra,
+    userAverage,
+    isSayraActive: true,
+    sayraWeight: SAYRA_RATING_WEIGHT,
+  };
 }
 
 export interface RankableCenterCandidate<TDto> {
@@ -144,8 +201,12 @@ export function rankPublicGameCenters<TDto>(
 
   for (const candidate of activeApproved) {
     const v = Math.max(0, candidate.ratingStats.validReviewsCount);
-    const exactR = v > 0 ? candidate.ratingStats.sumRatings / v : 0;
-    const rawAverageR = v > 0 ? roundTo2(exactR) : 0;
+    const { effectiveAverage: exactR } = computeEffectiveCenterRating({
+      sumRatings: candidate.ratingStats.sumRatings,
+      validReviewsCount: v,
+      sayraRating: candidate.ratingStats.sayraRating,
+    });
+    const rawAverageR = exactR > 0 ? roundTo2(exactR) : 0;
     const bayesianScore = computeBayesianScore(exactR, v, m, globalAverageC);
     const isEligible = v > 0 && v >= minReviews;
 

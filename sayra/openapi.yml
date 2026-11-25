@@ -3000,6 +3000,21 @@ components:
           type: string
           nullable: true
           description: Primary cover image URL for the gaming center
+        sayraRating:
+          type: number
+          minimum: 1
+          maximum: 5
+          nullable: true
+        sayraReviewComment:
+          type: string
+          nullable: true
+        sayraRatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        sayraRatedByAdminId:
+          type: string
+          nullable: true
         banner:
           type: string
           nullable: true
@@ -3662,7 +3677,18 @@ components:
         reservationId:
           type: string
         rating:
-          type: integer
+          type: number
+          minimum: 1
+          maximum: 5
+        isSayraOfficial:
+          type: boolean
+          description: True when this entry represents Sayra's official baseline rating
+        isActiveInScore:
+          type: boolean
+          description: True while valid user reviews are below 50
+        sayraWeight:
+          type: number
+          description: Weight of Sayra's rating in the center score (1 if 0 user reviews, 0.4 if 1..49, 0 if >= 50)
         comment:
           type: string
           nullable: true
@@ -14907,6 +14933,15 @@ paths:
                     type: string
                 ownerId:
                   type: string
+                sayraRating:
+                  type: number
+                  minimum: 1
+                  maximum: 5
+                  nullable: true
+                sayraReviewComment:
+                  type: string
+                  maxLength: 2000
+                  nullable: true
       responses:
         '200':
           description: Gaming center updated successfully
@@ -15054,6 +15089,20 @@ paths:
         description: شناسه درخواست احراز هویت
         schema:
           type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sayraRating:
+                  type: number
+                  minimum: 1
+                  maximum: 5
+                sayraReviewComment:
+                  type: string
+                  maxLength: 2000
       responses:
         '200':
           description: درخواست با موفقیت تایید شد

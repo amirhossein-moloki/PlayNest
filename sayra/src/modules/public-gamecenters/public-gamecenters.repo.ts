@@ -28,6 +28,7 @@ import { ResolvedGameMatch } from '../search/search.types';
 import {
   CenterRatingAggregate,
   computeBayesianScore,
+  computeEffectiveCenterRating,
   computeGlobalAverageC,
   rankPublicGameCenters,
 } from './bayesian.ranking';
@@ -650,8 +651,12 @@ function toPublicGameCenterDto(
   });
 
   const v = ratingStats.validReviewsCount;
-  const exactR = v > 0 ? ratingStats.sumRatings / v : 0;
-  const rawAvg = v > 0 ? Math.round(exactR * 100) / 100 : 0;
+  const { effectiveAverage: exactR } = computeEffectiveCenterRating({
+    sumRatings: ratingStats.sumRatings,
+    validReviewsCount: v,
+    sayraRating: (gc as any).sayraRating ?? ratingStats.sayraRating,
+  });
+  const rawAvg = exactR > 0 ? Math.round(exactR * 100) / 100 : 0;
   const bayesianScore = computeBayesianScore(
     exactR,
     v,
@@ -1107,10 +1112,14 @@ export const PublicGameCentersRepo = {
         : computeGlobalAverageC(Array.from(globalRatingsMap.values()));
 
     const candidates = matchedCenters.map((gc) => {
-      const stats = scopedRatingsMap.get(gc.id) ?? {
+      const rawStats = scopedRatingsMap.get(gc.id) ?? {
         sumRatings: 0,
         validReviewsCount: 0,
         latestReviewAt: null,
+      };
+      const stats: CenterRatingAggregate = {
+        ...rawStats,
+        sayraRating: (gc as any).sayraRating ?? null,
       };
       const baseDto = toPublicGameCenterDto(
         gc,

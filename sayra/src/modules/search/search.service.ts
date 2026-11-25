@@ -36,6 +36,7 @@ import {
 import {
   CenterRatingAggregate,
   computeBayesianScore,
+  computeEffectiveCenterRating,
   computeGlobalAverageC,
 } from '../public-gamecenters/bayesian.ranking';
 import {
@@ -1349,8 +1350,12 @@ export const SearchService = {
           latestReviewAt: null,
         };
         const v = ratingStats.validReviewsCount;
-        const exactR = v > 0 ? ratingStats.sumRatings / v : 0;
-        const rawAvg = v > 0 ? Math.round(exactR * 100) / 100 : 0;
+        const { effectiveAverage: exactR } = computeEffectiveCenterRating({
+          sumRatings: ratingStats.sumRatings,
+          validReviewsCount: v,
+          sayraRating: (gc as any).sayraRating,
+        });
+        const rawAvg = exactR > 0 ? Math.round(exactR * 100) / 100 : 0;
         const bayesianScore = computeBayesianScore(exactR, v, m, globalAverageC);
         const isEligibleForRanking = v > 0 && v >= minReviews;
 
@@ -1737,10 +1742,12 @@ export const SearchService = {
 
       if (bestScore >= 55) {
         const stats = ratingsMap.get(c.id);
-        const avg =
-          stats && stats.validReviewsCount > 0
-            ? Math.round((stats.sumRatings / stats.validReviewsCount) * 100) / 100
-            : 0;
+        const { effectiveAverage } = computeEffectiveCenterRating({
+          sumRatings: stats?.sumRatings ?? 0,
+          validReviewsCount: stats?.validReviewsCount ?? 0,
+          sayraRating: (c as any).sayraRating,
+        });
+        const avg = effectiveAverage > 0 ? Math.round(effectiveAverage * 100) / 100 : 0;
         const openStatus = evaluateCenterOpenStatus({
           openingTime: c.openingTime,
           closingTime: c.closingTime,

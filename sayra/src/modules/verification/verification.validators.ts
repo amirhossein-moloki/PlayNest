@@ -32,6 +32,13 @@ export const submitVerificationSchema = z
     };
   });
 
+export const approveVerificationSchema = z
+  .object({
+    sayraRating: z.number().min(1).max(5).optional(),
+    sayraReviewComment: z.string().max(2000).optional(),
+  })
+  .optional();
+
 export const rejectVerificationSchema = z.object({
   rejectionReason: z.string().trim().min(3, 'دلیل رد درخواست باید حداقل ۳ کاراکتر باشد'),
 });

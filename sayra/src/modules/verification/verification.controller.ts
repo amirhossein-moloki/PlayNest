@@ -4,6 +4,7 @@ import { AppRequest } from '../../types/express';
 import { VerificationStation } from './verification.station';
 import {
   submitVerificationSchema,
+  approveVerificationSchema,
   rejectVerificationSchema,
   listVerificationsQuerySchema,
 } from './verification.validators';
@@ -112,11 +113,13 @@ export const VerificationController = {
     try {
       const { id } = req.params;
       const adminId = req.actor.id;
+      const validated = approveVerificationSchema.parse(req.body);
       const result = await VerificationStation.approveVerification(
         id,
         adminId,
         req.actor,
-        { ip: req.ip, userAgent: req.headers['user-agent'] as string }
+        { ip: req.ip, userAgent: req.headers['user-agent'] as string },
+        validated
       );
       return res.ok(result);
     } catch (err) {

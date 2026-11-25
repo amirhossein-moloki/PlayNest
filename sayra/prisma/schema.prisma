@@ -576,6 +576,13 @@ model GamingCenter {
   verifiedAt         DateTime?
   rejectionReason    String?
 
+  // Official Sayra baseline rating (40% weight until 50 valid user reviews)
+  sayraRating         Float?
+  sayraReviewComment  String?
+  sayraRatedAt        DateTime?
+  sayraRatedByAdminId String?
+  sayraRatedByAdmin   PlatformAdmin? @relation("GamingCenterSayraRatings", fields: [sayraRatedByAdminId], references: [id], onDelete: SetNull)
+
   pcCount        Int      @default(0)
   consoleCount   Int      @default(0)
   openingTime    String? // e.g., "09:00"
@@ -2561,6 +2568,7 @@ model PlatformAdmin {
   authChallenges            PlatformAdminChallenge[]
   auditLogs                 AuditLog[]
   reviewedVerifications     GamingCenterVerification[]
+  sayraRatedCenters         GamingCenter[]             @relation("GamingCenterSayraRatings")
   reviewedAdvertisements    AdvertisementRequest[]     @relation("AdRequestReviewer")
   reviewedWithdrawals       WithdrawalRequest[]        @relation("WithdrawalReviewer")
   createdShortLinks         ShortLink[]
