@@ -19,7 +19,6 @@ import { LedgerRepo } from '../payments/ledger.repo';
 import { PaymentsRepo } from '../payments/payments.repo';
 import { assertCustomerOwnsWallet, getAvailableWalletBalance } from '../wallet/wallet-access.guard';
 import { prisma } from '../../config/prisma';
-import { commissionsStation } from '../commissions/commissions.station';
 import { ReservationRepo } from './reservation.repo';
 import {
   resolveEffectiveCommissionPolicy,
@@ -401,11 +400,7 @@ export const reservationStation = {
       throw error;
     }
 
-    if (result.isWalletPayment) {
-      await commissionsStation.calculateCommission(result.reservation.id).catch(() => {});
-    }
-
-    // Emit event
+    // Emit event (commission and wallet settlement occur once upon reservation completion)
     eventEmitter.emit(AppEvents.RESERVATION_CREATED, {
       reservation: result.reservation,
       gamingCenter: result.gamingCenter,
@@ -781,11 +776,8 @@ export const reservationStation = {
         isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
       });
 
-      if (result.isWalletPayment) {
-        await commissionsStation.calculateCommission(result.reservation.id).catch(() => {});
-      }
-
       // Emit event only when the reservation does not require payment or has already been paid
+      // (Commission and wallet settlement occur once upon reservation completion)
       if (!result.isPayable || result.isWalletPayment || result.reservation.paymentState === ReservationPaymentState.PAID) {
         eventEmitter.emit(AppEvents.RESERVATION_CREATED, {
           reservation: result.reservation,

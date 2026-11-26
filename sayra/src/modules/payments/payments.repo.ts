@@ -5,7 +5,6 @@ import { validateReservationTransition, validatePaymentTransition } from './paym
 import { ReservationStateMachine } from '../reservation/reservation.state-machine';
 import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
-import { commissionsStation } from '../commissions/commissions.station';
 import { LedgerRepo } from './ledger.repo';
 import { walletService } from '../wallet/wallet.station';
 import { getAvailableWalletBalance } from '../wallet/wallet-access.guard';
@@ -334,7 +333,7 @@ const createFullWalletPayment = async ({
       });
     }
 
-    // 6. Record Ledger Entry
+    // 6. Record Ledger Entry (commission & center wallet settlement occur once on completion)
     await LedgerRepo.createCollectionEntry(tx, {
       gamingCenterId,
       paymentId: payment.id,
@@ -342,21 +341,6 @@ const createFullWalletPayment = async ({
       currency,
       description: `Wallet payment collection for reservation ${reservationId}`,
     });
-
-    // 7. Commission calculation
-    if (!isGroup) {
-      await commissionsStation.calculateCommission(reservationId, tx).catch((err) => {
-        logger.error({ err, reservationId }, 'Failed to calculate commission after wallet payment');
-      });
-    } else if (typeof tx.reservation?.findMany === 'function') {
-      const childReservations = await tx.reservation.findMany({
-        where: { groupBookingId: reservationId },
-        select: { id: true },
-      });
-      for (const res of childReservations) {
-        await commissionsStation.calculateCommission(res.id, tx).catch(() => {});
-      }
-    }
 
     return { payment, reservation: updatedReservation };
   });
@@ -652,16 +636,6 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string, refId?: string
         description: `Payment collection for group booking ${payment.groupBookingId}`,
       });
 
-      if (typeof tx.reservation?.findMany === 'function') {
-        const childReservations = await tx.reservation.findMany({
-          where: { groupBookingId: payment.groupBookingId },
-          select: { id: true },
-        });
-        for (const res of childReservations) {
-          await commissionsStation.calculateCommission(res.id, tx).catch(() => {});
-        }
-      }
-
       return updatedPayment;
     }
   }
@@ -756,11 +730,6 @@ const handleSuccessfulPayment = async (tx: Tx, paymentId: string, refId?: string
     amount: totalCollectedAmount,
     currency: payment.currency,
     description: `Payment collection for reservation ${payment.reservationId}`,
-  });
-
-  // Trigger commission calculation within transaction
-  await commissionsStation.calculateCommission(payment.reservationId!, tx).catch((err) => {
-    console.error('Failed to calculate commission for reservation after payment:', payment.reservationId, err);
   });
 
   return updatedPayment;

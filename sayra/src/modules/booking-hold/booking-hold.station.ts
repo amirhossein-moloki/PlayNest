@@ -23,7 +23,6 @@ import { PaymentsRepo } from '../payments/payments.repo';
 import { PaymentProviderFactory } from '../payments/providers';
 import { LedgerRepo } from '../payments/ledger.repo';
 import { assertCustomerOwnsWallet, getAvailableWalletBalance } from '../wallet/wallet-access.guard';
-import { commissionsStation } from '../commissions/commissions.station';
 import { prisma } from '../../config/prisma';
 import logger from '../../config/logger';
 import {
@@ -446,7 +445,7 @@ export const BookingHoldStation = {
       // Execute conversion
       const groupBooking = await BookingHoldRepo.convertHoldToGroupBookingAndReservations(hold.id, t);
 
-      // Record financial ledger collection
+      // Record financial ledger collection (commission & center wallet settlement occur once on completion)
       await LedgerRepo.createCollectionEntry(t, {
         gamingCenterId: hold.gamingCenterId,
         paymentId: payment.id,
@@ -454,17 +453,6 @@ export const BookingHoldStation = {
         currency: payment.currency,
         description: `Payment collection for group reservation ${groupBooking?.id}`,
       });
-
-      // Calculate commissions for all created reservations
-      if (groupBooking?.reservations) {
-        for (const res of groupBooking.reservations) {
-          try {
-            await commissionsStation.calculateCommission(res.id, t);
-          } catch (err) {
-            logger.error({ err, reservationId: res.id }, 'Failed to calculate commission for group reservation item');
-          }
-        }
-      }
 
       // Redeem any reserved discount hold
       if (groupBooking?.reservations?.[0]) {
@@ -765,12 +753,6 @@ export const BookingHoldStation = {
       } catch (error) {
         await releaseHoldSafely(hold.id);
         throw error;
-      }
-
-      if (fullPayment.groupBooking?.reservations) {
-        for (const res of fullPayment.groupBooking.reservations) {
-          await commissionsStation.calculateCommission(res.id).catch(() => {});
-        }
       }
 
       try {

@@ -57,6 +57,7 @@ import {
 } from '../modules/ratings/ratings.routes';
 import { settingsRouter } from '../modules/settings/settings.routes';
 import { commissionsRoutes } from '../modules/commissions/commissions.routes';
+import { gamingCenterWalletRoutes } from '../modules/gaming-center-wallet/gamingCenterWallet.routes';
 import auditRoutes from '../modules/audit/audit.routes';
 import { analyticsRoutes } from '../modules/analytics/analytics.routes';
 import { expenseRoutes } from '../modules/analytics/expense.routes';
@@ -170,6 +171,9 @@ router.use('/gamingCenters/:gamingCenterId/settings', settingsRouter);
 
 // --- Commissions Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/commissions', commissionsRoutes);
+
+// --- Gaming Center Wallet Module Routes ---
+router.use('/gamingCenters/:gamingCenterId/wallet', gamingCenterWalletRoutes);
 
 // --- Discounts Module Routes ---
 router.use('/gamingCenters/:gamingCenterId/discounts', discountsRoutes);

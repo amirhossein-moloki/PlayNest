@@ -5,6 +5,8 @@ import {
   CommissionType,
   CommissionStatus,
   CommissionPaymentStatus,
+  DiscountFundingSource,
+  GamingCenterWalletTransactionType,
   ReservationSource,
   ReservationStatus,
   ReservationPaymentState,
@@ -27,11 +29,17 @@ describe('commissionsStation Unit Tests', () => {
   const resMock = prismaMock.reservation as any;
   const settingsMock = prismaMock.settings as any;
   const earningPaymentMock = prismaMock.earningPayment as any;
+  const gcMock = prismaMock.gamingCenter as any;
+  const gcTxMock = prismaMock.gamingCenterWalletTransaction as any;
   const platformSettingMock = (prismaMock as any).platformSetting;
 
   beforeEach(() => {
     (prismaMock.$executeRaw as any) = jest.fn().mockResolvedValue(1 as never);
     (prismaMock.$transaction as any) = jest.fn().mockImplementation(async (cb: any) => cb(prismaMock));
+    gcMock.findUnique.mockResolvedValue({ id: 'gc-1', walletBalance: 0, reservedBalance: 0 });
+    gcMock.update.mockResolvedValue({ id: 'gc-1' });
+    gcTxMock.findUnique.mockResolvedValue(null);
+    gcTxMock.create.mockImplementation(async ({ data }: any) => ({ id: 'gc-tx-1', ...data }));
   });
 
   describe('getTargetPeriod helper', () => {
@@ -108,99 +116,91 @@ describe('commissionsStation Unit Tests', () => {
   });
 
   describe('calculateCommission', () => {
-    it('should return existing earning if already calculated (idempotency)', async () => {
-      const existingEarning = { id: 'e-1', commissionAmount: 100 };
+    it('should return existing earning idempotently on COMPLETED platform-paid reservation without double-crediting wallet', async () => {
+      const existingEarning = {
+        id: 'e-1',
+        reservationId: 'res-1',
+        gamingCenterId: 'gc-1',
+        status: CommissionStatus.CHARGED,
+        commissionAmount: 10000,
+        currency: 'IRR',
+      };
       resMock.findUnique.mockResolvedValue({
         id: 'res-1',
+        gamingCenterId: 'gc-1',
+        source: ReservationSource.ONLINE,
+        status: ReservationStatus.COMPLETED,
+        totalPrice: 100000,
+        discountAmount: 0,
+        originalAmount: 100000,
+        paymentState: ReservationPaymentState.PAID,
+        payments: [{ paidAt: new Date('2026-10-01T10:00:00Z'), provider: PaymentProvider.ZARINPAL, method: PaymentMethod.ONLINE }],
+        groupBooking: null,
         earning: existingEarning,
+      });
+      policyMock.findUnique.mockResolvedValue({
+        id: 'pol-1',
+        gamingCenterId: 'gc-1',
+        type: CommissionType.PERCENT,
+        percentBps: 1000,
+        isActive: true,
+        applyToOnlineOnly: true,
+      });
+      // Wallet already credited previously
+      gcTxMock.findUnique.mockResolvedValue({
+        id: 'gc-tx-existing',
+        idempotencyKey: 'reservation_settlement:res-1',
+        amount: 90000,
       });
 
       const res = await commissionsStation.calculateCommission('res-1');
       expect(res).toEqual(existingEarning);
+      expect(earningMock.create).not.toHaveBeenCalled();
+      expect(gcMock.update).not.toHaveBeenCalled();
+      expect(gcTxMock.create).not.toHaveBeenCalled();
     });
 
-    it('should calculate commission from base price BEFORE discount', async () => {
-      // totalPrice = 8000, discountAmount = 2000 => basePrice = 10000
-      // percentBps = 1000 (10%) => commission = 1000
-      resMock.findUnique.mockResolvedValue({
-        id: 'res-1',
-        gamingCenterId: 'gc-1',
-        source: ReservationSource.ONLINE,
-        totalPrice: 8000,
-        discountAmount: 2000,
-        paymentState: ReservationPaymentState.PAID,
-        payments: [{ paidAt: new Date('2026-10-01T10:00:00Z'), provider: PaymentProvider.ZARINPAL }],
-        earning: null,
-      });
+    it('should NOT deduct commission or credit wallet while paid reservation is still CONFIRMED or IN_PROGRESS', async () => {
+      for (const status of [ReservationStatus.PENDING, ReservationStatus.CONFIRMED, ReservationStatus.IN_PROGRESS]) {
+        jest.clearAllMocks();
+        (prismaMock.$transaction as any) = jest.fn().mockImplementation(async (cb: any) => cb(prismaMock));
+        resMock.findUnique.mockResolvedValue({
+          id: `res-${status}`,
+          gamingCenterId: 'gc-1',
+          source: ReservationSource.ONLINE,
+          status,
+          totalPrice: 100000,
+          discountAmount: 0,
+          originalAmount: 100000,
+          paymentState: ReservationPaymentState.PAID,
+          payments: [{ paidAt: new Date('2026-10-01T10:00:00Z'), provider: PaymentProvider.ZARINPAL, method: PaymentMethod.ONLINE }],
+          groupBooking: null,
+          earning: null,
+        });
 
-      policyMock.findUnique.mockResolvedValue({
-        id: 'pol-1',
-        gamingCenterId: 'gc-1',
-        type: CommissionType.PERCENT,
-        percentBps: 1000, // 10%
-        monthlyTarget: 10,
-        applyToOnlineOnly: true,
-        isActive: true,
-      });
-
-      settingsMock.findUnique.mockResolvedValue({ timeZone: 'UTC' });
-      earningMock.findUnique.mockResolvedValue(null);
-      earningMock.count.mockResolvedValue(4); // 4 prior contributions (< 10)
-      earningMock.create.mockImplementation(async ({ data }: any) => ({ id: 'e-1', ...data }));
-      earningPaymentMock.create.mockResolvedValue({ id: 'ep-1' });
-
-      const earning = await commissionsStation.calculateCommission('res-1');
-
-      expect(earning?.baseAmount).toBe(10000); // 8000 + 2000
-      expect(earning?.commissionAmount).toBe(1000); // 10% of 10000
-      expect(earning?.targetContribution).toBe(true);
-      expect(earning?.targetReached).toBe(false);
+        const res = await commissionsStation.calculateCommission(`res-${status}`);
+        expect(res).toBeNull();
+        expect(earningMock.create).not.toHaveBeenCalled();
+        expect(gcMock.update).not.toHaveBeenCalled();
+        expect(gcTxMock.create).not.toHaveBeenCalled();
+      }
     });
 
-    it('should assign ZERO commission for reservations after target achievement', async () => {
+    it('should calculate commission ONCE at COMPLETED and credit net payout to GamingCenter wallet (platform-funded vs merchant-funded discount)', async () => {
+      // Platform-funded discount: gross=100,000, discount=20,000, 10% commission=10,000 => net=90,000
       resMock.findUnique.mockResolvedValue({
-        id: 'res-2',
+        id: 'res-plat-disc',
         gamingCenterId: 'gc-1',
         source: ReservationSource.ONLINE,
-        totalPrice: 10000,
-        discountAmount: 0,
+        status: ReservationStatus.COMPLETED,
+        completedAt: new Date('2026-10-01T12:00:00Z'),
+        totalPrice: 80000,
+        discountAmount: 20000,
+        originalAmount: 100000,
+        discountFundingSource: DiscountFundingSource.PLATFORM,
         paymentState: ReservationPaymentState.PAID,
-        payments: [{ paidAt: new Date('2026-10-02T10:00:00Z'), provider: PaymentProvider.ZARINPAL }],
-        earning: null,
-      });
-
-      policyMock.findUnique.mockResolvedValue({
-        id: 'pol-1',
-        gamingCenterId: 'gc-1',
-        type: CommissionType.PERCENT,
-        percentBps: 1000, // 10%
-        monthlyTarget: 5,
-        applyToOnlineOnly: true,
-        isActive: true,
-      });
-
-      settingsMock.findUnique.mockResolvedValue({ timeZone: 'UTC' });
-      earningMock.findUnique.mockResolvedValue(null);
-      earningMock.count.mockResolvedValue(5); // target of 5 already reached
-      earningMock.create.mockImplementation(async ({ data }: any) => ({ id: 'e-2', ...data }));
-
-      const earning = await commissionsStation.calculateCommission('res-2');
-
-      expect(earning?.baseAmount).toBe(10000);
-      expect(earning?.commissionAmount).toBe(0);
-      expect(earning?.targetContribution).toBe(false);
-      expect(earning?.targetReached).toBe(true);
-    });
-
-    it('should enforce zero-target behavior immediately when monthlyTarget = 0', async () => {
-      resMock.findUnique.mockResolvedValue({
-        id: 'res-3',
-        gamingCenterId: 'gc-1',
-        source: ReservationSource.ONLINE,
-        totalPrice: 10000,
-        discountAmount: 0,
-        paymentState: ReservationPaymentState.PAID,
-        payments: [{ paidAt: new Date('2026-10-02T10:00:00Z'), provider: PaymentProvider.ZARINPAL }],
+        payments: [{ paidAt: new Date('2026-10-01T10:00:00Z'), provider: PaymentProvider.ZARINPAL, method: PaymentMethod.ONLINE }],
+        groupBooking: null,
         earning: null,
       });
 
@@ -209,7 +209,155 @@ describe('commissionsStation Unit Tests', () => {
         gamingCenterId: 'gc-1',
         type: CommissionType.PERCENT,
         percentBps: 1000,
-        monthlyTarget: 0, // Target is 0
+        currency: 'IRR',
+        monthlyTarget: 10,
+        applyToOnlineOnly: true,
+        isActive: true,
+      });
+
+      settingsMock.findUnique.mockResolvedValue({ timeZone: 'UTC' });
+      earningMock.findUnique.mockResolvedValue(null);
+      earningMock.count.mockResolvedValue(4);
+      earningMock.create.mockImplementation(async ({ data }: any) => ({ id: 'e-1', ...data }));
+      earningPaymentMock.create.mockResolvedValue({ id: 'ep-1' });
+      resMock.update.mockResolvedValue({ id: 'res-plat-disc' });
+
+      const earning = await commissionsStation.calculateCommission('res-plat-disc');
+
+      expect(earning?.baseAmount).toBe(100000);
+      expect(earning?.commissionAmount).toBe(10000);
+      expect(earning?.status).toBe(CommissionStatus.CHARGED);
+      expect(resMock.update).toHaveBeenCalledWith({
+        where: { id: 'res-plat-disc' },
+        data: expect.objectContaining({ merchantPayoutAmount: 90000 }),
+      });
+      expect(gcMock.update).toHaveBeenCalledWith({
+        where: { id: 'gc-1' },
+        data: { walletBalance: { increment: 90000 } },
+      });
+      expect(gcTxMock.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          gamingCenterId: 'gc-1',
+          type: GamingCenterWalletTransactionType.RESERVATION_SETTLEMENT,
+          grossAmount: 100000,
+          commissionAmount: 10000,
+          amount: 90000,
+          idempotencyKey: 'reservation_settlement:res-plat-disc',
+        }),
+      });
+
+      // Merchant-funded discount: gross=100,000 - 20,000 = 80,000, 10% commission on base = 10,000 => net=70,000
+      jest.clearAllMocks();
+      (prismaMock.$executeRaw as any) = jest.fn().mockResolvedValue(1 as never);
+      (prismaMock.$transaction as any) = jest.fn().mockImplementation(async (cb: any) => cb(prismaMock));
+      gcMock.findUnique.mockResolvedValue({ id: 'gc-1', walletBalance: 90000, reservedBalance: 0 });
+      gcMock.update.mockResolvedValue({ id: 'gc-1' });
+      gcTxMock.findUnique.mockResolvedValue(null);
+      gcTxMock.create.mockImplementation(async ({ data }: any) => ({ id: 'gc-tx-2', ...data }));
+      resMock.findUnique.mockResolvedValue({
+        id: 'res-merch-disc',
+        gamingCenterId: 'gc-1',
+        source: ReservationSource.ONLINE,
+        status: ReservationStatus.COMPLETED,
+        completedAt: new Date('2026-10-01T14:00:00Z'),
+        totalPrice: 80000,
+        discountAmount: 20000,
+        originalAmount: 100000,
+        discountFundingSource: DiscountFundingSource.MERCHANT_FUNDED,
+        paymentState: ReservationPaymentState.PAID,
+        payments: [{ paidAt: new Date('2026-10-01T12:00:00Z'), provider: PaymentProvider.ZARINPAL, method: PaymentMethod.ONLINE }],
+        groupBooking: null,
+        earning: null,
+      });
+      policyMock.findUnique.mockResolvedValue({
+        id: 'pol-1',
+        gamingCenterId: 'gc-1',
+        type: CommissionType.PERCENT,
+        percentBps: 1000,
+        currency: 'IRR',
+        monthlyTarget: null,
+        applyToOnlineOnly: true,
+        isActive: true,
+      });
+      earningMock.findUnique.mockResolvedValue(null);
+      earningMock.create.mockImplementation(async ({ data }: any) => ({ id: 'e-m2', ...data }));
+
+      await commissionsStation.calculateCommission('res-merch-disc');
+      expect(gcMock.update).toHaveBeenCalledWith({
+        where: { id: 'gc-1' },
+        data: { walletBalance: { increment: 70000 } },
+      });
+      expect(gcTxMock.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          grossAmount: 80000,
+          commissionAmount: 10000,
+          amount: 70000,
+          idempotencyKey: 'reservation_settlement:res-merch-disc',
+        }),
+      });
+    });
+
+    it('should assign ZERO commission for reservations after target achievement and still credit full amount to wallet', async () => {
+      resMock.findUnique.mockResolvedValue({
+        id: 'res-2',
+        gamingCenterId: 'gc-1',
+        source: ReservationSource.ONLINE,
+        status: ReservationStatus.COMPLETED,
+        totalPrice: 10000,
+        discountAmount: 0,
+        paymentState: ReservationPaymentState.PAID,
+        payments: [{ paidAt: new Date('2026-10-02T10:00:00Z'), provider: PaymentProvider.ZARINPAL }],
+        groupBooking: null,
+        earning: null,
+      });
+
+      policyMock.findUnique.mockResolvedValue({
+        id: 'pol-1',
+        gamingCenterId: 'gc-1',
+        type: CommissionType.PERCENT,
+        percentBps: 1000,
+        monthlyTarget: 5,
+        applyToOnlineOnly: true,
+        isActive: true,
+      });
+
+      settingsMock.findUnique.mockResolvedValue({ timeZone: 'UTC' });
+      earningMock.findUnique.mockResolvedValue(null);
+      earningMock.count.mockResolvedValue(5);
+      earningMock.create.mockImplementation(async ({ data }: any) => ({ id: 'e-2', ...data }));
+
+      const earning = await commissionsStation.calculateCommission('res-2');
+
+      expect(earning?.baseAmount).toBe(10000);
+      expect(earning?.commissionAmount).toBe(0);
+      expect(earning?.targetContribution).toBe(false);
+      expect(earning?.targetReached).toBe(true);
+      expect(gcMock.update).toHaveBeenCalledWith({
+        where: { id: 'gc-1' },
+        data: { walletBalance: { increment: 10000 } },
+      });
+    });
+
+    it('should enforce zero-target behavior immediately when monthlyTarget = 0', async () => {
+      resMock.findUnique.mockResolvedValue({
+        id: 'res-3',
+        gamingCenterId: 'gc-1',
+        source: ReservationSource.ONLINE,
+        status: ReservationStatus.COMPLETED,
+        totalPrice: 10000,
+        discountAmount: 0,
+        paymentState: ReservationPaymentState.PAID,
+        payments: [{ paidAt: new Date('2026-10-02T10:00:00Z'), provider: PaymentProvider.ZARINPAL }],
+        groupBooking: null,
+        earning: null,
+      });
+
+      policyMock.findUnique.mockResolvedValue({
+        id: 'pol-1',
+        gamingCenterId: 'gc-1',
+        type: CommissionType.PERCENT,
+        percentBps: 1000,
+        monthlyTarget: 0,
         applyToOnlineOnly: true,
         isActive: true,
       });
@@ -224,14 +372,18 @@ describe('commissionsStation Unit Tests', () => {
       expect(earning?.commissionAmount).toBe(0);
       expect(earning?.targetReached).toBe(true);
       expect(earning?.targetContribution).toBe(false);
+      expect(gcMock.update).toHaveBeenCalledWith({
+        where: { id: 'gc-1' },
+        data: { walletBalance: { increment: 10000 } },
+      });
     });
 
-    it('should auto-settle (CHARGED) commission for full WALLET payments', async () => {
+    it('should auto-settle (CHARGED) commission and credit GamingCenter wallet on COMPLETED full WALLET reservation', async () => {
       resMock.findUnique.mockResolvedValue({
         id: 'res-wallet-1',
         gamingCenterId: 'gc-1',
         source: ReservationSource.ONLINE,
-        status: ReservationStatus.CONFIRMED,
+        status: ReservationStatus.COMPLETED,
         totalPrice: 200000,
         discountAmount: 0,
         originalAmount: 200000,
@@ -282,9 +434,13 @@ describe('commissionsStation Unit Tests', () => {
           merchantPayoutAmount: 190000,
         }),
       });
+      expect(gcMock.update).toHaveBeenCalledWith({
+        where: { id: 'gc-1' },
+        data: { walletBalance: { increment: 190000 } },
+      });
     });
 
-    it('should keep commission PENDING for in-person CASH and default MANUAL payments', async () => {
+    it('should NOT charge commission or credit GamingCenter wallet for in-person CASH or non-wallet MANUAL payments', async () => {
       for (const method of [PaymentMethod.CASH, PaymentMethod.ONLINE]) {
         jest.clearAllMocks();
         (prismaMock.$executeRaw as any) = jest.fn().mockResolvedValue(1 as never);
@@ -310,35 +466,22 @@ describe('commissionsStation Unit Tests', () => {
           earning: null,
         });
 
-        policyMock.findUnique.mockResolvedValue({
-          id: 'pol-1',
-          gamingCenterId: 'gc-1',
-          type: CommissionType.PERCENT,
-          percentBps: 500,
-          currency: 'IRR',
-          monthlyTarget: null,
-          applyToOnlineOnly: true,
-          isActive: true,
-        });
-
-        settingsMock.findUnique.mockResolvedValue({ timeZone: 'UTC' });
-        earningMock.findUnique.mockResolvedValue(null);
-        earningMock.create.mockImplementation(async ({ data }: any) => ({ id: `e-${method}`, ...data }));
-
         const earning = await commissionsStation.calculateCommission(`res-man-${method}`);
 
-        expect(earning?.status).toBe(CommissionStatus.PENDING);
-        expect(earning?.commissionAmount).toBe(5000);
+        expect(earning).toBeNull();
+        expect(earningMock.create).not.toHaveBeenCalled();
         expect(earningPaymentMock.create).not.toHaveBeenCalled();
+        expect(gcMock.update).not.toHaveBeenCalled();
+        expect(gcTxMock.create).not.toHaveBeenCalled();
       }
     });
 
-    it('should auto-settle (CHARGED) commission for multi-station GroupBooking via groupBooking.payments', async () => {
+    it('should auto-settle (CHARGED) commission and credit GamingCenter wallet for COMPLETED multi-station GroupBooking via groupBooking.payments', async () => {
       resMock.findUnique.mockResolvedValue({
         id: 'res-gb-child-1',
         gamingCenterId: 'gc-1',
         source: ReservationSource.ONLINE,
-        status: ReservationStatus.CONFIRMED,
+        status: ReservationStatus.COMPLETED,
         totalPrice: 300000,
         discountAmount: 0,
         originalAmount: 300000,
@@ -384,9 +527,13 @@ describe('commissionsStation Unit Tests', () => {
           status: CommissionPaymentStatus.PAID,
         }),
       });
+      expect(gcMock.update).toHaveBeenCalledWith({
+        where: { id: 'gc-1' },
+        data: { walletBalance: { increment: 270000 } },
+      });
     });
 
-    it('should auto-settle an existing PENDING earning when online or wallet payment succeeds later', async () => {
+    it('should auto-settle legacy PENDING earning and credit wallet when COMPLETED with platform payment', async () => {
       const existingPending = {
         id: 'e-pend-1',
         reservationId: 'res-late-1',
@@ -400,7 +547,10 @@ describe('commissionsStation Unit Tests', () => {
         id: 'res-late-1',
         gamingCenterId: 'gc-1',
         source: ReservationSource.ONLINE,
-        status: ReservationStatus.CONFIRMED,
+        status: ReservationStatus.COMPLETED,
+        totalPrice: 150000,
+        discountAmount: 0,
+        originalAmount: 150000,
         paymentState: ReservationPaymentState.PAID,
         payments: [
           {
@@ -412,6 +562,7 @@ describe('commissionsStation Unit Tests', () => {
         groupBooking: null,
         earning: existingPending,
       });
+      policyMock.findUnique.mockResolvedValue(null);
 
       earningMock.updateMany.mockResolvedValue({ count: 1 });
       earningMock.findUnique.mockResolvedValue({
@@ -435,14 +586,18 @@ describe('commissionsStation Unit Tests', () => {
           status: CommissionPaymentStatus.PAID,
         }),
       });
+      expect(gcMock.update).toHaveBeenCalledWith({
+        where: { id: 'gc-1' },
+        data: { walletBalance: { increment: 135000 } },
+      });
     });
 
-    it('should fall back to PlatformSetting.platformCommissionPercent when no center policy exists, but NOT when center policy is inactive', async () => {
+    it('should fall back to PlatformSetting when no center policy exists, and still credit full gross to wallet when center policy is inactive', async () => {
       resMock.findUnique.mockResolvedValue({
         id: 'res-def-1',
         gamingCenterId: 'gc-no-pol',
         source: ReservationSource.ONLINE,
-        status: ReservationStatus.CONFIRMED,
+        status: ReservationStatus.COMPLETED,
         totalPrice: 200000,
         discountAmount: 0,
         originalAmount: 200000,
@@ -451,6 +606,7 @@ describe('commissionsStation Unit Tests', () => {
         groupBooking: null,
         earning: null,
       });
+      gcMock.findUnique.mockResolvedValue({ id: 'gc-no-pol', walletBalance: 0, reservedBalance: 0 });
       policyMock.findUnique.mockResolvedValue(null);
       platformSettingMock.findUnique.mockResolvedValue({ platformCommissionPercent: 6.5 });
       settingsMock.findUnique.mockResolvedValue({ timeZone: 'UTC' });
@@ -462,18 +618,56 @@ describe('commissionsStation Unit Tests', () => {
       expect(earning?.percentBps).toBe(650);
       expect(earning?.commissionAmount).toBe(13000);
       expect(earning?.status).toBe(CommissionStatus.CHARGED);
+      expect(gcMock.update).toHaveBeenCalledWith({
+        where: { id: 'gc-no-pol' },
+        data: { walletBalance: { increment: 187000 } },
+      });
 
-      // Inactive center policy must NOT fall back to platform default
+      // Inactive center policy: NO Earning created (0 commission), but FULL gross (100000) STILL credited to wallet!
+      jest.clearAllMocks();
+      (prismaMock.$executeRaw as any) = jest.fn().mockResolvedValue(1 as never);
+      (prismaMock.$transaction as any) = jest.fn().mockImplementation(async (cb: any) => cb(prismaMock));
+      gcMock.findUnique.mockResolvedValue({ id: 'gc-opted-out', walletBalance: 0, reservedBalance: 0 });
+      gcMock.update.mockResolvedValue({ id: 'gc-opted-out' });
+      gcTxMock.findUnique.mockResolvedValue(null);
+      gcTxMock.create.mockImplementation(async ({ data }: any) => ({ id: 'gc-tx-opt', ...data }));
+      resMock.findUnique.mockResolvedValue({
+        id: 'res-opted-out',
+        gamingCenterId: 'gc-opted-out',
+        source: ReservationSource.ONLINE,
+        status: ReservationStatus.COMPLETED,
+        totalPrice: 100000,
+        discountAmount: 0,
+        originalAmount: 100000,
+        paymentState: ReservationPaymentState.PAID,
+        payments: [{ paidAt: new Date('2026-10-06T10:00:00Z'), provider: PaymentProvider.ZARINPAL }],
+        groupBooking: null,
+        earning: null,
+      });
       policyMock.findUnique.mockResolvedValue({
         id: 'pol-inactive',
-        gamingCenterId: 'gc-no-pol',
+        gamingCenterId: 'gc-opted-out',
         isActive: false,
       });
-      const skipped = await commissionsStation.calculateCommission('res-def-1');
-      expect(skipped).toBeNull();
+      const optOutResult = await commissionsStation.calculateCommission('res-opted-out');
+      expect(optOutResult).toBeNull();
+      expect(earningMock.create).not.toHaveBeenCalled();
+      expect(gcMock.update).toHaveBeenCalledWith({
+        where: { id: 'gc-opted-out' },
+        data: { walletBalance: { increment: 100000 } },
+      });
+      expect(gcTxMock.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          gamingCenterId: 'gc-opted-out',
+          grossAmount: 100000,
+          commissionAmount: 0,
+          amount: 100000,
+          idempotencyKey: 'reservation_settlement:res-opted-out',
+        }),
+      });
     });
 
-    it('should skip commission creation for CANCELED, EXPIRED, or REFUNDED reservations', async () => {
+    it('should skip commission and wallet settlement for CANCELED, EXPIRED, or REFUNDED reservations', async () => {
       for (const state of [
         { status: ReservationStatus.CANCELED, paymentState: ReservationPaymentState.UNPAID },
         { status: ReservationStatus.EXPIRED, paymentState: ReservationPaymentState.UNPAID },
@@ -490,6 +684,7 @@ describe('commissionsStation Unit Tests', () => {
         const res = await commissionsStation.calculateCommission('res-skip');
         expect(res).toBeNull();
         expect(earningMock.create).not.toHaveBeenCalled();
+        expect(gcTxMock.create).not.toHaveBeenCalled();
       }
     });
   });
@@ -532,6 +727,62 @@ describe('commissionsStation Unit Tests', () => {
       expect(earningPaymentMock.updateMany).toHaveBeenCalledWith({
         where: { earningId: 'e-rev-1', status: CommissionPaymentStatus.PAID },
         data: { status: CommissionPaymentStatus.REFUNDED },
+      });
+    });
+
+    it('should reverse both Earning and GamingCenterWalletTransaction (SETTLEMENT_REVERSAL) on post-completion refund', async () => {
+      earningMock.findUnique
+        .mockResolvedValueOnce({
+          id: 'e-rev-wal',
+          reservationId: 'res-rev-wal',
+          gamingCenterId: 'gc-1',
+          status: CommissionStatus.CHARGED,
+          targetContribution: true,
+          payments: [{ id: 'ep-wal', status: CommissionPaymentStatus.PAID }],
+        })
+        .mockResolvedValueOnce({
+          id: 'e-rev-wal',
+          reservationId: 'res-rev-wal',
+          gamingCenterId: 'gc-1',
+          status: CommissionStatus.REFUNDED,
+          targetContribution: false,
+        });
+      earningMock.updateMany.mockResolvedValue({ count: 1 });
+      earningPaymentMock.updateMany.mockResolvedValue({ count: 1 });
+      gcTxMock.findUnique
+        .mockResolvedValueOnce({
+          id: 'gc-tx-orig',
+          gamingCenterId: 'gc-1',
+          grossAmount: 100000,
+          commissionAmount: 10000,
+          amount: 90000,
+          currency: 'IRR',
+          earningId: 'e-rev-wal',
+        })
+        .mockResolvedValueOnce(null);
+      gcMock.findUnique.mockResolvedValue({
+        id: 'gc-1',
+        walletBalance: 90000,
+        reservedBalance: 0,
+      });
+
+      await commissionsStation.reverseCommissionForReservation('res-rev-wal', {
+        reason: 'Full refund after completion',
+      });
+
+      expect(gcMock.update).toHaveBeenCalledWith({
+        where: { id: 'gc-1' },
+        data: { walletBalance: { decrement: 90000 } },
+      });
+      expect(gcTxMock.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          gamingCenterId: 'gc-1',
+          type: GamingCenterWalletTransactionType.SETTLEMENT_REVERSAL,
+          grossAmount: -100000,
+          commissionAmount: -10000,
+          amount: -90000,
+          idempotencyKey: 'reservation_settlement_reversal:res-rev-wal',
+        }),
       });
     });
 

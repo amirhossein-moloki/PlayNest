@@ -310,12 +310,6 @@ export const GroupBookingStation = {
       throw error;
     }
 
-    if (result.isWalletPayment && result.groupBooking?.reservations) {
-      for (const res of result.groupBooking.reservations) {
-        await commissionsStation.calculateCommission(res.id).catch(() => {});
-      }
-    }
-
     try {
       const gamingCenter = typeof prisma.gamingCenter?.findUnique === 'function'
         ? await prisma.gamingCenter.findUnique({
@@ -672,12 +666,6 @@ export const GroupBookingStation = {
         });
       }
       throw error;
-    }
-
-    if (result.isWalletPayment && result.groupBooking?.reservations) {
-      for (const res of result.groupBooking.reservations) {
-        await commissionsStation.calculateCommission(res.id).catch(() => {});
-      }
     }
 
     try {
