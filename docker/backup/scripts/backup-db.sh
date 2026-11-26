@@ -35,7 +35,7 @@ for db in $UNIQUE_DBS; do
     exit 1
   fi
   echo "Backing up database '$db'..."
-  TMP_DUMP=$(mktemp /tmp/db_dump_XXXXXX.sql)
+  TMP_DUMP=$(mktemp /tmp/db_dump_XXXXXX)
   PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -h "$POSTGRES_HOST" -p "${POSTGRES_PORT:-5432}" -U "$MAIN_USER" -- "$db" > "$TMP_DUMP"
   gzip -f "$TMP_DUMP"
   mv "${TMP_DUMP}.gz" "/data/db/dump_${db}.sql.gz"

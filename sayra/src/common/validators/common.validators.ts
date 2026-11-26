@@ -20,7 +20,7 @@ export const isValidId = (val: unknown): val is string => {
 };
 
 export const idSchema = (message = 'Invalid ID format') =>
-  z.string({ invalid_type_error: message })
+  z.string({ error: message })
     .trim()
     .min(1, { message })
     .max(128, { message: 'ID exceeds maximum allowed length' })

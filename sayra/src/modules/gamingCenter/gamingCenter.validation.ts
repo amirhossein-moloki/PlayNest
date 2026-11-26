@@ -174,8 +174,10 @@ export type ListGamingCentersQuery = z.infer<typeof listGamingCentersSchema>;
 export const mapGamingCentersQuerySchema = z.object({
   city: z
     .string({
-      required_error: 'City query parameter is required',
-      invalid_type_error: 'City query parameter must be a string',
+      error: (issue) =>
+        issue.input === undefined
+          ? 'City query parameter is required'
+          : 'City query parameter must be a string',
     })
     .trim()
     .min(1, 'City query parameter cannot be empty'),

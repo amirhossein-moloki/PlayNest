@@ -181,7 +181,7 @@ export type UpdateCampaignInput = z.infer<typeof updateCampaignSchema>['body'];
 export type ValidatePromoCodeInput = z.infer<typeof validatePromoCodeSchema>['body'];
 export type GetAvailableDiscountsInput = z.infer<typeof getAvailableDiscountsSchema>['body'];
 export type CalculateDiscountSelectionInput = z.infer<typeof calculateDiscountSelectionSchema>['body'];
-export type ReserveDiscountInput = z.infer<typeof reserveDiscountSchema>['body'];
+export type ReserveDiscountInput = z.input<typeof reserveDiscountSchema>['body'];
 export type ReleaseDiscountInput = z.infer<typeof releaseDiscountSchema>['body'];
 export type RedeemDiscountInput = z.infer<typeof redeemDiscountSchema>['body'];
 

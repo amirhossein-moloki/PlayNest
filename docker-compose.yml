@@ -7,6 +7,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
       POSTGRES_DB: ${POSTGRES_DB:-playenest_prod}
       POSTGRES_MULTIPLE_DATABASES: ${POSTGRES_MULTIPLE_DATABASES:-blog_prod}
+      BLOG_POSTGRES_DB: ${BLOG_POSTGRES_DB:-blog_prod}
+      SAYRA_DB_USER: ${SAYRA_DB_USER:-sayra_app}
+      SAYRA_DB_PASSWORD: ${SAYRA_DB_PASSWORD:?SAYRA_DB_PASSWORD environment variable is required}
+      BLOG_DB_USER: ${BLOG_DB_USER:-blog_app}
+      BLOG_DB_PASSWORD: ${BLOG_DB_PASSWORD:?BLOG_DB_PASSWORD environment variable is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
@@ -24,6 +29,9 @@ services:
     pids_limit: 512
     security_opt:
       - no-new-privileges:true
+    networks:
+      - sayra_internal
+      - blog_internal
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-playenest_admin} -d ${POSTGRES_DB:-playenest_prod}"]
       interval: 5s
@@ -33,6 +41,8 @@ services:
   redis:
     image: redis:7-alpine
     restart: always
+    environment:
+      - SAYRA_REDIS_PASSWORD=${SAYRA_REDIS_PASSWORD:?SAYRA_REDIS_PASSWORD environment variable is required}
     # BullMQ queue state requires noeviction so active/delayed jobs are never dropped;
     # all HTTP/DTO cache keys set bounded EX TTLs to prevent unbounded growth within maxmemory.
     command:
@@ -42,6 +52,7 @@ services:
         "--maxmemory-policy", "noeviction",
         "--appendonly", "yes",
         "--appendfsync", "everysec",
+        "--requirepass", "${SAYRA_REDIS_PASSWORD:?SAYRA_REDIS_PASSWORD environment variable is required}",
       ]
     cpus: ${REDIS_CPUS:-0.5}
     mem_limit: ${REDIS_MEM_LIMIT:-768m}
@@ -50,8 +61,10 @@ services:
       - no-new-privileges:true
     volumes:
       - redis_data:/data
+    networks:
+      - sayra_internal
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$SAYRA_REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -79,8 +92,10 @@ services:
       - TRUST_PROXY=${TRUST_PROXY:-1}
       # NOTE: Each concurrent Argon2 password hash allocates ~64 MiB native RAM; size container RAM >= 1 GiB when tuning UV_THREADPOOL_SIZE.
       - UV_THREADPOOL_SIZE=${UV_THREADPOOL_SIZE:-8}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@db:5432/${POSTGRES_DB:-playenest_prod}?connection_limit=${DB_CONNECTION_LIMIT:-15}&pool_timeout=${DB_POOL_TIMEOUT:-10}
-      - REDIS_URL=redis://redis:6379
+      - POSTGRES_USER=${SAYRA_DB_USER:-sayra_app}
+      - POSTGRES_DB=${POSTGRES_DB:-playenest_prod}
+      - DATABASE_URL=postgresql://${SAYRA_DB_USER:-sayra_app}:${SAYRA_DB_PASSWORD:?SAYRA_DB_PASSWORD environment variable is required}@db:5432/${POSTGRES_DB:-playenest_prod}?connection_limit=${DB_CONNECTION_LIMIT:-15}&pool_timeout=${DB_POOL_TIMEOUT:-10}
+      - REDIS_URL=redis://:${SAYRA_REDIS_PASSWORD:?SAYRA_REDIS_PASSWORD environment variable is required}@redis:6379
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET environment variable is required}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET environment variable is required}
       - PLATFORM_ADMIN_TOTP_ENCRYPTION_KEY=${PLATFORM_ADMIN_TOTP_ENCRYPTION_KEY:?PLATFORM_ADMIN_TOTP_ENCRYPTION_KEY environment variable is required}
@@ -127,6 +142,10 @@ services:
     volumes:
       - app_storage:/app/storage
       - app_uploads:/app/uploads
+    networks:
+      - edge
+      - inter_service
+      - sayra_internal
     command: ["./scripts/wait-for-db.sh", "db", "node", "dist/server.js"]
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => { if (r.statusCode === 200) process.exit(0); else process.exit(1); }).on('error', () => process.exit(1))"]
@@ -153,8 +172,10 @@ services:
       - NODE_ENV=${NODE_ENV:-production}
       - WORKERS_ENABLED=true
       - UV_THREADPOOL_SIZE=${WORKER_UV_THREADPOOL_SIZE:-4}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@db:5432/${POSTGRES_DB:-playenest_prod}?connection_limit=${WORKER_DB_CONNECTION_LIMIT:-10}&pool_timeout=${DB_POOL_TIMEOUT:-10}
-      - REDIS_URL=redis://redis:6379
+      - POSTGRES_USER=${SAYRA_DB_USER:-sayra_app}
+      - POSTGRES_DB=${POSTGRES_DB:-playenest_prod}
+      - DATABASE_URL=postgresql://${SAYRA_DB_USER:-sayra_app}:${SAYRA_DB_PASSWORD:?SAYRA_DB_PASSWORD environment variable is required}@db:5432/${POSTGRES_DB:-playenest_prod}?connection_limit=${WORKER_DB_CONNECTION_LIMIT:-10}&pool_timeout=${DB_POOL_TIMEOUT:-10}
+      - REDIS_URL=redis://:${SAYRA_REDIS_PASSWORD:?SAYRA_REDIS_PASSWORD environment variable is required}@redis:6379
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET environment variable is required}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET environment variable is required}
       - PLATFORM_ADMIN_TOTP_ENCRYPTION_KEY=${PLATFORM_ADMIN_TOTP_ENCRYPTION_KEY:?PLATFORM_ADMIN_TOTP_ENCRYPTION_KEY environment variable is required}
@@ -194,9 +215,13 @@ services:
     volumes:
       - app_storage:/app/storage
       - app_uploads:/app/uploads
+    networks:
+      - egress
+      - inter_service
+      - sayra_internal
     command: ["./scripts/wait-for-db.sh", "db", "node", "dist/worker.js"]
     healthcheck:
-      test: ["CMD", "node", "-e", "const net = require('net'); const u = new URL(process.env.REDIS_URL || 'redis://redis:6379'); const s = net.connect(Number(u.port || 6379), u.hostname); s.on('connect', () => { s.write('*1\\r\\n$4\\r\\nPING\\r\\n'); }); s.on('data', (d) => { const ok = d.toString().includes('PONG'); s.destroy(); process.exit(ok ? 0 : 1); }); s.on('error', () => process.exit(1)); setTimeout(() => process.exit(1), 3000);"]
+      test: ["CMD", "node", "-e", "const net = require('net'); const u = new URL(process.env.REDIS_URL || 'redis://redis:6379'); const s = net.connect(Number(u.port || 6379), u.hostname); let authed = !u.password; s.on('connect', () => { if (u.password) { const p = decodeURIComponent(u.password); s.write('*2\\r\\n$4\\r\\nAUTH\\r\\n$' + Buffer.byteLength(p) + '\\r\\n' + p + '\\r\\n'); } else { s.write('*1\\r\\n$4\\r\\nPING\\r\\n'); } }); s.on('data', (d) => { const str = d.toString(); if (!authed) { if (str.startsWith('+OK')) { authed = true; s.write('*1\\r\\n$4\\r\\nPING\\r\\n'); return; } s.destroy(); process.exit(1); } const ok = str.includes('PONG'); s.destroy(); process.exit(ok ? 0 : 1); }); s.on('error', () => process.exit(1)); setTimeout(() => process.exit(1), 3000);"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -205,11 +230,14 @@ services:
   blog_redis:
     image: redis:7-alpine
     restart: always
+    environment:
+      - BLOG_REDIS_PASSWORD=${BLOG_REDIS_PASSWORD:?BLOG_REDIS_PASSWORD environment variable is required}
     command:
       [
         "redis-server",
         "--maxmemory", "${BLOG_REDIS_MAXMEMORY:-256mb}",
         "--maxmemory-policy", "noeviction",
+        "--requirepass", "${BLOG_REDIS_PASSWORD:?BLOG_REDIS_PASSWORD environment variable is required}",
       ]
     cpus: ${BLOG_REDIS_CPUS:-0.25}
     mem_limit: ${BLOG_REDIS_MEM_LIMIT:-384m}
@@ -218,8 +246,10 @@ services:
       - no-new-privileges:true
     volumes:
       - blog_redis_data:/data
+    networks:
+      - blog_internal
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$BLOG_REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -244,12 +274,12 @@ services:
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${BLOG_POSTGRES_DB:-blog_prod}
-      - POSTGRES_USER=${POSTGRES_USER:-playenest_admin}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@db:5432/${BLOG_POSTGRES_DB:-blog_prod}
+      - POSTGRES_USER=${BLOG_DB_USER:-blog_app}
+      - POSTGRES_PASSWORD=${BLOG_DB_PASSWORD:?BLOG_DB_PASSWORD environment variable is required}
+      - DATABASE_URL=postgresql://${BLOG_DB_USER:-blog_app}:${BLOG_DB_PASSWORD:?BLOG_DB_PASSWORD environment variable is required}@db:5432/${BLOG_POSTGRES_DB:-blog_prod}
       - REDIS_HOST=blog_redis
       - REDIS_PORT=6379
-      - REDIS_URL=redis://blog_redis:6379
+      - REDIS_URL=redis://:${BLOG_REDIS_PASSWORD:?BLOG_REDIS_PASSWORD environment variable is required}@blog_redis:6379
       - USE_REDIS=True
       - SECRET_KEY=${BLOG_SECRET_KEY:?BLOG_SECRET_KEY environment variable is required}
       - RUN_MIGRATIONS=true
@@ -262,6 +292,8 @@ services:
     volumes:
       - blog_static:/app/staticfiles
       - blog_media:/app/media
+    networks:
+      - blog_internal
     command: ["sh", "-c", "python manage.py migrate --no-input && python manage.py collectstatic --no-input"]
 
   blog_web:
@@ -288,12 +320,12 @@ services:
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${BLOG_POSTGRES_DB:-blog_prod}
-      - POSTGRES_USER=${POSTGRES_USER:-playenest_admin}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@db:5432/${BLOG_POSTGRES_DB:-blog_prod}
+      - POSTGRES_USER=${BLOG_DB_USER:-blog_app}
+      - POSTGRES_PASSWORD=${BLOG_DB_PASSWORD:?BLOG_DB_PASSWORD environment variable is required}
+      - DATABASE_URL=postgresql://${BLOG_DB_USER:-blog_app}:${BLOG_DB_PASSWORD:?BLOG_DB_PASSWORD environment variable is required}@db:5432/${BLOG_POSTGRES_DB:-blog_prod}
       - REDIS_HOST=blog_redis
       - REDIS_PORT=6379
-      - REDIS_URL=redis://blog_redis:6379
+      - REDIS_URL=redis://:${BLOG_REDIS_PASSWORD:?BLOG_REDIS_PASSWORD environment variable is required}@blog_redis:6379
       - USE_REDIS=True
       - SECRET_KEY=${BLOG_SECRET_KEY:?BLOG_SECRET_KEY environment variable is required}
       - DEBUG=${BLOG_DEBUG:-False}
@@ -329,9 +361,11 @@ services:
       retries: 5
       start_period: 20s
     networks:
-      default:
+      edge:
+      inter_service:
         aliases:
           - blog-web
+      blog_internal:
 
   blog_celery_default:
     image: playenest-blog:latest
@@ -353,12 +387,12 @@ services:
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${BLOG_POSTGRES_DB:-blog_prod}
-      - POSTGRES_USER=${POSTGRES_USER:-playenest_admin}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@db:5432/${BLOG_POSTGRES_DB:-blog_prod}
+      - POSTGRES_USER=${BLOG_DB_USER:-blog_app}
+      - POSTGRES_PASSWORD=${BLOG_DB_PASSWORD:?BLOG_DB_PASSWORD environment variable is required}
+      - DATABASE_URL=postgresql://${BLOG_DB_USER:-blog_app}:${BLOG_DB_PASSWORD:?BLOG_DB_PASSWORD environment variable is required}@db:5432/${BLOG_POSTGRES_DB:-blog_prod}
       - REDIS_HOST=blog_redis
       - REDIS_PORT=6379
-      - REDIS_URL=redis://blog_redis:6379
+      - REDIS_URL=redis://:${BLOG_REDIS_PASSWORD:?BLOG_REDIS_PASSWORD environment variable is required}@blog_redis:6379
       - USE_REDIS=True
       - SECRET_KEY=${BLOG_SECRET_KEY:?BLOG_SECRET_KEY environment variable is required}
       - DEBUG=${BLOG_DEBUG:-False}
@@ -369,6 +403,8 @@ services:
       - no-new-privileges:true
     volumes:
       - blog_media:/app/media
+    networks:
+      - blog_internal
     command: celery -A blog worker -l info -Q default
 
   blog_celery_high:
@@ -391,12 +427,12 @@ services:
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${BLOG_POSTGRES_DB:-blog_prod}
-      - POSTGRES_USER=${POSTGRES_USER:-playenest_admin}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@db:5432/${BLOG_POSTGRES_DB:-blog_prod}
+      - POSTGRES_USER=${BLOG_DB_USER:-blog_app}
+      - POSTGRES_PASSWORD=${BLOG_DB_PASSWORD:?BLOG_DB_PASSWORD environment variable is required}
+      - DATABASE_URL=postgresql://${BLOG_DB_USER:-blog_app}:${BLOG_DB_PASSWORD:?BLOG_DB_PASSWORD environment variable is required}@db:5432/${BLOG_POSTGRES_DB:-blog_prod}
       - REDIS_HOST=blog_redis
       - REDIS_PORT=6379
-      - REDIS_URL=redis://blog_redis:6379
+      - REDIS_URL=redis://:${BLOG_REDIS_PASSWORD:?BLOG_REDIS_PASSWORD environment variable is required}@blog_redis:6379
       - USE_REDIS=True
       - SECRET_KEY=${BLOG_SECRET_KEY:?BLOG_SECRET_KEY environment variable is required}
       - DEBUG=${BLOG_DEBUG:-False}
@@ -409,6 +445,9 @@ services:
       - no-new-privileges:true
     volumes:
       - blog_media:/app/media
+    networks:
+      - egress
+      - blog_internal
     command: celery -A blog worker -l info -Q high_priority
 
   blog_celery_low:
@@ -431,12 +470,12 @@ services:
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${BLOG_POSTGRES_DB:-blog_prod}
-      - POSTGRES_USER=${POSTGRES_USER:-playenest_admin}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@db:5432/${BLOG_POSTGRES_DB:-blog_prod}
+      - POSTGRES_USER=${BLOG_DB_USER:-blog_app}
+      - POSTGRES_PASSWORD=${BLOG_DB_PASSWORD:?BLOG_DB_PASSWORD environment variable is required}
+      - DATABASE_URL=postgresql://${BLOG_DB_USER:-blog_app}:${BLOG_DB_PASSWORD:?BLOG_DB_PASSWORD environment variable is required}@db:5432/${BLOG_POSTGRES_DB:-blog_prod}
       - REDIS_HOST=blog_redis
       - REDIS_PORT=6379
-      - REDIS_URL=redis://blog_redis:6379
+      - REDIS_URL=redis://:${BLOG_REDIS_PASSWORD:?BLOG_REDIS_PASSWORD environment variable is required}@blog_redis:6379
       - USE_REDIS=True
       - SECRET_KEY=${BLOG_SECRET_KEY:?BLOG_SECRET_KEY environment variable is required}
       - DEBUG=${BLOG_DEBUG:-False}
@@ -447,6 +486,8 @@ services:
       - no-new-privileges:true
     volumes:
       - blog_media:/app/media
+    networks:
+      - blog_internal
     command: celery -A blog worker -l info -Q low_priority
 
   blog_celery_beat:
@@ -469,12 +510,12 @@ services:
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${BLOG_POSTGRES_DB:-blog_prod}
-      - POSTGRES_USER=${POSTGRES_USER:-playenest_admin}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-playenest_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@db:5432/${BLOG_POSTGRES_DB:-blog_prod}
+      - POSTGRES_USER=${BLOG_DB_USER:-blog_app}
+      - POSTGRES_PASSWORD=${BLOG_DB_PASSWORD:?BLOG_DB_PASSWORD environment variable is required}
+      - DATABASE_URL=postgresql://${BLOG_DB_USER:-blog_app}:${BLOG_DB_PASSWORD:?BLOG_DB_PASSWORD environment variable is required}@db:5432/${BLOG_POSTGRES_DB:-blog_prod}
       - REDIS_HOST=blog_redis
       - REDIS_PORT=6379
-      - REDIS_URL=redis://blog_redis:6379
+      - REDIS_URL=redis://:${BLOG_REDIS_PASSWORD:?BLOG_REDIS_PASSWORD environment variable is required}@blog_redis:6379
       - USE_REDIS=True
       - SECRET_KEY=${BLOG_SECRET_KEY:?BLOG_SECRET_KEY environment variable is required}
       - DEBUG=${BLOG_DEBUG:-False}
@@ -485,6 +526,8 @@ services:
       - no-new-privileges:true
     volumes:
       - blog_media:/app/media
+    networks:
+      - blog_internal
     command: celery -A blog beat -l info
 
   nginx:
@@ -514,6 +557,8 @@ services:
       - blog_static:/app/blog_static:ro
       - blog_media:/app/blog_media:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - edge
     depends_on:
       sayra:
         condition: service_healthy
@@ -538,7 +583,15 @@ services:
         required: false
     environment:
       - POSTGRES_HOST=db
+      - POSTGRES_USER=${POSTGRES_USER:-playenest_admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
+      - POSTGRES_DB=${POSTGRES_DB:-playenest_prod}
       - POSTGRES_MULTIPLE_DATABASES=${POSTGRES_MULTIPLE_DATABASES:-blog_prod}
+      - BLOG_POSTGRES_DB=${BLOG_POSTGRES_DB:-blog_prod}
+      - SAYRA_DB_USER=${SAYRA_DB_USER:-sayra_app}
+      - BLOG_DB_USER=${BLOG_DB_USER:-blog_app}
+      - SAYRA_REDIS_PASSWORD=${SAYRA_REDIS_PASSWORD:?SAYRA_REDIS_PASSWORD environment variable is required}
+      - BLOG_REDIS_PASSWORD=${BLOG_REDIS_PASSWORD:?BLOG_REDIS_PASSWORD environment variable is required}
       - RESTIC_REPOSITORY=/backups
       - RESTIC_PASSWORD=${RESTIC_PASSWORD:?RESTIC_PASSWORD environment variable is required}
       - BACKUP_CRON=0 * * * *
@@ -557,6 +610,9 @@ services:
     pids_limit: 256
     security_opt:
       - no-new-privileges:true
+    networks:
+      - sayra_internal
+      - blog_internal
     volumes:
       - app_storage:/storage:ro
       - app_uploads:/uploads:ro
@@ -568,6 +624,21 @@ services:
       - backup_data:/data
       - ${BACKUP_ENV_FILE:-./docker/backup/backups.env.example}:/config/.env:ro
       - ./docker-compose.yml:/project_root/docker-compose.yml:ro
+
+networks:
+  edge:
+    driver: bridge
+  inter_service:
+    driver: bridge
+    internal: true
+  egress:
+    driver: bridge
+  sayra_internal:
+    driver: bridge
+    internal: true
+  blog_internal:
+    driver: bridge
+    internal: true
 
 volumes:
   postgres_data:

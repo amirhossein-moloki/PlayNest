@@ -53,7 +53,10 @@ const resolveSectionError = (
 ): { message: string; dataPath?: Array<string | number> } => {
   if (error instanceof ZodError && error.issues.length > 0) {
     const issue = error.issues[0];
-    return { message: issue.message, dataPath: issue.path };
+    return {
+      message: issue.message,
+      dataPath: issue.path.map((p) => (typeof p === 'symbol' ? String(p) : p)),
+    };
   }
   if (error instanceof Error) {
     return { message: error.message };

@@ -1,4 +1,4 @@
-import sharp from 'sharp';
+import sharp, { type FormatEnum, type Metadata } from 'sharp';
 import httpStatus from 'http-status';
 import AppError from '../errors/AppError';
 
@@ -53,9 +53,9 @@ export async function validateAndReencodeRasterImage(
   }
 
   const allowedFormats = options?.allowedFormats ?? ALL_RASTER_FORMATS;
-  let metadata: sharp.Metadata;
+  let metadata: Metadata;
   try {
-    metadata = await sharp(buffer, { failOnError: true }).metadata();
+    metadata = await sharp(buffer, { failOn: 'error' }).metadata();
   } catch {
     throw new AppError('فایل آپلود شده یک تصویر معتبر نیست.', httpStatus.BAD_REQUEST);
   }
@@ -66,9 +66,9 @@ export async function validateAndReencodeRasterImage(
   }
 
   try {
-    const reencoded = await sharp(buffer, { failOnError: true })
+    const reencoded = await sharp(buffer, { failOn: 'error' })
       .rotate()
-      .toFormat(format as keyof sharp.FormatEnum)
+      .toFormat(format as keyof FormatEnum)
       .toBuffer();
 
     return {

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { CustomerPanelStation } from '../../../../src/modules/customer-panel/customer-panel.station';
 import { CustomerPanelRepo } from '../../../../src/modules/customer-panel/customer-panel.repo';
 import { ReservationRepo } from '../../../../src/modules/reservation/reservation.repo';
+import { AnalyticsRepo } from '../../../../src/modules/analytics/analytics.repo';
 import { walletService } from '../../../../src/modules/wallet/wallet.station';
 import { auditService } from '../../../../src/modules/audit/audit.station';
 import { updateCustomerProfileSchema } from '../../../../src/modules/customer-panel/customer-panel.validators';
@@ -11,6 +12,7 @@ import { AppEvents, eventEmitter } from '../../../../src/common/events/event-emi
 describe('CustomerPanelStation updateProfile and validation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(AnalyticsRepo, 'syncAllStatsForReservation').mockResolvedValue(undefined as any); // eslint-disable-line @typescript-eslint/no-explicit-any
   });
 
   describe('updateCustomerProfileSchema', () => {

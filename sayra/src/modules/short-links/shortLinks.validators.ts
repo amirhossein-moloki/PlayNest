@@ -73,7 +73,7 @@ export const createShortLinkSchema = z.object({
     expiresAt: optionalDateSchema,
     maxClicks: z.coerce.number().int().min(1).max(100_000_000).optional().nullable(),
     qrConfig: qrConfigSchema,
-    metadata: z.record(z.unknown()).optional().nullable(),
+    metadata: z.record(z.string(), z.unknown()).optional().nullable(),
   }),
 });
 
@@ -104,7 +104,7 @@ export const updateShortLinkSchema = z.object({
       expiresAt: optionalDateSchema,
       maxClicks: z.coerce.number().int().min(1).max(100_000_000).optional().nullable(),
       qrConfig: qrConfigSchema,
-      metadata: z.record(z.unknown()).optional().nullable(),
+      metadata: z.record(z.string(), z.unknown()).optional().nullable(),
     })
     .refine((data) => Object.keys(data).length > 0, {
       message: 'At least one updatable field is required',
