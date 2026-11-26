@@ -43,12 +43,11 @@ export function hashSensitiveValue(rawValue: string, purpose = 'visitor'): strin
 }
 
 export function extractClientIp(req: Request): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string' && forwarded.trim()) {
-    const first = forwarded.split(',')[0].trim();
-    if (first) return first;
+  const expressIp = typeof req.ip === 'string' ? req.ip.trim() : '';
+  if (expressIp) {
+    return expressIp;
   }
-  return (req.ip || req.socket?.remoteAddress || 'unknown').trim();
+  return (req.socket?.remoteAddress || 'unknown').trim();
 }
 
 /**

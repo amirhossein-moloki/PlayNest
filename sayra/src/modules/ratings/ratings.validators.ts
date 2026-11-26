@@ -4,13 +4,14 @@ import { idSchema } from '../../common/validators/common.validators';
 
 export const submitReviewSchema = z.object({
   body: z.object({
-    reservationId: idSchema('Invalid reservationId format'),
+    reservationId: idSchema('Invalid reservationId format').optional(),
     stationId: idSchema('Invalid stationId format').optional(),
     rating: z.number().min(1).max(5),
-    comment: z.string().optional(),
+    comment: z.string().max(1000, 'Comment cannot exceed 1000 characters').optional(),
   }),
   params: z.object({
-    gamingCenterSlug: z.string(),
+    gamingCenterSlug: z.string().min(1),
+    reservationId: idSchema('Invalid reservationId format'),
   }),
 });
 

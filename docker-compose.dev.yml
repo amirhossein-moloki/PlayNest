@@ -23,7 +23,7 @@ services:
       - ./sayra:/app
       - /app/node_modules
     working_dir: /app
-    command: ["sh", "-c", "npm install && npx prisma generate && ./scripts/migrate.sh && npm run dev"]
+    command: ["sh", "-c", "npm ci && npx prisma generate && ./scripts/migrate.sh && npm run dev"]
 
   blog_web:
     build:

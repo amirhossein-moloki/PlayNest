@@ -27,10 +27,11 @@ const parseCommaList = (val: unknown): string[] | undefined => {
 
 const optionalTrimmedString = z
   .string()
+  .trim()
+  .max(120, 'Search query parameter cannot exceed 120 characters')
   .optional()
   .transform((val) => {
-    const trimmed = val?.trim();
-    return trimmed && trimmed.length > 0 ? trimmed : undefined;
+    return val && val.length > 0 ? val : undefined;
   });
 
 const parseDeviceTypesList = (val: unknown): unknown => {

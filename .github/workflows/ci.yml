@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
+env:
+  SCARF_ANALYTICS: 'false'
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,6 +26,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        persist-credentials: false
 
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4

@@ -1,6 +1,6 @@
 import path from 'path';
 import fs from 'fs/promises';
-import sharp from 'sharp';
+import sharp, { type FormatEnum } from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 import httpStatus from 'http-status';
 import AppError from '../errors/AppError';
@@ -33,12 +33,12 @@ export async function processAndStoreImage(file: Express.Multer.File) {
 
   let thumbBuffer: Buffer;
   try {
-    thumbBuffer = await sharp(validated.buffer, { failOnError: true })
+    thumbBuffer = await sharp(validated.buffer, { failOn: 'error' })
       .resize(300, 300, {
         fit: 'cover',
         position: 'center',
       })
-      .toFormat(validated.format as keyof sharp.FormatEnum)
+      .toFormat(validated.format as keyof FormatEnum)
       .toBuffer();
   } catch {
     throw new AppError('خطا در ساخت تصویر بندانگشتی.', httpStatus.BAD_REQUEST);

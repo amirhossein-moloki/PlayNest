@@ -1,4 +1,3 @@
-import MelipayamakApi from 'melipayamak';
 import { env } from '../../config/env';
 import logger from '../../config/logger';
 
@@ -19,6 +18,8 @@ export interface MelipayamakSendResult {
   mocked?: boolean;
 }
 
+const MELIPAYAMAK_REST_BASE = 'https://rest.payamak-panel.com/api/SendSMS';
+
 // 1. Centralized connection and credentials
 const username = env.MELIPAYAMAK_USERNAME;
 const password = env.MELIPAYAMAK_PASSWORD;
@@ -28,18 +29,41 @@ const reservationBodyId = env.MELIPAYAMAK_RESERVATION_BODY_ID;
 
 const isConfigured = Boolean(username && password);
 
-let apiInstance: MelipayamakApi | null = null;
-let smsRestInstance: ReturnType<MelipayamakApi['sms']> | null = null;
-
-if (isConfigured) {
-  try {
-    apiInstance = new MelipayamakApi(username, password);
-    smsRestInstance = apiInstance.sms();
-  } catch (error) {
-    logger.error({ msg: 'Failed to initialize Melipayamak API client', error });
-  }
-} else {
+if (!isConfigured) {
   logger.warn('Melipayamak credentials are not fully configured. SMS will operate in MOCK mode.');
+}
+
+async function postMelipayamakRest(
+  method: 'BaseServiceNumber' | 'SendSMS',
+  params: Record<string, string | number | boolean>
+): Promise<unknown> {
+  const form = new URLSearchParams();
+  form.set('username', username || '');
+  form.set('password', password || '');
+  for (const [key, value] of Object.entries(params)) {
+    form.set(key, String(value));
+  }
+
+  const response = await fetch(`${MELIPAYAMAK_REST_BASE}/${method}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+    },
+    body: form.toString(),
+  });
+
+  const rawText = await response.text();
+  if (!response.ok) {
+    throw new Error(`Melipayamak HTTP ${response.status}`);
+  }
+  if (!rawText) {
+    return {};
+  }
+  try {
+    return JSON.parse(rawText);
+  } catch {
+    return rawText;
+  }
 }
 
 const parseRecId = (response: unknown): string | undefined => {
@@ -58,7 +82,7 @@ const parseRecId = (response: unknown): string | undefined => {
 
 export const MelipayamakStation = {
   isConfigured(): boolean {
-    return isConfigured && Boolean(smsRestInstance);
+    return isConfigured;
   },
 
   /**
@@ -83,12 +107,12 @@ export const MelipayamakStation = {
 
   /**
    * Type 1: OTP SMS
-   * Uses shared service pattern with smsRest.sendByBaseNumber(text, to, bodyId)
+   * Uses native HTTPS REST POST to SendSMS/BaseServiceNumber
    */
   async sendOtpSms(to: string, otpCode: string): Promise<MelipayamakSendResult> {
     const bodyId = otpBodyId;
 
-    if (!this.isConfigured() || !smsRestInstance || !bodyId) {
+    if (!this.isConfigured() || !bodyId) {
       logger.info({
         msg: '[MELIPAYAMAK MOCK] OTP SMS dispatch',
         to,
@@ -99,9 +123,12 @@ export const MelipayamakStation = {
     }
 
     try {
-      // In Melipayamak sendByBaseNumber, the parameter text is passed as string, e.g., `${otpCode}`
       const response = await this.executeWithTimeout(() =>
-        smsRestInstance!.sendByBaseNumber(String(otpCode), to, bodyId)
+        postMelipayamakRest('BaseServiceNumber', {
+          text: String(otpCode),
+          to,
+          bodyId,
+        })
       );
       const recId = parseRecId(response);
 
@@ -129,8 +156,7 @@ export const MelipayamakStation = {
 
   /**
    * Type 2: Reservation Status SMS
-   * Uses shared service pattern with smsRest.sendByBaseNumber(text, to, bodyId)
-   * Formats reservation parameters and condition cleanly in a centralized manner
+   * Uses native HTTPS REST POST to SendSMS/BaseServiceNumber with formatted parameters
    */
   async sendReservationStatusSms(
     to: string,
@@ -139,8 +165,6 @@ export const MelipayamakStation = {
   ): Promise<MelipayamakSendResult> {
     const bodyId = customBodyId || reservationBodyId;
 
-    // Centralized formatting of template parameters
-    // Format according to Melipayamak shared service parameter conventions: text;param1;param2... or formatted string
     const statusText = details.statusText || 'در انتظار تایید';
     const customerName = details.customerName || 'مشتری گرامی';
     const centerName = details.gamingCenterName || 'مجموعه بازی';
@@ -148,12 +172,11 @@ export const MelipayamakStation = {
     const time = details.time || '';
     const station = details.stationName || '';
 
-    // Standard parameter payload string format for Melipayamak pattern
     const patternText = [customerName, statusText, centerName, date, time, station]
       .filter(Boolean)
       .join(';');
 
-    if (!this.isConfigured() || !smsRestInstance || !bodyId) {
+    if (!this.isConfigured() || !bodyId) {
       logger.info({
         msg: '[MELIPAYAMAK MOCK] Reservation status SMS dispatch',
         to,
@@ -165,7 +188,11 @@ export const MelipayamakStation = {
 
     try {
       const response = await this.executeWithTimeout(() =>
-        smsRestInstance!.sendByBaseNumber(patternText, to, bodyId)
+        postMelipayamakRest('BaseServiceNumber', {
+          text: patternText,
+          to,
+          bodyId,
+        })
       );
       const recId = parseRecId(response);
 
@@ -193,14 +220,13 @@ export const MelipayamakStation = {
 
   /**
    * Type 3: Support Ticket Reply SMS
-   * Sends standard SMS without service pattern, using dedicated number from MELIPAYAMAK_FROM
-   * smsRest.send(to, from, text)
+   * Uses native HTTPS REST POST to SendSMS/SendSMS with MELIPAYAMAK_FROM
    */
   async sendTicketReplySms(to: string, ticketCode: string): Promise<MelipayamakSendResult> {
     const from = fromLine;
     const messageText = `کاربر گرامی، تیکت شماره ${ticketCode} شما توسط پشتیبانی پاسخ داده شد. برای مشاهده پاسخ به پنل کاربری خود در سایت مراجعه کنید.`;
 
-    if (!this.isConfigured() || !smsRestInstance || !from) {
+    if (!this.isConfigured() || !from) {
       logger.info({
         msg: '[MELIPAYAMAK MOCK] Support ticket reply SMS dispatch',
         to,
@@ -212,7 +238,12 @@ export const MelipayamakStation = {
 
     try {
       const response = await this.executeWithTimeout(() =>
-        smsRestInstance!.send(to, from, messageText)
+        postMelipayamakRest('SendSMS', {
+          to,
+          from,
+          text: messageText,
+          isFlash: false,
+        })
       );
       const recId = parseRecId(response);
 
@@ -241,12 +272,12 @@ export const MelipayamakStation = {
 
   /**
    * Type 4: Direct Text SMS
-   * Sends arbitrary text SMS, using dedicated number from MELIPAYAMAK_FROM
+   * Uses native HTTPS REST POST to SendSMS/SendSMS with MELIPAYAMAK_FROM
    */
   async sendDirectSms(to: string, messageText: string): Promise<MelipayamakSendResult> {
     const from = fromLine;
 
-    if (!this.isConfigured() || !smsRestInstance || !from) {
+    if (!this.isConfigured() || !from) {
       logger.info({
         msg: '[MELIPAYAMAK MOCK] Direct SMS dispatch',
         to,
@@ -258,7 +289,12 @@ export const MelipayamakStation = {
 
     try {
       const response = await this.executeWithTimeout(() =>
-        smsRestInstance!.send(to, from, messageText)
+        postMelipayamakRest('SendSMS', {
+          to,
+          from,
+          text: messageText,
+          isFlash: false,
+        })
       );
       const recId = parseRecId(response);
 

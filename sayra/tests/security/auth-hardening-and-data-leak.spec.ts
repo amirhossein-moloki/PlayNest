@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import request from 'supertest';
@@ -8,18 +9,25 @@ import { SessionActorType, UserRole } from '@prisma/client';
 import app from '../../src/app';
 import { prisma } from '../../src/config/prisma';
 import redis from '../../src/config/redis';
-import { generateAccessToken, generateRefreshToken } from '../../src/modules/auth/auth.tokens';
+import { generateAccessToken } from '../../src/modules/auth/auth.tokens';
 import * as usersRepo from '../../src/modules/users/users.repo';
 import { encryptTotpSecret, generateTotpCode, generateTotpSecret } from '../../src/modules/auth/totp.crypto';
 import { PLATFORM_ADMIN_REFRESH_COOKIE_NAME } from '../../src/modules/auth/platform-admin-auth.constants';
 
 const redisStore = new Map<string, string>();
 const auditLogEntries: any[] = [];
+const sha256 = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
 
-jest.mock('argon2', () => ({
-  hash: jest.fn(async (pw: string) => `argon2_mock:${pw}`),
-  verify: jest.fn(async () => false),
-}));
+jest.mock('argon2', () => {
+  const hash = jest.fn(async (pw: string) => `argon2_mock:${pw}`);
+  const verify = jest.fn(async () => false);
+  return {
+    __esModule: true,
+    default: { hash, verify },
+    hash,
+    verify,
+  };
+});
 
 jest.mock('../../src/config/redis', () => {
   const mockRedis: any = {
@@ -91,6 +99,9 @@ jest.mock('../../src/config/prisma', () => ({
     auditLog: {
       create: jest.fn(),
     },
+    notification: {
+      createMany: jest.fn(async () => ({ count: 0 })),
+    },
     $transaction: jest.fn(),
   },
 }));
@@ -142,6 +153,10 @@ describe('SEC-028: Auth Hardening, passwordHash Redaction, Lockout, Cookie-Only 
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (prisma.user.findFirst as jest.Mock).mockReset();
+    (prisma.session.findUnique as jest.Mock).mockReset();
+    (argon2.verify as jest.Mock).mockReset();
+    (argon2.verify as jest.Mock).mockResolvedValue(false as never);
     redisStore.clear();
     auditLogEntries.length = 0;
 
@@ -150,11 +165,25 @@ describe('SEC-028: Auth Hardening, passwordHash Redaction, Lockout, Cookie-Only 
       auditLogEntries.push(args?.data);
       return { id: `audit_${auditLogEntries.length}` };
     });
-    (prisma.session.findUnique as jest.Mock).mockResolvedValue({
-      id: 'sess_active_1',
-      revokedAt: null,
-      expiresAt: new Date(Date.now() + 600_000),
-    } as never);
+    (prisma.session.findUnique as jest.Mock).mockImplementation((async (args: any) => {
+      if (args?.where?.id === 'sess_pa_active_1') {
+        return {
+          id: 'sess_pa_active_1',
+          actorId: platformAdminId,
+          actorType: SessionActorType.PLATFORM_ADMIN,
+          mfaVerifiedAt: new Date(),
+          revokedAt: null,
+          expiresAt: new Date(Date.now() + 600_000),
+        };
+      }
+      return {
+        id: 'sess_active_1',
+        actorId: managerId,
+        actorType: SessionActorType.USER,
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 600_000),
+      };
+    }) as any);
     (prisma.session.findMany as jest.Mock).mockResolvedValue([] as never);
     (prisma.session.updateMany as jest.Mock).mockResolvedValue({ count: 0 } as never);
     (prisma.user.updateMany as jest.Mock).mockResolvedValue({ count: 1 } as never);
@@ -181,12 +210,10 @@ describe('SEC-028: Auth Hardening, passwordHash Redaction, Lockout, Cookie-Only 
       actorType: SessionActorType.USER,
     });
 
-    (prisma.user.findFirst as jest.Mock)
-      .mockResolvedValueOnce(null as never) // create duplicate check
-      .mockResolvedValueOnce({ ...staffRecord } as never) // GET :userId
-      .mockResolvedValueOnce({ ...staffRecord } as never) // PUT existing check
-      .mockResolvedValueOnce({ ...staffRecord, fullName: 'Updated Staff' } as never) // PUT updated lookup
-      .mockResolvedValueOnce({ ...staffRecord } as never); // DELETE existing check
+    (prisma.user.findFirst as jest.Mock).mockImplementation((async (args: any) => {
+      if (args?.where?.id === staffId) return { ...staffRecord };
+      return null;
+    }) as any);
     (prisma.user.create as jest.Mock).mockResolvedValue({ ...staffRecord } as never);
     (prisma.user.findMany as jest.Mock).mockResolvedValue([{ ...staffRecord }] as never);
     (prisma.user.count as jest.Mock).mockResolvedValue(1 as never);
@@ -206,8 +233,8 @@ describe('SEC-028: Auth Hardening, passwordHash Redaction, Lockout, Cookie-Only 
       .get(`/api/v1/gamingCenters/${gamingCenterId}/staff`)
       .set('Authorization', `Bearer ${managerToken}`);
     expect(listRes.status).toBe(200);
-    expect(listRes.body.data).toHaveLength(1);
-    expect(listRes.body.data[0].passwordHash).toBeUndefined();
+    expect(listRes.body.data.data).toHaveLength(1);
+    expect(listRes.body.data.data[0].passwordHash).toBeUndefined();
 
     const getRes = await request(app)
       .get(`/api/v1/gamingCenters/${gamingCenterId}/staff/${staffId}`)
@@ -252,7 +279,7 @@ describe('SEC-028: Auth Hardening, passwordHash Redaction, Lockout, Cookie-Only 
     expect(prisma.gamingCenter.create).not.toHaveBeenCalled();
 
     const platformAdminToken = generateAccessToken({
-      sessionId: 'sess_active_1',
+      sessionId: 'sess_pa_active_1',
       actorId: platformAdminId,
       actorType: SessionActorType.PLATFORM_ADMIN,
       mfaVerified: true,
@@ -301,34 +328,35 @@ describe('SEC-028: Auth Hardening, passwordHash Redaction, Lockout, Cookie-Only 
   it('3. loginUser rejects inactive users and enforces 5-attempt Redis ACCOUNT_LOCKED lockout', async () => {
     const phone = '09120001111';
 
-    // Inactive user is rejected even when password matches
-    (prisma.user.findUnique as jest.Mock).mockResolvedValueOnce({
+    // Inactive user is rejected (AuthRepository.findUserByPhone uses prisma.user.findFirst)
+    (prisma.user.findFirst as jest.Mock).mockResolvedValueOnce({
       ...managerRecord,
       isActive: false,
     } as never);
-    (argon2.verify as jest.Mock).mockResolvedValueOnce(true as never);
 
     const inactiveRes = await request(app)
       .post('/api/v1/auth/login')
       .send({ phone, password: 'ValidPassword123!', gamingCenterId });
     expect(inactiveRes.status).toBe(401);
     expect(inactiveRes.body.success).toBe(false);
+    expect(argon2.verify).not.toHaveBeenCalled();
 
     // 5 failed password attempts trigger Redis lock and 6th returns 429 ACCOUNT_LOCKED
-    (prisma.user.findUnique as jest.Mock).mockResolvedValue({ ...managerRecord } as never);
+    (prisma.user.findFirst as jest.Mock).mockResolvedValue({ ...managerRecord } as never);
+    (argon2.verify as jest.Mock).mockReset();
     (argon2.verify as jest.Mock).mockResolvedValue(false as never);
 
     for (let i = 0; i < 5; i += 1) {
       const failRes = await request(app)
         .post('/api/v1/auth/login')
-        .send({ phone, password: `WrongPass_${i}` });
+        .send({ phone, password: `WrongPass_${i}`, gamingCenterId });
       expect(failRes.status).toBe(401);
     }
 
     const callsBeforeLock = (argon2.verify as jest.Mock).mock.calls.length;
     const lockedRes = await request(app)
       .post('/api/v1/auth/login')
-      .send({ phone, password: 'AnyPassword' });
+      .send({ phone, password: 'AnyPassword', gamingCenterId });
 
     expect(lockedRes.status).toBe(429);
     expect(lockedRes.body.error?.code).toBe('ACCOUNT_LOCKED');
@@ -339,18 +367,22 @@ describe('SEC-028: Auth Hardening, passwordHash Redaction, Lockout, Cookie-Only 
   it('4. PlatformAdmin 2FA & refresh are cookie-only, regular /auth/refresh keeps JSON refreshToken, and UI templates omit localStorage refresh storage', async () => {
     const secret = generateTotpSecret();
     const cipher = encryptTotpSecret(secret, platformAdminId);
-    const challengeToken = (await import('../../src/modules/auth/auth.tokens')).generatePlatformAdminChallengeToken({
-      challengeId: 'chal_cookie_only',
-      actorId: platformAdminId,
-      purpose: 'TOTP_VERIFY',
-      nonce: 'nonce_cookie_only',
-    });
+    const challengeToken = (await import('../../src/modules/auth/auth.tokens')).generatePlatformAdminChallengeToken(
+      {
+        challengeId: 'chal_cookie_only',
+        actorId: platformAdminId,
+        actorType: 'PLATFORM_ADMIN',
+        purpose: 'TOTP_VERIFY',
+        nonce: 'nonce_cookie_only',
+      },
+      300
+    );
 
     (prisma.platformAdminChallenge.findUnique as jest.Mock).mockResolvedValue({
       id: 'chal_cookie_only',
       platformAdminId,
       purpose: 'TOTP_VERIFY',
-      nonce: 'nonce_cookie_only',
+      tokenHash: sha256('nonce_cookie_only'),
       consumedAt: null,
       expiresAt: new Date(Date.now() + 300_000),
     } as never);
@@ -386,12 +418,11 @@ describe('SEC-028: Auth Hardening, passwordHash Redaction, Lockout, Cookie-Only 
       id: 'sess_pa_cookie_1',
       actorId: platformAdminId,
       actorType: SessionActorType.PLATFORM_ADMIN,
-      refreshTokenHash: 'any_hash',
+      tokenHash: sha256(cookiePair.split('=')[1]),
+      mfaVerifiedAt: new Date(),
       revokedAt: null,
       expiresAt: new Date(Date.now() + 600_000),
     };
-    const { hashToken } = await import('../../src/modules/auth/auth.tokens');
-    paSession.refreshTokenHash = hashToken(cookiePair.split('=')[1]);
     (prisma.session.findUnique as jest.Mock).mockResolvedValueOnce(paSession as never);
     (prisma.session.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 } as never);
     (prisma.session.create as jest.Mock).mockResolvedValueOnce({ id: 'sess_pa_cookie_2' } as never);
@@ -409,21 +440,18 @@ describe('SEC-028: Auth Hardening, passwordHash Redaction, Lockout, Cookie-Only 
     expect(rotatedCookies.some((c) => c.startsWith(`${PLATFORM_ADMIN_REFRESH_COOKIE_NAME}=`) && c.includes('HttpOnly'))).toBe(true);
 
     // Regular USER refresh keeps JSON refreshToken for API clients
-    const userRefreshToken = generateRefreshToken({
-      sessionId: 'sess_user_1',
-      actorId: managerId,
-      actorType: SessionActorType.USER,
-    });
+    const userRefreshToken = crypto.randomBytes(32).toString('hex');
     (prisma.session.findUnique as jest.Mock).mockResolvedValueOnce({
       id: 'sess_user_1',
       actorId: managerId,
       actorType: SessionActorType.USER,
-      refreshTokenHash: hashToken(userRefreshToken),
+      tokenHash: sha256(userRefreshToken),
       revokedAt: null,
       expiresAt: new Date(Date.now() + 600_000),
     } as never);
     (prisma.user.findUnique as jest.Mock).mockResolvedValueOnce({ ...managerRecord } as never);
     (prisma.session.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 } as never);
+    (prisma.session.update as jest.Mock).mockResolvedValueOnce({ id: 'sess_user_1' } as never);
     (prisma.session.create as jest.Mock).mockResolvedValueOnce({ id: 'sess_user_2' } as never);
 
     const userRefreshRes = await request(app)

@@ -25,7 +25,11 @@ import {
   RESERVED_SHORT_CODES,
   validateCustomCode,
 } from './shortCode';
-import { getCachedShortLinkByCode, invalidateShortLinkCache } from './shortLinkCache';
+import {
+  checkAndReserveMaxClickQuota,
+  getCachedShortLinkByCode,
+  invalidateShortLinkCache,
+} from './shortLinkCache';
 import { ShortLinksRepo } from './shortLinks.repo';
 import {
   CachedShortLinkPayload,
@@ -986,7 +990,7 @@ export const ShortLinksService = {
       throw new AppError('Short link not found.', httpStatus.NOT_FOUND, { code: 'SHORT_LINK_NOT_FOUND' });
     }
 
-    const link = await getCachedShortLinkByCode(
+    let link = await getCachedShortLinkByCode(
       normalizedCode,
       async (): Promise<CachedShortLinkPayload | null> => {
         const dbRow = await ShortLinksRepo.findByCodeForRedirect(normalizedCode);
@@ -1028,6 +1032,20 @@ export const ShortLinksService = {
       }
     );
 
+    if (link && link.maxClicks !== null) {
+      const freshDbRow = await ShortLinksRepo.findByCodeForRedirect(normalizedCode);
+      if (freshDbRow) {
+        link = {
+          ...link,
+          status: freshDbRow.status,
+          expiresAt: freshDbRow.expiresAt ? freshDbRow.expiresAt.toISOString() : null,
+          maxClicks: freshDbRow.maxClicks,
+          totalClicks: freshDbRow.totalClicks,
+          deletedAt: freshDbRow.deletedAt ? freshDbRow.deletedAt.toISOString() : null,
+        };
+      }
+    }
+
     if (!link || link.deletedAt) {
       throw new AppError('Short link not found.', httpStatus.NOT_FOUND, { code: 'SHORT_LINK_NOT_FOUND' });
     }
@@ -1051,6 +1069,7 @@ export const ShortLinksService = {
     }
 
     if (link.maxClicks !== null && link.totalClicks >= link.maxClicks) {
+      await invalidateShortLinkCache(normalizedCode);
       throw new AppError('This short link has reached its click limit.', httpStatus.GONE, {
         code: 'SHORT_LINK_MAX_CLICKS_REACHED',
       });
@@ -1063,6 +1082,17 @@ export const ShortLinksService = {
         451,
         { code: 'SHORT_LINK_DESTINATION_BLOCKED' }
       );
+    }
+
+    if (link.maxClicks !== null) {
+      const allowed = await checkAndReserveMaxClickQuota(link.id, link.maxClicks, link.totalClicks);
+      if (!allowed) {
+        await invalidateShortLinkCache(normalizedCode);
+        throw new AppError('This short link has reached its click limit.', httpStatus.GONE, {
+          code: 'SHORT_LINK_MAX_CLICKS_REACHED',
+        });
+      }
+      await invalidateShortLinkCache(normalizedCode);
     }
 
     const { finalUrl, effectiveUtm } = composeRedirectTargetUrl(

@@ -69,6 +69,9 @@ jest.mock('../../../src/config/prisma', () => ({
       findUnique: jest.fn(),
       findMany: jest.fn(),
     },
+    platformAdmin: {
+      findUnique: jest.fn(),
+    },
     gamingCenter: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
@@ -99,6 +102,10 @@ describe('Analytics API Integration Tests', () => {
   const SECRET = env.JWT_ACCESS_SECRET;
   const MANAGER_TOKEN = jwt.sign({ sessionId: 's-1', actorId: 'u-mgr', actorType: 'USER' }, SECRET);
   const STAFF_TOKEN = jwt.sign({ sessionId: 's-2', actorId: 'u-staff', actorType: 'USER' }, SECRET);
+  const PLATFORM_ADMIN_TOKEN = jwt.sign(
+    { sessionId: 's-pa', actorId: 'pa-1', actorType: 'PLATFORM_ADMIN', mfaVerified: true },
+    SECRET
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -106,7 +113,26 @@ describe('Analytics API Integration Tests', () => {
       if (where.tokenHash) {
         return Promise.resolve({ id: 's-1', actorId: 'u-mgr', actorType: 'USER', expiresAt: new Date(Date.now() + 3600000) });
       }
+      if (where.id === 's-pa') {
+        return Promise.resolve({
+          id: 's-pa',
+          actorId: 'pa-1',
+          actorType: 'PLATFORM_ADMIN',
+          mfaVerifiedAt: new Date(),
+          revokedAt: null,
+          expiresAt: new Date(Date.now() + 3600000),
+        });
+      }
       return Promise.resolve(null);
+    });
+
+    (prisma.platformAdmin.findUnique as any).mockResolvedValue({
+      id: 'pa-1',
+      username: 'platform-admin',
+      isActive: true,
+      isSuperuser: true,
+      totpEnabled: true,
+      totpSetupCompleted: true,
     });
 
     (prisma.user.findUnique as any).mockImplementation(({ where }: any) => {
@@ -313,7 +339,7 @@ describe('Analytics API Integration Tests', () => {
   });
 
   describe('GET /api/v1/gamingCenters/:gamingCenterId/analytics/ingestion-status', () => {
-    it('should return ingestion status and watermark positions', async () => {
+    it('should forbid tenant MANAGER (403) and return ingestion status to PLATFORM_ADMIN (200)', async () => {
       (prisma.analyticsWatermark.findMany as any).mockResolvedValue([
         { entity: 'Reservation', lastIngestedAt: new Date('2026-02-01T10:00:00Z'), lastSourceId: 'res-1' },
       ]);
@@ -321,13 +347,18 @@ describe('Analytics API Integration Tests', () => {
         { id: 'run-1', entity: 'Reservation', status: 'SUCCESS', recordsRead: 10, recordsIngested: 10, durationMs: 120, startedAt: new Date(), completedAt: new Date() },
       ]);
 
-      const res = await request(app)
+      const mgrRes = await request(app)
         .get('/api/v1/gamingCenters/gc-1/analytics/ingestion-status')
         .set('Authorization', `Bearer ${MANAGER_TOKEN}`);
+      expect(mgrRes.status).toBe(403);
 
-      expect(res.status).toBe(200);
-      expect(res.body.data.status).toBe('FRESH');
-      expect(res.body.data.watermarks.length).toBe(1);
+      const adminRes = await request(app)
+        .get('/api/v1/gamingCenters/gc-1/analytics/ingestion-status')
+        .set('Authorization', `Bearer ${PLATFORM_ADMIN_TOKEN}`);
+
+      expect(adminRes.status).toBe(200);
+      expect(adminRes.body.data.status).toBe('FRESH');
+      expect(adminRes.body.data.watermarks.length).toBe(1);
     });
   });
 

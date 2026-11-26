@@ -3,6 +3,15 @@ import { prisma } from '../../config/prisma';
 import { CustomerFilters, UpdateCustomerInput } from './customers.types';
 import { buildPersianArabicSearchVariants } from '../../common/utils/searchText';
 
+export const TENANT_CUSTOMER_ACCOUNT_SELECT = {
+  id: true,
+  phone: true,
+  fullName: true,
+  phoneVerifiedAt: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
 export async function findManyProfiles(gamingCenterId: string, filters: CustomerFilters) {
   const { search, page = 1, limit = 10 } = filters;
   const skip = (page - 1) * limit;
@@ -24,7 +33,7 @@ export async function findManyProfiles(gamingCenterId: string, filters: Customer
     prisma.customerProfile.findMany({
       where,
       include: {
-        customerAccount: true,
+        customerAccount: { select: TENANT_CUSTOMER_ACCOUNT_SELECT },
       },
       skip,
       take: limit,
@@ -43,7 +52,7 @@ export async function findProfileById(gamingCenterId: string, profileId: string)
       gamingCenterId,
     },
     include: {
-      customerAccount: true,
+      customerAccount: { select: TENANT_CUSTOMER_ACCOUNT_SELECT },
     },
   });
 }
@@ -62,7 +71,7 @@ export async function findProfileByAccountId(gamingCenterId: string, customerAcc
 export async function upsertCustomerAccount(phone: string, fullName?: string) {
   return prisma.customerAccount.upsert({
     where: { phone },
-    update: fullName ? { fullName } : {},
+    update: {},
     create: {
       phone,
       fullName,
@@ -79,7 +88,7 @@ export async function createProfile(data: {
   return prisma.customerProfile.create({
     data,
     include: {
-      customerAccount: true,
+      customerAccount: { select: TENANT_CUSTOMER_ACCOUNT_SELECT },
     },
   });
 }
@@ -102,7 +111,7 @@ export async function updateProfile(
   return prisma.customerProfile.findUnique({
     where: { id: profileId },
     include: {
-      customerAccount: true,
+      customerAccount: { select: TENANT_CUSTOMER_ACCOUNT_SELECT },
     },
   });
 }

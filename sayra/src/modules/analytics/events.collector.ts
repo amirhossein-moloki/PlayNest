@@ -24,7 +24,7 @@ export const AnalyticsEventSchema = z.object({
   utmCampaign: z.string().max(100).optional(),
   deduplicationKey: z.string().max(200).optional(),
   timestamp: z.coerce.date().optional(),
-  payload: z.record(z.unknown()).optional(),
+  payload: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type AnalyticsEventInput = z.infer<typeof AnalyticsEventSchema>;

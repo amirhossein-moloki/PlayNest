@@ -151,6 +151,25 @@ function isPrivateOrReservedIpv6(rawIp: string): boolean {
   if (ip.startsWith('::ffff:')) {
     const mapped = ip.slice('::ffff:'.length);
     if (net.isIPv4(mapped)) return isPrivateOrReservedIpv4(mapped);
+    const hexMatch = mapped.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+    if (hexMatch) {
+      const hi = parseInt(hexMatch[1], 16);
+      const lo = parseInt(hexMatch[2], 16);
+      const ipv4 = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+      return isPrivateOrReservedIpv4(ipv4);
+    }
+  }
+  const expandedMapped = ip.match(/^0{1,4}:0{1,4}:0{1,4}:0{1,4}:0{1,4}:ffff:(.+)$/);
+  if (expandedMapped) {
+    const suffix = expandedMapped[1];
+    if (net.isIPv4(suffix)) return isPrivateOrReservedIpv4(suffix);
+    const hexMatch = suffix.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+    if (hexMatch) {
+      const hi = parseInt(hexMatch[1], 16);
+      const lo = parseInt(hexMatch[2], 16);
+      const ipv4 = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+      return isPrivateOrReservedIpv4(ipv4);
+    }
   }
   return false;
 }

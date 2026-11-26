@@ -95,6 +95,43 @@ export async function invalidateShortLinkCache(codeOrNormalized: string): Promis
   }
 }
 
+export async function checkAndReserveMaxClickQuota(
+  shortLinkId: string,
+  maxClicks: number,
+  dbTotalClicks: number
+): Promise<boolean> {
+  if (dbTotalClicks >= maxClicks) {
+    return false;
+  }
+
+  const quotaKey = `shortlink:maxclicks:${shortLinkId}`;
+  try {
+    if (typeof redis?.incr === 'function' && typeof redis?.expire === 'function') {
+      if (typeof redis?.set === 'function') {
+        await redis.set(quotaKey, String(dbTotalClicks), 'EX', HOT_CACHE_TTL_SECONDS, 'NX');
+      }
+      const nextCount = await redis.incr(quotaKey);
+      await redis.expire(quotaKey, HOT_CACHE_TTL_SECONDS);
+      return nextCount <= maxClicks;
+    }
+
+    if (typeof redis?.get === 'function' && typeof redis?.set === 'function') {
+      const raw = await redis.get(quotaKey);
+      const parsed = raw !== null ? Number(raw) : 0;
+      const current = Number.isFinite(parsed) ? Math.max(dbTotalClicks, parsed) : dbTotalClicks;
+      if (current >= maxClicks) {
+        return false;
+      }
+      await redis.set(quotaKey, String(current + 1), 'EX', HOT_CACHE_TTL_SECONDS);
+      return true;
+    }
+  } catch {
+    // Fall back to DB totalClicks check already performed above
+  }
+
+  return true;
+}
+
 export interface ClickSignalsResult {
   isUniqueVisitor: boolean;
   isDuplicate: boolean;

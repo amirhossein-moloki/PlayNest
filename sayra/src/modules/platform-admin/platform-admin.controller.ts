@@ -16,6 +16,12 @@ import { AdminStationBridge } from '../../platform-admin/services/admin-station-
 import { gamingCenterStation } from '../gamingCenter/gamingCenter.station';
 import { createGamingCenterSchema } from '../gamingCenter/gamingCenter.validation';
 
+export function escapeCsvCell(value: unknown): string {
+  const raw = value === null || value === undefined ? '' : String(value);
+  const formulaSafe = /^[=+\-@\t\r]/.test(raw.trimStart()) ? `'${raw}` : raw;
+  return `"${formulaSafe.replace(/"/g, '""')}"`;
+}
+
 export const PlatformAdminController = {
   async getAllGamingCenters(req: AppRequest, res: Response, next: NextFunction) {
     try {
@@ -188,7 +194,16 @@ export const PlatformAdminController = {
       const header = 'ID,GamingCenter,Amount,Currency,Status,Method,Provider,CreatedAt\n';
       const rows = payments
         .map((p) =>
-          `"${p.id}","${p.gamingCenter?.name || ''}",${p.amount},"${p.currency}","${p.status}","${p.method}","${p.provider}","${p.createdAt.toISOString()}"`
+          [
+            escapeCsvCell(p.id),
+            escapeCsvCell(p.gamingCenter?.name || ''),
+            escapeCsvCell(p.amount),
+            escapeCsvCell(p.currency),
+            escapeCsvCell(p.status),
+            escapeCsvCell(p.method),
+            escapeCsvCell(p.provider),
+            escapeCsvCell(p.createdAt.toISOString()),
+          ].join(',')
         )
         .join('\n');
 

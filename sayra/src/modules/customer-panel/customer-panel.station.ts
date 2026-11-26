@@ -510,14 +510,26 @@ export const CustomerPanelStation = {
       throw new AppError('Only completed reservation can be reviewed', httpStatus.BAD_REQUEST);
     }
 
-    // Check if rating already exists for this target
-    // The Rating model has a unique constraint on [reservationId, target, stationId]
+    const resolvedStationId = reservation.stationId ?? null;
+    if (input.stationId && input.stationId !== resolvedStationId) {
+      throw new AppError('Station ID does not match reservation', httpStatus.BAD_REQUEST);
+    }
+
+    if (typeof reviewsRepo.findExistingReviewForReservation === 'function') {
+      const existing = await reviewsRepo.findExistingReviewForReservation(
+        reservationId,
+        resolvedStationId
+      );
+      if (existing) {
+        throw new AppError('Rating already exists for this reservation/target', httpStatus.CONFLICT);
+      }
+    }
 
     try {
       const rating = await reviewsRepo.createReview(reservation.gamingCenterId, customerAccountId, {
         reservationId,
         rating: input.rating,
-        stationId: input.stationId,
+        stationId: resolvedStationId ?? undefined,
         comment: input.comment,
       });
 

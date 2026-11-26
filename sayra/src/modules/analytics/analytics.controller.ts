@@ -1,10 +1,19 @@
 import { Response } from 'express';
+import httpStatus from 'http-status';
+import { SessionActorType } from '@prisma/client';
+import AppError from '../../common/errors/AppError';
 import { AppRequest } from '../../types/express';
 import { asyncHandler } from '../../common/middleware/asyncHandler';
 import { AnalyticsStation } from './analytics.station';
 import { EventsCollector } from './events.collector';
 import { ForecastingService } from './forecasting.service';
 import { AnalyticsQuery, BenchmarkQuery, CustomerAnalyticsQuery, FinancialReconciliationQuery } from './analytics.validators';
+
+function assertPlatformAdmin(req: AppRequest): void {
+  if (req.actor?.actorType !== SessionActorType.PLATFORM_ADMIN && req.actor?.isSuperuser !== true) {
+    throw new AppError('Forbidden: Platform admin access required.', httpStatus.FORBIDDEN);
+  }
+}
 
 const collectEvent = asyncHandler(async (req: AppRequest, res: Response) => {
   const result = await EventsCollector.collectEvent(req.body);
@@ -112,7 +121,8 @@ const getRevenueChart = asyncHandler(async (req: AppRequest, res: Response) => {
   res.ok(result);
 });
 
-const getIngestionStatus = asyncHandler(async (_req: AppRequest, res: Response) => {
+const getIngestionStatus = asyncHandler(async (req: AppRequest, res: Response) => {
+  assertPlatformAdmin(req);
   const result = await AnalyticsStation.getIngestionStatus();
 
   res.ok(result);
@@ -213,7 +223,8 @@ const getInstrumentationGaps = asyncHandler(async (_req: AppRequest, res: Respon
 });
 
 // Operations & Reliability Analytics Controllers
-const getJobsHealth = asyncHandler(async (_req: AppRequest, res: Response) => {
+const getJobsHealth = asyncHandler(async (req: AppRequest, res: Response) => {
+  assertPlatformAdmin(req);
   const result = await AnalyticsStation.getJobsHealth();
 
   res.ok(result);

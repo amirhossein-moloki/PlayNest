@@ -267,8 +267,10 @@ describe('PlayNest ShortLinks, Analytics, Campaigns, QR, Security & Ads API Suit
   const originalBurstMax = env.SHORT_LINK_BURST_MAX_CLICKS_PER_MINUTE;
   const originalDedupSeconds = env.SHORT_LINK_DEDUP_WINDOW_SECONDS;
   const originalExternalPolicy = env.SHORT_LINK_EXTERNAL_POLICY;
+  const originalTrustProxy = app.get('trust proxy');
 
   beforeAll(() => {
+    app.set('trust proxy', 1);
     const secret = env.JWT_ACCESS_SECRET || 'test-access-secret';
     adminToken = jwt.sign(
       { sessionId: 'sess_admin', actorId: ADMIN_ID, actorType: 'PLATFORM_ADMIN', mfaVerified: true },
@@ -295,6 +297,10 @@ describe('PlayNest ShortLinks, Analytics, Campaigns, QR, Security & Ads API Suit
       secret,
       { expiresIn: '1h' }
     );
+  });
+
+  afterAll(() => {
+    app.set('trust proxy', originalTrustProxy);
   });
 
   beforeEach(async () => {

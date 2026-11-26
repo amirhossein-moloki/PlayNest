@@ -411,11 +411,12 @@ async function resolveQueryIntents(query: SearchGameCentersQuery): Promise<Query
         }
       }
 
-      if (nonDeviceTokens.length >= 2) {
+      const boundedNonDeviceTokens = nonDeviceTokens.slice(0, 8);
+      if (boundedNonDeviceTokens.length >= 2) {
         const candidatePhrases = new Set<string>();
-        for (let len = Math.min(4, nonDeviceTokens.length); len >= 1; len--) {
-          for (let start = 0; start <= nonDeviceTokens.length - len; start++) {
-            const phrase = nonDeviceTokens.slice(start, start + len).join(' ');
+        for (let len = Math.min(4, boundedNonDeviceTokens.length); len >= 1; len--) {
+          for (let start = 0; start <= boundedNonDeviceTokens.length - len; start++) {
+            const phrase = boundedNonDeviceTokens.slice(start, start + len).join(' ');
             if (phrase.length >= 3) candidatePhrases.add(phrase);
           }
         }

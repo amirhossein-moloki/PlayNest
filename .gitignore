@@ -86,3 +86,9 @@ Thumbs.db
 # Optional: lockfiles (یکی را
 
 /nginx/ssl/
+
+# Backups, images & stale backups (must never be committed)
+backups/
+*.tar
+docker-compose.yml.bak
+

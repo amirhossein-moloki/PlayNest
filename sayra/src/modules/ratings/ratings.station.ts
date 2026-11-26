@@ -2,7 +2,7 @@ import AppError from '../../common/errors/AppError';
 import httpStatus from 'http-status';
 import * as reviewsRepo from './ratings.repo';
 import { SubmitReviewInput } from './ratings.types';
-import { RatingStatus, ReservationStatus, NotificationType } from '@prisma/client';
+import { RatingStatus, ReservationStatus, NotificationType, Prisma } from '@prisma/client';
 import { queueAnalyticsSync } from '../../jobs/producers/analytics.producer';
 import { NotificationStation } from '../notifications/notifications.station';
 import logger from '../../config/logger';
@@ -12,22 +12,65 @@ import {
   SAYRA_RATING_WEIGHT,
 } from '../public-gamecenters/bayesian.ranking';
 
-export async function submitReview(gamingCenterSlug: string, input: SubmitReviewInput) {
+export async function submitReview(
+  gamingCenterSlug: string,
+  reservationId: string,
+  customerAccountId: string,
+  input: Omit<SubmitReviewInput, 'reservationId'> & { reservationId?: string }
+) {
+  if (input.reservationId && input.reservationId !== reservationId) {
+    throw new AppError('Reservation ID in body does not match route parameter', httpStatus.BAD_REQUEST);
+  }
+
   // 1. Verify reservation exists and belongs to the gamingCenter (by slug)
-  const reservation = await reviewsRepo.findReservationForReview(input.reservationId, gamingCenterSlug);
+  const reservation = await reviewsRepo.findReservationForReview(reservationId, gamingCenterSlug);
 
   if (!reservation) {
     throw new AppError('Reservation not found', httpStatus.NOT_FOUND);
   }
 
-  // 2. check if reservation is completed
+  // 2. Verify reservation ownership
+  if (reservation.customerAccountId !== customerAccountId) {
+    throw new AppError('Forbidden: You can only review your own reservation', httpStatus.FORBIDDEN);
+  }
+
+  // 3. Check if reservation is completed
   if (reservation.status !== ReservationStatus.COMPLETED) {
     throw new AppError('Only completed reservation can be reviewed', httpStatus.BAD_REQUEST);
   }
 
-  // 3. Create the rating
-  // Use the customerAccountId from the reservation
-  const rating = await reviewsRepo.createReview(reservation.gamingCenterId, reservation.customerAccountId, input);
+  // 4. Derive stationId strictly from the persisted reservation
+  const resolvedStationId = reservation.stationId ?? null;
+  if (input.stationId && input.stationId !== resolvedStationId) {
+    throw new AppError('Station ID does not match reservation', httpStatus.BAD_REQUEST);
+  }
+
+  // 5. Prevent duplicate reviews per reservation (including stationId === null)
+  if (typeof reviewsRepo.findExistingReviewForReservation === 'function') {
+    const existing = await reviewsRepo.findExistingReviewForReservation(
+      reservation.id,
+      resolvedStationId
+    );
+    if (existing) {
+      throw new AppError('Rating already exists for this reservation/target', httpStatus.CONFLICT);
+    }
+  }
+
+  // 6. Create the rating bound to authenticated customer and DB reservation
+  let rating;
+  try {
+    rating = await reviewsRepo.createReview(reservation.gamingCenterId, customerAccountId, {
+      reservationId: reservation.id,
+      stationId: resolvedStationId ?? undefined,
+      rating: input.rating,
+      comment: input.comment,
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw new AppError('Rating already exists for this reservation/target', httpStatus.CONFLICT);
+    }
+    throw error;
+  }
 
   // Sync analytics
   queueAnalyticsSync({ type: 'REVIEW', entityId: rating.id }).catch(console.error);
@@ -50,7 +93,7 @@ export async function submitReview(gamingCenterSlug: string, input: SubmitReview
       customerName: (reservation as any).customerAccount?.fullName || 'Customer',
       rating: input.rating,
     },
-    metadata: { reviewId: rating.id, reservationId: input.reservationId, rating: input.rating },
+    metadata: { reviewId: rating.id, reservationId: reservation.id, rating: input.rating },
     entityType: 'Rating',
     entityId: rating.id,
   }).catch((err) => {

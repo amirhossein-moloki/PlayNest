@@ -113,6 +113,21 @@ export const AdvertisementStation = {
       resolvedShortLinkId = createdLink.id;
     }
 
+    if (dto.mediaId) {
+      const prismaAny = prisma as unknown as {
+        media?: { findFirst?: (...args: unknown[]) => Promise<{ id: string } | null> };
+      };
+      if (typeof prismaAny.media?.findFirst === 'function') {
+        const ownedMedia = await prismaAny.media.findFirst({
+          where: { id: dto.mediaId, gamingCenterId },
+          select: { id: true },
+        });
+        if (!ownedMedia) {
+          throw new AppError('Media not found for this gaming center', httpStatus.NOT_FOUND);
+        }
+      }
+    }
+
     const record = await AdvertisementRepo.create({
       title: dto.title,
       description: dto.description,
@@ -214,6 +229,20 @@ export const AdvertisementStation = {
     if (dto.destinationUrl !== undefined) updateData.destinationUrl = dto.destinationUrl || null;
     if (dto.mediaType !== undefined) updateData.mediaType = dto.mediaType;
     if (dto.mediaId !== undefined) {
+      if (dto.mediaId) {
+        const prismaAny = prisma as unknown as {
+          media?: { findFirst?: (...args: unknown[]) => Promise<{ id: string } | null> };
+        };
+        if (typeof prismaAny.media?.findFirst === 'function') {
+          const ownedMedia = await prismaAny.media.findFirst({
+            where: { id: dto.mediaId, gamingCenterId },
+            select: { id: true },
+          });
+          if (!ownedMedia) {
+            throw new AppError('Media not found for this gaming center', httpStatus.NOT_FOUND);
+          }
+        }
+      }
       updateData.media = dto.mediaId ? { connect: { id: dto.mediaId } } : { disconnect: true };
     }
     if (dto.proposedDurationDays !== undefined) {

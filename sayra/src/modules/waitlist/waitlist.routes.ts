@@ -20,8 +20,8 @@ import {
 // --- Admin / Manager Waitlist Router ---
 const adminWaitlistRouter = Router({ mergeParams: true });
 adminWaitlistRouter.use(
-  tenantGuard,
   authMiddleware,
+  tenantGuard,
   requireRole([UserRole.MANAGER, UserRole.ADMIN])
 );
 
