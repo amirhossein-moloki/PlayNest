@@ -94,6 +94,11 @@ services:
       - UV_THREADPOOL_SIZE=${UV_THREADPOOL_SIZE:-8}
       - POSTGRES_USER=${SAYRA_DB_USER:-sayra_app}
       - POSTGRES_DB=${POSTGRES_DB:-playenest_prod}
+      - POSTGRES_MULTIPLE_DATABASES=
+      - POSTGRES_PASSWORD=
+      - BLOG_DB_PASSWORD=
+      - BLOG_REDIS_PASSWORD=
+      - RESTIC_PASSWORD=
       - DATABASE_URL=postgresql://${SAYRA_DB_USER:-sayra_app}:${SAYRA_DB_PASSWORD:?SAYRA_DB_PASSWORD environment variable is required}@db:5432/${POSTGRES_DB:-playenest_prod}?connection_limit=${DB_CONNECTION_LIMIT:-15}&pool_timeout=${DB_POOL_TIMEOUT:-10}
       - REDIS_URL=redis://:${SAYRA_REDIS_PASSWORD:?SAYRA_REDIS_PASSWORD environment variable is required}@redis:6379
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET environment variable is required}
@@ -174,6 +179,11 @@ services:
       - UV_THREADPOOL_SIZE=${WORKER_UV_THREADPOOL_SIZE:-4}
       - POSTGRES_USER=${SAYRA_DB_USER:-sayra_app}
       - POSTGRES_DB=${POSTGRES_DB:-playenest_prod}
+      - POSTGRES_MULTIPLE_DATABASES=
+      - POSTGRES_PASSWORD=
+      - BLOG_DB_PASSWORD=
+      - BLOG_REDIS_PASSWORD=
+      - RESTIC_PASSWORD=
       - DATABASE_URL=postgresql://${SAYRA_DB_USER:-sayra_app}:${SAYRA_DB_PASSWORD:?SAYRA_DB_PASSWORD environment variable is required}@db:5432/${POSTGRES_DB:-playenest_prod}?connection_limit=${WORKER_DB_CONNECTION_LIMIT:-10}&pool_timeout=${DB_POOL_TIMEOUT:-10}
       - REDIS_URL=redis://:${SAYRA_REDIS_PASSWORD:?SAYRA_REDIS_PASSWORD environment variable is required}@redis:6379
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET environment variable is required}
@@ -282,6 +292,9 @@ services:
       - REDIS_URL=redis://:${BLOG_REDIS_PASSWORD:?BLOG_REDIS_PASSWORD environment variable is required}@blog_redis:6379
       - USE_REDIS=True
       - SECRET_KEY=${BLOG_SECRET_KEY:?BLOG_SECRET_KEY environment variable is required}
+      - SAYRA_DB_PASSWORD=
+      - SAYRA_REDIS_PASSWORD=
+      - RESTIC_PASSWORD=
       - RUN_MIGRATIONS=true
       - RUN_COLLECTSTATIC=true
     cpus: 0.5
@@ -328,6 +341,9 @@ services:
       - REDIS_URL=redis://:${BLOG_REDIS_PASSWORD:?BLOG_REDIS_PASSWORD environment variable is required}@blog_redis:6379
       - USE_REDIS=True
       - SECRET_KEY=${BLOG_SECRET_KEY:?BLOG_SECRET_KEY environment variable is required}
+      - SAYRA_DB_PASSWORD=
+      - SAYRA_REDIS_PASSWORD=
+      - RESTIC_PASSWORD=
       - DEBUG=${BLOG_DEBUG:-False}
       - DOMAIN=${BLOG_DOMAIN:-blog.sayra-booking.ir}
       - ALLOWED_HOSTS=${BLOG_ALLOWED_HOSTS:-blog.sayra-booking.ir,sayra-booking.ir,api.sayra-booking.ir},blog-web
@@ -395,7 +411,15 @@ services:
       - REDIS_URL=redis://:${BLOG_REDIS_PASSWORD:?BLOG_REDIS_PASSWORD environment variable is required}@blog_redis:6379
       - USE_REDIS=True
       - SECRET_KEY=${BLOG_SECRET_KEY:?BLOG_SECRET_KEY environment variable is required}
+      - SAYRA_DB_PASSWORD=
+      - SAYRA_REDIS_PASSWORD=
+      - RESTIC_PASSWORD=
       - DEBUG=${BLOG_DEBUG:-False}
+      - SAYRA_API_BASE_URL=${SAYRA_API_BASE_URL:-http://sayra:3000/api/v1}
+      - SAYRA_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN:-}
+      - SAYRA_SSR_SECRET=${INTERNAL_SSR_SECRET:-}
+      - NEXT_REVALIDATE_URL=${NEXT_REVALIDATE_URL:-}
+      - NEXT_REVALIDATION_SECRET=${NEXT_REVALIDATION_SECRET:-}
     cpus: ${BLOG_CELERY_CPUS:-0.5}
     mem_limit: ${BLOG_CELERY_MEM_LIMIT:-512m}
     pids_limit: 256
@@ -404,6 +428,8 @@ services:
     volumes:
       - blog_media:/app/media
     networks:
+      - egress
+      - inter_service
       - blog_internal
     command: celery -A blog worker -l info -Q default
 
@@ -435,6 +461,9 @@ services:
       - REDIS_URL=redis://:${BLOG_REDIS_PASSWORD:?BLOG_REDIS_PASSWORD environment variable is required}@blog_redis:6379
       - USE_REDIS=True
       - SECRET_KEY=${BLOG_SECRET_KEY:?BLOG_SECRET_KEY environment variable is required}
+      - SAYRA_DB_PASSWORD=
+      - SAYRA_REDIS_PASSWORD=
+      - RESTIC_PASSWORD=
       - DEBUG=${BLOG_DEBUG:-False}
       - NEXT_REVALIDATE_URL=${NEXT_REVALIDATE_URL:-}
       - NEXT_REVALIDATION_SECRET=${NEXT_REVALIDATION_SECRET:-}
@@ -447,6 +476,7 @@ services:
       - blog_media:/app/media
     networks:
       - egress
+      - inter_service
       - blog_internal
     command: celery -A blog worker -l info -Q high_priority
 
@@ -478,6 +508,9 @@ services:
       - REDIS_URL=redis://:${BLOG_REDIS_PASSWORD:?BLOG_REDIS_PASSWORD environment variable is required}@blog_redis:6379
       - USE_REDIS=True
       - SECRET_KEY=${BLOG_SECRET_KEY:?BLOG_SECRET_KEY environment variable is required}
+      - SAYRA_DB_PASSWORD=
+      - SAYRA_REDIS_PASSWORD=
+      - RESTIC_PASSWORD=
       - DEBUG=${BLOG_DEBUG:-False}
     cpus: ${BLOG_CELERY_CPUS:-0.5}
     mem_limit: ${BLOG_CELERY_MEM_LIMIT:-512m}
@@ -518,6 +551,9 @@ services:
       - REDIS_URL=redis://:${BLOG_REDIS_PASSWORD:?BLOG_REDIS_PASSWORD environment variable is required}@blog_redis:6379
       - USE_REDIS=True
       - SECRET_KEY=${BLOG_SECRET_KEY:?BLOG_SECRET_KEY environment variable is required}
+      - SAYRA_DB_PASSWORD=
+      - SAYRA_REDIS_PASSWORD=
+      - RESTIC_PASSWORD=
       - DEBUG=${BLOG_DEBUG:-False}
     cpus: 0.25
     mem_limit: 256m
@@ -528,7 +564,7 @@ services:
       - blog_media:/app/media
     networks:
       - blog_internal
-    command: celery -A blog beat -l info
+    command: celery -A blog beat -l info -s /tmp/celerybeat-schedule
 
   nginx:
     image: playenest-nginx:latest

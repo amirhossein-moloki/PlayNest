@@ -87,8 +87,19 @@ WHERE n.nspname = 'public'
     SELECT 1 FROM pg_depend d
     WHERE d.objid = c.oid AND d.classid = 'pg_class'::regclass AND d.deptype = 'a'
   )\gexec
+SELECT format('ALTER TYPE %I.%I OWNER TO %I', n.nspname, t.typname, :'app_role')
+FROM pg_type t
+JOIN pg_namespace n ON n.oid = t.typnamespace
+WHERE n.nspname = 'public'
+  AND t.typtype IN ('e', 'd')
+  AND NOT EXISTS (
+    SELECT 1 FROM pg_depend d
+    WHERE d.objid = t.oid AND d.classid = 'pg_type'::regclass AND d.deptype = 'e'
+  )\gexec
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO :"app_role";
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO :"app_role";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO :"app_role";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO :"app_role";
 EOSQL
         fi
     fi

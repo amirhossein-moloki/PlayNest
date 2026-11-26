@@ -1,7 +1,7 @@
 # PlayNest Security Remediation Roadmap, Remaining-Risk Register & Operator Runbooks
 
-**Linear Project:** `Backend Security Audit & Remediation` (`P-AMI-4`) — **3 open Linear issues (`In Progress`: `AMI-57`, `AMI-70`, `AMI-72`)**  
-All 7 Django Blog issues (`AMI-56`, `AMI-64`–`AMI-68`, `AMI-77`) and all 24 prior Sayra/Blog/Infra issues (`31/34` total) are verified and closed as **`Done`**.
+**Linear Project:** `Backend Security Audit & Remediation` (`P-AMI-4`) — **2 open Linear issues (`In Progress`: `AMI-57`, `AMI-72`)**  
+All 7 Django Blog issues (`AMI-56`, `AMI-64`–`AMI-68`, `AMI-77`), **`AMI-70` (live infrastructure rollout on `ssh sayra`)**, and all 24 prior Sayra/Blog/Infra issues (`32/34` total) are verified and closed as **`Done`**.
 
 ---
 
@@ -47,19 +47,16 @@ All 7 Django Blog issues (`AMI-56`, `AMI-64`–`AMI-68`, `AMI-77`) and all 24 pr
 
 ---
 
-## 2. High Gate — `AMI-70` (`SEC-025`): Live Cutover for Redis Auth, Postgres Roles & Segmented Networks
+## 2. Live Infrastructure Cutover — `AMI-70` (`SEC-025`): **`Done`** (Deployed & Verified on `ssh sayra` `/opt/PlayNest`)
 
-**Status:** `In Progress` (**Approval-Gated** — implemented & ephemerally verified in Compose; requires coordinated live cluster rollout)
+**Status:** **`Done`** (Deployed live on `2026-11-26` after ephemeral Compose validation; pre-cutover snapshot & logical DB dumps archived on server at `/home/ubuntu/ami70-backup-20261126-134020`).
 
-### What is already Implemented & Ephemerally Verified
-- `Blog/.dockerignore` created; `Blog/Dockerfile` converted to multi-stage non-root `bloguser`.
-- `docker-compose.yml` configures Redis `--requirepass` + `REDISCLI_AUTH` healthchecks, least-privilege DB URLs (`sayra_app` -> `playenest_prod`, `blog_app` -> `blog_prod`), 5 segmented networks (`edge`, `inter_service`, `egress`, `sayra_internal`, `blog_internal`), `security_opt: [no-new-privileges:true]`, and `pids_limit`.
-- `docker/postgres/init-multiple-dbs.sh` & idempotent `docker/postgres/provision-least-privilege-roles.sql` verified live in `playnest_sec_verify` (cross-DB `CONNECT` denied both ways; non-superuser roles confirmed; `blog_web` isolated from `redis:6379`).
-
-### Mandatory Live Cutover Steps (Approval Required)
-1. Provision rotated secrets in production `.env`: `SAYRA_REDIS_PASSWORD`, `BLOG_REDIS_PASSWORD`, `SAYRA_DB_USER=sayra_app`, `SAYRA_DB_PASSWORD`, `BLOG_DB_USER=blog_app`, `BLOG_DB_PASSWORD`.
-2. On existing live PostgreSQL clusters where `init-multiple-dbs.sh` already ran historically, execute `docker/postgres/provision-least-privilege-roles.sql` as superuser (`psql -v sayra_app_user=sayra_app -v sayra_app_pass=... -v blog_app_user=blog_app -v blog_app_pass=... -f docker/postgres/provision-least-privilege-roles.sql`).
-3. Deploy the updated `docker-compose.yml` during a coordinated maintenance window, recreate containers (`redis`, `blog_redis`, `db`, `sayra`, `sayra-worker`, `blog_*`, `backup`, `nginx`), verify healthchecks + cross-DB/network isolation, and transition **`AMI-70`** -> `Done`.
+### Deployed & Verified Live Controls
+- Multi-stage non-root `Blog/Dockerfile` (`uid=999(bloguser)`) + `Blog/.dockerignore`, with `playnest_blog_static` and `playnest_blog_media` ownership migrated cleanly and `blog_celery_beat` using `-s /tmp/celerybeat-schedule` (`RestartCount=0`).
+- Redis `--requirepass` + `REDISCLI_AUTH` healthchecks active on both `playnest-redis-1` and `playnest-blog_redis-1` (`NOAUTH` unauthenticated / `PONG` authenticated; keyspaces preserved).
+- Least-privilege PostgreSQL roles (`sayra_app`, `blog_app`) applied live via `docker/postgres/provision-least-privilege-roles.sql` (including all 82 Prisma enum types + default privileges; bidirectional cross-DB `CONNECT` denied; `sayra_app` cleanly applied migration `20261125000001_security_wallet_constraints`).
+- 5-network Compose segmentation (`edge`, `inter_service` [`internal`], `egress`, `sayra_internal` [`internal`], `blog_internal` [`internal`]), flat `playnest_default` removed, cross-service env vars scrubbed, live HTTP `200` + Restic snapshot `69482f40` verified.
+- Note: Updated Sayra and Blog application code commits (`security/audit-remediation`) remain local pending separate push/deploy approval.
 
 ---
 
@@ -90,14 +87,17 @@ All 7 Django Blog issues (`AMI-56`, `AMI-64`–`AMI-68`, `AMI-77`) and all 24 pr
 
 | Risk ID / Source | Severity | Current Mitigation & Exposure | Production Gate |
 | --- | --- | --- | --- |
-| `AMI-57` (Git `backups/` & `.env.dev` history) | **Critical** | Excluded from `.gitignore` & host Compose mount fixed; historical objects still in Git history until purged | **BLOCKS PROD GO-LIVE** — purge history & rotate all secrets |
-| `AMI-70` (Live Compose cutover) | **High** | Configured & ephemerally verified (`playnest_sec_verify`); not yet rolled to live cluster | **BLOCKS PROD GO-LIVE** — apply `provision-least-privilege-roles.sql` & cut over stack |
+| `AMI-57` (Git `backups/` & `.env.dev` history) | **Critical** | Excluded from `.gitignore` & host Compose mount fixed locally; server still mounts `./backups` and historical objects remain in Git history until purged | **BLOCKS PROD GO-LIVE** — migrate off-repo, purge history & rotate all secrets |
+| Live `.env` Runtime Flags & Unpushed App Code | **High** (Ops Cutover) | Live `/opt/PlayNest/.env` currently retains `NODE_ENV="development"` and `SKIP_OTP=true` (untouched per safety policy); updated Sayra/Blog code sits unpushed on `security/audit-remediation` | Push/deploy `security/audit-remediation` app images & switch live `.env` to `production` + `SKIP_OTP=false` with real secrets/merchant |
 | `AMI-72` (`tinymce`, `social-auth-core`, `black`) | **High** (Upstream) | AdminJS auth/CSP/sanitization active; `black` is dev-only; upstream major pins constrain direct bumps | Track under `AMI-72` architectural/upstream upgrade |
 | Trivy `DS-0002` Dockerfiles | **Medium/High** (`HIGH` in Trivy) | `docker/nginx/Dockerfile`, `Blog/nginx/Dockerfile`, `docker/backup/Dockerfile` run as `root` | Schedule non-root hardening for edge/backup containers |
 | CI & Test Hygiene | **Low/Medium** | `codeql` absent locally; `Blog/.github/workflows/ci.yml` uses mutable `@v4` tags; 5 pre-existing Sayra unit mocks need updates | Add CI CodeQL/Semgrep/Trivy/Gitleaks gates; refresh outdated test mocks |
 
 ### Final Production Readiness Assessment: **CONDITIONAL NO-GO**
-Application source code (`sayra/` and `Blog/`), schema parity (`sayra/openapi.yml`), supply-chain cleanup (critical CVEs `4 -> 0`), and container/DR engineering fixes are verified ready. **Do not declare production ready** until an approved maintenance window executes **`AMI-57`** (history purge + full credential rotation + off-repo backup migration) and **`AMI-70`** (live Postgres role cutover + authenticated Redis + segmented Compose networks).
+`AMI-70` (authenticated Redis, least-privilege PostgreSQL roles, 5-network isolation, non-root `playenest-blog:latest`) is now **live and verified** on `ssh sayra` (`/opt/PlayNest`), and all application-level fixes (`32/34`) pass regression verification. **Do not declare full production go-live** until:
+1. An approved maintenance window executes **`AMI-57`** (off-repo `/var/backups/playnest` migration, full credential rotation + fresh Restic repo, and `git filter-repo` history purge);
+2. Updated Sayra/Blog application code (`security/audit-remediation`) is pushed/deployed after approval; and
+3. Live `/opt/PlayNest/.env` is switched from `NODE_ENV="development"` / `SKIP_OTP=true` to `NODE_ENV="production"` / `SKIP_OTP=false` with real production secrets (`ADMIN_SESSION_SECRET`, `ADMIN_COOKIE_SECRET`, real `ZIBAL_MERCHANT`).
 
 ---
 

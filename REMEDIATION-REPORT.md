@@ -1,7 +1,7 @@
 # PlayNest Security Remediation Report
 
 **Audit & Remediation Completion Date:** 2026-11-26  
-**Linear Project:** `Backend Security Audit & Remediation` (`P-AMI-4`) — `31 Done`, `3 In Progress` (`34 Total`)
+**Linear Project:** `Backend Security Audit & Remediation` (`P-AMI-4`) — `32 Done`, `2 In Progress` (`34 Total`)
 
 ---
 
@@ -53,13 +53,14 @@ Implemented, fixed for confirmed regressions, and verified on branch `security/a
 
 ---
 
-## 3. Infrastructure, Edge, Scripts & CI/CD Summary (`AMI-58`, `AMI-71`, `AMI-78`, `AMI-79` `Done`; `AMI-57`, `AMI-70` Hardened & Verified in Ephemeral Compose)
+## 3. Infrastructure, Edge, Scripts & CI/CD Summary (`AMI-58`, `AMI-70`, `AMI-71`, `AMI-78`, `AMI-79` `Done`; `AMI-57` Hardened & Verified, Awaiting History Purge / Secret Rotation)
 
 - **Nginx (`docker/nginx/snippets/security-headers.conf`, `docker/nginx/Dockerfile`, `docker/nginx/conf.d/app.conf.template`):** Enforced HTTP -> HTTPS 301 redirect (excluding internal `/health`), preserved HSTS/`nosniff`/`Referrer-Policy` in all `location` blocks with `add_header`, replaced `$proxy_add_x_forwarded_for` with `$remote_addr`, added `auth_admin_limit` on admin/token/health/auth routes, sandboxed static uploads (`default-src 'none'; sandbox`), and closed fail-open SSR secret fallback.
 - **Compose, Network Segmentation, Redis Auth & Least-Privilege PostgreSQL (`docker-compose.yml`, `.env.example`, `docker/postgres/{init-multiple-dbs.sh,provision-least-privilege-roles.sql}`):**
   - Enabled Redis `--requirepass` on both `redis` (`SAYRA_REDIS_PASSWORD`) and `blog_redis` (`BLOG_REDIS_PASSWORD`) with `REDISCLI_AUTH` healthchecks.
-  - Configured least-privilege database roles (`sayra_app` owning `playenest_prod`, `blog_app` owning `blog_prod`; `NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT`, `PUBLIC` `CONNECT` revoked), plus idempotent `provision-least-privilege-roles.sql` for existing clusters.
-  - Segmented services across 5 isolated bridge networks: `edge`, `inter_service` (`internal: true`), `egress`, `sayra_internal` (`internal: true`), and `blog_internal` (`internal: true`), with `no-new-privileges:true`, `pids_limit`, and `:ro` least-privilege mounts on `backup`.
+  - Configured least-privilege database roles (`sayra_app` owning `playenest_prod`, `blog_app` owning `blog_prod`; `NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT`, `PUBLIC` `CONNECT` revoked), plus idempotent `provision-least-privilege-roles.sql` transferring public tables, sequences, and PostgreSQL enum/domain types (`82` Prisma enums in `playenest_prod`) + `ALTER DEFAULT PRIVILEGES`.
+  - Segmented services across 5 isolated bridge networks: `edge`, `inter_service` (`internal: true`), `egress`, `sayra_internal` (`internal: true`), and `blog_internal` (`internal: true`), with `no-new-privileges:true`, `pids_limit`, and `:ro` least-privilege mounts on `backup`. Routed `blog_celery_default` alongside `blog_celery_high` onto `[egress, inter_service, blog_internal]` with revalidation/Sayra env vars, set `blog_celery_beat` schedule path `-s /tmp/celerybeat-schedule` so non-root `bloguser` keeps `/app` immutable, and explicitly blanked inherited cross-service secrets and `POSTGRES_MULTIPLE_DATABASES=` in app service environments.
+  - Rolled out and verified live on production server `ssh sayra` (`/opt/PlayNest`, pre-cutover snapshot/dumps in `/home/ubuntu/ami70-backup-20261126-134020`, `playnest_default` removed).
   - Enforced `:?` required env vars, removed hardcoded IPs/wildcard CORS defaults, moved backup bind mount to `${BACKUP_HOST_DIR:-/var/backups/playnest}`, deleted stale `docker-compose.yml.bak`, set `SCARF_ANALYTICS=false`, and switched dev compose to `npm ci`.
-- **Shell & DR Scripts (`docker/backup/{entrypoint.sh,scripts/{backup-db.sh,backup-perform.sh,restore.sh}}`, `sayra/scripts/wait-for-db.sh`):** Enabled strict modes (`set -euo pipefail` / `set -eu`), `umask 077`, Alpine BusyBox-compatible `mktemp`, identifier regex validation, `psql -v` safe quoting, primary `MAIN_DB` + `/uploads` backup coverage, authenticated Redis `BGSAVE`/`LASTSAVE` polling, cron validation, post-restore least-privilege role ownership re-grant, safe `:ro` dir & single-file mount skipping, and automatic `--no-lock` on read-only Restic repositories.
+- **Shell & DR Scripts (`docker/backup/{entrypoint.sh,scripts/{backup-db.sh,backup-perform.sh,restore.sh}}`, `sayra/scripts/wait-for-db.sh`):** Enabled strict modes (`set -euo pipefail` / `set -eu`), `umask 077`, Alpine BusyBox-compatible `mktemp`, identifier regex validation, `psql -v` safe quoting, primary `MAIN_DB` + `/uploads` backup coverage, authenticated Redis `BGSAVE`/`LASTSAVE` polling, cron validation, post-restore least-privilege role ownership re-grant (tables, sequences, and `ALTER TYPE` enums/domains + default privileges), safe `:ro` dir & single-file mount skipping, and automatic `--no-lock` on read-only Restic repositories.
 - **GitHub Actions (`.github/workflows/ci.yml`, `.github/workflows/test.yml`):** Added top-level `permissions: { contents: read }`, `persist-credentials: false`, `SCARF_ANALYTICS: 'false'`, and dummy test JWT strings in `test.yml`.

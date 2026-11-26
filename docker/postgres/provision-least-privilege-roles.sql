@@ -46,8 +46,19 @@ WHERE n.nspname = 'public'
     SELECT 1 FROM pg_depend d
     WHERE d.objid = c.oid AND d.classid = 'pg_class'::regclass AND d.deptype = 'a'
   )\gexec
+SELECT format('ALTER TYPE %I.%I OWNER TO %I', n.nspname, t.typname, :'sayra_user')
+FROM pg_type t
+JOIN pg_namespace n ON n.oid = t.typnamespace
+WHERE n.nspname = 'public'
+  AND t.typtype IN ('e', 'd')
+  AND NOT EXISTS (
+    SELECT 1 FROM pg_depend d
+    WHERE d.objid = t.oid AND d.classid = 'pg_type'::regclass AND d.deptype = 'e'
+  )\gexec
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO :"sayra_user";
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO :"sayra_user";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO :"sayra_user";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO :"sayra_user";
 
 \connect :"blog_db"
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
@@ -66,5 +77,16 @@ WHERE n.nspname = 'public'
     SELECT 1 FROM pg_depend d
     WHERE d.objid = c.oid AND d.classid = 'pg_class'::regclass AND d.deptype = 'a'
   )\gexec
+SELECT format('ALTER TYPE %I.%I OWNER TO %I', n.nspname, t.typname, :'blog_user')
+FROM pg_type t
+JOIN pg_namespace n ON n.oid = t.typnamespace
+WHERE n.nspname = 'public'
+  AND t.typtype IN ('e', 'd')
+  AND NOT EXISTS (
+    SELECT 1 FROM pg_depend d
+    WHERE d.objid = t.oid AND d.classid = 'pg_type'::regclass AND d.deptype = 'e'
+  )\gexec
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO :"blog_user";
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO :"blog_user";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO :"blog_user";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO :"blog_user";

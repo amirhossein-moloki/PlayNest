@@ -21,7 +21,7 @@
 | Blog Full Django Test Suite (`python manage.py test -v 1`) | Passed (exit `0`) | **Ran 341 tests in 158.647s — OK** (`0` failures, `0` errors) |
 | Blog Standalone Security Unit Tests | Passed (exit `0`) | `test_standalone_security.py` -> **Ran 9 tests in 0.124s — OK** |
 | Blog `pip-audit` & `mock-server` `npm audit` | Reduced / Clean | `pip-audit`: `258` CVEs (`25` pkgs) -> **`11` CVEs (`2` pkgs)**; `mock-server`: **`0`** vulns |
-| Ephemeral Compose `AMI-70` (`playnest_sec_verify`) | Passed (exit `0`) | `COMPOSE_CONFIG_OK`; Redis auth `NOAUTH`/`PONG`; PG role cross-DB isolation; network isolation verified |
+| Ephemeral & Live Production `AMI-70` (`ssh sayra` `/opt/PlayNest`) | Passed (exit `0`) | All `13` Compose services up/healthy (`blog_migrate` Exited `0`); `playnest_default` removed; Redis `NOAUTH`/`PONG`; PG enum+table ownership & cross-DB `CONNECT` denial; 5-network isolation; non-root `bloguser`; live HTTPS `200` + Restic snapshot `69482f40` |
 | Ephemeral Compose `AMI-57` DR Verification (`playnest_sec_verify`) | Passed (exit `0`) | `restic check --read-data` zero errors; DB wipe + `:ro` & RW-uploads canary recovery (`ALL_AMI57_VERIFIED_OK`) |
 | Gitleaks (`zricethezav/gitleaks:latest`) | Completed | `PlayNest` (628 commits): `32` redacted regex hits + `119` tracked `backups/` files; `Blog`: `2` hits |
 | Trivy (`aquasec/trivy:latest`, `HIGH,CRITICAL`) | Completed | **`0 CRITICAL`**, **`0` working-tree secrets**; `4` `tinymce` HIGH, `3` Blog Python HIGH, `3` Dockerfile `DS-0002` HIGH |
@@ -120,6 +120,14 @@ Both infrastructure isolation (`AMI-70`) and disaster recovery (`AMI-57`) were e
 - Wiped both databases and executed `restore.sh` with default `:ro` mounts -> recovered `RECOVERED_SAYRA=sayra_canary_token_2026`, `RECOVERED_BLOG=blog_canary_token_2026`, cleanly skipped `:ro` dirs/single-file mounts with explicit warnings, and preserved post-restore role isolation (`sayra_app` denied on `blog_prod` -> `POST_RESTORE_ISOLATION_OK`).
 - Wiped again and executed `restore.sh` with read-only `/backups` (`--no-lock`) + writable `/uploads` -> recovered `RECOVERED_UPLOAD=upload_canary_payload_2026`, `RECOVERED_SAYRA_2=sayra_canary_token_2026`, `RECOVERED_BLOG_2=blog_canary_token_2026` (`ALL_AMI57_VERIFIED_OK`).
 
+### 4.3 Live Production `AMI-70` Rollout Verification (`ssh sayra` `/opt/PlayNest`, exit `0`)
+Executed live against production containers after pre-cutover backup (`/home/ubuntu/ami70-backup-20261126-134020`: `.env`, configs, `playenest_prod.dump`, `blog_prod.dump`):
+- **Least-Privilege PostgreSQL (`sayra_app` / `blog_app`):** `provision-least-privilege-roles.sql` transferred all tables, sequences, and public enum types (`82` Prisma enums in `playenest_prod`) leaving `0` `playenest_admin`-owned objects in `public`. `pg_roles` confirmed `rolsuper=f, rolcreatedb=f, rolcreaterole=f, rolbypassrls=f`. Cross-DB `CONNECT` denied (`sayra->blog=2`, `blog->sayra=2`). Live `playnest-sayra-1` cleanly applied Prisma migration `20261125000001_security_wallet_constraints` (`Database schema is up to date!`).
+- **Authenticated Redis & Preserved Keyspaces:** Unauthenticated `redis-cli ping` returned `NOAUTH Authentication required.` on both `playnest-redis-1` and `playnest-blog_redis-1`; authenticated `ping` returned `PONG`; existing keyspaces preserved (`redis` `db0:keys=85`; `blog_redis` `db0:keys=2199`, `db1:keys=38`).
+- **5-Network Segmentation & Scrubbed Env Vars:** Legacy `playnest_default` removed; verified live reachability: `blog_web -> redis:6379` `False` (`gaierror`), `sayra -> blog_redis:6379` `False` (`ENOTFOUND`), `nginx -> db:5432|redis:6379|blog_redis:6379` `False`, `sayra -> blog-web:8000` HTTP `200`, and cross-service secrets/`POSTGRES_MULTIPLE_DATABASES` verified empty inside `sayra` & `blog_web`.
+- **Non-Root `playenest-blog:latest` & Celery Beat:** Running as `uid=999(bloguser)` across `blog_web`, `blog_celery_*`, and `blog_migrate`; volume ownership migrated (`playnest_blog_static`, `playnest_blog_media`); `blog_celery_beat` running with `-s /tmp/celerybeat-schedule` (`RestartCount=0`, `/tmp/celerybeat-schedule` owned by `bloguser`).
+- **Live Endpoints & Live Restic Backup (`exit 0`):** `api.sayra-booking.ir/health` -> `200`, `blog.sayra-booking.ir/api/articles/` -> `200`, `/static/admin/css/base.css` -> `200`, `/media/gtav.webp` -> `200`; rebuilt `playenest-backup:latest` and ran `docker exec playnest-backup-1 /scripts/backup-perform.sh` -> exit `0` (authenticated `LASTSAVE` BGSAVE on both Redis instances, DB dumps, Restic snapshot `69482f40`, `playnest-backup-1` healthy).
+
 ---
 
 ## 5. Automated Security Scanners
@@ -149,7 +157,7 @@ Both infrastructure isolation (`AMI-70`) and disaster recovery (`AMI-57`) were e
 
 ## 6. Infrastructure, Shell, Nginx & YAML Static Verification
 
-- `bash -n docker/backup/scripts/backup-db.sh docker/backup/scripts/backup-perform.sh docker/backup/scripts/restore.sh docker/postgres/init-multiple-dbs.sh` -> `BASH_OK` (`entrypoint.sh` also verified previously)
+- `bash -n docker/backup/scripts/backup-db.sh docker/backup/scripts/backup-perform.sh docker/backup/scripts/restore.sh docker/postgres/init-multiple-dbs.sh` -> `BASH_OK` (`entrypoint.sh` verified previously; `restore.sh` re-verified after final `ALTER TYPE` / default-privilege update -> `LOCAL_RESTORE_SH_OK`)
 - `sh -n sayra/scripts/wait-for-db.sh` -> `SH_SYNTAX_OK`
 - `! grep -n 'proxy_add_x_forwarded_for' docker/nginx/conf.d/app.conf.template` -> `NGINX_XFF_CLEAN`
-- `yaml.safe_load` (`python3`): `YAML_OK` across all **6** files (`docker-compose.yml`, `docker-compose.dev.yml`, `docker/docker-compose.yml`, `.github/workflows/ci.yml`, `.github/workflows/test.yml`, `Blog/.github/workflows/ci.yml`).
+- `yaml.safe_load` (`python3`): `YAML_OK` across all **6** files (`docker-compose.yml` re-verified `LOCAL_COMPOSE_YAML_OK`, `docker-compose.dev.yml`, `docker/docker-compose.yml`, `.github/workflows/ci.yml`, `.github/workflows/test.yml`, `Blog/.github/workflows/ci.yml`).

@@ -2,7 +2,7 @@
 
 **Linear Project:** `Backend Security Audit & Remediation` (`P-AMI-4`)  
 **Total Confirmed Findings:** `34` (`13` Critical, `14` High, `6` Medium, `1` Low)  
-**Linear Status Summary:** `31 Done`, `3 In Progress` (Operator-gated live cutover / Git history purge & upstream-constrained dependency CVEs; all 7 Django Blog ORM/DRF issues verified in Docker and closed as `Done`)
+**Linear Status Summary:** `32 Done`, `2 In Progress` (Git history purge/secret rotation & upstream-constrained dependency CVEs; `AMI-70` deployed and verified live on `ssh sayra` and closed as `Done`)
 
 ---
 
@@ -34,7 +34,7 @@
 | `SEC-022` | `AMI-67` | High | `Done` | `CVSS:4.0/AV:N/AC:L/AT:N/PR:H/UI:P/VC:H/VI:H/VA:N/SC:H/SI:H/SA:N` | `[Django Blog]` Unrestricted `.html`/`.svg` Upload & `@csrf_exempt` on `/api/editor/upload/` |
 | `SEC-023` | `AMI-68` | High | `Done` | `CVSS:4.0/AV:N/AC:L/AT:N/PR:L/UI:N/VC:H/VI:H/VA:N/SC:N/SI:N/SA:N` | `[Django Blog]` Privilege Escalation on `AuthorProfileSerializer` & `StaticAPIKeyAuthentication` Superuser Backdoor |
 | `SEC-024` | `AMI-69` | High | `Done` | `CVSS:4.0/AV:N/AC:L/AT:P/PR:H/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N` | `[Django Blog]` Tar Slip, S3 Restore Path Traversal & BDR Crypto Stream Integrity Flaws |
-| `SEC-025` | `AMI-70` | High | `In Progress` (`Approval-Gated`) | `CVSS:4.0/AV:A/AC:L/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N` | Unauthenticated Redis, Shared Postgres Superuser, Flat Network & `Blog/Dockerfile` Root User |
+| `SEC-025` | `AMI-70` | High | `Done` | `CVSS:4.0/AV:A/AC:L/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N` | Unauthenticated Redis, Shared Postgres Superuser, Flat Network & `Blog/Dockerfile` Root User |
 | `SEC-026` | `AMI-71` | High | `Done` | `CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:H/VI:H/VA:N/SC:N/SI:N/SA:N` | Nginx Plaintext/HSTS/XFF Spoofing, Staff Lockout Exemption & SQL/Shell Injection in Scripts |
 | `SEC-027` | `AMI-72` | High | `In Progress` (`Upstream-Gated`) | `CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N` | Vulnerable Production Dependencies in `sayra` (`melipayamak`/`sharp`/`zod`) & `Blog` (`requests`/`urllib3`/`idna`) |
 | `SEC-028` | `AMI-73` | Medium | `Done` | `CVSS:4.0/AV:N/AC:L/AT:P/PR:L/UI:N/VC:H/VI:L/VA:N/SC:N/SI:N/SA:N` | `passwordHash` Exposure, Unprotected `POST /gamingCenters`, Login Lockout/`isActive` & Cookie-Only Refresh |
@@ -47,8 +47,7 @@
 
 ---
 
-## 2. Status Notes on Non-`Done` Issues (`3` Items)
+## 2. Status Notes on Non-`Done` Issues (`2` Items)
 
-- **`AMI-57` (`SEC-012` — `In Progress` / Operator Approval Gate):** Forensic Git audit confirmed `119` tracked files under `backups/` across commits `a7b51775`, `175d5ba4`, and `145ecd2b` (plus tracked `.env.dev` history from `1d4e7742` flagged by Gitleaks). `docker/backup/scripts/backup-db.sh`, `backup-perform.sh`, and `restore.sh` were hardened and verified end-to-end against an ephemeral Compose stack (`restic check --read-data`, DB wipe + `:ro` restore with post-restore `sayra_app`/`blog_app` re-grant, RO-Restic `--no-lock` + `/uploads` canary recovery). Remains `In Progress` pending approved Git history rewrite (`git filter-repo`), off-repo host backup migration, and full production credential rotation.
-- **`AMI-70` (`SEC-025` — `In Progress` / Operator Approval Gate):** Authenticated Redis (`--requirepass` + `REDISCLI_AUTH` healthchecks), least-privilege PostgreSQL roles (`sayra_app` / `blog_app`, idempotent `docker/postgres/provision-least-privilege-roles.sql`), and 5-network Compose segmentation (`edge`, `inter_service`, `egress`, `sayra_internal`, `blog_internal`) are implemented and verified live in ephemeral Compose (`NOAUTH`/`PONG`, cross-DB `CONNECT` denial, network isolation). Remains `In Progress` pending coordinated maintenance-window cutover on the live PostgreSQL cluster and production `.env`.
+- **`AMI-57` (`SEC-012` — `In Progress` / Operator Approval Gate):** Forensic Git audit confirmed `119` tracked files under `backups/` across commits `a7b51775`, `175d5ba4`, and `145ecd2b` (plus tracked `.env.dev` history from `1d4e7742` flagged by Gitleaks). `docker/backup/scripts/backup-db.sh`, `backup-perform.sh`, and `restore.sh` were hardened and verified end-to-end against both an ephemeral Compose stack (`restic check --read-data`, DB wipe + `:ro` restore with post-restore `sayra_app`/`blog_app` re-grant, RO-Restic `--no-lock` + `/uploads` canary recovery) and live `backup-perform.sh` on `ssh sayra` (snapshot `69482f40`). Remains `In Progress` pending approved Git history rewrite (`git filter-repo`), off-repo host backup migration (`/var/backups/playnest`), and full production credential rotation.
 - **`AMI-72` (`SEC-027` — `In Progress` / Upstream-Constrained Residual CVEs):** Direct upgrades were completed and tested (`melipayamak` replaced with native `fetch`, `sharp@^0.35.5`, `zod@^4.6.7`, dev deps moved, dual Node lockfiles synced, `Blog/requirements.txt` compiled to `Django==5.2.19`, `Blog/mock-server` fixed to `0` vulns). `sayra` `npm audit` dropped from `66` (`4` critical, `4` high) to `55` (`0` critical, `1` high), and `Blog` `pip-audit` dropped from `258` CVEs (`25` packages) to `11` CVEs (`2` packages). Remains `In Progress` solely for upstream-constrained packages: `tinymce@6.8.6` (`4` Trivy `HIGH`, pinned by `@adminjs/design-system@4.1.1`), `social-auth-core==4.9.1` (`7` `pip-audit` CVEs, capped `<5.0` by `djoser==2.3.3`), and dev CLI `black==25.1.0` (`4` `pip-audit` CVEs, pinned to match `Blog/.github/workflows/ci.yml`).
