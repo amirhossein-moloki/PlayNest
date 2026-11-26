@@ -594,6 +594,11 @@ model GamingCenter {
   hasFoodService Boolean  @default(false)
   games          String[] @default([])
 
+  // Gaming Center Wallet (net balance after one-time completion commission deduction; 0% fee on withdrawal)
+  walletBalance           Int       @default(0)
+  reservedBalance         Int       @default(0)
+  lastWithdrawalRequestAt DateTime? @db.Timestamptz(6)
+
   // Direct 1-to-1 Manager relationship (Each gaming center has at most one manager, each manager manages at most one center)
   managerId String? @unique
   manager   User?   @relation("GamingCenterManager", fields: [managerId], references: [id], onDelete: SetNull)
@@ -665,6 +670,8 @@ model GamingCenter {
   tickets            Ticket[]
   shortLinks         ShortLink[]
   shortLinkCampaigns ShortLinkCampaign[]
+  walletTransactions GamingCenterWalletTransaction[]
+  withdrawalRequests GamingCenterWithdrawalRequest[]
 
   @@index([verificationStatus])
   @@index([isActive, verificationStatus, createdAt(sort: Desc)])
@@ -732,6 +739,7 @@ model User {
   createdShortLinks         ShortLink[]            @relation("ShortLinkCreator")
   createdShortLinkCampaigns ShortLinkCampaign[]
   shortLinkChangeLogs       ShortLinkChangeLog[]
+  requestedGamingCenterWithdrawals GamingCenterWithdrawalRequest[] @relation("GamingCenterWithdrawalRequester")
 
   @@unique([gamingCenterId, phone])
   @@unique([gamingCenterId, username])
@@ -1749,6 +1757,7 @@ model Reservation {
   ratings            Rating[]
   earning            Earning?
   walletTransactions WalletTransaction[]
+  gamingCenterWalletTransactions GamingCenterWalletTransaction[]
   gamingSessions     GamingSession[]
   proposals          ReservationTimeProposal[]
   history            ReservationHistory[]
@@ -2360,6 +2369,85 @@ model WithdrawalRequest {
   @@index([status, approvedAt])
 }
 
+enum GamingCenterWalletTransactionType {
+  RESERVATION_SETTLEMENT
+  SETTLEMENT_REVERSAL
+  WITHDRAWAL_HOLD
+  WITHDRAWAL_REFUND
+  WITHDRAWAL_PAID
+  MANUAL_ADJUSTMENT
+}
+
+model GamingCenterWithdrawalRequest {
+  id                String                  @id @default(cuid())
+  gamingCenterId    String
+  gamingCenter      GamingCenter            @relation(fields: [gamingCenterId], references: [id], onDelete: Restrict)
+
+  requestedByUserId String?
+  requestedByUser   User?                   @relation("GamingCenterWithdrawalRequester", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+
+  amount            Int
+  currency          String                  @default("IRR")
+  status            WithdrawalRequestStatus @default(PENDING)
+
+  rejectionReason   String?                 @db.Text
+  paymentReference  String?
+  bankDetails       Json?
+  note              String?                 @db.Text
+
+  reviewerAdminId   String?
+  reviewerAdmin     PlatformAdmin?          @relation("GamingCenterWithdrawalReviewer", fields: [reviewerAdminId], references: [id], onDelete: SetNull)
+
+  approvedAt        DateTime?               @db.Timestamptz(6)
+  processedAt       DateTime?               @db.Timestamptz(6)
+  paidAt            DateTime?               @db.Timestamptz(6)
+  rejectedAt        DateTime?               @db.Timestamptz(6)
+  cancelledAt       DateTime?               @db.Timestamptz(6)
+
+  walletTransactions GamingCenterWalletTransaction[]
+
+  createdAt         DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime                @updatedAt @db.Timestamptz(6)
+
+  @@index([gamingCenterId, createdAt])
+  @@index([status, createdAt])
+  @@index([status, approvedAt])
+  @@index([requestedByUserId])
+}
+
+model GamingCenterWalletTransaction {
+  id                  String                          @id @default(cuid())
+  gamingCenterId      String
+  gamingCenter        GamingCenter                    @relation(fields: [gamingCenterId], references: [id], onDelete: Restrict)
+
+  grossAmount         Int                             @default(0)
+  commissionAmount    Int                             @default(0)
+  amount              Int
+  currency            String                          @default("IRR")
+  type                GamingCenterWalletTransactionType
+
+  reservationId       String?
+  reservation         Reservation?                    @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+
+  earningId           String?
+  earning             Earning?                        @relation(fields: [earningId], references: [id], onDelete: SetNull)
+
+  withdrawalRequestId String?
+  withdrawalRequest   GamingCenterWithdrawalRequest?  @relation(fields: [withdrawalRequestId], references: [id], onDelete: SetNull)
+
+  idempotencyKey      String?                         @unique
+  note                String?                         @db.Text
+  metadata            Json?
+
+  createdAt           DateTime                        @default(now()) @db.Timestamptz(6)
+
+  @@index([gamingCenterId, createdAt])
+  @@index([gamingCenterId, type])
+  @@index([reservationId])
+  @@index([earningId])
+  @@index([withdrawalRequestId])
+}
+
 model CustomerNotification {
   id                String          @id @default(cuid())
   customerAccountId String
@@ -2461,6 +2549,7 @@ model Earning {
   note String?
 
   payments EarningPayment[]
+  gamingCenterWalletTransactions GamingCenterWalletTransaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2569,8 +2658,9 @@ model PlatformAdmin {
   auditLogs                 AuditLog[]
   reviewedVerifications     GamingCenterVerification[]
   sayraRatedCenters         GamingCenter[]             @relation("GamingCenterSayraRatings")
-  reviewedAdvertisements    AdvertisementRequest[]     @relation("AdRequestReviewer")
-  reviewedWithdrawals       WithdrawalRequest[]        @relation("WithdrawalReviewer")
+  reviewedAdvertisements    AdvertisementRequest[]          @relation("AdRequestReviewer")
+  reviewedWithdrawals       WithdrawalRequest[]             @relation("WithdrawalReviewer")
+  reviewedGamingCenterWithdrawals GamingCenterWithdrawalRequest[] @relation("GamingCenterWithdrawalReviewer")
   createdShortLinks         ShortLink[]
   createdShortLinkCampaigns ShortLinkCampaign[]
   shortLinkChangeLogs       ShortLinkChangeLog[]

@@ -13,6 +13,7 @@ import { asyncHandler } from '../../common/middleware/asyncHandler';
 import { PlatformAdRequestsController } from './ad-requests.controller';
 import { PlatformMediaController } from './media.controller';
 import { PlatformWithdrawalsController } from './withdrawals.controller';
+import { PlatformGamingCenterWithdrawalsController } from './gaming-center-withdrawals.controller';
 import { validate } from '../../common/middleware/validate';
 import * as CatalogController from '../catalog/catalog.controller';
 import {
@@ -27,6 +28,13 @@ import {
   rejectPlatformWithdrawalSchema,
   updatePlatformWithdrawalPaymentSchema,
 } from './withdrawals.validators';
+import {
+  listPlatformGamingCenterWithdrawalsSchema,
+  getPlatformGamingCenterWithdrawalDetailsSchema,
+  approvePlatformGamingCenterWithdrawalSchema,
+  rejectPlatformGamingCenterWithdrawalSchema,
+  updatePlatformGamingCenterWithdrawalPaymentSchema,
+} from '../gaming-center-wallet/gamingCenterWallet.validators';
 import * as commissionsController from '../commissions/commissions.controller';
 import {
   upsertPolicySchema,
@@ -165,6 +173,37 @@ router.patch(
   '/withdrawals/:id/payment',
   validate(updatePlatformWithdrawalPaymentSchema),
   asyncHandler(PlatformWithdrawalsController.updateWithdrawalPayment)
+);
+
+// Gaming Center Withdrawals Management
+router.get(
+  '/gaming-center-withdrawals',
+  validate(listPlatformGamingCenterWithdrawalsSchema),
+  asyncHandler(PlatformGamingCenterWithdrawalsController.listWithdrawals)
+);
+router.get(
+  '/gaming-center-withdrawals/overdue',
+  asyncHandler(PlatformGamingCenterWithdrawalsController.getOverdueWithdrawals)
+);
+router.get(
+  '/gaming-center-withdrawals/:id',
+  validate(getPlatformGamingCenterWithdrawalDetailsSchema),
+  asyncHandler(PlatformGamingCenterWithdrawalsController.getWithdrawalById)
+);
+router.post(
+  '/gaming-center-withdrawals/:id/approve',
+  validate(approvePlatformGamingCenterWithdrawalSchema),
+  asyncHandler(PlatformGamingCenterWithdrawalsController.approveWithdrawal)
+);
+router.post(
+  '/gaming-center-withdrawals/:id/reject',
+  validate(rejectPlatformGamingCenterWithdrawalSchema),
+  asyncHandler(PlatformGamingCenterWithdrawalsController.rejectWithdrawal)
+);
+router.patch(
+  '/gaming-center-withdrawals/:id/payment',
+  validate(updatePlatformGamingCenterWithdrawalPaymentSchema),
+  asyncHandler(PlatformGamingCenterWithdrawalsController.updateWithdrawalPayment)
 );
 
 // Reservations Management across all centers

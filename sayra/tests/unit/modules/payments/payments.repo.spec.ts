@@ -2,6 +2,7 @@ import { describe, it, expect, jest } from '@jest/globals';
 import { prismaMock } from '../../../mocks/prisma';
 import { PaymentsRepo } from '../../../../src/modules/payments/payments.repo';
 import { walletService } from '../../../../src/modules/wallet/wallet.station';
+import { commissionsStation } from '../../../../src/modules/commissions/commissions.station';
 import { CancellationActor, CancellationCategory, PaymentStatus, ReservationPaymentState, ReservationStatus } from '@prisma/client';
 import AppError from '../../../../src/common/errors/AppError';
 import httpStatus from 'http-status';
@@ -63,6 +64,7 @@ describe('PaymentsRepo', () => {
         where: { id: reservationId },
         data: { paymentState: ReservationPaymentState.PAID },
       }));
+      expect(commissionsStation.calculateCommission).not.toHaveBeenCalled();
     });
 
     it('should mark payment as PAID and trigger wallet refund without resurrecting CANCELED reservation', async () => {

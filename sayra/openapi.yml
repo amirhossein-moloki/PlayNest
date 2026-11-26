@@ -1252,6 +1252,194 @@ components:
         createdAt:
           type: string
           format: date-time
+    GamingCenterWalletSummary:
+      type: object
+      properties:
+        totalGrossSettled:
+          type: integer
+        totalCommissionDeducted:
+          type: integer
+        totalNetCredited:
+          type: integer
+        totalWithdrawn:
+          type: integer
+        pendingWithdrawalsAmount:
+          type: integer
+    GamingCenterWalletOverview:
+      type: object
+      properties:
+        gamingCenterId:
+          type: string
+        walletBalance:
+          type: integer
+          description: Total net balance in gaming center wallet after one-time commission deduction at reservation completion
+        reservedBalance:
+          type: integer
+          description: Balance currently reserved for PENDING/APPROVED/PROCESSING withdrawal requests
+        availableBalance:
+          type: integer
+          description: Final withdrawable net balance (walletBalance - reservedBalance). Zero commission is deducted on withdrawal.
+        currency:
+          type: string
+          example: IRR
+        commissionDeductedAt:
+          type: string
+          enum: [RESERVATION_COMPLETION]
+          example: RESERVATION_COMPLETION
+        withdrawalCommissionRate:
+          type: number
+          example: 0
+          description: Always 0 because platform commission is deducted once at reservation completion
+        canWithdraw:
+          type: boolean
+        lastWithdrawalRequestAt:
+          type: string
+          format: date-time
+          nullable: true
+        nextAllowedWithdrawalAt:
+          type: string
+          format: date-time
+          nullable: true
+        summary:
+          $ref: '#/components/schemas/GamingCenterWalletSummary'
+    RequestGamingCenterWithdrawalInput:
+      type: object
+      required:
+      - amount
+      properties:
+        amount:
+          type: integer
+          minimum: 1
+          description: Requested withdrawal amount (up to 100% of availableBalance; 0% withdrawal commission)
+          example: 90000
+        bankDetails:
+          type: object
+          additionalProperties: true
+          properties:
+            sheba:
+              type: string
+              minLength: 10
+              maxLength: 34
+              example: IR123456789012345678901234
+            cardNumber:
+              type: string
+              minLength: 16
+              maxLength: 19
+              example: '6037991812345678'
+            accountHolderName:
+              type: string
+              minLength: 2
+              maxLength: 100
+              example: رضا رضایی
+            bankName:
+              type: string
+              minLength: 2
+              maxLength: 50
+              example: بانک ملی
+        note:
+          type: string
+          maxLength: 500
+          example: تسویه کامل موجودی قابل برداشت گیم‌نت
+    GamingCenterWithdrawalRequestItem:
+      type: object
+      properties:
+        id:
+          type: string
+        gamingCenterId:
+          type: string
+        requestedByUserId:
+          type: string
+          nullable: true
+        amount:
+          type: integer
+        currency:
+          type: string
+          example: IRR
+        status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED, PROCESSING, PAID, FAILED, CANCELLED]
+        rejectionReason:
+          type: string
+          nullable: true
+        paymentReference:
+          type: string
+          nullable: true
+        bankDetails:
+          type: object
+          nullable: true
+        note:
+          type: string
+          nullable: true
+        reviewerAdminId:
+          type: string
+          nullable: true
+        approvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        processedAt:
+          type: string
+          format: date-time
+          nullable: true
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        rejectedAt:
+          type: string
+          format: date-time
+          nullable: true
+        cancelledAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    GamingCenterWalletTransactionItem:
+      type: object
+      properties:
+        id:
+          type: string
+        gamingCenterId:
+          type: string
+        grossAmount:
+          type: integer
+        commissionAmount:
+          type: integer
+        amount:
+          type: integer
+          description: Signed net wallet delta (positive for credits/refunds, negative for debits/holds)
+        currency:
+          type: string
+          example: IRR
+        type:
+          type: string
+          enum: [RESERVATION_SETTLEMENT, SETTLEMENT_REVERSAL, WITHDRAWAL_HOLD, WITHDRAWAL_REFUND, WITHDRAWAL_PAID, MANUAL_ADJUSTMENT]
+        reservationId:
+          type: string
+          nullable: true
+        earningId:
+          type: string
+          nullable: true
+        withdrawalRequestId:
+          type: string
+          nullable: true
+        idempotencyKey:
+          type: string
+          nullable: true
+        note:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
     IranCalendarDaysResponse:
       type: object
       required:
@@ -9592,7 +9780,7 @@ paths:
         '403':
           $ref: '#/components/responses/ForbiddenError'
       operationId: get_gamingCenters_gamingCenterId_commissions
-      description: List reservation earnings (commissions)
+      description: List reservation earnings (commissions). Platform commission is calculated and deducted once upon COMPLETED status for platform-collected paid bookings; net payout is credited directly into the gaming center wallet (with 0% fee on withdrawal).
   /gamingCenters/{gamingCenterId}/commissions/target-progress:
     get:
       summary: Get monthly commission target progress
@@ -9838,6 +10026,257 @@ paths:
           $ref: '#/components/responses/NotFoundError'
         '409':
           $ref: '#/components/responses/ConflictError'
+  /gamingCenters/{gamingCenterId}/wallet:
+    get:
+      summary: Get gaming center wallet overview (Manager)
+      description: Returns the final net withdrawable wallet balance (after one-time commission deduction on completed platform-collected reservations), reserved balance, available balance, 24-hour cooldown status, and cumulative settlement/withdrawal summary. Withdrawal commission rate is 0%.
+      tags:
+      - Gaming Center Wallet
+      operationId: get_gamingCenters_gamingCenterId_wallet
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Gaming center wallet overview
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/GamingCenterWalletOverview'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /gamingCenters/{gamingCenterId}/wallet/withdraw:
+    post:
+      summary: Request gaming center withdrawal (Manager)
+      description: Submits a withdrawal request from the gaming center wallet up to 100% of availableBalance with 0% withdrawal commission and 24-hour rate limiting.
+      tags:
+      - Gaming Center Wallet
+      operationId: post_gamingCenters_gamingCenterId_wallet_withdraw
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestGamingCenterWithdrawalInput'
+      responses:
+        '201':
+          description: Gaming center withdrawal request created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/GamingCenterWithdrawalRequestItem'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          description: 24-hour withdrawal cooldown limit exceeded
+  /gamingCenters/{gamingCenterId}/wallet/withdrawals:
+    get:
+      summary: List gaming center withdrawal requests (Manager)
+      description: Returns paginated withdrawal requests submitted for the specified gaming center.
+      tags:
+      - Gaming Center Wallet
+      operationId: get_gamingCenters_gamingCenterId_wallet_withdrawals
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED, PROCESSING, PAID, FAILED, CANCELLED]
+      responses:
+        '200':
+          description: Paginated gaming center withdrawal requests
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /gamingCenters/{gamingCenterId}/wallet/withdrawals/{id}:
+    get:
+      summary: Get gaming center withdrawal request details (Manager)
+      description: Returns details of a specific withdrawal request belonging to the specified gaming center.
+      tags:
+      - Gaming Center Wallet
+      operationId: get_gamingCenters_gamingCenterId_wallet_withdrawals_id
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Gaming center withdrawal request details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/GamingCenterWithdrawalRequestItem'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /gamingCenters/{gamingCenterId}/wallet/transactions:
+    get:
+      summary: List gaming center wallet transactions (Manager)
+      description: Returns paginated ledger transactions for the gaming center wallet (completion settlements, withdrawal holds/payouts/refunds).
+      tags:
+      - Gaming Center Wallet
+      operationId: get_gamingCenters_gamingCenterId_wallet_transactions
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: type
+        in: query
+        schema:
+          type: string
+          enum: [RESERVATION_SETTLEMENT, SETTLEMENT_REVERSAL, WITHDRAWAL_HOLD, WITHDRAWAL_REFUND, WITHDRAWAL_PAID, MANUAL_ADJUSTMENT]
+      responses:
+        '200':
+          description: Paginated gaming center wallet transactions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GamingCenterWalletTransactionItem'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /gamingCenters/{gamingCenterId}/wallet/transactions/{id}:
+    get:
+      summary: Get gaming center wallet transaction details (Manager)
+      description: Returns details of a single gaming center wallet transaction.
+      tags:
+      - Gaming Center Wallet
+      operationId: get_gamingCenters_gamingCenterId_wallet_transactions_id
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: gamingCenterId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Gaming center wallet transaction details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/GamingCenterWalletTransactionItem'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
   /gamingCenters/{gamingCenterId}/audit-logs:
     get:
       summary: List audit logs
@@ -19707,6 +20146,233 @@ paths:
       responses:
         '200':
           description: Payment status updated
+  /platform-admin/gaming-center-withdrawals:
+    get:
+      summary: List all gaming center withdrawal requests (Platform Admin)
+      description: Lists all gaming center manager withdrawal requests across the platform with filtering, date range, search, sorting, and pagination.
+      tags:
+      - PlatformAdmin
+      operationId: get_platform_admin_gaming_center_withdrawals
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+      - name: pageSize
+        in: query
+        schema:
+          type: integer
+          default: 20
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED, PROCESSING, PAID, FAILED, CANCELLED]
+      - name: gamingCenterId
+        in: query
+        schema:
+          type: string
+      - name: search
+        in: query
+        schema:
+          type: string
+      - name: startDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: endDate
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: sortBy
+        in: query
+        schema:
+          type: string
+          enum: [createdAt, amount, approvedAt, paidAt]
+          default: createdAt
+      - name: sortOrder
+        in: query
+        schema:
+          type: string
+          enum: [asc, desc]
+          default: desc
+      responses:
+        '200':
+          description: Paginated gaming center withdrawal requests
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /platform-admin/gaming-center-withdrawals/overdue:
+    get:
+      summary: List overdue approved gaming center withdrawals (Platform Admin)
+      description: Returns approved gaming center withdrawal requests that exceeded the 72-hour payout SLA.
+      tags:
+      - PlatformAdmin
+      operationId: get_platform_admin_gaming_center_withdrawals_overdue
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Overdue gaming center withdrawal requests list
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /platform-admin/gaming-center-withdrawals/{id}:
+    get:
+      summary: Get gaming center withdrawal request details (Platform Admin)
+      description: Returns complete details of a gaming center withdrawal request including wallet balances and transaction trail.
+      tags:
+      - PlatformAdmin
+      operationId: get_platform_admin_gaming_center_withdrawal_details
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Gaming center withdrawal request details
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /platform-admin/gaming-center-withdrawals/{id}/approve:
+    post:
+      summary: Approve gaming center withdrawal request (Platform Admin)
+      description: Approves a PENDING gaming center withdrawal request and advances it to APPROVED status.
+      tags:
+      - PlatformAdmin
+      operationId: post_platform_admin_gaming_center_withdrawal_approve
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          description: Gaming center withdrawal request approved
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Invalid transition or not in PENDING status
+  /platform-admin/gaming-center-withdrawals/{id}/reject:
+    post:
+      summary: Reject gaming center withdrawal request (Platform Admin)
+      description: Rejects a PENDING or APPROVED gaming center withdrawal request, unreserves held balance back to available wallet, and logs rejection reason.
+      tags:
+      - PlatformAdmin
+      operationId: post_platform_admin_gaming_center_withdrawal_reject
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - reason
+              properties:
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+                note:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          description: Gaming center withdrawal request rejected and held funds returned
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Invalid transition
+  /platform-admin/gaming-center-withdrawals/{id}/payment:
+    patch:
+      summary: Update gaming center withdrawal payment status (Platform Admin)
+      description: Updates payment status to PROCESSING, PAID, or FAILED. When PAID, atomically deducts exact requested amount from both walletBalance and reservedBalance with 0% withdrawal commission.
+      tags:
+      - PlatformAdmin
+      operationId: patch_platform_admin_gaming_center_withdrawal_payment
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - status
+              properties:
+                status:
+                  type: string
+                  enum: [PROCESSING, PAID, FAILED]
+                paymentReference:
+                  type: string
+                  maxLength: 100
+                note:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          description: Payment status updated
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Invalid transition or insufficient reserved balance
   /platform-admin/dashboard:
     get:
       summary: Platform Admin HTML Dashboard UI
@@ -20104,7 +20770,7 @@ paths:
   /platform-admin/commissions:
     get:
       summary: List commission earnings across all gaming centers (Platform Admin)
-      description: Returns paginated commission earnings across the platform with optional gamingCenterId, status, targetPeriod, and date filters.
+      description: Returns paginated commission earnings across the platform with optional gamingCenterId, status, targetPeriod, and date filters. Commission is deducted once when a platform-collected paid reservation reaches COMPLETED status.
       tags:
       - PlatformAdmin
       operationId: get_platform_admin_commissions
