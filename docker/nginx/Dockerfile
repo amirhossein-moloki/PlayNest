@@ -9,6 +9,9 @@ RUN rm /etc/nginx/conf.d/default.conf
 # Copy global configuration
 COPY nginx.conf /etc/nginx/nginx.conf
 
+# Copy shared security header snippets
+COPY snippets/ /etc/nginx/snippets/
+
 # Copy template configuration (will be processed by envsubst at startup)
 COPY conf.d/app.conf.template /etc/nginx/templates/app.conf.template
 
@@ -16,6 +19,6 @@ COPY conf.d/app.conf.template /etc/nginx/templates/app.conf.template
 # located in /etc/nginx/templates/*.template and outputs them to /etc/nginx/conf.d/*.conf
 # as long as the NGINX_ENVSUBST_OUTPUT_DIR environment variable is not changed.
 
-EXPOSE 80
+EXPOSE 80 443
 
 CMD ["nginx", "-g", "daemon off;"]

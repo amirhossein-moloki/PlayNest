@@ -2573,7 +2573,7 @@ components:
           properties:
             accessToken:
               type: string
-      description: Refresh token is delivered exclusively in the HttpOnly playnest_pa_refresh cookie and omitted from the JSON response.
+      description: Refresh token is delivered exclusively in the HttpOnly playnest_admin_refresh cookie and omitted from the JSON response.
     PlatformAdminAuthTokensResponse:
       $ref: '#/components/schemas/PlatformAdminLoginResponse'
     PlatformAdmin2faSetupRequest:
@@ -10565,18 +10565,21 @@ paths:
         description: Unified Persian/English search query (matches centers, locations, or catalog games & aliases)
         schema:
           type: string
+          maxLength: 120
       - name: search
         in: query
         required: false
         description: Alias for `q`
         schema:
           type: string
+          maxLength: 120
       - name: game
         in: query
         required: false
         description: Game title or alias (`FC 26`, `FIFA 26`, `فیفا ۲۶`, `GTA V`, `Valorant`)
         schema:
           type: string
+          maxLength: 120
       - name: gameId
         in: query
         required: false
@@ -10887,11 +10890,13 @@ paths:
         required: false
         schema:
           type: string
+          maxLength: 120
       - name: search
         in: query
         required: false
         schema:
           type: string
+          maxLength: 120
       - name: platform
         in: query
         required: false
@@ -11092,6 +11097,8 @@ paths:
       summary: Submit a review
       tags:
       - Public
+      security:
+      - bearerAuth: []
       parameters:
       - name: gamingCenterSlug
         in: path
@@ -11118,6 +11125,7 @@ paths:
                   maximum: 5
                 comment:
                   type: string
+                  maxLength: 1000
       responses:
         '201':
           description: Review submitted
@@ -11125,8 +11133,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
       operationId: post_public_gamingCenters_gamingCenterSlug_reservation_reservationId_ratings
-      description: Submit a review
+      description: Submit a review for a completed reservation (authenticated customer owner only)
   /gamingCenters/{gamingCenterId}/media/upload:
     post:
       summary: Upload an image
@@ -12104,6 +12118,7 @@ paths:
                   maximum: 5
                 comment:
                   type: string
+                  maxLength: 1000
       responses:
         '201':
           description: Review submitted
@@ -12111,6 +12126,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '409':
+          $ref: '#/components/responses/ConflictError'
       operationId: post_customer_reservation_reservationId_ratings
       description: Submit a review (customer panel)
   /gamingCenters/{gamingCenterId}/staff:
@@ -13035,7 +13052,6 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
       operationId: get_auth_me
-      description: Get current user info
     patch:
       summary: Update authenticated user profile
       description: Allows the currently authenticated user to update their own profile information such as username, firstName, lastName, fullName, email, bio, publicName, avatarUrl, and isPublic. The user ID is strictly derived from the authentication context. Protected fields like role, ID, or password cannot be modified.
@@ -14500,7 +14516,7 @@ paths:
   /auth/platform-admin/refresh:
     post:
       summary: Rotate and Refresh Platform Admin Session
-      description: Rotates the PlatformAdmin refresh token (HttpOnly playnest_pa_refresh cookie or request body fallback), sets the new HttpOnly refresh cookie, and issues a new short-lived access token in JSON (omitting refreshToken from JSON body).
+      description: Rotates the PlatformAdmin refresh token (HttpOnly playnest_admin_refresh cookie or request body fallback), sets the new HttpOnly refresh cookie, and issues a new short-lived access token in JSON (omitting refreshToken from JSON body).
       tags:
       - Auth
       - PlatformAdmin
@@ -18820,7 +18836,7 @@ paths:
   /gamingCenters/{gamingCenterId}/analytics/ingestion-status:
     get:
       summary: Get analytics pipeline ingestion health and watermark status
-      description: Get analytics pipeline ingestion health and watermark status
+      description: Get global analytics pipeline ingestion health and watermark status (PLATFORM_ADMIN only)
       tags:
       - Analytics
       operationId: get_gamingCenters_gamingCenterId_analytics_ingestion_status
@@ -18837,6 +18853,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
       security:
       - bearerAuth: []
   /gamingCenters/{gamingCenterId}/analytics/financials/reconciliation/run:
@@ -19008,7 +19026,7 @@ paths:
   /gamingCenters/{gamingCenterId}/analytics/operations/jobs:
     get:
       summary: Get background job health and BullMQ queue stats
-      description: Get background job health and BullMQ queue stats
+      description: Get global background job health and BullMQ queue stats (PLATFORM_ADMIN only)
       tags:
       - Analytics
       operationId: get_gamingCenters_gamingCenterId_analytics_operations_jobs
@@ -19025,6 +19043,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
       security:
       - bearerAuth: []
   /gamingCenters/{gamingCenterId}/analytics/operations/errors:

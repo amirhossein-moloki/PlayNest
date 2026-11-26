@@ -418,7 +418,7 @@ describe('Platform Admin Mandatory TOTP 2FA End-to-End Security Suite', () => {
     const rawSetCookie = confirmRes.headers['set-cookie'] as string | string[] | undefined;
     const cookieList = Array.isArray(rawSetCookie) ? rawSetCookie : rawSetCookie ? [rawSetCookie] : [];
     const refreshCookiePair =
-      cookieList.find((c) => c.startsWith('playnest_pa_refresh='))?.split(';')[0] || '';
+      cookieList.find((c) => c.startsWith('playnest_admin_refresh='))?.split(';')[0] || '';
     return {
       secret,
       deviceId,
@@ -522,7 +522,7 @@ describe('Platform Admin Mandatory TOTP 2FA End-to-End Security Suite', () => {
     expect(confirmRes.body.data.recoveryCodes).toHaveLength(10);
     const rawSetCookie = confirmRes.headers['set-cookie'] as string | string[] | undefined;
     const setCookieHeader = Array.isArray(rawSetCookie) ? rawSetCookie.join(';') : String(rawSetCookie || '');
-    expect(setCookieHeader).toContain('playnest_pa_refresh=');
+    expect(setCookieHeader).toContain('playnest_admin_refresh=');
     expect(setCookieHeader).toContain('HttpOnly');
     expect(setCookieHeader).toContain('SameSite=Strict');
 
@@ -675,7 +675,7 @@ describe('Platform Admin Mandatory TOTP 2FA End-to-End Security Suite', () => {
   it('supports single-use Recovery Codes, regeneration invalidating old codes, refresh rotation, and 2FA disable', async () => {
     seedAdmin();
     const { secret, accessToken, refreshCookie, recoveryCodes } = await enrollInitialAdmin();
-    expect(refreshCookie).toContain('playnest_pa_refresh=');
+    expect(refreshCookie).toContain('playnest_admin_refresh=');
 
     // 1. Login using a Recovery Code
     const loginStep1 = await request(app)
@@ -715,9 +715,9 @@ describe('Platform Admin Mandatory TOTP 2FA End-to-End Security Suite', () => {
     const refreshCookies = refreshRes.headers['set-cookie'] as string | string[] | undefined;
     const rotatedCookiePair =
       (Array.isArray(refreshCookies) ? refreshCookies : [refreshCookies || ''])
-        .find((c) => c.startsWith('playnest_pa_refresh='))
+        .find((c) => c.startsWith('playnest_admin_refresh='))
         ?.split(';')[0] || '';
-    expect(rotatedCookiePair).toContain('playnest_pa_refresh=');
+    expect(rotatedCookiePair).toContain('playnest_admin_refresh=');
     expect(rotatedCookiePair).not.toBe(refreshCookie);
 
     const replayRefreshRes = await request(app)

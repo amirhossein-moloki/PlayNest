@@ -1,8 +1,59 @@
 #!/bin/bash
-set -e
+set -euo pipefail
+umask 077
 
 # Usage: ./restore.sh [snapshot_id]
-SNAPSHOT_ID=${1:-latest}
+SNAPSHOT_ID="${1:-latest}"
+if [[ ! "$SNAPSHOT_ID" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    echo "ERROR: Invalid snapshot ID." >&2
+    exit 1
+fi
+
+is_valid_pg_ident() {
+    [[ "$1" =~ ^[a-zA-Z_][a-zA-Z0-9_]{0,62}$ ]]
+}
+
+DB_USER="${POSTGRES_USER:-playenest_admin}"
+DB_PORT="${POSTGRES_PORT:-5432}"
+if ! is_valid_pg_ident "$DB_USER"; then
+    echo "ERROR: Invalid POSTGRES_USER identifier." >&2
+    exit 1
+fi
+
+TMP_SQL=""
+cleanup() {
+    if [ -n "$TMP_SQL" ]; then
+        rm -f "$TMP_SQL"
+    fi
+}
+trap cleanup EXIT
+
+restore_pg_database() {
+    local target_db="$1"
+    local archive_path="$2"
+
+    if ! is_valid_pg_ident "$target_db"; then
+        echo "ERROR: Refusing unsafe database identifier '$target_db'." >&2
+        exit 1
+    fi
+
+    echo "Restoring database '$target_db' from $archive_path..."
+    TMP_SQL=$(mktemp /tmp/restore_db_XXXXXX.sql)
+    gunzip -c "$archive_path" > "$TMP_SQL"
+
+    PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 -h "$POSTGRES_HOST" -p "$DB_PORT" -U "$DB_USER" -d postgres -v target_db="$target_db" <<'EOSQL'
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE datname = :'target_db' AND pid <> pg_backend_pid();
+DROP DATABASE IF EXISTS :"target_db";
+CREATE DATABASE :"target_db";
+EOSQL
+
+    PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 -h "$POSTGRES_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$target_db" < "$TMP_SQL"
+    rm -f "$TMP_SQL"
+    TMP_SQL=""
+    echo "Restoration of database '$target_db' complete."
+}
 
 echo "--- Recovery Process Started: $(date) ---"
 echo "Target Snapshot: $SNAPSHOT_ID"
@@ -10,7 +61,7 @@ echo "Target Snapshot: $SNAPSHOT_ID"
 # 1. Restore files from Restic
 echo "Restoring files from Restic..."
 mkdir -p /restore
-restic restore $SNAPSHOT_ID --target /restore
+restic restore "$SNAPSHOT_ID" --target /restore
 
 # 2. Restore PostgreSQL Database
 if [ -d "/restore/data/db" ]; then
@@ -21,14 +72,7 @@ if [ -d "/restore/data/db" ]; then
         if [ -f "$dump_file" ]; then
             restored_any=true
             db_name=$(basename "$dump_file" | sed -E 's/^dump_(.*)\.sql\.gz$/\1/')
-            echo "Restoring database '$db_name' from $dump_file..."
-            gunzip -c "$dump_file" > /tmp/restore_db.sql
-            PGPASSWORD=$POSTGRES_PASSWORD psql -h $POSTGRES_HOST -p ${POSTGRES_PORT:-5432} -U $POSTGRES_USER -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$db_name' AND pid <> pg_backend_pid();"
-            PGPASSWORD=$POSTGRES_PASSWORD psql -h $POSTGRES_HOST -p ${POSTGRES_PORT:-5432} -U $POSTGRES_USER -d postgres -c "DROP DATABASE IF EXISTS \"$db_name\";"
-            PGPASSWORD=$POSTGRES_PASSWORD psql -h $POSTGRES_HOST -p ${POSTGRES_PORT:-5432} -U $POSTGRES_USER -d postgres -c "CREATE DATABASE \"$db_name\";"
-            PGPASSWORD=$POSTGRES_PASSWORD psql -h $POSTGRES_HOST -p ${POSTGRES_PORT:-5432} -U $POSTGRES_USER -d "$db_name" < /tmp/restore_db.sql
-            rm -f /tmp/restore_db.sql
-            echo "Restoration of database '$db_name' complete."
+            restore_pg_database "$db_name" "$dump_file"
         fi
     done
 
@@ -36,12 +80,7 @@ if [ -d "/restore/data/db" ]; then
     if [ "$restored_any" = false ] && [ -f "/restore/data/db/latest.sql.gz" ]; then
         MAIN_DB="${POSTGRES_DB:-playenest_prod}"
         echo "Found legacy PostgreSQL dump (latest.sql.gz). Restoring '$MAIN_DB'..."
-        gunzip -c /restore/data/db/latest.sql.gz > /tmp/restore_db.sql
-        PGPASSWORD=$POSTGRES_PASSWORD psql -h $POSTGRES_HOST -p ${POSTGRES_PORT:-5432} -U $POSTGRES_USER -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$MAIN_DB' AND pid <> pg_backend_pid();"
-        PGPASSWORD=$POSTGRES_PASSWORD psql -h $POSTGRES_HOST -p ${POSTGRES_PORT:-5432} -U $POSTGRES_USER -d postgres -c "DROP DATABASE IF EXISTS \"$MAIN_DB\";"
-        PGPASSWORD=$POSTGRES_PASSWORD psql -h $POSTGRES_HOST -p ${POSTGRES_PORT:-5432} -U $POSTGRES_USER -d postgres -c "CREATE DATABASE \"$MAIN_DB\";"
-        PGPASSWORD=$POSTGRES_PASSWORD psql -h $POSTGRES_HOST -p ${POSTGRES_PORT:-5432} -U $POSTGRES_USER -d "$MAIN_DB" < /tmp/restore_db.sql
-        rm -f /tmp/restore_db.sql
+        restore_pg_database "$MAIN_DB" "/restore/data/db/latest.sql.gz"
         echo "PostgreSQL legacy restoration complete."
     fi
 fi
@@ -64,6 +103,12 @@ if [ -d "/restore/storage" ]; then
     echo "Restoring Sayra storage/media files..."
     cp -rp /restore/storage/* /storage/
     echo "Sayra storage restoration complete."
+fi
+
+if [ -d "/restore/uploads" ]; then
+    echo "Restoring Sayra upload files..."
+    cp -rp /restore/uploads/* /uploads/
+    echo "Sayra uploads restoration complete."
 fi
 
 if [ -d "/restore/blog_media" ]; then

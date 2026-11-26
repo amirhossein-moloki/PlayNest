@@ -163,6 +163,18 @@ export async function findReviewById(reviewId: string, gamingCenterId: string) {
   });
 }
 
+export async function findExistingReviewForReservation(
+  reservationId: string,
+  stationId: string | null
+) {
+  return prisma.rating.findFirst({
+    where: {
+      reservationId,
+      stationId,
+    },
+  });
+}
+
 export async function findReservationForReview(reservationId: string, gamingCenterSlug: string) {
   return prisma.reservation.findFirst({
     where: {

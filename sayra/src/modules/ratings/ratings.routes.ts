@@ -10,10 +10,11 @@ import {
   getReviewsSchema,
 } from './ratings.validators';
 import { authMiddleware } from '../../common/middleware/auth';
+import { requireActorType } from '../../common/middleware/requireActorType';
 import { requireRole } from '../../common/middleware/requireRole';
 import { tenantGuard } from '../../common/middleware/tenantGuard';
 import { resolveGamingCenterBySlug } from '../../common/middleware/resolveGamingCenterBySlug';
-import { UserRole } from '@prisma/client';
+import { SessionActorType, UserRole } from '@prisma/client';
 import {
   privateApiRateLimiter,
   publicApiRateLimiter,
@@ -60,6 +61,8 @@ export const publicReviewsRouter = Router({ mergeParams: true });
 publicReviewsRouter.post(
   '/reservation/:reservationId/ratings',
   publicApiRateLimiter,
+  authMiddleware,
+  requireActorType(SessionActorType.CUSTOMER),
   resolveGamingCenterBySlug,
   validate(submitReviewSchema),
   asyncHandler(ReviewsController.submitReview)

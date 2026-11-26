@@ -304,6 +304,28 @@ describe('PlayNest Unified Search, Catalog Intelligence & Filters API', () => {
       role: 'MANAGER',
       gamingCenterId: 'ccenter000000000000000001',
     });
+    (prisma.session.findUnique as jest.Mock).mockImplementation(async ({ where }: any) => {
+      if (where?.id === 'sess_admin') {
+        return {
+          id: 'sess_admin',
+          actorId: adminId,
+          actorType: 'PLATFORM_ADMIN',
+          mfaVerifiedAt: new Date(),
+          revokedAt: null,
+          expiresAt: new Date(Date.now() + 3600_000),
+        };
+      }
+      if (where?.id === 'sess_mgr') {
+        return {
+          id: 'sess_mgr',
+          actorId: managerUserId,
+          actorType: 'USER',
+          revokedAt: null,
+          expiresAt: new Date(Date.now() + 3600_000),
+        };
+      }
+      return null;
+    });
 
     (prisma.gameCatalog.findMany as jest.Mock).mockResolvedValue([
       catalogFc26,

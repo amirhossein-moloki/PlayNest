@@ -21,6 +21,9 @@ services:
       ]
     cpus: ${DB_CPUS:-1.5}
     mem_limit: ${DB_MEM_LIMIT:-2g}
+    pids_limit: 512
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-playenest_admin} -d ${POSTGRES_DB:-playenest_prod}"]
       interval: 5s
@@ -42,6 +45,9 @@ services:
       ]
     cpus: ${REDIS_CPUS:-0.5}
     mem_limit: ${REDIS_MEM_LIMIT:-768m}
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - redis_data:/data
     healthcheck:
@@ -83,8 +89,8 @@ services:
       - PLATFORM_ADMIN_REFRESH_EXPIRES_IN=${PLATFORM_ADMIN_REFRESH_EXPIRES_IN:-12h}
       - PLATFORM_ADMIN_CHALLENGE_TTL_SECONDS=${PLATFORM_ADMIN_CHALLENGE_TTL_SECONDS:-300}
       - PLATFORM_ADMIN_SETUP_TTL_SECONDS=${PLATFORM_ADMIN_SETUP_TTL_SECONDS:-600}
-      - ADMIN_SESSION_SECRET=${ADMIN_SESSION_SECRET:-}
-      - ADMIN_COOKIE_SECRET=${ADMIN_COOKIE_SECRET:-}
+      - ADMIN_SESSION_SECRET=${ADMIN_SESSION_SECRET:?ADMIN_SESSION_SECRET environment variable is required}
+      - ADMIN_COOKIE_SECRET=${ADMIN_COOKIE_SECRET:?ADMIN_COOKIE_SECRET environment variable is required}
       - PAYMENT_PROVIDER_WEBHOOK_SECRET=${PAYMENT_PROVIDER_WEBHOOK_SECRET:?PAYMENT_PROVIDER_WEBHOOK_SECRET environment variable is required}
       - SAYRA_SMTP_HOST=${SAYRA_SMTP_HOST:-}
       - SAYRA_SMTP_PORT=${SAYRA_SMTP_PORT:-587}
@@ -95,7 +101,7 @@ services:
       - SAYRA_SMTP_FROM_NAME=${SAYRA_SMTP_FROM_NAME:-PlayNest Sayra}
       - SAYRA_SMTP_REPLY_TO=${SAYRA_SMTP_REPLY_TO:-support@playenest.com}
       - DEFAULT_PAYMENT_PROVIDER=${DEFAULT_PAYMENT_PROVIDER:-ZIBAL}
-      - ZIBAL_MERCHANT=${ZIBAL_MERCHANT:-zibal}
+      - ZIBAL_MERCHANT=${ZIBAL_MERCHANT:?ZIBAL_MERCHANT environment variable is required}
       - ZIBAL_CALLBACK_URL=${ZIBAL_CALLBACK_URL:-https://api.sayra-booking.ir/api/v1/payments/zibal/callback}
       - ZARINPAL_CALLBACK_URL=${ZARINPAL_CALLBACK_URL:-https://playnest.com/api/v1/payments/callback}
       - FRONTEND_URL=${FRONTEND_URL:-https://sayra-booking.ir}
@@ -115,6 +121,9 @@ services:
       - INTEGRATION_OUTBOX_ENABLED=${INTEGRATION_OUTBOX_ENABLED:-true}
     cpus: ${SAYRA_CPUS:-1.0}
     mem_limit: ${SAYRA_MEM_LIMIT:-1g}
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - app_storage:/app/storage
       - app_uploads:/app/uploads
@@ -154,8 +163,8 @@ services:
       - PLATFORM_ADMIN_REFRESH_EXPIRES_IN=${PLATFORM_ADMIN_REFRESH_EXPIRES_IN:-12h}
       - PLATFORM_ADMIN_CHALLENGE_TTL_SECONDS=${PLATFORM_ADMIN_CHALLENGE_TTL_SECONDS:-300}
       - PLATFORM_ADMIN_SETUP_TTL_SECONDS=${PLATFORM_ADMIN_SETUP_TTL_SECONDS:-600}
-      - ADMIN_SESSION_SECRET=${ADMIN_SESSION_SECRET:-}
-      - ADMIN_COOKIE_SECRET=${ADMIN_COOKIE_SECRET:-}
+      - ADMIN_SESSION_SECRET=${ADMIN_SESSION_SECRET:?ADMIN_SESSION_SECRET environment variable is required}
+      - ADMIN_COOKIE_SECRET=${ADMIN_COOKIE_SECRET:?ADMIN_COOKIE_SECRET environment variable is required}
       - PAYMENT_PROVIDER_WEBHOOK_SECRET=${PAYMENT_PROVIDER_WEBHOOK_SECRET:?PAYMENT_PROVIDER_WEBHOOK_SECRET environment variable is required}
       - SAYRA_SMTP_HOST=${SAYRA_SMTP_HOST:-}
       - SAYRA_SMTP_PORT=${SAYRA_SMTP_PORT:-587}
@@ -166,7 +175,7 @@ services:
       - SAYRA_SMTP_FROM_NAME=${SAYRA_SMTP_FROM_NAME:-PlayNest Sayra}
       - SAYRA_SMTP_REPLY_TO=${SAYRA_SMTP_REPLY_TO:-support@playenest.com}
       - DEFAULT_PAYMENT_PROVIDER=${DEFAULT_PAYMENT_PROVIDER:-ZIBAL}
-      - ZIBAL_MERCHANT=${ZIBAL_MERCHANT:-zibal}
+      - ZIBAL_MERCHANT=${ZIBAL_MERCHANT:?ZIBAL_MERCHANT environment variable is required}
       - ZIBAL_CALLBACK_URL=${ZIBAL_CALLBACK_URL:-https://api.sayra-booking.ir/api/v1/payments/zibal/callback}
       - ZARINPAL_CALLBACK_URL=${ZARINPAL_CALLBACK_URL:-https://playnest.com/api/v1/payments/callback}
       - FRONTEND_URL=${FRONTEND_URL:-https://sayra-booking.ir}
@@ -179,6 +188,9 @@ services:
       - INTEGRATION_OUTBOX_ENABLED=${INTEGRATION_OUTBOX_ENABLED:-true}
     cpus: ${SAYRA_WORKER_CPUS:-0.5}
     mem_limit: ${SAYRA_WORKER_MEM_LIMIT:-768m}
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - app_storage:/app/storage
       - app_uploads:/app/uploads
@@ -201,6 +213,9 @@ services:
       ]
     cpus: ${BLOG_REDIS_CPUS:-0.25}
     mem_limit: ${BLOG_REDIS_MEM_LIMIT:-384m}
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - blog_redis_data:/data
     healthcheck:
@@ -236,11 +251,14 @@ services:
       - REDIS_PORT=6379
       - REDIS_URL=redis://blog_redis:6379
       - USE_REDIS=True
-      - SECRET_KEY=${BLOG_SECRET_KEY:-replace-this-with-a-very-secret-key-for-blog}
+      - SECRET_KEY=${BLOG_SECRET_KEY:?BLOG_SECRET_KEY environment variable is required}
       - RUN_MIGRATIONS=true
       - RUN_COLLECTSTATIC=true
     cpus: 0.5
     mem_limit: 512m
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - blog_static:/app/staticfiles
       - blog_media:/app/media
@@ -277,12 +295,12 @@ services:
       - REDIS_PORT=6379
       - REDIS_URL=redis://blog_redis:6379
       - USE_REDIS=True
-      - SECRET_KEY=${BLOG_SECRET_KEY:-replace-this-with-a-very-secret-key-for-blog}
+      - SECRET_KEY=${BLOG_SECRET_KEY:?BLOG_SECRET_KEY environment variable is required}
       - DEBUG=${BLOG_DEBUG:-False}
       - DOMAIN=${BLOG_DOMAIN:-blog.sayra-booking.ir}
-      - ALLOWED_HOSTS=${BLOG_ALLOWED_HOSTS:-localhost,127.0.0.1,51.20.249.108,blog.sayra-booking.ir,sayra-booking.ir,api.sayra-booking.ir,blog.playnest.com},blog-web
-      - CSRF_TRUSTED_ORIGINS=${BLOG_CSRF_TRUSTED_ORIGINS:-http://localhost,http://127.0.0.1,http://blog.sayra-booking.ir,https://blog.sayra-booking.ir,http://sayra-booking.ir,https://sayra-booking.ir,http://51.20.249.108}
-      - CORS_ALLOWED_ORIGINS=${BLOG_CORS_ALLOWED_ORIGINS:-http://localhost,http://127.0.0.1,http://blog.sayra-booking.ir,https://blog.sayra-booking.ir,http://sayra-booking.ir,https://sayra-booking.ir}
+      - ALLOWED_HOSTS=${BLOG_ALLOWED_HOSTS:-blog.sayra-booking.ir,sayra-booking.ir,api.sayra-booking.ir},blog-web
+      - CSRF_TRUSTED_ORIGINS=${BLOG_CSRF_TRUSTED_ORIGINS:-https://blog.sayra-booking.ir,https://sayra-booking.ir}
+      - CORS_ALLOWED_ORIGINS=${BLOG_CORS_ALLOWED_ORIGINS:-https://blog.sayra-booking.ir,https://sayra-booking.ir}
       - CORS_ALLOW_ALL_ORIGINS=${BLOG_CORS_ALLOW_ALL_ORIGINS:-False}
       - CORS_ALLOW_CREDENTIALS=${BLOG_CORS_ALLOW_CREDENTIALS:-True}
       - RUN_MIGRATIONS=${BLOG_RUN_MIGRATIONS:-false}
@@ -297,6 +315,9 @@ services:
       - SITE_PUBLIC_URL=${FRONTEND_URL:-https://www.sayra-booking.ir}
     cpus: ${BLOG_WEB_CPUS:-1.0}
     mem_limit: ${BLOG_WEB_MEM_LIMIT:-1g}
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - blog_static:/app/staticfiles
       - blog_media:/app/media
@@ -339,10 +360,13 @@ services:
       - REDIS_PORT=6379
       - REDIS_URL=redis://blog_redis:6379
       - USE_REDIS=True
-      - SECRET_KEY=${BLOG_SECRET_KEY:-replace-this-with-a-very-secret-key-for-blog}
+      - SECRET_KEY=${BLOG_SECRET_KEY:?BLOG_SECRET_KEY environment variable is required}
       - DEBUG=${BLOG_DEBUG:-False}
     cpus: ${BLOG_CELERY_CPUS:-0.5}
     mem_limit: ${BLOG_CELERY_MEM_LIMIT:-512m}
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - blog_media:/app/media
     command: celery -A blog worker -l info -Q default
@@ -374,12 +398,15 @@ services:
       - REDIS_PORT=6379
       - REDIS_URL=redis://blog_redis:6379
       - USE_REDIS=True
-      - SECRET_KEY=${BLOG_SECRET_KEY:-replace-this-with-a-very-secret-key-for-blog}
+      - SECRET_KEY=${BLOG_SECRET_KEY:?BLOG_SECRET_KEY environment variable is required}
       - DEBUG=${BLOG_DEBUG:-False}
       - NEXT_REVALIDATE_URL=${NEXT_REVALIDATE_URL:-}
       - NEXT_REVALIDATION_SECRET=${NEXT_REVALIDATION_SECRET:-}
     cpus: ${BLOG_CELERY_CPUS:-0.5}
     mem_limit: ${BLOG_CELERY_MEM_LIMIT:-512m}
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - blog_media:/app/media
     command: celery -A blog worker -l info -Q high_priority
@@ -411,10 +438,13 @@ services:
       - REDIS_PORT=6379
       - REDIS_URL=redis://blog_redis:6379
       - USE_REDIS=True
-      - SECRET_KEY=${BLOG_SECRET_KEY:-replace-this-with-a-very-secret-key-for-blog}
+      - SECRET_KEY=${BLOG_SECRET_KEY:?BLOG_SECRET_KEY environment variable is required}
       - DEBUG=${BLOG_DEBUG:-False}
     cpus: ${BLOG_CELERY_CPUS:-0.5}
     mem_limit: ${BLOG_CELERY_MEM_LIMIT:-512m}
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - blog_media:/app/media
     command: celery -A blog worker -l info -Q low_priority
@@ -446,10 +476,13 @@ services:
       - REDIS_PORT=6379
       - REDIS_URL=redis://blog_redis:6379
       - USE_REDIS=True
-      - SECRET_KEY=${BLOG_SECRET_KEY:-replace-this-with-a-very-secret-key-for-blog}
+      - SECRET_KEY=${BLOG_SECRET_KEY:?BLOG_SECRET_KEY environment variable is required}
       - DEBUG=${BLOG_DEBUG:-False}
     cpus: 0.25
     mem_limit: 256m
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - blog_media:/app/media
     command: celery -A blog beat -l info
@@ -468,10 +501,13 @@ services:
       - PLAYNEST_DOMAIN=${PLAYNEST_DOMAIN:-sayra-booking.ir}
       - BLOG_DOMAIN=${BLOG_DOMAIN:-blog.sayra-booking.ir}
       - API_DOMAIN=${API_DOMAIN:-api.sayra-booking.ir}
-      - INTERNAL_SSR_SECRET=${INTERNAL_SSR_SECRET:-__disabled_ssr_secret_never_match__}
+      - INTERNAL_SSR_SECRET=${INTERNAL_SSR_SECRET:?INTERNAL_SSR_SECRET environment variable is required}
       - NGINX_ENVSUBST_FILTER=^(MEDIA_LOCAL_PUBLIC_PATH|PLAYNEST_DOMAIN|BLOG_DOMAIN|API_DOMAIN|INTERNAL_SSR_SECRET)$
     cpus: ${NGINX_CPUS:-0.5}
     mem_limit: ${NGINX_MEM_LIMIT:-256m}
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - app_storage:/app/storage:ro
       - app_uploads:/app/uploads:ro
@@ -504,6 +540,7 @@ services:
       - POSTGRES_HOST=db
       - POSTGRES_MULTIPLE_DATABASES=${POSTGRES_MULTIPLE_DATABASES:-blog_prod}
       - RESTIC_REPOSITORY=/backups
+      - RESTIC_PASSWORD=${RESTIC_PASSWORD:?RESTIC_PASSWORD environment variable is required}
       - BACKUP_CRON=0 * * * *
       - RETENTION_HOURLY=24
       - RETENTION_DAILY=7
@@ -517,6 +554,9 @@ services:
       start_period: 30s
     cpus: 0.5
     mem_limit: 512m
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - app_storage:/storage:ro
       - app_uploads:/uploads:ro
@@ -524,7 +564,7 @@ services:
       - redis_data:/redis_data:ro
       - blog_redis_data:/blog_redis_data:ro
       - ./docker/nginx:/nginx_config:ro
-      - ./backups:/backups
+      - ${BACKUP_HOST_DIR:-/var/backups/playnest}:/backups
       - backup_data:/data
       - ${BACKUP_ENV_FILE:-./docker/backup/backups.env.example}:/config/.env:ro
       - ./docker-compose.yml:/project_root/docker-compose.yml:ro

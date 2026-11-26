@@ -43,18 +43,19 @@ function normalizeError(err: any): NormalizedError { // eslint-disable-line @typ
   }
 
   // 2. Prisma Known Request Error
+  const isProduction = env.NODE_ENV === 'production';
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     switch (err.code) {
     case 'P2002': {
       const target = err.meta?.target;
-      const message = Array.isArray(target)
+      const message = !isProduction && Array.isArray(target)
         ? `Duplicate value for field(s): ${target.join(', ')}`
         : 'Duplicate value for field';
       return {
         status: 409,
         code: 'CONFLICT',
         message,
-        details: err.meta,
+        ...(isProduction ? {} : { details: err.meta }),
       };
     }
     case 'P2025':
@@ -62,21 +63,21 @@ function normalizeError(err: any): NormalizedError { // eslint-disable-line @typ
         status: 404,
         code: 'NOT_FOUND',
         message: 'The requested record was not found.',
-        details: err.meta,
+        ...(isProduction ? {} : { details: err.meta }),
       };
     case 'P2003':
       return {
         status: 404,
         code: 'NOT_FOUND',
         message: 'Referenced entity was not found.',
-        details: err.meta,
+        ...(isProduction ? {} : { details: err.meta }),
       };
     default:
       return {
         status: 400,
         code: 'DB_REQUEST_FAILED',
         message: 'Database request failed.',
-        details: { prismaCode: err.code, meta: err.meta },
+        ...(isProduction ? {} : { details: { prismaCode: err.code, meta: err.meta } }),
       };
     }
   }
@@ -86,8 +87,8 @@ function normalizeError(err: any): NormalizedError { // eslint-disable-line @typ
     return {
       status: 400,
       code: 'VALIDATION_ERROR',
-      message: 'Invalid database operation payload.',
-      details: err.message,
+      message: 'Invalid database query parameters.',
+      ...(isProduction ? {} : { details: err.message }),
     };
   }
 

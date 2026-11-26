@@ -1,12 +1,23 @@
 import { Request, Response, NextFunction } from 'express';
+import httpStatus from 'http-status';
 import * as reviewsStation from './ratings.station';
 import { RatingStatus } from '@prisma/client';
+import AppError from '../../common/errors/AppError';
 import { invalidatePublicCacheByPrefix } from '../../common/utils/publicCache';
 
 export async function submitReview(req: Request, res: Response, next: NextFunction) {
   try {
-    const { gamingCenterSlug } = req.params;
-    const rating = await reviewsStation.submitReview(gamingCenterSlug, req.body);
+    const { gamingCenterSlug, reservationId } = req.params;
+    const customerAccountId = req.actor?.id;
+    if (!customerAccountId) {
+      throw new AppError('Unauthorized', httpStatus.UNAUTHORIZED);
+    }
+    const rating = await reviewsStation.submitReview(
+      gamingCenterSlug,
+      reservationId,
+      customerAccountId,
+      req.body
+    );
     void invalidatePublicCacheByPrefix('public:gc:');
     res.created(rating);
   } catch (error) {

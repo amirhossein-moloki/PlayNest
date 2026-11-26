@@ -14,7 +14,8 @@ RUN apt-get update && \
 COPY sayra/package*.json ./
 COPY sayra/prisma ./prisma/
 
-# Configure npm for resilience
+# Configure npm for resilience and disable third-party Scarf install telemetry
+ENV SCARF_ANALYTICS=false
 RUN npm config set fetch-retry-maxtimeout 600000 && \
     npm config set fetch-retry-mintimeout 100000 && \
     npm config set fetch-retries 10
